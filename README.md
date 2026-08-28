@@ -2,6 +2,8 @@
 
 当前公开预览版本：`v0.1.0-beta.1`
 
+原始 BalancePet 代码采用 MIT 许可证；随附素材和其他第三方内容请同时遵守 `THIRD_PARTY_NOTICES.md` 中的说明。
+
 桌面工作区现在按版本分开维护，C# WPF 是唯一继续开发的版本：
 
 - `versions/csharp-wpf`：当前主版本，后续功能、修复和打包都在这里进行。
