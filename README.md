@@ -62,6 +62,69 @@ versions/csharp-wpf/assets/pets/<style>/<state>.png
 
 ## 中转站适配
 
-不同中转站的接口地址、鉴权名称和返回 JSON 结构不统一。你需要从中转站文档找到“余额查询 API”，然后把 URL、令牌类型和 JSON 路径填进配置。若它只提供网页而没有 API，这个版本不会模拟登录抓网页；那样需要针对该站点单独做适配，并要考虑登录态和风控。
+不同中转站的接口地址、鉴权名称和返回 JSON 结构不统一。配置时请以中转站的 API 文档为准。
+
+### 1. 找到余额查询接口
+
+在文档中搜索“余额查询”“账户信息”“个人信息”“quota”“credits”或“remaining”。这里要填余额查询 API 的完整 URL，不是中转站首页，也不是聊天接口（例如 `/v1/chat/completions`）。当前版本发送 `GET` 请求，例如：
+
+```text
+https://relay.example.com/api/user/balance
+```
+
+如果文档要求查询参数，也要保留在 URL 中。若站点只提供 `POST` 余额接口或只提供网页显示余额，当前通用适配器不能直接调用，需要单独开发适配器。
+
+### 2. 选择认证方式
+
+设置窗口中的认证方式对应以下请求头：
+
+| 认证方式 | 填写内容 | 程序发送的请求头 |
+| --- | --- | --- |
+| `Bearer Token` | 只填令牌 | `Authorization: Bearer <令牌>` |
+| `完整 Authorization` | 通常填 `Bearer <令牌>` | `Authorization: <填写内容>` |
+| `x-api-key` | 只填令牌 | `x-api-key: <令牌>` |
+| `自定义 Header` | 填令牌，并填写 Header 名 | `<Header 名>: <令牌>` |
+| `中转站会话（websee-session）` | 按该站点说明填写 | Bearer 认证及该站点需要的会话请求头 |
+
+不要把令牌写进 README、示例配置、截图或提交到 Git。C# 版本会使用 Windows DPAPI 在本机保存令牌。
+
+### 3. 填写余额 JSON 路径
+
+打开文档中的响应示例，找到代表剩余余额的数字或数字字符串，用点号写出路径：
+
+```json
+{ "balance": 12.5 }
+```
+
+```text
+balance
+```
+
+```json
+{ "data": { "quota": { "remaining": "23.80" } } }
+```
+
+```text
+data.quota.remaining
+```
+
+数组使用数字下标，例如 `{ "data": [{ "balance": 12.5 }] }` 对应：
+
+```text
+data.0.balance
+```
+
+`货币`填写 `USD`、`CNY` 等；刷新秒数必须为 30 或更大。
+
+### 4. 根据错误定位问题
+
+- `401` 或 `403`：认证方式或令牌不正确。
+- `404`：余额接口 URL 不正确。
+- `JSON path not found`：JSON 路径没有指向余额字段。
+- 返回 HTML：填成了网站页面地址，而不是 API 地址。
+
+完整的占位配置可参考 [`docs/balance-pet.example.json`](docs/balance-pet.example.json)。
+
+若中转站只提供网页而没有文档化的余额 API，本项目不会模拟登录或抓取网页，以避免泄露登录态和触发风控。
 
 桌宠使用参考项目在 MIT 许可下提供的小鲸鱼素材，保留来源与许可证说明。它是独立余额桌宠，不会改变 Codex 内置宠物的任务状态。
