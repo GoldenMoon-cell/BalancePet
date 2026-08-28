@@ -1,0 +1,63 @@
+# 小余额：第三方中转站余额桌宠
+
+桌面工作区现在按版本分开维护，C# WPF 是唯一继续开发的版本：
+
+- `versions/csharp-wpf`：当前主版本，后续功能、修复和打包都在这里进行。
+- `versions/python`：历史版本，仅保留作为功能和故障排查参考。
+- `versions/electron`：历史版本，仅保留作为界面和交互参考。
+- `archive`：历史构建产物和旧资源，仅用于回溯。
+
+## 默认运行
+
+```powershell
+.\launch-balance-pet.bat
+```
+
+C# 版本的令牌使用 Windows DPAPI 加密保存，余额接口不经过 Chromium。也可以直接运行 `launch-balance-pet-csharp.bat`。
+
+视觉与部分交互参考了 MIT 许可的 [DeepSeek Balance Whale Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget)，详情见 `THIRD_PARTY_NOTICES.md`。
+
+---
+
+这是一个 Windows 原生桌宠：运行后会显示一个可拖动、置顶的小鲸鱼，并按间隔请求你配置的余额 API。它不需要每次打开中转站网页。
+
+## 运行
+
+需要 Windows 和 .NET 8 Desktop Runtime（开发机安装 .NET 8 SDK 时可直接编译）。双击根目录的 `launch-balance-pet.bat` 可启动 C# 版本；Python 和 Electron 入口仅用于历史版本复现。
+
+```powershell
+dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
+```
+
+首次启动会打开配置窗口；之后右键宠物选择“配置接口”。点击宠物刷新并显示余额气泡，点击气泡可切换台词；拖动到屏幕边缘会自动吸附，左侧吸附会镜像翻转。
+
+右键菜单或设置窗口可以切换交互模式：`自由拖动` 模式下按住宠物可移动并吸附到屏幕边缘；`锁定互动` 模式下窗口位置固定，按住头顶可提呆毛，按住脸部可拽嘴角，点击身体仍会刷新余额。当前这些局部互动使用程序化回弹，换成分层或骨骼素材后可继续增强。
+
+## 动作素材扩展
+
+程序已经按状态驱动动画。没有专用动作图时，会自动回退到基础形象；C# 版本可为某个形象添加状态 PNG：
+
+```text
+versions/csharp-wpf/assets/pets/<style>/<state>.png
+```
+
+例如 `versions/csharp-wpf/assets/pets/chatgpt/loading.png`、`versions/csharp-wpf/assets/pets/deepseek/error.png`。支持 `idle`、`loading`、`success`、`low`、`error`、`clicked`、`codex-working`、`codex-done` 和 `inactive`。只要图片使用透明背景、保持同一画布尺寸和角色锚点，放入目录后无需改代码；缺少某个状态图时会自动使用该形象的基础图。
+
+你可以使用 APIMart 的 `gpt-image-2` 生成图片，再把图片放在桌面或 Downloads，告诉我每张图对应的形象和状态。我会负责检查透明边缘、统一尺寸、复制到目录并接入；不需要把 APIMart 密钥交给程序。完整提示词和交付规则见 `docs/csharp-art-pipeline.md`。推荐 PNG，画布 1024x1024 或 2048x2048，角色脚底和身体中心在所有状态中保持一致；不要使用纯色背景或截图中的桌面背景。如果暂时只有一张静态图，也可以先作为 `idle.png`，其余状态会回退到基础图。
+
+## 配置字段
+
+- 余额 API 地址：中转站提供的余额查询接口 URL。
+- 认证方式：`bearer` 会发送 `Authorization: Bearer <token>`；`authorization` 直接发送 `Authorization: <token>`；`x-api-key` 发送 `x-api-key: <token>`。
+- 令牌：保存时使用 Windows DPAPI 按当前用户加密，不会以明文写入配置。
+- 余额 JSON 路径：例如响应 `{ "data": { "balance": 12.3 } }` 就填 `data.balance`。
+- 刷新间隔：最小 30 秒，避免频繁打 API。
+- 低余额提醒：余额小于等于这个数时，宠物状态变为“余额偏低”。
+
+配置会保存到程序旁边的 `balance-pet.json`。不要把这个文件提交到公共仓库。
+
+## 中转站适配
+
+不同中转站的接口地址、鉴权名称和返回 JSON 结构不统一。你需要从中转站文档找到“余额查询 API”，然后把 URL、令牌类型和 JSON 路径填进配置。若它只提供网页而没有 API，这个版本不会模拟登录抓网页；那样需要针对该站点单独做适配，并要考虑登录态和风控。
+
+桌宠使用参考项目在 MIT 许可下提供的小鲸鱼素材，保留来源与许可证说明。它是独立余额桌宠，不会改变 Codex 内置宠物的任务状态。

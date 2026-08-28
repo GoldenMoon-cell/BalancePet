@@ -1,0 +1,9 @@
+{
+  "endpoint": "https://your-relay.example/api/user/balance",
+  "auth_mode": "bearer",
+  "token_blob": "",
+  "balance_path": "data.balance",
+  "currency": "USD",
+  "refresh_seconds": 300,
+  "low_threshold": 5.0
+}

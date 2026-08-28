@@ -1,0 +1,26 @@
+node_modules/
+.cache/
+dist/
+archive/
+**/bin/
+**/obj/
+__pycache__/
+*.pyc
+balance-pet.json
+**/balance-pet-usage.json
+*.key-v2
+npm-debug.log*
+qa/*.png
+
+# Local-only workspace and generated preview files
+/AGENTS.md
+/BalancePet.lnk
+/flood-test.png
+/preview-test.png
+/ref-mask.png
+/ref-only-test.png
+
+# Internal asset-generation and QA artifacts
+/docs/pet-runs/
+/docs/qa/
+/docs/references/

@@ -1,0 +1,7 @@
+{
+  "name": "balance-pet-workspace",
+  "private": true,
+  "scripts": {
+    "check": "npm --prefix versions/electron run check"
+  }
+}
