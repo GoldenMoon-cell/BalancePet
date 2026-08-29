@@ -33,6 +33,12 @@ C# 版本的令牌使用 Windows DPAPI 加密保存，余额接口不经过 Chro
 dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 ```
 
+维护者可用下面的脚本生成带许可证和第三方声明的 Windows 压缩包：
+
+```powershell
+.\tools\package-csharp-release.ps1 -Version 0.1.0-beta.1
+```
+
 首次启动会打开配置窗口；之后右键宠物选择“配置接口”。点击宠物刷新并显示余额气泡，点击气泡可切换台词；拖动到屏幕边缘会自动吸附，左侧吸附会镜像翻转。
 
 右键菜单或设置窗口可以切换交互模式：`自由拖动` 模式下按住宠物可移动并吸附到屏幕边缘；`锁定互动` 模式下窗口位置固定，按住头顶可提呆毛，按住脸部可拽嘴角，点击身体仍会刷新余额。当前这些局部互动使用程序化回弹，换成分层或骨骼素材后可继续增强。
@@ -47,7 +53,7 @@ versions/csharp-wpf/assets/pets/<style>/<state>.png
 
 例如 `versions/csharp-wpf/assets/pets/chatgpt/loading.png`、`versions/csharp-wpf/assets/pets/deepseek/error.png`。支持 `idle`、`loading`、`success`、`low`、`error`、`clicked`、`codex-working`、`codex-done` 和 `inactive`。只要图片使用透明背景、保持同一画布尺寸和角色锚点，放入目录后无需改代码；缺少某个状态图时会自动使用该形象的基础图。
 
-你可以使用 APIMart 的 `gpt-image-2` 生成图片，再把图片放在桌面或 Downloads，告诉我每张图对应的形象和状态。我会负责检查透明边缘、统一尺寸、复制到目录并接入；不需要把 APIMart 密钥交给程序。完整提示词和交付规则见 `docs/csharp-art-pipeline.md`。推荐 PNG，画布 1024x1024 或 2048x2048，角色脚底和身体中心在所有状态中保持一致；不要使用纯色背景或截图中的桌面背景。如果暂时只有一张静态图，也可以先作为 `idle.png`，其余状态会回退到基础图。
+你可以使用 APIMart 的 `gpt-image-2` 生成图片，再把图片放到项目的素材目录，告诉我每张图对应的形象和状态。我会负责检查透明边缘、统一尺寸、复制到目录并接入；不需要把 APIMart 密钥交给程序。完整提示词和交付规则见 `docs/csharp-art-pipeline.md`。推荐 PNG，画布 1024x1024 或 2048x2048，角色脚底和身体中心在所有状态中保持一致；不要使用纯色背景或截图中的桌面背景。如果暂时只有一张静态图，也可以先作为 `idle.png`，其余状态会回退到基础图。
 
 ## 配置字段
 
@@ -58,7 +64,7 @@ versions/csharp-wpf/assets/pets/<style>/<state>.png
 - 刷新间隔：最小 30 秒，避免频繁打 API。
 - 低余额提醒：余额小于等于这个数时，宠物状态变为“余额偏低”。
 
-配置会保存到程序旁边的 `balance-pet.json`。不要把这个文件提交到公共仓库。
+C# 版本的配置和余额缓存保存在当前用户的 `%LOCALAPPDATA%\BalancePet` 目录中，其中令牌使用 Windows DPAPI 加密保存。历史 Python 版本仍会在程序目录旁边使用 `balance-pet.json` 和 `balance-pet-usage.json`。这些本地文件都不应提交到公共仓库。
 
 ## 中转站适配
 

@@ -10,6 +10,7 @@ balance-pet.json
 **/balance-pet-usage.json
 *.key-v2
 npm-debug.log*
+*.log
 qa/*.png
 
 # Local-only workspace and generated preview files

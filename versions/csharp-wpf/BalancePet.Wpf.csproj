@@ -13,8 +13,11 @@
     <FileVersion>0.1.0.0</FileVersion>
     <InformationalVersion>0.1.0-beta.1</InformationalVersion>
     <ApplicationIcon>assets\balance-pet.ico</ApplicationIcon>
+    <!-- User-facing packages do not need debugger files or local source paths. -->
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+    <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="assets\**\*" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="assets\**\*" Exclude="assets\**\*.key-v2" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

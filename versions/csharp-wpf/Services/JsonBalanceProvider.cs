@@ -44,7 +44,7 @@ public sealed class JsonBalanceProvider(HttpClient http)
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
         var value = ReadPath(document.RootElement, settings.BalancePath);
-        if (!value.HasValue || !TryParseAmount(value.Value, out var amount))
+        if (!value.HasValue || !TryParseAmount(value.Value, out var amount) || !double.IsFinite(amount))
             throw new InvalidDataException($"JSON path not found: {settings.BalancePath}");
         return new BalanceSnapshot(amount, settings.Currency, DateTimeOffset.Now);
     }

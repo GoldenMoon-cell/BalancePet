@@ -56,7 +56,6 @@ PET_PATH = RESOURCE_DIR / "assets" / "pet.png"
 CHATGPT_PET_PATH = RESOURCE_DIR / "assets" / "chatgpt-dragon.png"
 CHATGPT_CACHE_MARKER = RESOURCE_DIR / "assets" / "chatgpt-dragon.key-v2"
 CHATGPT_SOURCE_CANDIDATES = (
-    Path.home() / "Downloads" / "6481659939614873-dd1d4492-db7c-4275-9113-7b11f36e1114-image_3QR03ENQDAWP551SVQXYNTG0HX_0.png",
     RESOURCE_DIR / "assets" / "chatgpt-dragon-source.png",
 )
 PRESS_SOUND_PATH = RESOURCE_DIR / "assets" / "press.mp3"

@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private double _todayUsage;
     private bool _hasBalance;
     private bool _refreshing;
+    private DateTimeOffset _lastRefreshAttempt = DateTimeOffset.MinValue;
     private bool _codexSyncing;
     private int _bubbleCycle;
     private double _bubbleAnimationProgress;
@@ -197,6 +198,17 @@ public partial class MainWindow : Window
         if (_closing) return;
         if (string.IsNullOrWhiteSpace(_settings.Endpoint)) { SetStatus("请先完成接口设置"); ShowBubble("还没配置", "--", "点击齿轮填写接口"); return; }
         if (_refreshing) return;
+        var now = DateTimeOffset.UtcNow;
+        if (now - _lastRefreshAttempt < TimeSpan.FromSeconds(30))
+        {
+            if (manual)
+            {
+                var remaining = Math.Max(1, Math.Ceiling((TimeSpan.FromSeconds(30) - (now - _lastRefreshAttempt)).TotalSeconds));
+                ShowBubble("请稍候", $"{remaining:0} 秒", "两次请求至少间隔 30 秒");
+            }
+            return;
+        }
+        _lastRefreshAttempt = now;
         _refreshing = true;
         try
         {

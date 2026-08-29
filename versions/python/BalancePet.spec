@@ -1,15 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from pathlib import Path
+
+project_dir = Path(__file__).resolve().parent
 
 a = Analysis(
-    ['C:\\Users\\GoldenMoon\\Desktop\\BalancePet\\versions\\python\\balance_pet_qt.py'],
+    [str(project_dir / 'balance_pet_qt.py')],
     pathex=[],
     binaries=[],
-    datas=[('C:\\Users\\GoldenMoon\\Desktop\\BalancePet\\versions\\python\\assets', 'assets')],
+    datas=[(str(project_dir / 'assets'), 'assets')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['C:\\Users\\GoldenMoon\\Desktop\\BalancePet\\versions\\python\\pyinstaller\\qt_runtime_hook.py'],
+    runtime_hooks=[str(project_dir / 'pyinstaller' / 'qt_runtime_hook.py')],
     excludes=[],
     noarchive=False,
     optimize=0,
@@ -32,7 +35,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['C:\\Users\\GoldenMoon\\Desktop\\BalancePet\\versions\\python\\assets\\balance-pet.ico'],
+    icon=[str(project_dir / 'assets' / 'balance-pet.ico')],
 )
 coll = COLLECT(
     exe,
