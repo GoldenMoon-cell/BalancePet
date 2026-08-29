@@ -1,6 +1,6 @@
 # Third-party notices
 
-Some pet artwork and press/release sound assets in `versions/csharp-wpf/assets/`, `versions/python/assets/`, and `versions/electron/assets/` are adapted from:
+Some pet artwork and press/release sound assets in `versions/csharp-wpf/assets/` are adapted from:
 
 - DeepSeek Balance Whale Widget
 - Copyright (c) 2026 MeteorNOX

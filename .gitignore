@@ -1,17 +1,9 @@
-node_modules/
-.cache/
 dist/
 archive/
 **/bin/
 **/obj/
-__pycache__/
-*.pyc
-balance-pet.json
-**/balance-pet-usage.json
 *.key-v2
-npm-debug.log*
 *.log
-qa/*.png
 
 # Local-only workspace and generated preview files
 /AGENTS.md
@@ -22,6 +14,8 @@ qa/*.png
 /ref-only-test.png
 
 # Internal asset-generation and QA artifacts
+/docs/.cache/
 /docs/pet-runs/
 /docs/qa/
 /docs/references/
+/tools/__pycache__/

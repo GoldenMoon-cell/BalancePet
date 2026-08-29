@@ -33,11 +33,13 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _bubbleContentTimer;
     private readonly DispatcherTimer _amountAnimationTimer;
     private readonly DispatcherTimer _codexHideTimer;
+    private readonly DispatcherTimer _trayRecoveryTimer;
     private readonly System.Windows.Media.MediaPlayer _pressSound = new();
     private readonly System.Windows.Media.MediaPlayer _releaseSound = new();
     private Forms.NotifyIcon? _trayIcon;
     private Forms.ContextMenuStrip? _trayMenu;
     private System.Drawing.Icon? _trayImage;
+    private HwndSource? _windowSource;
     private PetSettings _settings = new();
     private bool _closing;
     private System.Windows.Point _dragStart;
@@ -55,6 +57,8 @@ public partial class MainWindow : Window
     private bool _hasBalance;
     private bool _refreshing;
     private DateTimeOffset _lastRefreshAttempt = DateTimeOffset.MinValue;
+    private int _trayRecoveryAttempts;
+    private uint _taskbarCreatedMessage;
     private bool _codexSyncing;
     private int _bubbleCycle;
     private double _bubbleAnimationProgress;
@@ -115,6 +119,7 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr window, uint flags);
     [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
     [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr window);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern uint RegisterWindowMessage(string message);
 
     public MainWindow()
     {
@@ -142,10 +147,15 @@ public partial class MainWindow : Window
         _amountAnimationTimer.Tick += (_, _) => AnimateAmount();
         _codexHideTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
         _codexHideTimer.Tick += (_, _) => HideAfterCodexCompletion();
+        _trayRecoveryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _trayRecoveryTimer.Tick += (_, _) => RecoverTrayRegistration();
+        SourceInitialized += (_, _) => RegisterTaskbarCreatedHook();
         Loaded += async (_, _) => { LoadSettingsAndPosition(); await RefreshAsync(true); };
         Closing += (_, e) =>
         {
             if (!_closing) { e.Cancel = true; Hide(); return; }
+            _trayRecoveryTimer.Stop();
+            UnregisterTaskbarCreatedHook();
             SavePosition(); DisposeTray(); _httpClient.Dispose();
         };
     }
@@ -501,7 +511,7 @@ public partial class MainWindow : Window
         if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref info)) { SavePosition(); return; }
         var width = rect.Right - rect.Left; var height = rect.Bottom - rect.Top;
         var x = rect.Left; var y = rect.Top;
-        // Match Electron: the window snaps once its center enters an outer
+        // Snap once the window center enters an outer screen zone.
         // quarter of the monitor, which is much easier to trigger than a
         // fixed pixel-distance threshold on transparent windows.
         var centerX = rect.Left + width / 2.0;
@@ -554,6 +564,75 @@ public partial class MainWindow : Window
             Visible = true
         };
         _trayIcon.DoubleClick += (_, _) => { Show(); Activate(); };
+        // Explorer may not have created the notification area yet during a
+        // Windows logon launch. Re-register the icon a few times so startup
+        // does not require the user to quit and reopen the app.
+        _trayRecoveryAttempts = 0;
+        _trayRecoveryTimer.Stop();
+        _trayRecoveryTimer.Start();
+    }
+
+    private void RecoverTrayRegistration()
+    {
+        if (_closing || _trayIcon is null)
+        {
+            _trayRecoveryTimer.Stop();
+            return;
+        }
+
+        _trayRecoveryAttempts++;
+        ReRegisterTrayIcon();
+
+        if (_trayRecoveryAttempts >= 4) _trayRecoveryTimer.Stop();
+    }
+
+    private void RegisterTaskbarCreatedHook()
+    {
+        _taskbarCreatedMessage = RegisterWindowMessage("TaskbarCreated");
+        if (_taskbarCreatedMessage == 0) return;
+        _windowSource = HwndSource.FromHwnd(WindowHandle);
+        _windowSource?.AddHook(OnWindowMessage);
+    }
+
+    private void UnregisterTaskbarCreatedHook()
+    {
+        if (_windowSource is null) return;
+        _windowSource.RemoveHook(OnWindowMessage);
+        _windowSource = null;
+    }
+
+    private IntPtr OnWindowMessage(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if ((uint)message == _taskbarCreatedMessage)
+        {
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(ReRegisterTrayIcon));
+        }
+        return IntPtr.Zero;
+    }
+
+    private void ReRegisterTrayIcon()
+    {
+        if (_closing || _trayIcon is null) return;
+        try
+        {
+            // Toggling Visible forces NotifyIcon to send a fresh add request
+            // to Explorer after the shell notification area is ready.
+            _trayIcon.Visible = false;
+            _trayIcon.Icon = _trayImage;
+            _trayIcon.Visible = true;
+        }
+        catch (ObjectDisposedException)
+        {
+            _trayRecoveryTimer.Stop();
+        }
+        catch (InvalidOperationException)
+        {
+            // A transient shell/WinForms state can be retried by the timer.
+        }
+        catch (ArgumentException)
+        {
+            // Keep the app alive if Explorer rejects an icon handle at logon.
+        }
     }
 
     private static System.Drawing.Icon LoadTrayIcon()
@@ -678,7 +757,7 @@ public partial class MainWindow : Window
     private void AnimateBubble()
     {
         _bubbleAnimationProgress = Math.Min(1, _bubbleAnimationProgress + 0.016 / 0.32);
-        var eased = ElectronCubicBezier(_bubbleAnimationProgress, .34, 1.56, .64, 1);
+        var eased = OvershootCubicBezier(_bubbleAnimationProgress, .34, 1.56, .64, 1);
         var value = _bubbleAnimationFrom + (_bubbleAnimationTo - _bubbleAnimationFrom) * eased;
         BubbleGroup.Opacity = value;
         BubbleScale.ScaleX = .76 + .24 * value;
@@ -762,7 +841,7 @@ public partial class MainWindow : Window
         if (!_squashAnimating) return;
         _squashClock += elapsed;
         var progress = Math.Clamp(_squashClock / .22, 0, 1);
-        var eased = ElectronCubicBezier(progress, .34, 1.56, .64, 1.0);
+        var eased = OvershootCubicBezier(progress, .34, 1.56, .64, 1.0);
         _squashProgress = _squashFrom + (_squashTo - _squashFrom) * eased;
         if (progress >= 1)
         {
@@ -771,8 +850,8 @@ public partial class MainWindow : Window
         }
     }
 
-    // Evaluates the same overshooting cubic-bezier as Electron's CSS transition.
-    private static double ElectronCubicBezier(double x, double x1, double y1, double x2, double y2)
+    // Evaluates an overshooting cubic-bezier easing curve.
+    private static double OvershootCubicBezier(double x, double x1, double y1, double x2, double y2)
     {
         var low = 0d;
         var high = 1d;

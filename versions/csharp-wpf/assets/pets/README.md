@@ -2,6 +2,13 @@
 
 为某个形象添加状态图时，按下面的目录和文件名放置透明 PNG：
 
+形象名称采用统一格式：
+
+- `DeepSeek 小鲸鱼 / Whale-chan / 澜汐`
+- `GPT 小龙 / GPT Dragon / 霁珑`
+
+这里的英文名和二字文化名是 BalancePet 的非官方角色称呼。
+
 ```text
 assets/pets/deepseek/idle.png
 assets/pets/deepseek/loading.png
