@@ -116,14 +116,16 @@ public partial class SettingsWindow : Window
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
             var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(updated, token);
             var hookChanged = false;
-            if (updated.CodexTaskIntegration && !CodexHookInstaller.IsInstalled())
+            var hookWasInstalled = CodexHookInstaller.IsInstalled();
+            if (updated.CodexTaskIntegration)
             {
                 if (!CodexHookInstaller.TryInstall(out var hookError))
                 {
                     MessageText.Text = $"Codex 自动联动安装失败：{hookError}";
                     return;
                 }
-                hookChanged = true;
+                // Reinstalling also refreshes the script after a BalancePet update.
+                hookChanged = !hookWasInstalled;
             }
             else if (!updated.CodexTaskIntegration && CodexHookInstaller.IsInstalled())
             {

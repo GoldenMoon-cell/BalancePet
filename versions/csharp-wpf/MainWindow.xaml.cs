@@ -230,12 +230,10 @@ public partial class MainWindow : Window
         _codexShownPet = false;
         if (_settings.CodexTaskIntegration) _codexTaskBridge.Start();
         SetupTray();
-        if (_settings.CodexTaskIntegration)
-        {
-            // The tray remains available while the task hook waits for a Codex turn.
-            Hide();
-        }
-        else if (!IsVisible)
+        // Enabling Codex task following must not change the pet's visibility.
+        // The pet stays visible after startup and settings reload; hiding is
+        // still available from the tray or the window close control.
+        if (!IsVisible)
         {
             Show();
         }
@@ -1219,7 +1217,7 @@ public partial class MainWindow : Window
 
     private async Task CompleteCodexTaskAsync(CodexTaskActivity activity)
     {
-        if (!_activeCodexTurns.Remove(activity.Key)) return;
+        if (!RemoveActiveCodexTurn(activity)) return;
         ResetInactiveTimer();
         if (_activeCodexTurns.Count > 0)
         {
@@ -1239,6 +1237,37 @@ public partial class MainWindow : Window
             _codexHideTimer.Stop();
             _codexHideTimer.Start();
         }
+    }
+
+    private bool RemoveActiveCodexTurn(CodexTaskActivity activity)
+    {
+        if (!string.IsNullOrWhiteSpace(activity.TurnId) && _activeCodexTurns.Remove(activity.Key)) return true;
+
+        // Stop payloads from different Codex hosts can omit or rotate turn_id.
+        // A session has one user turn at a time, so use its session as a safe
+        // fallback instead of dropping the completion event entirely.
+        var sessionPrefix = activity.SessionId + ":";
+        var matchingKey = _activeCodexTurns.FirstOrDefault(key =>
+            key.StartsWith(sessionPrefix, StringComparison.Ordinal));
+        if (matchingKey is not null) return _activeCodexTurns.Remove(matchingKey);
+
+        // If only one task is active, an otherwise malformed identity cannot
+        // be confused with another task, so still honor the Stop event.
+        if (_activeCodexTurns.Count == 1)
+        {
+            var soleKey = _activeCodexTurns.First();
+            return _activeCodexTurns.Remove(soleKey);
+        }
+
+        // A few hosts may omit both identifiers. A Stop event still represents
+        // one completed turn, so consume one active task rather than leaving
+        // the pet stuck in the working state forever.
+        if (string.IsNullOrWhiteSpace(activity.SessionId) && _activeCodexTurns.Count > 0)
+        {
+            var fallbackKey = _activeCodexTurns.First();
+            return _activeCodexTurns.Remove(fallbackKey);
+        }
+        return false;
     }
 
     private void HideAfterCodexCompletion()

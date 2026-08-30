@@ -37,26 +37,18 @@ public sealed class CodexTaskBridge : IDisposable
     {
         while (!cancellationToken.IsCancellationRequested)
         {
+            NamedPipeServerStream? pipe = null;
             try
             {
-                await using var pipe = new NamedPipeServerStream(
+                pipe = new NamedPipeServerStream(
                     PipeName,
                     PipeDirection.In,
-                    1,
+                    8,
                     PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                 await pipe.WaitForConnectionAsync(cancellationToken);
-                using var reader = new StreamReader(pipe);
-                var line = await reader.ReadLineAsync(cancellationToken);
-                if (string.IsNullOrWhiteSpace(line)) continue;
-
-                var activity = JsonSerializer.Deserialize<CodexTaskActivity>(line, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-                if (activity is null || activity.State is not ("start" or "stop")) continue;
-                if (string.IsNullOrWhiteSpace(activity.SessionId) || string.IsNullOrWhiteSpace(activity.TurnId)) continue;
-                ActivityReceived?.Invoke(this, activity);
+                _ = ProcessClientAsync(pipe, cancellationToken);
+                pipe = null;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -66,10 +58,37 @@ public sealed class CodexTaskBridge : IDisposable
             {
                 if (!cancellationToken.IsCancellationRequested) await Task.Delay(250, cancellationToken);
             }
-            catch (JsonException)
+            finally
             {
-                // Ignore malformed local messages without interrupting the listener.
+                pipe?.Dispose();
             }
+        }
+    }
+
+    private async Task ProcessClientAsync(NamedPipeServerStream pipe, CancellationToken cancellationToken)
+    {
+        await using (pipe)
+        {
+            try
+            {
+                using var reader = new StreamReader(pipe);
+                var line = await reader.ReadLineAsync(cancellationToken);
+                if (string.IsNullOrWhiteSpace(line)) return;
+
+                var activity = JsonSerializer.Deserialize<CodexTaskActivity>(line, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+                if (activity is null || activity.State is not ("start" or "stop")) return;
+                if (activity.State == "start" && string.IsNullOrWhiteSpace(activity.SessionId)) return;
+                // Some Codex Stop payloads may omit turn_id; the main window can
+                // still match that completion to the active task's session.
+                if (activity.State == "start" && string.IsNullOrWhiteSpace(activity.TurnId)) return;
+                ActivityReceived?.Invoke(this, activity);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+            catch (IOException) { }
+            catch (JsonException) { }
         }
     }
 

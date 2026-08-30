@@ -151,21 +151,29 @@ public static class CodexHookInstaller
                 turnId = [string]$hookInput.turn_id
             } | ConvertTo-Json -Compress
 
-            $pipe = [System.IO.Pipes.NamedPipeClientStream]::new(
-                '.',
-                '{{CodexTaskBridge.PipeName}}',
-                [System.IO.Pipes.PipeDirection]::Out,
-                [System.IO.Pipes.PipeOptions]::Asynchronous
-            )
-            try {
-                $pipe.Connect(800)
-                $writer = [System.IO.StreamWriter]::new($pipe, [System.Text.UTF8Encoding]::new($false))
-                $writer.AutoFlush = $true
-                $writer.WriteLine($message)
-                $writer.Dispose()
-            }
-            finally {
-                $pipe.Dispose()
+            $sent = $false
+            for ($attempt = 0; $attempt -lt 3 -and -not $sent; $attempt++) {
+                $pipe = $null
+                try {
+                    $pipe = [System.IO.Pipes.NamedPipeClientStream]::new(
+                        '.',
+                        '{{CodexTaskBridge.PipeName}}',
+                        [System.IO.Pipes.PipeDirection]::Out,
+                        [System.IO.Pipes.PipeOptions]::Asynchronous
+                    )
+                    $pipe.Connect(800)
+                    $writer = [System.IO.StreamWriter]::new($pipe, [System.Text.UTF8Encoding]::new($false))
+                    $writer.AutoFlush = $true
+                    $writer.WriteLine($message)
+                    $writer.Dispose()
+                    $sent = $true
+                }
+                catch {
+                    if ($attempt -lt 2) { Start-Sleep -Milliseconds 100 }
+                }
+                finally {
+                    if ($pipe) { $pipe.Dispose() }
+                }
             }
         }
         catch {
