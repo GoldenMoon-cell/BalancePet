@@ -2,7 +2,6 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Net.Http;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Windows.Input;
@@ -29,7 +28,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _bubbleTimer;
     private readonly DispatcherTimer _floatTimer;
-    private readonly DispatcherTimer _codexTimer;
+    private readonly CodexTaskBridge _codexTaskBridge = new();
     private readonly DispatcherTimer _stateTimer;
     private readonly DispatcherTimer _inactiveTimer;
     private readonly DispatcherTimer _bubbleAnimationTimer;
@@ -51,8 +50,6 @@ public partial class MainWindow : Window
     private int _windowStartY;
     private bool _dragging;
     private bool _dragMoved;
-    private bool _codexWasRunning;
-    private bool _codexTaskSeen;
     private bool _codexShownPet;
     private bool _temporarilyShownForUpdate;
     private DateTimeOffset _lastErrorNotification = DateTimeOffset.MinValue;
@@ -66,7 +63,7 @@ public partial class MainWindow : Window
     private DateTimeOffset _lastRefreshAttempt = DateTimeOffset.MinValue;
     private int _trayRecoveryAttempts;
     private uint _taskbarCreatedMessage;
-    private bool _codexSyncing;
+    private readonly HashSet<string> _activeCodexTurns = new(StringComparer.Ordinal);
     private double _bubbleAnimationProgress;
     private double _bubbleAnimationFrom;
     private double _bubbleAnimationTo;
@@ -151,8 +148,7 @@ public partial class MainWindow : Window
         _bubbleTimer.Tick += (_, _) => HideBubble();
         _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _floatTimer.Tick += (_, _) => AnimatePet();
-        _codexTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-        _codexTimer.Tick += async (_, _) => await SyncCodexAsync();
+        _codexTaskBridge.ActivityReceived += OnCodexTaskActivityReceived;
         _stateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _stateTimer.Tick += (_, _) => RestoreSteadyVisualState();
         _inactiveTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(15) };
@@ -185,6 +181,7 @@ public partial class MainWindow : Window
             if (!_closing) { e.Cancel = true; Hide(); return; }
             _trayRecoveryTimer.Stop();
             _updateTimer.Stop();
+            _codexTaskBridge.Dispose();
             UnregisterTaskbarCreatedHook();
             SavePosition(); DisposeTray(); _httpClient.Dispose(); _updateHttpClient.Dispose();
         };
@@ -226,20 +223,18 @@ public partial class MainWindow : Window
         _floatTimer.Start();
         ResetInactiveTimer();
         ConfigureSounds();
-        _codexTimer.Stop();
-        _codexWasRunning = _settings.FollowCodex && CodexIsRunning();
-        _codexShownPet = _codexWasRunning;
-        _codexTaskSeen = false;
+        _codexTaskBridge.Stop();
+        _activeCodexTurns.Clear();
         _codexStartBalance = null;
-        if (_settings.FollowCodex) _codexTimer.Start();
+        _codexShownPet = false;
+        if (_settings.CodexTaskIntegration) _codexTaskBridge.Start();
         SetupTray();
-        if (_settings.FollowCodex && !_codexWasRunning)
+        if (_settings.CodexTaskIntegration)
         {
-            // In follow mode the tray remains available while the pet waits
-            // for Codex to start; the process monitor will show it on launch.
+            // The tray remains available while the task hook waits for a Codex turn.
             Hide();
         }
-        else if (!_settings.FollowCodex && !IsVisible)
+        else if (!IsVisible)
         {
             Show();
         }
@@ -248,6 +243,7 @@ public partial class MainWindow : Window
     private async Task RefreshAsync(bool manual)
     {
         if (_closing) return;
+        if (manual) ResetInactiveTimer();
         if (string.IsNullOrWhiteSpace(_settings.Endpoint)) { SetStatus("请先完成接口设置"); ShowBubble("还没配置", "--", "点击齿轮填写接口"); return; }
         if (_refreshing) return;
         var now = DateTimeOffset.UtcNow;
@@ -264,7 +260,6 @@ public partial class MainWindow : Window
         _refreshing = true;
         try
         {
-            ResetInactiveTimer();
             SetStatus("正在查询");
             SetVisualState(PetVisualState.Loading);
             if (manual) ShowBubble("正在刷新", "--", "正在联系中转站");
@@ -287,7 +282,9 @@ public partial class MainWindow : Window
             }
             else
             {
-                SetVisualState(snapshot.Amount <= _settings.LowThreshold ? PetVisualState.Low : PetVisualState.Success);
+                SetVisualState(
+                    snapshot.Amount <= _settings.LowThreshold ? PetVisualState.Low : PetVisualState.Success,
+                    snapshot.Amount <= _settings.LowThreshold ? 0 : 1800);
                 if (snapshot.Amount <= _settings.LowThreshold && (!wasLow || !hadBalance))
                     ShowSystemNotification("余额偏低", $"当前余额 {snapshot.Amount:0.00} {snapshot.Currency}", Forms.ToolTipIcon.Warning);
                 if (manual || !hadBalance) ShowBubble("账户余额", $"{snapshot.Amount:0.00} {snapshot.Currency}", $"更新于 {snapshot.UpdatedAt:HH:mm:ss} · 今日已用 {observation.TodayUsage:0.00}");
@@ -373,7 +370,7 @@ public partial class MainWindow : Window
         _stateTimer.Stop();
         if (!_hasBalance) SetVisualState(PetVisualState.Idle);
         else if (_lastBalance <= _settings.LowThreshold) SetVisualState(PetVisualState.Low);
-        else SetVisualState(PetVisualState.Success);
+        else SetVisualState(PetVisualState.Idle);
     }
 
     private void ResetInactiveTimer()
@@ -441,7 +438,7 @@ public partial class MainWindow : Window
         ResetInactiveTimer();
         if (_settings.InteractionEffects)
         {
-            SetVisualState(PetVisualState.Clicked);
+            SetVisualState(PetVisualState.Clicked, 620);
             StartSquashAnimation(1);
         }
         if (_settings.InteractionMode == "locked")
@@ -466,7 +463,7 @@ public partial class MainWindow : Window
             _lockedPressed = false; PlaySound(_releaseSound);
             if (_settings.InteractionEffects) KickReleaseBounce();
             var preserveVisualState = false;
-            if (_lockedKind == "body") _ = RefreshAsync(true);
+            if (_lockedKind == "body") _ = RefreshAfterClickAsync();
             else preserveVisualState = ShowInteractionFeedback(_lockedKind);
             _interactionTargetX = 0; _interactionTargetY = 0;
             if (_lockedKind != "body" && _settings.InteractionEffects && !preserveVisualState) RestoreSteadyVisualState();
@@ -476,7 +473,13 @@ public partial class MainWindow : Window
         _dragging = false; if (PetSurface.IsMouseCaptured) PetSurface.ReleaseMouseCapture();
         SnapToEdge();
         if (_settings.InteractionEffects) KickReleaseBounce();
-        PlaySound(_releaseSound); if (!_dragMoved) _ = RefreshAsync(true); else RestoreSteadyVisualState();
+        PlaySound(_releaseSound); if (!_dragMoved) _ = RefreshAfterClickAsync(); else RestoreSteadyVisualState();
+    }
+
+    private async Task RefreshAfterClickAsync()
+    {
+        if (_settings.InteractionEffects) await Task.Delay(420);
+        if (!_closing) await RefreshAsync(true);
     }
 
     private void KickReleaseBounce()
@@ -724,7 +727,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(version) || version.Length > 64) return false;
         if (!IsVisible)
         {
-            _temporarilyShownForUpdate = _settings.FollowCodex && !_codexWasRunning;
+            _temporarilyShownForUpdate = _settings.CodexTaskIntegration && !IsVisible;
             Show();
         }
         SetVisualState(PetVisualState.Success, 3600);
@@ -892,9 +895,7 @@ public partial class MainWindow : Window
         _pendingBubbleHint = hint;
         if (BubbleGroup.Visibility != Visibility.Visible)
         {
-            BubbleLabel.Text = label;
-            BubbleAmount.Text = amount;
-            BubbleHint.Text = hint;
+            SetBubbleText(label, amount, hint);
             BubbleContent.Opacity = 1;
             BubbleGroup.Visibility = Visibility.Visible;
             _bubbleAnimationProgress = 0;
@@ -926,6 +927,27 @@ public partial class MainWindow : Window
         _bubbleOpening = false;
         _bubbleAnimationTimer.Start();
     }
+
+    private void SetBubbleText(string label, string amount, string hint)
+    {
+        BubbleLabel.Text = label;
+        BubbleAmount.Text = amount;
+        BubbleAmount.FontSize = GetBubbleAmountFontSize(amount);
+        BubbleHint.Text = hint;
+    }
+
+    private static double GetBubbleAmountFontSize(string amount)
+    {
+        return amount.Length switch
+        {
+            <= 9 => 39,
+            <= 14 => 30,
+            <= 18 => 25,
+            <= 24 => 21,
+            _ => 18
+        };
+    }
+
     private void OnBubbleClick(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
@@ -1018,9 +1040,7 @@ public partial class MainWindow : Window
     private void AnimateBubbleContent()
     {
         _bubbleContentTimer.Stop();
-        BubbleLabel.Text = _pendingBubbleLabel;
-        BubbleAmount.Text = _pendingBubbleAmount;
-        BubbleHint.Text = _pendingBubbleHint;
+        SetBubbleText(_pendingBubbleLabel, _pendingBubbleAmount, _pendingBubbleHint);
         BubbleContent.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
@@ -1141,42 +1161,68 @@ public partial class MainWindow : Window
         try { player.Stop(); player.Position = TimeSpan.Zero; player.Play(); } catch (InvalidOperationException) { }
     }
 
-    private static bool CodexIsRunning() => Process.GetProcessesByName("codex").Length > 0 || Process.GetProcessesByName("chatgpt").Length > 0;
-
-    private async Task SyncCodexAsync()
+    private void OnCodexTaskActivityReceived(object? sender, CodexTaskActivity activity)
     {
-        if (_codexSyncing) return;
-        _codexSyncing = true;
-        try
+        Dispatcher.BeginInvoke(new Action(async () =>
         {
-        var running = CodexIsRunning();
-        if (running && !_codexWasRunning)
+            if (!_settings.CodexTaskIntegration || _closing) return;
+            if (activity.State == "start") await StartCodexTaskAsync(activity);
+            else await CompleteCodexTaskAsync(activity);
+        }));
+    }
+
+    private async Task StartCodexTaskAsync(CodexTaskActivity activity)
+    {
+        if (!_activeCodexTurns.Add(activity.Key)) return;
+        ResetInactiveTimer();
+        _codexHideTimer.Stop();
+        if (!IsVisible)
         {
             _codexShownPet = true;
             Show();
-            _codexTaskSeen = true; SetStatus("正在查询"); SetVisualState(PetVisualState.CodexWorking); ResetInactiveTimer(); ShowBubble("Codex 工作中", "--", "正在处理任务");
-            await RefreshAsync(false);
-            _codexStartBalance = _lastBalance;
-            SetVisualState(PetVisualState.CodexWorking);
-            ShowBubble("Codex 工作中", "--", "正在处理任务");
         }
-        else if (!running && _codexWasRunning && _codexTaskSeen)
+
+        if (_activeCodexTurns.Count == 1)
         {
-            await RefreshAsync(false);
-            var spent = _codexStartBalance.HasValue && _lastBalance.HasValue ? Math.Max(0, _codexStartBalance.Value - _lastBalance.Value) : 0;
-            SetVisualState(PetVisualState.CodexDone, 6200);
-            ShowBubble("Codex 完成", spent > 0 ? $"-{spent:0.00} {_settings.Currency}" : "任务结束", spent > 0 ? $"当前余额 {_lastBalance:0.00} {_settings.Currency}" : "余额变化将在刷新后显示");
-            ShowSystemNotification("Codex 任务完成", spent > 0 ? $"本次消耗 {spent:0.00} {_settings.Currency}" : "任务已结束", Forms.ToolTipIcon.Info);
-            _codexTaskSeen = false; _codexStartBalance = null;
-            if (_codexShownPet)
+            _codexStartBalance = _lastBalance;
+            if (!_hasBalance)
             {
-                _codexHideTimer.Stop();
-                _codexHideTimer.Start();
+                await RefreshAsync(false);
+                if (_activeCodexTurns.Contains(activity.Key)) _codexStartBalance = _lastBalance;
             }
         }
-        _codexWasRunning = running;
+
+        if (!_activeCodexTurns.Contains(activity.Key)) return;
+        SetStatus("正在查询");
+        SetVisualState(PetVisualState.CodexWorking);
+        ShowBubble(
+            "Codex 工作中",
+            _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
+            "任务完成或停止后会自动切换状态");
+    }
+
+    private async Task CompleteCodexTaskAsync(CodexTaskActivity activity)
+    {
+        if (!_activeCodexTurns.Remove(activity.Key)) return;
+        ResetInactiveTimer();
+        if (_activeCodexTurns.Count > 0)
+        {
+            SetVisualState(PetVisualState.CodexWorking);
+            ShowBubble("Codex 工作中", $"{_activeCodexTurns.Count} 个任务", "仍有任务正在处理");
+            return;
         }
-        finally { _codexSyncing = false; }
+
+        await RefreshAsync(false);
+        var spent = _codexStartBalance.HasValue && _lastBalance.HasValue ? Math.Max(0, _codexStartBalance.Value - _lastBalance.Value) : 0;
+        SetVisualState(PetVisualState.CodexDone, 6200);
+        ShowBubble("Codex 已停止", spent > 0 ? $"-{spent:0.00} {_settings.Currency}" : "任务结束", spent > 0 ? $"当前余额 {_lastBalance:0.00} {_settings.Currency}" : "已完成或手动停止");
+        ShowSystemNotification("Codex 任务已停止", spent > 0 ? $"本次消耗 {spent:0.00} {_settings.Currency}" : "任务已完成或手动停止", Forms.ToolTipIcon.Info);
+        _codexStartBalance = null;
+        if (_codexShownPet)
+        {
+            _codexHideTimer.Stop();
+            _codexHideTimer.Start();
+        }
     }
 
     private void HideAfterCodexCompletion()

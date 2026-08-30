@@ -17,7 +17,7 @@
       <Border Width="300" Height="210" HorizontalAlignment="Left" VerticalAlignment="Top" Background="White" BorderBrush="#263D78" BorderThickness="5" CornerRadius="105" Padding="24">
         <StackPanel x:Name="BubbleContent" VerticalAlignment="Center" Opacity="1" RenderTransformOrigin="0.5,0.5">
           <TextBlock x:Name="BubbleLabel" Text="账户余额" Foreground="#667DB1" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-          <TextBlock x:Name="BubbleAmount" Text="--" Foreground="#263D78" FontSize="39" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,4"/>
+          <TextBlock x:Name="BubbleAmount" Text="--" Foreground="#263D78" FontSize="39" FontWeight="Bold" HorizontalAlignment="Center" Width="235" Margin="0,4" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
           <TextBlock x:Name="BubbleHint" Text="点击角色刷新" Foreground="#8092BC" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" MaxWidth="235"/>
         </StackPanel>
       </Border>
