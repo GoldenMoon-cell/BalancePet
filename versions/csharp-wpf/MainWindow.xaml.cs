@@ -95,9 +95,14 @@ public partial class MainWindow : Window
     private IntPtr WindowHandle => new WindowInteropHelper(this).Handle;
 
     private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoActivate = 0x0010;
+    private const uint SwpFrameChanged = 0x0020;
     private const uint MonitorDefaultToNearest = 0x00000002;
+    private const int GwlExStyle = -20;
+    private const long WsExToolWindow = 0x00000080L;
+    private const long WsExAppWindow = 0x00040000L;
 
     private enum PetVisualState
     {
@@ -120,6 +125,10 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
     [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr window);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern uint RegisterWindowMessage(string message);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW", SetLastError = true)] private static extern int GetWindowLong32(IntPtr window, int index);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)] private static extern int SetWindowLong32(IntPtr window, int index, int value);
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)] private static extern IntPtr GetWindowLongPtr64(IntPtr window, int index);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)] private static extern IntPtr SetWindowLongPtr64(IntPtr window, int index, IntPtr value);
 
     public MainWindow()
     {
@@ -149,7 +158,11 @@ public partial class MainWindow : Window
         _codexHideTimer.Tick += (_, _) => HideAfterCodexCompletion();
         _trayRecoveryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _trayRecoveryTimer.Tick += (_, _) => RecoverTrayRegistration();
-        SourceInitialized += (_, _) => RegisterTaskbarCreatedHook();
+        SourceInitialized += (_, _) =>
+        {
+            HideFromTaskSwitcher();
+            RegisterTaskbarCreatedHook();
+        };
         Loaded += async (_, _) => { LoadSettingsAndPosition(); await RefreshAsync(true); };
         Closing += (_, e) =>
         {
@@ -592,6 +605,31 @@ public partial class MainWindow : Window
         if (_taskbarCreatedMessage == 0) return;
         _windowSource = HwndSource.FromHwnd(WindowHandle);
         _windowSource?.AddHook(OnWindowMessage);
+    }
+
+    private void HideFromTaskSwitcher()
+    {
+        var handle = WindowHandle;
+        if (handle == IntPtr.Zero) return;
+
+        var current = GetExtendedWindowStyle(handle);
+        var updated = (current | WsExToolWindow) & ~WsExAppWindow;
+        if (updated == current) return;
+
+        SetExtendedWindowStyle(handle, updated);
+        SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
+    }
+
+    private static long GetExtendedWindowStyle(IntPtr handle) => IntPtr.Size == 8
+        ? GetWindowLongPtr64(handle, GwlExStyle).ToInt64()
+        : GetWindowLong32(handle, GwlExStyle);
+
+    private static void SetExtendedWindowStyle(IntPtr handle, long value)
+    {
+        if (IntPtr.Size == 8)
+            SetWindowLongPtr64(handle, GwlExStyle, new IntPtr(value));
+        else
+            SetWindowLong32(handle, GwlExStyle, unchecked((int)value));
     }
 
     private void UnregisterTaskbarCreatedHook()
