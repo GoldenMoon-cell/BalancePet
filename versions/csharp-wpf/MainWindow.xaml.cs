@@ -1259,10 +1259,10 @@ public partial class MainWindow : Window
             return _activeCodexTurns.Remove(soleKey);
         }
 
-        // A few hosts may omit both identifiers. A Stop event still represents
-        // one completed turn, so consume one active task rather than leaving
-        // the pet stuck in the working state forever.
-        if (string.IsNullOrWhiteSpace(activity.SessionId) && _activeCodexTurns.Count > 0)
+        // A Stop event always represents one completed turn. If a host rotated
+        // identifiers or failed to include them, consume one active task rather
+        // than leaving the pet stuck in the working state forever.
+        if (_activeCodexTurns.Count > 0)
         {
             var fallbackKey = _activeCodexTurns.First();
             return _activeCodexTurns.Remove(fallbackKey);

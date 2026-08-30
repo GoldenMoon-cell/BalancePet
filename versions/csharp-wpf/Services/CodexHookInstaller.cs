@@ -87,9 +87,11 @@ public static class CodexHookInstaller
 
     private static void AddHook(JsonObject hooks, string eventName, string state)
     {
+        // Always replace our own entry so saving settings upgrades hook options
+        // as well as the bridge script, while leaving other hook entries intact.
+        RemoveHook(hooks, eventName);
         var groups = hooks[eventName] as JsonArray ?? new JsonArray();
         hooks[eventName] = groups;
-        if (ContainsBalancePetHook(groups)) return;
 
         var command = $"powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{ScriptPath}\" {state} {HookMarker}";
         groups.Add(new JsonObject
@@ -101,8 +103,10 @@ public static class CodexHookInstaller
                     ["type"] = "command",
                     ["command"] = command,
                     ["commandWindows"] = command,
-                    ["timeout"] = 3,
-                    ["async"] = true
+                    ["timeout"] = state == "stop" ? 2 : 3,
+                    // Codex is about to tear down after Stop. Keep this one
+                    // synchronous so the completion event reaches BalancePet.
+                    ["async"] = state != "stop"
                 }
             }
         });
@@ -151,8 +155,10 @@ public static class CodexHookInstaller
                 turnId = [string]$hookInput.turn_id
             } | ConvertTo-Json -Compress
 
+            $maxAttempts = if ($State -eq 'stop') { 2 } else { 3 }
+            $connectTimeout = if ($State -eq 'stop') { 300 } else { 800 }
             $sent = $false
-            for ($attempt = 0; $attempt -lt 3 -and -not $sent; $attempt++) {
+            for ($attempt = 0; $attempt -lt $maxAttempts -and -not $sent; $attempt++) {
                 $pipe = $null
                 try {
                     $pipe = [System.IO.Pipes.NamedPipeClientStream]::new(
@@ -161,7 +167,7 @@ public static class CodexHookInstaller
                         [System.IO.Pipes.PipeDirection]::Out,
                         [System.IO.Pipes.PipeOptions]::Asynchronous
                     )
-                    $pipe.Connect(800)
+                    $pipe.Connect($connectTimeout)
                     $writer = [System.IO.StreamWriter]::new($pipe, [System.Text.UTF8Encoding]::new($false))
                     $writer.AutoFlush = $true
                     $writer.WriteLine($message)
@@ -169,7 +175,7 @@ public static class CodexHookInstaller
                     $sent = $true
                 }
                 catch {
-                    if ($attempt -lt 2) { Start-Sleep -Milliseconds 100 }
+                    if ($attempt -lt ($maxAttempts - 1)) { Start-Sleep -Milliseconds 80 }
                 }
                 finally {
                     if ($pipe) { $pipe.Dispose() }
