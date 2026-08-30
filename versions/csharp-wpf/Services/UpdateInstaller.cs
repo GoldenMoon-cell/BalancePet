@@ -6,7 +6,7 @@ namespace BalancePet.Wpf.Services;
 
 public static class UpdateInstaller
 {
-    public static bool TryLaunch(string archivePath, string targetDirectory, int processId, out string error)
+    public static bool TryLaunch(string archivePath, string targetDirectory, int processId, string targetVersion, out string error)
     {
         error = "";
         if (!File.Exists(archivePath)) { error = "找不到已下载的更新包。"; return false; }
@@ -18,6 +18,7 @@ $ErrorActionPreference = 'Stop'
 $archive = '{{Quote(archivePath)}}'
 $target = '{{Quote(targetDirectory)}}'
 $processId = {{processId}}
+$version = '{{Quote(targetVersion)}}'
 $scriptPath = $PSCommandPath
 try {
     while (Get-Process -Id $processId -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 250 }
@@ -29,7 +30,7 @@ try {
     }
     Remove-Item -LiteralPath $extract -Recurse -Force
     Remove-Item -LiteralPath $archive -Force
-    Start-Process -FilePath (Join-Path $target 'BalancePet.Wpf.exe')
+    Start-Process -FilePath (Join-Path $target 'BalancePet.Wpf.exe') -ArgumentList @('--updated-to', $version)
 } catch {
     Add-Type -AssemblyName PresentationFramework
     [System.Windows.MessageBox]::Show(('BalancePet update failed: ' + $_.Exception.Message), 'BalancePet') | Out-Null

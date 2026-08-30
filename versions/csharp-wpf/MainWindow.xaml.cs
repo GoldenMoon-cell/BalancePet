@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private bool _codexWasRunning;
     private bool _codexTaskSeen;
     private bool _codexShownPet;
+    private bool _temporarilyShownForUpdate;
     private DateTimeOffset _lastErrorNotification = DateTimeOffset.MinValue;
     private double? _codexStartBalance;
     private double? _lastBalance;
@@ -173,7 +174,12 @@ public partial class MainWindow : Window
             HideFromTaskSwitcher();
             RegisterTaskbarCreatedHook();
         };
-        Loaded += async (_, _) => { LoadSettingsAndPosition(); await RefreshAsync(true); };
+        Loaded += async (_, _) =>
+        {
+            LoadSettingsAndPosition();
+            if (ShowPostUpdateConfirmation()) return;
+            await RefreshAsync(true);
+        };
         Closing += (_, e) =>
         {
             if (!_closing) { e.Cancel = true; Hide(); return; }
@@ -650,7 +656,7 @@ public partial class MainWindow : Window
 
             ShowBubble("正在更新", release.TagName, "下载并校验中");
             var archive = await _updateService.DownloadAsync(release);
-            if (!UpdateInstaller.TryLaunch(archive, AppContext.BaseDirectory, Environment.ProcessId, out var error))
+            if (!UpdateInstaller.TryLaunch(archive, AppContext.BaseDirectory, Environment.ProcessId, release.TagName, out var error))
             {
                 try { File.Delete(archive); } catch (IOException) { }
                 throw new InvalidOperationException(error);
@@ -706,6 +712,30 @@ public partial class MainWindow : Window
     {
         var informational = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
         return string.IsNullOrWhiteSpace(informational) ? "0.1.0-beta.0" : informational.Split('+')[0];
+    }
+
+    private bool ShowPostUpdateConfirmation()
+    {
+        var arguments = Environment.GetCommandLineArgs();
+        var index = Array.FindIndex(arguments, argument => string.Equals(argument, "--updated-to", StringComparison.OrdinalIgnoreCase));
+        if (index < 0 || index + 1 >= arguments.Length) return false;
+
+        var version = arguments[index + 1].Trim();
+        if (string.IsNullOrWhiteSpace(version) || version.Length > 64) return false;
+        if (!IsVisible)
+        {
+            _temporarilyShownForUpdate = _settings.FollowCodex && !_codexWasRunning;
+            Show();
+        }
+        SetVisualState(PetVisualState.Success, 3600);
+        ShowBubble("更新完成", version, "BalancePet 已重新启动", TimeSpan.FromSeconds(6));
+        ShowSystemNotification("BalancePet 已更新", $"当前版本 {version}", Forms.ToolTipIcon.Info);
+        if (_temporarilyShownForUpdate)
+        {
+            _codexHideTimer.Stop();
+            _codexHideTimer.Start();
+        }
+        return true;
     }
 
     private static string SummarizeReleaseNotes(string body)
@@ -1152,10 +1182,11 @@ public partial class MainWindow : Window
     private void HideAfterCodexCompletion()
     {
         _codexHideTimer.Stop();
-        if (!_codexShownPet) return;
+        if (!_codexShownPet && !_temporarilyShownForUpdate) return;
         HideBubble();
         Hide();
         _codexShownPet = false;
+        _temporarilyShownForUpdate = false;
     }
 
     private void ShowSystemNotification(string title, string message, Forms.ToolTipIcon icon)
