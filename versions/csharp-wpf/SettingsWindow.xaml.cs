@@ -22,7 +22,7 @@ public partial class SettingsWindow : Window
         InitializeComponent(); _store = store; _tokens = tokens; _settings = settings;
         EndpointBox.Text = settings.Endpoint; HeaderBox.Text = settings.HeaderName; PathBox.Text = settings.BalancePath; CurrencyBox.Text = settings.Currency;
         RefreshBox.Text = settings.RefreshSeconds.ToString(CultureInfo.InvariantCulture); ThresholdBox.Text = settings.LowThreshold.ToString(CultureInfo.InvariantCulture);
-        SelectByTag(AuthModeBox, settings.AuthMode); SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode);
+        SelectByTag(AuthModeBox, settings.AuthMode); SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode); SelectByTag(UpdateCheckBox, settings.UpdateCheckMode);
         ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; FollowCodexBox.IsChecked = settings.FollowCodex; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
     }
@@ -44,7 +44,7 @@ public partial class SettingsWindow : Window
             CurrencyBox.Text = imported.Currency;
             RefreshBox.Text = Math.Max(30, imported.RefreshSeconds).ToString(CultureInfo.InvariantCulture);
             ThresholdBox.Text = imported.LowThreshold.ToString(CultureInfo.InvariantCulture);
-            SelectByTag(AuthModeBox, imported.AuthMode); SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode);
+            SelectByTag(AuthModeBox, imported.AuthMode); SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode); SelectByTag(UpdateCheckBox, imported.UpdateCheckMode);
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
             SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; FollowCodexBox.IsChecked = imported.FollowCodex; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
@@ -76,6 +76,7 @@ public partial class SettingsWindow : Window
                 low_threshold = double.TryParse(ThresholdBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold) ? threshold : 5,
                 pet_style = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek",
                 interaction_mode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free",
+                update_check_mode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily",
                 pet_scale = ScaleSlider.Value,
                 sound = SoundBox.IsChecked == true,
                 volume = VolumeSlider.Value,
@@ -109,7 +110,7 @@ public partial class SettingsWindow : Window
             var token = TokenBox.Password;
             if (string.IsNullOrWhiteSpace(token)) token = _tokens.Unprotect(_settings.TokenBlob);
             var startupEnabled = StartupBox.IsChecked == true;
-            var updated = new PetSettings { Endpoint = endpoint.ToString(), AuthMode = authMode, HeaderName = HeaderBox.Text.Trim(), TokenBlob = _tokens.Protect(token), BalancePath = PathBox.Text.Trim(), Currency = CurrencyBox.Text.Trim().ToUpperInvariant(), RefreshSeconds = refresh, LowThreshold = threshold, PetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek", InteractionMode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free", Scale = ScaleSlider.Value, Volume = VolumeSlider.Value, Sound = SoundBox.IsChecked == true, Bubble = BubbleBox.IsChecked == true, FollowCodex = FollowCodexBox.IsChecked == true, SystemNotifications = NotificationsBox.IsChecked == true, StartWithWindows = startupEnabled, WindowX = _settings.WindowX, WindowY = _settings.WindowY, Flipped = _settings.Flipped };
+            var updated = new PetSettings { Endpoint = endpoint.ToString(), AuthMode = authMode, HeaderName = HeaderBox.Text.Trim(), TokenBlob = _tokens.Protect(token), BalancePath = PathBox.Text.Trim(), Currency = CurrencyBox.Text.Trim().ToUpperInvariant(), RefreshSeconds = refresh, LowThreshold = threshold, PetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek", InteractionMode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free", UpdateCheckMode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily", LastUpdateCheckUtc = _settings.LastUpdateCheckUtc, Scale = ScaleSlider.Value, Volume = VolumeSlider.Value, Sound = SoundBox.IsChecked == true, Bubble = BubbleBox.IsChecked == true, FollowCodex = FollowCodexBox.IsChecked == true, SystemNotifications = NotificationsBox.IsChecked == true, StartWithWindows = startupEnabled, WindowX = _settings.WindowX, WindowY = _settings.WindowY, Flipped = _settings.Flipped };
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
             var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(updated, token);
             _store.Save(updated);

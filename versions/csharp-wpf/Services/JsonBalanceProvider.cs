@@ -18,10 +18,11 @@ public sealed class JsonBalanceProvider(HttpClient http)
             {
                 return await FetchAsync(settings, token, cancellationToken);
             }
-            catch (Exception error) when (IsTransient(error, cancellationToken) && attempt < 2)
+            catch (Exception error) when (IsTransient(error, cancellationToken))
             {
                 last = error;
-                await Task.Delay(TimeSpan.FromSeconds(attempt == 0 ? 1 : 3), cancellationToken);
+                if (attempt < 2)
+                    await Task.Delay(TimeSpan.FromSeconds(attempt == 0 ? 1 : 3), cancellationToken);
             }
         }
 

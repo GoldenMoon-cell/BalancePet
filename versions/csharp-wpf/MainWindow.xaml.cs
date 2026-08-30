@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using System.Reflection;
 using Forms = System.Windows.Forms;
 using BalancePet.Wpf.Models;
 using BalancePet.Wpf.Services;
@@ -23,6 +24,8 @@ public partial class MainWindow : Window
     private readonly UsageLedgerStore _usageStore = new();
     private readonly BalanceCacheStore _balanceCache = new();
     private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromMinutes(2) };
+    private readonly UpdateService _updateService;
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _bubbleTimer;
     private readonly DispatcherTimer _floatTimer;
@@ -34,6 +37,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _amountAnimationTimer;
     private readonly DispatcherTimer _codexHideTimer;
     private readonly DispatcherTimer _trayRecoveryTimer;
+    private readonly DispatcherTimer _updateTimer;
     private readonly System.Windows.Media.MediaPlayer _pressSound = new();
     private readonly System.Windows.Media.MediaPlayer _releaseSound = new();
     private Forms.NotifyIcon? _trayIcon;
@@ -56,6 +60,8 @@ public partial class MainWindow : Window
     private double _todayUsage;
     private bool _hasBalance;
     private bool _refreshing;
+    private bool _updateBusy;
+    private string? _configuredUpdateCheckMode;
     private DateTimeOffset _lastRefreshAttempt = DateTimeOffset.MinValue;
     private int _trayRecoveryAttempts;
     private uint _taskbarCreatedMessage;
@@ -138,6 +144,7 @@ public partial class MainWindow : Window
         WindowStyle = WindowStyle.None;
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync(false);
+        _updateService = new UpdateService(_updateHttpClient);
         _bubbleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
         _bubbleTimer.Tick += (_, _) => HideBubble();
         _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
@@ -158,6 +165,8 @@ public partial class MainWindow : Window
         _codexHideTimer.Tick += (_, _) => HideAfterCodexCompletion();
         _trayRecoveryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _trayRecoveryTimer.Tick += (_, _) => RecoverTrayRegistration();
+        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(30) };
+        _updateTimer.Tick += async (_, _) => await CheckForAutomaticUpdatesAsync();
         SourceInitialized += (_, _) =>
         {
             HideFromTaskSwitcher();
@@ -168,8 +177,9 @@ public partial class MainWindow : Window
         {
             if (!_closing) { e.Cancel = true; Hide(); return; }
             _trayRecoveryTimer.Stop();
+            _updateTimer.Stop();
             UnregisterTaskbarCreatedHook();
-            SavePosition(); DisposeTray(); _httpClient.Dispose();
+            SavePosition(); DisposeTray(); _httpClient.Dispose(); _updateHttpClient.Dispose();
         };
     }
 
@@ -205,6 +215,7 @@ public partial class MainWindow : Window
         else { Left = workArea.Right - Width - 24; Top = workArea.Bottom - Height - 24; }
         _refreshTimer.Interval = TimeSpan.FromSeconds(Math.Max(30, _settings.RefreshSeconds));
         _refreshTimer.Start();
+        ConfigureUpdateChecks();
         _floatTimer.Start();
         ResetInactiveTimer();
         ConfigureSounds();
@@ -504,6 +515,8 @@ public partial class MainWindow : Window
 
     private void OnContextSettingsClick(object sender, RoutedEventArgs e) => OnSettingsClick(this, new RoutedEventArgs());
 
+    private async void OnContextUpdateClick(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync(true);
+
     private void OnContextUsageClick(object sender, RoutedEventArgs e) => Dispatcher.BeginInvoke(new Action(OpenUsageWindow));
 
     private void OnContextHideClick(object sender, RoutedEventArgs e) => Hide();
@@ -574,6 +587,7 @@ public partial class MainWindow : Window
         menu.Items.Add("显示桌宠", null, (_, _) => { Show(); Activate(); });
         menu.Items.Add("立即刷新", null, async (_, _) => await RefreshAsync(true));
         menu.Items.Add("配置接口", null, (_, _) => OnSettingsClick(this, new RoutedEventArgs()));
+        menu.Items.Add("检查更新", null, (_, _) => _ = CheckForUpdatesAsync(true));
         menu.Items.Add("用量统计", null, (_, _) => Dispatcher.BeginInvoke(new Action(OpenUsageWindow)));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("退出", null, (_, _) => { _closing = true; System.Windows.Application.Current.Shutdown(); });
@@ -594,6 +608,93 @@ public partial class MainWindow : Window
         _trayRecoveryAttempts = 0;
         _trayRecoveryTimer.Stop();
         _trayRecoveryTimer.Start();
+    }
+
+    private async Task CheckForUpdatesAsync(bool manual)
+    {
+        if (_closing || _updateBusy) return;
+        _updateBusy = true;
+        try
+        {
+            var current = GetCurrentVersion();
+            var release = await _updateService.CheckAsync(current);
+            _settings.LastUpdateCheckUtc = DateTimeOffset.UtcNow;
+            _settingsStore.Save(_settings);
+            if (release is null)
+            {
+                if (manual) ShowBubble("已是最新版本", current, "当前不需要更新");
+                return;
+            }
+
+            var notes = SummarizeReleaseNotes(release.Body);
+            var prompt = $"发现新版本 {release.TagName}。\n\n{notes}\n\n现在下载并自动重启更新吗？";
+            var answer = System.Windows.MessageBox.Show(this, prompt, "BalancePet 更新", MessageBoxButton.YesNo, MessageBoxImage.Information);
+            if (answer != MessageBoxResult.Yes) return;
+
+            ShowBubble("正在更新", release.TagName, "下载并校验中");
+            var archive = await _updateService.DownloadAsync(release);
+            if (!UpdateInstaller.TryLaunch(archive, AppContext.BaseDirectory, Environment.ProcessId, out var error))
+            {
+                try { File.Delete(archive); } catch (IOException) { }
+                throw new InvalidOperationException(error);
+            }
+
+            _closing = true;
+            System.Windows.Application.Current.Shutdown();
+        }
+        catch (Exception error)
+        {
+            if (manual) System.Windows.MessageBox.Show(this, $"检查更新失败：{error.Message}", "BalancePet 更新", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally { _updateBusy = false; }
+    }
+
+    private void ConfigureUpdateChecks()
+    {
+        if (string.Equals(_configuredUpdateCheckMode, _settings.UpdateCheckMode, StringComparison.Ordinal)) return;
+        _updateTimer.Stop();
+        switch (_settings.UpdateCheckMode)
+        {
+            case "manual":
+                _configuredUpdateCheckMode = "manual";
+                return;
+            case "startup":
+                _configuredUpdateCheckMode = "startup";
+                _ = CheckForUpdatesAsync(false);
+                return;
+            case "weekly":
+            case "daily":
+                _configuredUpdateCheckMode = _settings.UpdateCheckMode;
+                _updateTimer.Start();
+                _ = CheckForAutomaticUpdatesAsync();
+                return;
+            default:
+                _settings.UpdateCheckMode = "daily";
+                _configuredUpdateCheckMode = "daily";
+                _settingsStore.Save(_settings);
+                _updateTimer.Start();
+                _ = CheckForAutomaticUpdatesAsync();
+                return;
+        }
+    }
+
+    private async Task CheckForAutomaticUpdatesAsync()
+    {
+        var interval = _settings.UpdateCheckMode == "weekly" ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1);
+        if (_settings.LastUpdateCheckUtc.HasValue && DateTimeOffset.UtcNow - _settings.LastUpdateCheckUtc.Value < interval) return;
+        await CheckForUpdatesAsync(false);
+    }
+
+    private static string GetCurrentVersion()
+    {
+        var informational = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        return string.IsNullOrWhiteSpace(informational) ? "0.1.0-beta.0" : informational.Split('+')[0];
+    }
+
+    private static string SummarizeReleaseNotes(string body)
+    {
+        var text = string.Join(" ", body.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return text.Length > 500 ? text[..500] + "…" : (string.IsNullOrWhiteSpace(text) ? "暂无更新说明。" : text);
     }
 
     private void RecoverTrayRegistration()

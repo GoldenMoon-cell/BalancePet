@@ -23,5 +23,7 @@ public sealed class PetSettings
     [JsonPropertyName("bubble")] public bool Bubble { get; set; } = true;
     [JsonPropertyName("follow_codex")] public bool FollowCodex { get; set; } = true;
     [JsonPropertyName("system_notifications")] public bool SystemNotifications { get; set; } = true;
+    [JsonPropertyName("update_check_mode")] public string UpdateCheckMode { get; set; } = "daily";
+    [JsonPropertyName("last_update_check_utc")] public DateTimeOffset? LastUpdateCheckUtc { get; set; }
     [JsonPropertyName("start_with_windows")] public bool StartWithWindows { get; set; }
 }

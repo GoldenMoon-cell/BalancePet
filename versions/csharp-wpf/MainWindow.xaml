@@ -32,8 +32,9 @@
           <MenuItem x:Name="BubbleMenuItem" Header="显示气泡" Click="OnContextBubbleClick"/>
           <MenuItem x:Name="InteractionMenuItem" Header="切换为锁定互动" Click="OnContextInteractionClick"/>
           <Separator/>
-          <MenuItem Header="配置接口" Click="OnContextSettingsClick"/>
-          <MenuItem Header="用量统计" Click="OnContextUsageClick"/>
+           <MenuItem Header="配置接口" Click="OnContextSettingsClick"/>
+           <MenuItem Header="检查更新" Click="OnContextUpdateClick"/>
+           <MenuItem Header="用量统计" Click="OnContextUsageClick"/>
           <MenuItem Header="隐藏桌宠" Click="OnContextHideClick"/>
           <Separator/>
           <MenuItem Header="退出" Click="OnContextExitClick"/>
