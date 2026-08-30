@@ -109,6 +109,7 @@ public partial class MainWindow : Window
     private const int GwlExStyle = -20;
     private const long WsExToolWindow = 0x00000080L;
     private const long WsExAppWindow = 0x00040000L;
+    private const int CodexDoneDurationMs = 6200;
 
     private enum PetVisualState
     {
@@ -1215,28 +1216,36 @@ public partial class MainWindow : Window
             "任务完成或停止后会自动切换状态");
     }
 
-    private async Task CompleteCodexTaskAsync(CodexTaskActivity activity)
+    private Task CompleteCodexTaskAsync(CodexTaskActivity activity)
     {
-        if (!RemoveActiveCodexTurn(activity)) return;
+        if (!RemoveActiveCodexTurn(activity)) return Task.CompletedTask;
         ResetInactiveTimer();
         if (_activeCodexTurns.Count > 0)
         {
             SetVisualState(PetVisualState.CodexWorking);
             ShowBubble("Codex 工作中", $"{_activeCodexTurns.Count} 个任务", "仍有任务正在处理");
-            return;
+            return Task.CompletedTask;
         }
 
-        await RefreshAsync(false);
         var spent = _codexStartBalance.HasValue && _lastBalance.HasValue ? Math.Max(0, _codexStartBalance.Value - _lastBalance.Value) : 0;
-        SetVisualState(PetVisualState.CodexDone, 6200);
+        SetVisualState(PetVisualState.CodexDone, CodexDoneDurationMs);
         ShowBubble("Codex 已停止", spent > 0 ? $"-{spent:0.00} {_settings.Currency}" : "任务结束", spent > 0 ? $"当前余额 {_lastBalance:0.00} {_settings.Currency}" : "已完成或手动停止");
         ShowSystemNotification("Codex 任务已停止", spent > 0 ? $"本次消耗 {spent:0.00} {_settings.Currency}" : "任务已完成或手动停止", Forms.ToolTipIcon.Info);
         _codexStartBalance = null;
+        _ = RefreshAfterCodexCompletionAsync();
         if (_codexShownPet)
         {
             _codexHideTimer.Stop();
             _codexHideTimer.Start();
         }
+        return Task.CompletedTask;
+    }
+
+    private async Task RefreshAfterCodexCompletionAsync()
+    {
+        await Task.Delay(CodexDoneDurationMs);
+        if (_closing || _activeCodexTurns.Count > 0) return;
+        await RefreshAsync(false);
     }
 
     private bool RemoveActiveCodexTurn(CodexTaskActivity activity)

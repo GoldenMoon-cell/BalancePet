@@ -148,11 +148,25 @@ public static class CodexHookInstaller
         )
 
         try {
-            $hookInput = [Console]::In.ReadToEnd() | ConvertFrom-Json
+            $sessionId = ''
+            $turnId = ''
+            $inputText = [Console]::In.ReadToEnd()
+            if (-not [string]::IsNullOrWhiteSpace($inputText)) {
+                try {
+                    $hookInput = $inputText | ConvertFrom-Json
+                    $sessionId = [string]$hookInput.session_id
+                    $turnId = [string]$hookInput.turn_id
+                }
+                catch {
+                    # Start events require their payload. Stop still needs to
+                    # reach BalancePet when a host omits or changes it.
+                    if ($State -eq 'start') { throw }
+                }
+            }
             $message = @{
                 state = $State
-                sessionId = [string]$hookInput.session_id
-                turnId = [string]$hookInput.turn_id
+                sessionId = $sessionId
+                turnId = $turnId
             } | ConvertTo-Json -Compress
 
             $maxAttempts = if ($State -eq 'stop') { 2 } else { 3 }
