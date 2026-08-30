@@ -30,11 +30,16 @@ public sealed class UpdateService(HttpClient http)
             if (string.IsNullOrWhiteSpace(tag) || !IsNewer(tag, currentVersion)) continue;
             if (!release.TryGetProperty("assets", out var assets)) continue;
 
-            var expectedName = $"BalancePet-{tag.TrimStart('v', 'V')}-win-x64.zip";
+            var version = tag.TrimStart('v', 'V');
+            var expectedNames = new[]
+            {
+                $"BalancePet-{tag}-win-x64.zip",
+                $"BalancePet-{version}-win-x64.zip"
+            };
             foreach (var asset in assets.EnumerateArray())
             {
                 var name = asset.TryGetProperty("name", out var nameValue) ? nameValue.GetString() : null;
-                if (!string.Equals(name, expectedName, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!expectedNames.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
                 var urlText = asset.TryGetProperty("browser_download_url", out var urlValue) ? urlValue.GetString() : null;
                 if (!Uri.TryCreate(urlText, UriKind.Absolute, out var downloadUri)) continue;
                 var title = release.TryGetProperty("name", out var titleValue) ? titleValue.GetString() : null;
