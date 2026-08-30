@@ -176,6 +176,17 @@ public partial class MainWindow : Window
     private void LoadSettingsAndPosition()
     {
         _settings = _settingsStore.Load();
+        // Release folders are versioned, so refresh the Run entry to this
+        // executable whenever startup is enabled or an older entry remains.
+        var startupRegistered = StartupManager.IsEnabled();
+        if (startupRegistered || _settings.StartWithWindows)
+        {
+            if (StartupManager.SetEnabled(true) && !_settings.StartWithWindows)
+            {
+                _settings.StartWithWindows = true;
+                _settingsStore.Save(_settings);
+            }
+        }
         var scale = Math.Clamp(_settings.Scale, 0.6, 1.4);
         PetSurface.LayoutTransform = new System.Windows.Media.ScaleTransform(scale, scale);
         LoadPetVisual(_visualState);
@@ -240,7 +251,7 @@ public partial class MainWindow : Window
             SetVisualState(PetVisualState.Loading);
             if (manual) ShowBubble("正在刷新", "--", "正在联系中转站");
             var token = _tokenStore.Unprotect(_settings.TokenBlob);
-            var snapshot = await new JsonBalanceProvider(_httpClient).FetchAsync(_settings, token);
+            var snapshot = await new JsonBalanceProvider(_httpClient).FetchWithRetryAsync(_settings, token);
             SetStatus(snapshot.Amount <= _settings.LowThreshold ? "余额偏低" : "查询成功");
             var hadBalance = _hasBalance;
             var wasLow = hadBalance && _lastBalance <= _settings.LowThreshold;

@@ -2,10 +2,12 @@
   <Grid Margin="18">
     <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
-      <TextBlock Text="余额 API 地址"/><TextBox x:Name="EndpointBox" Margin="0,4,0,12"/>
-      <TextBlock Text="认证方式"/><ComboBox x:Name="AuthModeBox" SelectionChanged="OnAuthModeChanged" Margin="0,4,0,12">
+      <TextBlock Text="余额 API 地址"/><TextBox x:Name="EndpointBox" Margin="0,4,0,2"/>
+      <TextBlock Text="填写中转站文档中的余额查询 URL，不是网站首页或聊天接口。" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+      <TextBlock Text="认证方式"/><ComboBox x:Name="AuthModeBox" SelectionChanged="OnAuthModeChanged" Margin="0,4,0,2">
         <ComboBoxItem Tag="bearer">Bearer Token（只填令牌）</ComboBoxItem><ComboBoxItem Tag="authorization">完整 Authorization（需含 Bearer）</ComboBoxItem><ComboBoxItem Tag="websee-session">中转站会话（websee-session）</ComboBoxItem><ComboBoxItem Tag="x-api-key">x-api-key</ComboBoxItem><ComboBoxItem Tag="custom">自定义 Header</ComboBoxItem>
       </ComboBox>
+      <TextBlock x:Name="AuthHint" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
       <TextBlock Text="自定义 Header 名"/><TextBox x:Name="HeaderBox" Margin="0,4,0,12"/>
       <TextBlock Text="访问令牌（留空保持现有令牌）"/><PasswordBox x:Name="TokenBox" Margin="0,4,0,12"/>
       <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel Margin="0,0,8,0"><TextBlock Text="余额 JSON 路径"/><TextBox x:Name="PathBox" Margin="0,4,0,12"/></StackPanel><StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="货币"/><TextBox x:Name="CurrencyBox" Margin="0,4,0,12"/></StackPanel></Grid>
@@ -16,6 +18,15 @@
       <CheckBox x:Name="StartupBox" Content="随 Windows 启动（进入托盘）" Margin="0,0,0,12"/>
       <TextBlock x:Name="MessageText" Foreground="#C43B52" TextWrapping="Wrap"/>
     </StackPanel></ScrollViewer>
-    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0"><Button Content="取消" Click="OnCancel" Padding="18,7" Margin="0,0,8,0"/><Button Content="保存并测试" Click="OnSave" Padding="18,7" Background="#263D78" Foreground="White"/></StackPanel>
+    <Grid Grid.Row="1" Margin="0,12,0,0">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+        <Button Content="导入设置" Click="OnImport" Padding="12,7" Margin="0,0,6,0"/>
+        <Button Content="导出设置" Click="OnExport" Padding="12,7"/>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="取消" Click="OnCancel" Padding="18,7" Margin="0,0,8,0"/>
+        <Button Content="保存并测试" Click="OnSave" Padding="18,7" Background="#263D78" Foreground="White"/>
+      </StackPanel>
+    </Grid>
   </Grid>
 </Window>

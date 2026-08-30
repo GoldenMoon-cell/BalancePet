@@ -9,6 +9,25 @@ namespace BalancePet.Wpf.Services;
 
 public sealed class JsonBalanceProvider(HttpClient http)
 {
+    public async Task<BalanceSnapshot> FetchWithRetryAsync(PetSettings settings, string token, CancellationToken cancellationToken = default)
+    {
+        Exception? last = null;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                return await FetchAsync(settings, token, cancellationToken);
+            }
+            catch (Exception error) when (IsTransient(error, cancellationToken) && attempt < 2)
+            {
+                last = error;
+                await Task.Delay(TimeSpan.FromSeconds(attempt == 0 ? 1 : 3), cancellationToken);
+            }
+        }
+
+        throw new HttpRequestException("请求失败，已自动重试 2 次。", last);
+    }
+
     public async Task<BalanceSnapshot> FetchAsync(PetSettings settings, string token, CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, settings.Endpoint);
@@ -39,7 +58,7 @@ public sealed class JsonBalanceProvider(HttpClient http)
         if (!response.IsSuccessStatusCode)
         {
             var detail = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {detail[..Math.Min(detail.Length, 180)]}");
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}: {detail[..Math.Min(detail.Length, 180)]}", null, response.StatusCode);
         }
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
@@ -47,6 +66,14 @@ public sealed class JsonBalanceProvider(HttpClient http)
         if (!value.HasValue || !TryParseAmount(value.Value, out var amount) || !double.IsFinite(amount))
             throw new InvalidDataException($"JSON path not found: {settings.BalancePath}");
         return new BalanceSnapshot(amount, settings.Currency, DateTimeOffset.Now);
+    }
+
+    private static bool IsTransient(Exception error, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested) return false;
+        if (error is TaskCanceledException) return true;
+        return error is HttpRequestException httpError &&
+            (!httpError.StatusCode.HasValue || (int)httpError.StatusCode.Value is 408 or 425 or 429 or >= 500);
     }
 
     private static string StripBearer(string token) => token.Trim().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? token.Trim()[7..].Trim() : token.Trim();

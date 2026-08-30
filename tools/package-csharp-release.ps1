@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.1.0-beta.3"
+    [string]$Version = "0.1.0-beta.4"
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,6 +29,7 @@ dotnet publish $project --configuration Release --runtime win-x64 --self-contain
 Copy-Item (Join-Path $root "README.md") $stage
 Copy-Item (Join-Path $root "LICENSE") $stage
 Copy-Item (Join-Path $root "THIRD_PARTY_NOTICES.md") $stage
+Copy-Item (Join-Path $root "docs\UPGRADE.md") $stage
 New-Item -ItemType Directory -Path (Join-Path $stage "docs\licenses") -Force | Out-Null
 Copy-Item (Join-Path $root "docs\licenses\MeteorNOX-MIT.txt") (Join-Path $stage "docs\licenses")
 
