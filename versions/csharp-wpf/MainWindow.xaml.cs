@@ -66,7 +66,6 @@ public partial class MainWindow : Window
     private int _trayRecoveryAttempts;
     private uint _taskbarCreatedMessage;
     private bool _codexSyncing;
-    private int _bubbleCycle;
     private double _bubbleAnimationProgress;
     private double _bubbleAnimationFrom;
     private double _bubbleAnimationTo;
@@ -94,6 +93,8 @@ public partial class MainWindow : Window
     private double _squashClock;
     private bool _squashAnimating;
     private long _lastAnimationTick;
+    private int _interactionStreak;
+    private DateTimeOffset _lastInteractionAt = DateTimeOffset.MinValue;
     private PetVisualState _visualState = PetVisualState.Idle;
     private TranslateTransform _petTranslate = new();
     private ScaleTransform _petScale = new(1, 1);
@@ -154,7 +155,7 @@ public partial class MainWindow : Window
         _stateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _stateTimer.Tick += (_, _) => RestoreSteadyVisualState();
         _inactiveTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(15) };
-        _inactiveTimer.Tick += (_, _) => SetVisualState(PetVisualState.Inactive);
+        _inactiveTimer.Tick += (_, _) => OnInactiveTimerElapsed();
         _bubbleAnimationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _bubbleAnimationTimer.Tick += (_, _) => AnimateBubble();
         _bubbleContentTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
@@ -376,6 +377,18 @@ public partial class MainWindow : Window
         if (_visualState == PetVisualState.Inactive) RestoreSteadyVisualState();
     }
 
+    private void OnInactiveTimerElapsed()
+    {
+        _inactiveTimer.Stop();
+        SetVisualState(PetVisualState.Inactive);
+        if (!_settings.RandomEasterEggs || Random.Shared.Next(100) >= 35) return;
+
+        var line = IsDragonStyle()
+            ? ("霁珑在等你", "慢慢来", "需要时再喊我就好")
+            : ("澜汐在这里", "小憩一下", "回来后我还会继续守着余额");
+        ShowBubble(line.Item1, line.Item2, line.Item3, TimeSpan.FromSeconds(4.2));
+    }
+
     private void EnsurePetTransforms()
     {
         if (PetImage.RenderTransform is TransformGroup group && group.Children.Count >= 3)
@@ -420,8 +433,11 @@ public partial class MainWindow : Window
     {
         if (e.OriginalSource is System.Windows.Controls.Button) return;
         ResetInactiveTimer();
-        SetVisualState(PetVisualState.Clicked);
-        StartSquashAnimation(1);
+        if (_settings.InteractionEffects)
+        {
+            SetVisualState(PetVisualState.Clicked);
+            StartSquashAnimation(1);
+        }
         if (_settings.InteractionMode == "locked")
         {
             _lockedPressed = true; _lockedStart = PointToScreen(e.GetPosition(this));
@@ -442,17 +458,18 @@ public partial class MainWindow : Window
         {
             if (PetSurface.IsMouseCaptured) PetSurface.ReleaseMouseCapture();
             _lockedPressed = false; PlaySound(_releaseSound);
-            KickReleaseBounce();
-            ShowBubble(_lockedKind == "hair" ? "呆毛被提起" : _lockedKind == "mouth" ? "嘴角被拽住" : "被戳到了", _lockedKind == "body" ? "在呢" : "哎呀", _lockedKind == "body" ? "点击角色刷新余额" : "轻一点嘛");
+            if (_settings.InteractionEffects) KickReleaseBounce();
+            var preserveVisualState = false;
             if (_lockedKind == "body") _ = RefreshAsync(true);
+            else preserveVisualState = ShowInteractionFeedback(_lockedKind);
             _interactionTargetX = 0; _interactionTargetY = 0;
-            if (_lockedKind != "body") RestoreSteadyVisualState();
+            if (_lockedKind != "body" && _settings.InteractionEffects && !preserveVisualState) RestoreSteadyVisualState();
             return;
         }
         if (!_dragging) return;
         _dragging = false; if (PetSurface.IsMouseCaptured) PetSurface.ReleaseMouseCapture();
         SnapToEdge();
-        KickReleaseBounce();
+        if (_settings.InteractionEffects) KickReleaseBounce();
         PlaySound(_releaseSound); if (!_dragMoved) _ = RefreshAsync(true); else RestoreSteadyVisualState();
     }
 
@@ -470,7 +487,7 @@ public partial class MainWindow : Window
             if (Math.Abs(dx) + Math.Abs(dy) > 4) _dragMoved = true;
             SetWindowPos(WindowHandle, IntPtr.Zero, _windowStartX + (int)Math.Round(dx), _windowStartY + (int)Math.Round(dy), 0, 0, SwpNoSize | SwpNoZOrder | SwpNoActivate);
         }
-        else if (_lockedPressed && e.LeftButton == MouseButtonState.Pressed)
+        else if (_settings.InteractionEffects && _lockedPressed && e.LeftButton == MouseButtonState.Pressed)
         {
             var point = PointToScreen(e.GetPosition(this)); var dx = Math.Clamp(point.X - _lockedStart.X, -45, 45); var dy = Math.Clamp(point.Y - _lockedStart.Y, -55, 35);
             _interactionTargetX = _lockedKind == "mouth" ? dx * .18 : _lockedKind == "hair" ? dx * .08 : 0;
@@ -837,10 +854,9 @@ public partial class MainWindow : Window
         dialog.ShowDialog();
     }
 
-    private void ShowBubble(string label, string amount, string hint)
+    private void ShowBubble(string label, string amount, string hint, TimeSpan? duration = null)
     {
         if (!_settings.Bubble) return;
-        _bubbleCycle = 0;
         _pendingBubbleLabel = label;
         _pendingBubbleAmount = amount;
         _pendingBubbleHint = hint;
@@ -867,6 +883,7 @@ public partial class MainWindow : Window
             _bubbleContentTimer.Start();
         }
         _bubbleTimer.Stop();
+        _bubbleTimer.Interval = duration ?? TimeSpan.FromSeconds(hint.Length > 36 ? 7 : 5.5);
         _bubbleTimer.Start();
     }
     private void HideBubble()
@@ -883,26 +900,70 @@ public partial class MainWindow : Window
     {
         e.Handled = true;
         ResetInactiveTimer();
-        var lines = new[]
-        {
-            ("状态良好", "余额充足", "今天也可以安心工作"),
-            ("我看着呢", "不会漏掉", "余额变化会及时告诉你"),
-            ("省着点花", "细水长流", "余额偏低时我会提醒你"),
-            ("工作时间", "陪你写完", "完成后会显示本次消耗")
-        };
-        var line = lines[_bubbleCycle++ % lines.Length];
-        _pendingBubbleLabel = line.Item1;
-        _pendingBubbleAmount = line.Item2;
-        _pendingBubbleHint = line.Item3;
-        BubbleContent.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(80))
-        {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
-        });
-        _bubbleContentTimer.Stop();
-        _bubbleContentTimer.Start();
-        _bubbleTimer.Stop();
-        _bubbleTimer.Start();
+        var lines = IsDragonStyle()
+            ? new[]
+            {
+                ("霁珑在看着", "放心吧", "余额变动会告诉你"),
+                ("龙角有点痒", "轻一点", "点击角色可以刷新余额"),
+                ("慢慢来", "不用着急", "需要时我会在这里"),
+                ("工作继续", "保持专注", "完成后会显示本次消耗")
+            }
+            : new[]
+            {
+                ("澜汐在看着", "放心吧", "余额变动会告诉你"),
+                ("耳鳍动了一下", "轻一点", "点击角色可以刷新余额"),
+                ("慢慢来", "不用着急", "需要时我会在这里"),
+                ("工作继续", "保持专注", "完成后会显示本次消耗")
+            };
+        var line = lines[Random.Shared.Next(lines.Length)];
+        ShowBubble(line.Item1, line.Item2, line.Item3, TimeSpan.FromSeconds(4.5));
     }
+
+    private bool ShowInteractionFeedback(string kind)
+    {
+        var now = DateTimeOffset.UtcNow;
+        _interactionStreak = now - _lastInteractionAt <= TimeSpan.FromSeconds(10) ? _interactionStreak + 1 : 1;
+        _lastInteractionAt = now;
+
+        var special = _settings.RandomEasterEggs && _interactionStreak >= 4;
+        if (special)
+        {
+            _interactionStreak = 0;
+            if (_settings.InteractionEffects) SetVisualState(PetVisualState.Success, 1100);
+            var surprise = IsDragonStyle()
+                ? ("被发现了", "霁珑笑了一下", "连续互动彩蛋")
+                : ("被发现了", "澜汐眨了眨眼", "连续互动彩蛋");
+            ShowBubble(surprise.Item1, surprise.Item2, surprise.Item3, TimeSpan.FromSeconds(4.2));
+            return _settings.InteractionEffects;
+        }
+
+        var lines = GetInteractionLines(kind);
+        var line = lines[Random.Shared.Next(lines.Length)];
+        ShowBubble(line.Label, line.Amount, line.Hint, TimeSpan.FromSeconds(3.8));
+        return false;
+    }
+
+    private (string Label, string Amount, string Hint)[] GetInteractionLines(string kind)
+    {
+        if (IsDragonStyle())
+        {
+            return kind switch
+            {
+                "hair" => new[] { ("龙角被碰到", "有点痒", "霁珑轻轻躲开了"), ("不要戳角角", "哎呀", "发型会乱掉的") },
+                "mouth" => new[] { ("脸颊被碰到", "唔", "霁珑有点害羞"), ("轻一点嘛", "在呢", "我会继续看着余额") },
+                _ => new[] { ("被戳到了", "在呢", "点击可以刷新余额") }
+            };
+        }
+
+        return kind switch
+        {
+            "hair" => new[] { ("呆毛被提起", "哎呀", "澜汐的发型要乱啦"), ("不要拽呆毛", "轻一点", "会痒的") },
+            "mouth" => new[] { ("脸颊被碰到", "唔", "澜汐有点害羞"), ("轻一点嘛", "在呢", "我会继续看着余额") },
+            _ => new[] { ("被戳到了", "在呢", "点击可以刷新余额") }
+        };
+    }
+
+    private bool IsDragonStyle() => string.Equals(_settings.PetStyle, "chatgpt", StringComparison.OrdinalIgnoreCase);
 
     private void AnimateBubble()
     {
@@ -962,15 +1023,26 @@ public partial class MainWindow : Window
         if (_lastAnimationTick == 0) _lastAnimationTick = now;
         var elapsed = Math.Clamp((now - _lastAnimationTick) / 1000.0, 0.008, 0.05);
         _lastAnimationTick = now;
-        var held = _dragging || _lockedPressed;
-        UpdateSquashAnimation(elapsed);
-        _interactionX += (_interactionTargetX - _interactionX) * (1 - Math.Exp(-elapsed * 16));
-        _interactionY += (_interactionTargetY - _interactionY) * (1 - Math.Exp(-elapsed * 16));
+        if (_settings.InteractionEffects)
+        {
+            UpdateSquashAnimation(elapsed);
+            _interactionX += (_interactionTargetX - _interactionX) * (1 - Math.Exp(-elapsed * 16));
+            _interactionY += (_interactionTargetY - _interactionY) * (1 - Math.Exp(-elapsed * 16));
+        }
+        else
+        {
+            _squashAnimating = false;
+            _squashProgress = 0;
+            _interactionX = 0;
+            _interactionY = 0;
+            _interactionTargetX = 0;
+            _interactionTargetY = 0;
+        }
         var squashX = 1 + _squashProgress * .05;
         var squashY = 1 - _squashProgress * .12;
         var tilt = 0d;
-        if (_lockedKind == "hair") tilt += Math.Clamp(_interactionX * .12, -5.5, 5.5);
-        else if (_lockedKind == "mouth") tilt += Math.Clamp(_interactionX * .045, -2.5, 2.5);
+        if (_settings.InteractionEffects && _lockedKind == "hair") tilt += Math.Clamp(_interactionX * .12, -5.5, 5.5);
+        else if (_settings.InteractionEffects && _lockedKind == "mouth") tilt += Math.Clamp(_interactionX * .045, -2.5, 2.5);
         _petTranslate.X = _interactionX;
         _petTranslate.Y = _interactionY;
         _petScale.ScaleX = squashX * (_settings.Flipped ? -1 : 1);
@@ -980,6 +1052,7 @@ public partial class MainWindow : Window
 
     private void StartSquashAnimation(double target)
     {
+        if (!_settings.InteractionEffects) return;
         _squashFrom = _squashProgress;
         _squashTo = target;
         _squashClock = 0;

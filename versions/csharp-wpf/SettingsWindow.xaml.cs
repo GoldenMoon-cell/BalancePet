@@ -23,7 +23,7 @@ public partial class SettingsWindow : Window
         EndpointBox.Text = settings.Endpoint; HeaderBox.Text = settings.HeaderName; PathBox.Text = settings.BalancePath; CurrencyBox.Text = settings.Currency;
         RefreshBox.Text = settings.RefreshSeconds.ToString(CultureInfo.InvariantCulture); ThresholdBox.Text = settings.LowThreshold.ToString(CultureInfo.InvariantCulture);
         SelectByTag(AuthModeBox, settings.AuthMode); SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode); SelectByTag(UpdateCheckBox, settings.UpdateCheckMode);
-        ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; FollowCodexBox.IsChecked = settings.FollowCodex; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
+        ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.FollowCodex; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
     }
 
@@ -46,7 +46,7 @@ public partial class SettingsWindow : Window
             ThresholdBox.Text = imported.LowThreshold.ToString(CultureInfo.InvariantCulture);
             SelectByTag(AuthModeBox, imported.AuthMode); SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode); SelectByTag(UpdateCheckBox, imported.UpdateCheckMode);
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
-            SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; FollowCodexBox.IsChecked = imported.FollowCodex; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
+            SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; EasterEggsBox.IsChecked = imported.RandomEasterEggs; FollowCodexBox.IsChecked = imported.FollowCodex; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
             TokenBox.Clear();
             MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
@@ -81,6 +81,8 @@ public partial class SettingsWindow : Window
                 sound = SoundBox.IsChecked == true,
                 volume = VolumeSlider.Value,
                 bubble = BubbleBox.IsChecked == true,
+                interaction_effects = InteractionEffectsBox.IsChecked == true,
+                random_easter_eggs = EasterEggsBox.IsChecked == true,
                 follow_codex = FollowCodexBox.IsChecked == true,
                 system_notifications = NotificationsBox.IsChecked == true,
                 start_with_windows = StartupBox.IsChecked == true
@@ -110,7 +112,7 @@ public partial class SettingsWindow : Window
             var token = TokenBox.Password;
             if (string.IsNullOrWhiteSpace(token)) token = _tokens.Unprotect(_settings.TokenBlob);
             var startupEnabled = StartupBox.IsChecked == true;
-            var updated = new PetSettings { Endpoint = endpoint.ToString(), AuthMode = authMode, HeaderName = HeaderBox.Text.Trim(), TokenBlob = _tokens.Protect(token), BalancePath = PathBox.Text.Trim(), Currency = CurrencyBox.Text.Trim().ToUpperInvariant(), RefreshSeconds = refresh, LowThreshold = threshold, PetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek", InteractionMode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free", UpdateCheckMode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily", LastUpdateCheckUtc = _settings.LastUpdateCheckUtc, Scale = ScaleSlider.Value, Volume = VolumeSlider.Value, Sound = SoundBox.IsChecked == true, Bubble = BubbleBox.IsChecked == true, FollowCodex = FollowCodexBox.IsChecked == true, SystemNotifications = NotificationsBox.IsChecked == true, StartWithWindows = startupEnabled, WindowX = _settings.WindowX, WindowY = _settings.WindowY, Flipped = _settings.Flipped };
+            var updated = new PetSettings { Endpoint = endpoint.ToString(), AuthMode = authMode, HeaderName = HeaderBox.Text.Trim(), TokenBlob = _tokens.Protect(token), BalancePath = PathBox.Text.Trim(), Currency = CurrencyBox.Text.Trim().ToUpperInvariant(), RefreshSeconds = refresh, LowThreshold = threshold, PetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek", InteractionMode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free", UpdateCheckMode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily", LastUpdateCheckUtc = _settings.LastUpdateCheckUtc, Scale = ScaleSlider.Value, Volume = VolumeSlider.Value, Sound = SoundBox.IsChecked == true, Bubble = BubbleBox.IsChecked == true, InteractionEffects = InteractionEffectsBox.IsChecked == true, RandomEasterEggs = EasterEggsBox.IsChecked == true, FollowCodex = FollowCodexBox.IsChecked == true, SystemNotifications = NotificationsBox.IsChecked == true, StartWithWindows = startupEnabled, WindowX = _settings.WindowX, WindowY = _settings.WindowY, Flipped = _settings.Flipped };
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
             var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(updated, token);
             _store.Save(updated);

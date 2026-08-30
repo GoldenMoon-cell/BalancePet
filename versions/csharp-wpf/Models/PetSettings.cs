@@ -21,6 +21,8 @@ public sealed class PetSettings
     [JsonPropertyName("sound")] public bool Sound { get; set; } = true;
     [JsonPropertyName("volume")] public double Volume { get; set; } = 0.35;
     [JsonPropertyName("bubble")] public bool Bubble { get; set; } = true;
+    [JsonPropertyName("interaction_effects")] public bool InteractionEffects { get; set; } = true;
+    [JsonPropertyName("random_easter_eggs")] public bool RandomEasterEggs { get; set; } = true;
     [JsonPropertyName("follow_codex")] public bool FollowCodex { get; set; } = true;
     [JsonPropertyName("system_notifications")] public bool SystemNotifications { get; set; } = true;
     [JsonPropertyName("update_check_mode")] public string UpdateCheckMode { get; set; } = "daily";
