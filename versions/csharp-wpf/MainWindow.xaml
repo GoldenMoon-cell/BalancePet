@@ -25,7 +25,7 @@
       <Ellipse Width="22" Height="16" Fill="White" Stroke="#263D78" StrokeThickness="4" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
     </Grid>
 
-    <Grid x:Name="PetSurface" Canvas.Right="0" Canvas.Bottom="0" Width="238" Height="238" Panel.ZIndex="2" Background="Transparent" MouseLeftButtonDown="OnMouseLeftButtonDown" MouseLeftButtonUp="OnMouseLeftButtonUp" MouseMove="OnPetMouseMove" ContextMenuOpening="OnPetContextMenuOpening">
+    <Grid x:Name="PetSurface" Canvas.Right="0" Canvas.Bottom="0" Width="238" Height="238" Panel.ZIndex="2" Background="Transparent" MouseLeftButtonDown="OnMouseLeftButtonDown" MouseLeftButtonUp="OnMouseLeftButtonUp" LostMouseCapture="OnPetLostMouseCapture" MouseMove="OnPetMouseMove" ContextMenuOpening="OnPetContextMenuOpening">
       <Grid.ContextMenu>
         <ContextMenu x:Name="PetContextMenu" Placement="MousePoint">
           <MenuItem Header="立即刷新" Click="OnContextRefreshClick"/>

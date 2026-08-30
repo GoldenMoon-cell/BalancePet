@@ -1,0 +1,53 @@
+<Window x:Class="BalancePet.Wpf.UpdateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="BalancePet 更新" Width="650" Height="610" MinWidth="520" MinHeight="440"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize" Background="#F5F7FC">
+  <Window.Resources>
+    <Style x:Key="SecondaryButton" TargetType="Button">
+      <Setter Property="Padding" Value="18,9"/>
+      <Setter Property="MinWidth" Value="108"/>
+      <Setter Property="Background" Value="White"/>
+      <Setter Property="BorderBrush" Value="#C9D1E3"/>
+      <Setter Property="Foreground" Value="#36456C"/>
+    </Style>
+    <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+      <Setter Property="Background" Value="#31589E"/>
+      <Setter Property="BorderBrush" Value="#31589E"/>
+      <Setter Property="Foreground" Value="White"/>
+    </Style>
+  </Window.Resources>
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <Border Grid.Row="0" Background="White" BorderBrush="#DCE2EE" BorderThickness="0,0,0,1" Padding="28,22,28,18">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel>
+          <TextBlock Text="发现新版本" FontSize="16" FontWeight="SemiBold" Foreground="#6073A1"/>
+          <TextBlock x:Name="VersionText" Margin="0,5,0,0" FontSize="27" FontWeight="Bold" Foreground="#263D78"/>
+        </StackPanel>
+        <TextBlock Grid.Column="1" x:Name="ReleaseTitleText" MaxWidth="190" VerticalAlignment="Center" TextAlignment="Right" TextWrapping="Wrap" Foreground="#7A87A5" FontSize="13"/>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly">
+      <StackPanel x:Name="NotesPanel" Margin="28,22,28,20"/>
+    </ScrollViewer>
+
+    <Border Grid.Row="2" Background="White" BorderBrush="#DCE2EE" BorderThickness="0,1,0,0" Padding="28,16">
+      <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" VerticalAlignment="Center" MaxWidth="300" Text="下载完成后将校验 SHA-256，并替换当前程序目录。" TextWrapping="Wrap" Foreground="#71809E" FontSize="12"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button Content="暂不更新" IsCancel="True" Style="{StaticResource SecondaryButton}" Margin="0,0,10,0"/>
+          <Button Content="下载并更新" IsDefault="True" Style="{StaticResource PrimaryButton}" Click="OnConfirmClick"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

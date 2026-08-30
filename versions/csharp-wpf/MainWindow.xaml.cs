@@ -79,6 +79,7 @@ public partial class MainWindow : Window
     private bool _hasDisplayAmount;
     private string? _activePetImagePath;
     private bool _lockedPressed;
+    private bool _mousePressed;
     private string _lockedKind = "body";
     private System.Windows.Point _lockedStart;
     private double _interactionX;
@@ -325,6 +326,7 @@ public partial class MainWindow : Window
 
     private void SetVisualState(PetVisualState state, int temporaryMs = 0)
     {
+        if (_mousePressed && _settings.InteractionEffects && (state != PetVisualState.Clicked || temporaryMs > 0)) return;
         _visualState = state;
         LoadPetVisual(state);
         _stateTimer.Stop();
@@ -435,10 +437,12 @@ public partial class MainWindow : Window
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is System.Windows.Controls.Button) return;
+        _mousePressed = true;
         ResetInactiveTimer();
         if (_settings.InteractionEffects)
         {
-            SetVisualState(PetVisualState.Clicked, 620);
+            // A press is a held state: do not let its state timer expire before release.
+            SetVisualState(PetVisualState.Clicked);
             StartSquashAnimation(1);
         }
         if (_settings.InteractionMode == "locked")
@@ -451,12 +455,17 @@ public partial class MainWindow : Window
             return;
         }
         var cursor = Forms.Cursor.Position;
-        if (!GetWindowRect(WindowHandle, out var rect)) return;
+        if (!GetWindowRect(WindowHandle, out var rect))
+        {
+            _mousePressed = false;
+            return;
+        }
         _dragStart = new System.Windows.Point(cursor.X, cursor.Y); _windowStartX = rect.Left; _windowStartY = rect.Top; _dragging = true; _dragMoved = false; PetSurface.CaptureMouse();
         PlaySound(_pressSound);
     }
     private void OnMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        _mousePressed = false;
         if (_settings.InteractionMode == "locked")
         {
             if (PetSurface.IsMouseCaptured) PetSurface.ReleaseMouseCapture();
@@ -474,6 +483,21 @@ public partial class MainWindow : Window
         SnapToEdge();
         if (_settings.InteractionEffects) KickReleaseBounce();
         PlaySound(_releaseSound); if (!_dragMoved) _ = RefreshAfterClickAsync(); else RestoreSteadyVisualState();
+    }
+
+    private void OnPetLostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_mousePressed) return;
+        _mousePressed = false;
+        _dragging = false;
+        _lockedPressed = false;
+        _interactionTargetX = 0;
+        _interactionTargetY = 0;
+        if (_settings.InteractionEffects)
+        {
+            KickReleaseBounce();
+            RestoreSteadyVisualState();
+        }
     }
 
     private async Task RefreshAfterClickAsync()
@@ -652,10 +676,8 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var notes = SummarizeReleaseNotes(release.Body);
-            var prompt = $"发现新版本 {release.TagName}。\n\n{notes}\n\n现在下载并自动重启更新吗？";
-            var answer = System.Windows.MessageBox.Show(this, prompt, "BalancePet 更新", MessageBoxButton.YesNo, MessageBoxImage.Information);
-            if (answer != MessageBoxResult.Yes) return;
+            var dialog = new UpdateWindow(release) { Owner = this };
+            if (dialog.ShowDialog() != true) return;
 
             ShowBubble("正在更新", release.TagName, "下载并校验中");
             var archive = await _updateService.DownloadAsync(release);
@@ -739,12 +761,6 @@ public partial class MainWindow : Window
             _codexHideTimer.Start();
         }
         return true;
-    }
-
-    private static string SummarizeReleaseNotes(string body)
-    {
-        var text = string.Join(" ", body.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-        return text.Length > 500 ? text[..500] + "…" : (string.IsNullOrWhiteSpace(text) ? "暂无更新说明。" : text);
     }
 
     private void RecoverTrayRegistration()
