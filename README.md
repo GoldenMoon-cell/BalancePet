@@ -2,7 +2,7 @@
 
 面向 Windows 的余额桌宠。项目当前只维护 C# WPF 版本：它会按设定间隔查询中转站提供的余额 API，并以可互动的桌宠显示状态和余额，不需要打开中转站网页。
 
-当前预览版本：`v0.1.0-beta.6`。
+当前预览版本：`v0.1.0-beta.7`。
 
 ## 功能
 
@@ -70,11 +70,13 @@ inactive.png
 .\tools\package-csharp-release.ps1
 ```
 
-脚本会生成 `dist/BalancePet-v<版本号>-win-x64.zip`，其中包含程序、素材、许可证和第三方声明。
+脚本会生成 `dist/BalancePet-<版本号>-win-x64.zip`，其中包含程序、素材、许可证和第三方声明。
 
 从旧版本升级时请先从托盘退出旧程序，再解压并启动新版本一次；完整步骤见 [docs/UPGRADE.md](docs/UPGRADE.md)。已启用的开机启动项会自动迁移到新版本路径。
 
 程序内更新只替换当前程序目录中的文件，配置、加密令牌和用量记录仍保留在 `%LOCALAPPDATA%\\BalancePet`。
+
+`beta.7` 修复了早期预览版在部分 Windows PowerShell 环境中无法自动重启的问题。若当前正在使用 `beta.5` 或 `beta.6`，请手动覆盖安装一次 `beta.7`；之后可继续使用程序内更新。
 
 ## 互动效果
 

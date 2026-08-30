@@ -32,7 +32,7 @@ try {
     Start-Process -FilePath (Join-Path $target 'BalancePet.Wpf.exe')
 } catch {
     Add-Type -AssemblyName PresentationFramework
-    [System.Windows.MessageBox]::Show(('BalancePet 更新失败：' + $_.Exception.Message), 'BalancePet') | Out-Null
+    [System.Windows.MessageBox]::Show(('BalancePet update failed: ' + $_.Exception.Message), 'BalancePet') | Out-Null
 } finally {
     Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
 }
@@ -40,7 +40,8 @@ try {
 
         try
         {
-            File.WriteAllText(scriptPath, script, new UTF8Encoding(false));
+            // Windows PowerShell 5.1 needs a BOM to reliably parse non-ASCII install paths.
+            File.WriteAllText(scriptPath, script, new UTF8Encoding(true));
             var updater = Process.Start(new ProcessStartInfo
             {
                 FileName = "powershell.exe",

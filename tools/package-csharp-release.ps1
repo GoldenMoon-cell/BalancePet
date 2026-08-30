@@ -1,14 +1,14 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.1.0-beta.6"
+    [string]$Version = "0.1.0-beta.7"
 )
 
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $project = Join-Path $root "versions\csharp-wpf\BalancePet.Wpf.csproj"
 $dist = Join-Path $root "dist"
-$stage = Join-Path $dist "BalancePet-v$Version-win-x64"
-$zip = Join-Path $dist "BalancePet-v$Version-win-x64.zip"
+$stage = Join-Path $dist "BalancePet-$Version-win-x64"
+$zip = Join-Path $dist "BalancePet-$Version-win-x64.zip"
 
 if (-not (Test-Path -LiteralPath $project)) {
     throw "C# project was not found: $project"
