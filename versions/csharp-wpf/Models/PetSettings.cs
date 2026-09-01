@@ -28,4 +28,6 @@ public sealed class PetSettings
     [JsonPropertyName("update_check_mode")] public string UpdateCheckMode { get; set; } = "daily";
     [JsonPropertyName("last_update_check_utc")] public DateTimeOffset? LastUpdateCheckUtc { get; set; }
     [JsonPropertyName("start_with_windows")] public bool StartWithWindows { get; set; }
+    [JsonPropertyName("monitors")] public List<MonitorProfile> Monitors { get; set; } = new();
+    [JsonPropertyName("selected_monitor_id")] public string SelectedMonitorId { get; set; } = "";
 }

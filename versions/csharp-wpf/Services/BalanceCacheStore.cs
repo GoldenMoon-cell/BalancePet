@@ -10,9 +10,20 @@ namespace BalancePet.Wpf.Services;
 /// </summary>
 public sealed class BalanceCacheStore
 {
-    private readonly string _path = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "BalancePet", "csharp-balance-cache.json");
+    private readonly string _path;
+
+    public BalanceCacheStore(string profileId = "default")
+    {
+        var safeId = string.IsNullOrWhiteSpace(profileId) ? "default" : profileId.Trim();
+        var fileName = string.Equals(safeId, "default", StringComparison.OrdinalIgnoreCase)
+            ? "csharp-balance-cache.json"
+            : $"csharp-balance-cache-{safeId}.json";
+        safeId = new string(safeId.Select(character => char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '_').ToArray());
+        if (string.Equals(fileName, "csharp-balance-cache.json", StringComparison.Ordinal)) safeId = "";
+        _path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "BalancePet", string.IsNullOrEmpty(safeId) ? fileName : $"csharp-balance-cache-{safeId}.json");
+    }
 
     public void Save(BalanceSnapshot snapshot)
     {

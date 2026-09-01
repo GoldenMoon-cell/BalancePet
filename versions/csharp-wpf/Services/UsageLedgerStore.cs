@@ -15,10 +15,25 @@ public sealed class UsageLedgerStore
 
     public UsageLedgerStore()
     {
+        _path = BuildPath("default");
+    }
+
+    public UsageLedgerStore(string profileId)
+    {
+        _path = BuildPath(profileId);
+    }
+
+    private static string BuildPath(string profileId)
+    {
+        var safeId = string.IsNullOrWhiteSpace(profileId) ? "default" : profileId.Trim();
+        var fileName = string.Equals(safeId, "default", StringComparison.OrdinalIgnoreCase)
+            ? "csharp-usage-ledger.json"
+            : $"csharp-usage-ledger-{safeId}.json";
+        safeId = new string(safeId.Select(character => char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '_').ToArray());
         var directory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "BalancePet");
-        _path = Path.Combine(directory, "csharp-usage-ledger.json");
+        return Path.Combine(directory, string.Equals(fileName, "csharp-usage-ledger.json", StringComparison.Ordinal) ? fileName : $"csharp-usage-ledger-{safeId}.json");
     }
 
     public UsageObservation Record(double balance, string currency, DateTimeOffset? now = null)

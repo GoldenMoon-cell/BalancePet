@@ -5,7 +5,9 @@ C# WPF 版本从 `versions/csharp-wpf/assets/pets/<style>/<state>.png` 加载状
 ## 角色名称
 
 - `DeepSeek 小鲸鱼 / Whale-chan / 澜汐`
-- `GPT 小龙 / GPT Dragon / 霁珑`
+- `ChatGPT 小龙 / ChatGPT Dragon / 霁珑`
+- `MiniMax 小海螺 / 绯音`
+- `Gemini 小星猫 / 星璃`
 
 这些是本项目使用的非官方角色称呼，不代表 DeepSeek、OpenAI 或其他平台的官方角色。
 

@@ -33,8 +33,11 @@
           <MenuItem x:Name="InteractionMenuItem" Header="切换为锁定互动" Click="OnContextInteractionClick"/>
           <MenuItem Header="切换形象">
             <MenuItem x:Name="DeepSeekStyleMenuItem" Header="DeepSeek 小鲸鱼「澜汐」" Tag="deepseek" IsCheckable="True" Click="OnPetStyleClick"/>
-            <MenuItem x:Name="ChatGptStyleMenuItem" Header="GPT 小龙「霁珑」" Tag="chatgpt" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem x:Name="ChatGptStyleMenuItem" Header="ChatGPT 小龙「霁珑」" Tag="chatgpt" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem x:Name="MiniMaxStyleMenuItem" Header="MiniMax 小海螺「绯音」" Tag="minimax" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem x:Name="GeminiStyleMenuItem" Header="Gemini 小星猫「星璃」" Tag="gemini" IsCheckable="True" Click="OnPetStyleClick"/>
           </MenuItem>
+          <MenuItem x:Name="MonitorMenuItem" Header="当前账户"/>
           <Separator/>
            <MenuItem Header="配置接口" Click="OnContextSettingsClick"/>
            <MenuItem Header="检查更新" Click="OnContextUpdateClick"/>

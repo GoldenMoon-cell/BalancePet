@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using Microsoft.Win32;
@@ -16,19 +17,128 @@ public partial class SettingsWindow : Window
     private readonly SettingsStore _store;
     private readonly DpapiTokenStore _tokens;
     private readonly PetSettings _settings;
+    private readonly List<MonitorProfile> _profiles;
+    private string _currentProfileId = "";
+    private bool _suppressProfileChange;
 
     public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings)
     {
         InitializeComponent(); _store = store; _tokens = tokens; _settings = settings;
-        EndpointBox.Text = settings.Endpoint; HeaderBox.Text = settings.HeaderName; PathBox.Text = settings.BalancePath; CurrencyBox.Text = settings.Currency;
-        RefreshBox.Text = settings.RefreshSeconds.ToString(CultureInfo.InvariantCulture); ThresholdBox.Text = settings.LowThreshold.ToString(CultureInfo.InvariantCulture);
-        SelectByTag(AuthModeBox, settings.AuthMode); SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode); SelectByTag(UpdateCheckBox, settings.UpdateCheckMode);
+        _profiles = settings.Monitors is { Count: > 0 }
+            ? settings.Monitors.Select(CloneProfile).ToList()
+            : new List<MonitorProfile> { CreateProfileFromLegacy(settings) };
+        RefreshProfileList(settings.SelectedMonitorId);
+        SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode); SelectByTag(UpdateCheckBox, settings.UpdateCheckMode);
         ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
     }
 
     private static void SelectByTag(System.Windows.Controls.ComboBox box, string tag)
     { foreach (ComboBoxItem item in box.Items) if (string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase)) { box.SelectedItem = item; return; } box.SelectedIndex = 0; }
+
+    private static MonitorProfile CreateProfileFromLegacy(PetSettings settings) => new()
+    {
+        Id = "default",
+        Name = "默认账户",
+        Endpoint = settings.Endpoint,
+        AuthMode = settings.AuthMode,
+        HeaderName = settings.HeaderName,
+        TokenBlob = settings.TokenBlob,
+        BalancePath = settings.BalancePath,
+        Currency = settings.Currency,
+        RefreshSeconds = Math.Max(30, settings.RefreshSeconds),
+        LowThreshold = settings.LowThreshold,
+        Enabled = true
+    };
+
+    private static MonitorProfile CloneProfile(MonitorProfile profile) => new()
+    {
+        Id = profile.Id,
+        Name = profile.Name,
+        Endpoint = profile.Endpoint,
+        AuthMode = profile.AuthMode,
+        HeaderName = profile.HeaderName,
+        TokenBlob = profile.TokenBlob,
+        BalancePath = profile.BalancePath,
+        Currency = profile.Currency,
+        RefreshSeconds = profile.RefreshSeconds,
+        LowThreshold = profile.LowThreshold,
+        Enabled = profile.Enabled
+    };
+
+    private MonitorProfile? CurrentProfile => _profiles.FirstOrDefault(profile => string.Equals(profile.Id, _currentProfileId, StringComparison.OrdinalIgnoreCase));
+
+    private void RefreshProfileList(string? selectedId)
+    {
+        _suppressProfileChange = true;
+        ProfileBox.Items.Clear();
+        foreach (var profile in _profiles)
+            ProfileBox.Items.Add(new ComboBoxItem { Content = profile.Name, Tag = profile.Id });
+        var selectedIndex = _profiles.FindIndex(profile => string.Equals(profile.Id, selectedId, StringComparison.OrdinalIgnoreCase));
+        ProfileBox.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
+        _suppressProfileChange = false;
+        if (ProfileBox.SelectedItem is ComboBoxItem item) LoadProfile(item.Tag?.ToString() ?? "");
+    }
+
+    private void LoadProfile(string profileId)
+    {
+        var profile = _profiles.FirstOrDefault(value => string.Equals(value.Id, profileId, StringComparison.OrdinalIgnoreCase));
+        if (profile is null) return;
+        _currentProfileId = profile.Id;
+        ProfileNameBox.Text = profile.Name;
+        EndpointBox.Text = profile.Endpoint;
+        HeaderBox.Text = profile.HeaderName;
+        PathBox.Text = profile.BalancePath;
+        CurrencyBox.Text = profile.Currency;
+        RefreshBox.Text = Math.Max(30, profile.RefreshSeconds).ToString(CultureInfo.InvariantCulture);
+        ThresholdBox.Text = profile.LowThreshold.ToString(CultureInfo.InvariantCulture);
+        SelectByTag(AuthModeBox, profile.AuthMode);
+        MonitorEnabledBox.IsChecked = profile.Enabled;
+        TokenBox.Clear();
+        OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
+    }
+
+    private void SaveCurrentProfileFields()
+    {
+        var profile = CurrentProfile;
+        if (profile is null) return;
+        profile.Name = string.IsNullOrWhiteSpace(ProfileNameBox.Text) ? "监控账户" : ProfileNameBox.Text.Trim();
+        profile.Endpoint = EndpointBox.Text.Trim();
+        profile.AuthMode = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "bearer";
+        profile.HeaderName = HeaderBox.Text.Trim();
+        profile.BalancePath = PathBox.Text.Trim();
+        profile.Currency = string.IsNullOrWhiteSpace(CurrencyBox.Text) ? "USD" : CurrencyBox.Text.Trim().ToUpperInvariant();
+        if (int.TryParse(RefreshBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var refresh)) profile.RefreshSeconds = Math.Max(30, refresh);
+        if (double.TryParse(ThresholdBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold)) profile.LowThreshold = threshold;
+        profile.Enabled = MonitorEnabledBox.IsChecked == true;
+        if (!string.IsNullOrWhiteSpace(TokenBox.Password)) profile.TokenBlob = _tokens.Protect(TokenBox.Password);
+    }
+
+    private void OnProfileSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressProfileChange || ProfileBox.SelectedItem is not ComboBoxItem item) return;
+        SaveCurrentProfileFields();
+        LoadProfile(item.Tag?.ToString() ?? "");
+    }
+
+    private void OnAddProfile(object sender, RoutedEventArgs e)
+    {
+        SaveCurrentProfileFields();
+        var profile = new MonitorProfile { Id = Guid.NewGuid().ToString("N"), Name = $"监控账户 {_profiles.Count + 1}", Endpoint = "", Enabled = true };
+        _profiles.Add(profile);
+        RefreshProfileList(profile.Id);
+        EndpointBox.Focus();
+    }
+
+    private void OnDeleteProfile(object sender, RoutedEventArgs e)
+    {
+        if (_profiles.Count <= 1) { MessageText.Text = "至少保留一个监控账户。"; return; }
+        var profile = CurrentProfile;
+        if (profile is null) return;
+        var index = _profiles.IndexOf(profile);
+        _profiles.Remove(profile);
+        RefreshProfileList(_profiles[Math.Clamp(index - 1, 0, _profiles.Count - 1)].Id);
+    }
 
     private void OnImport(object sender, RoutedEventArgs e)
     {
@@ -38,19 +148,18 @@ public partial class SettingsWindow : Window
         {
             var imported = JsonSerializer.Deserialize<PetSettings>(File.ReadAllText(dialog.FileName), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (imported is null) throw new InvalidDataException("设置文件为空或格式不正确。");
-            EndpointBox.Text = imported.Endpoint;
-            HeaderBox.Text = imported.HeaderName;
-            PathBox.Text = imported.BalancePath;
-            CurrencyBox.Text = imported.Currency;
-            RefreshBox.Text = Math.Max(30, imported.RefreshSeconds).ToString(CultureInfo.InvariantCulture);
-            ThresholdBox.Text = imported.LowThreshold.ToString(CultureInfo.InvariantCulture);
-            SelectByTag(AuthModeBox, imported.AuthMode); SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode); SelectByTag(UpdateCheckBox, imported.UpdateCheckMode);
+            SaveCurrentProfileFields();
+            _profiles.Clear();
+            if (imported.Monitors is { Count: > 0 }) _profiles.AddRange(imported.Monitors.Select(CloneProfile));
+            else _profiles.Add(CreateProfileFromLegacy(imported));
+            RefreshProfileList(imported.SelectedMonitorId);
+            SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode); SelectByTag(UpdateCheckBox, imported.UpdateCheckMode);
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
             SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; EasterEggsBox.IsChecked = imported.RandomEasterEggs; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
             TokenBox.Clear();
             MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
-            MessageText.Text = "设置已导入。令牌不会从文件导入，请确认当前令牌仍适用于该中转站。";
+            MessageText.Text = "设置已导入。令牌不会从文件导入，请在各监控账户中重新填写令牌。";
         }
         catch (Exception error)
         {
@@ -65,15 +174,17 @@ public partial class SettingsWindow : Window
         if (dialog.ShowDialog(this) != true) return;
         try
         {
+            SaveCurrentProfileFields();
+            var selected = CurrentProfile ?? _profiles[0];
             var export = new
             {
-                endpoint = EndpointBox.Text.Trim(),
-                auth_mode = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "bearer",
-                header_name = HeaderBox.Text.Trim(),
-                balance_path = PathBox.Text.Trim(),
-                currency = CurrencyBox.Text.Trim().ToUpperInvariant(),
-                refresh_seconds = int.TryParse(RefreshBox.Text, out var refresh) ? Math.Max(30, refresh) : 60,
-                low_threshold = double.TryParse(ThresholdBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold) ? threshold : 5,
+                endpoint = selected.Endpoint,
+                auth_mode = selected.AuthMode,
+                header_name = selected.HeaderName,
+                balance_path = selected.BalancePath,
+                currency = selected.Currency,
+                refresh_seconds = selected.RefreshSeconds,
+                low_threshold = selected.LowThreshold,
                 pet_style = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek",
                 interaction_mode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free",
                 update_check_mode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily",
@@ -85,7 +196,21 @@ public partial class SettingsWindow : Window
                 random_easter_eggs = EasterEggsBox.IsChecked == true,
                 codex_task_integration = FollowCodexBox.IsChecked == true,
                 system_notifications = NotificationsBox.IsChecked == true,
-                start_with_windows = StartupBox.IsChecked == true
+                start_with_windows = StartupBox.IsChecked == true,
+                selected_monitor_id = selected.Id,
+                monitors = _profiles.Select(profile => new
+                {
+                    id = profile.Id,
+                    name = profile.Name,
+                    endpoint = profile.Endpoint,
+                    auth_mode = profile.AuthMode,
+                    header_name = profile.HeaderName,
+                    balance_path = profile.BalancePath,
+                    currency = profile.Currency,
+                    refresh_seconds = Math.Max(30, profile.RefreshSeconds),
+                    low_threshold = profile.LowThreshold,
+                    enabled = profile.Enabled
+                }).ToArray()
             };
             var options = new JsonSerializerOptions { WriteIndented = true };
             File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(export, options));
@@ -101,18 +226,62 @@ public partial class SettingsWindow : Window
 
     private async void OnSave(object sender, RoutedEventArgs e)
     {
-        if (!int.TryParse(RefreshBox.Text, out var refresh) || refresh < 30) { MessageText.Text = "刷新秒数必须是 30 或更大。"; return; }
-        if (!double.TryParse(ThresholdBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold)) { MessageText.Text = "低余额阈值格式不正确。"; return; }
-        var endpointText = EndpointBox.Text.Trim();
-        if (!Uri.TryCreate(endpointText, UriKind.Absolute, out var endpoint) || endpoint.Scheme is not ("http" or "https")) { MessageText.Text = "接口地址必须是 http 或 https 的完整 URL。"; return; }
-        var authMode = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "bearer";
-        if (authMode == "custom" && string.IsNullOrWhiteSpace(HeaderBox.Text)) { MessageText.Text = "使用自定义 Header 时必须填写 Header 名。"; return; }
+        SaveCurrentProfileFields();
+        if (_profiles.Count == 0) { MessageText.Text = "至少保留一个监控账户。"; return; }
+        foreach (var profile in _profiles.Where(value => value.Enabled))
+        {
+            if (!Uri.TryCreate(profile.Endpoint, UriKind.Absolute, out var endpoint) || endpoint.Scheme is not ("http" or "https"))
+            {
+                MessageText.Text = $"监控账户“{profile.Name}”的接口地址无效。";
+                RefreshProfileList(profile.Id);
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(profile.BalancePath)) { MessageText.Text = $"监控账户“{profile.Name}”的余额 JSON 路径不能为空。"; RefreshProfileList(profile.Id); return; }
+            if (profile.AuthMode == "custom" && string.IsNullOrWhiteSpace(profile.HeaderName)) { MessageText.Text = $"监控账户“{profile.Name}”使用自定义 Header 时必须填写 Header 名。"; RefreshProfileList(profile.Id); return; }
+        }
+        var selected = CurrentProfile ?? _profiles[0];
+        string selectedToken;
         try
         {
-            var token = TokenBox.Password;
-            if (string.IsNullOrWhiteSpace(token)) token = _tokens.Unprotect(_settings.TokenBlob);
+            selectedToken = _tokens.Unprotect(selected.TokenBlob);
+        }
+        catch (Exception error)
+        {
+            MessageText.Text = $"当前账户令牌无法解密：{error.Message}";
+            return;
+        }
+        try
+        {
             var startupEnabled = StartupBox.IsChecked == true;
-            var updated = new PetSettings { Endpoint = endpoint.ToString(), AuthMode = authMode, HeaderName = HeaderBox.Text.Trim(), TokenBlob = _tokens.Protect(token), BalancePath = PathBox.Text.Trim(), Currency = CurrencyBox.Text.Trim().ToUpperInvariant(), RefreshSeconds = refresh, LowThreshold = threshold, PetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek", InteractionMode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free", UpdateCheckMode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily", LastUpdateCheckUtc = _settings.LastUpdateCheckUtc, Scale = ScaleSlider.Value, Volume = VolumeSlider.Value, Sound = SoundBox.IsChecked == true, Bubble = BubbleBox.IsChecked == true, InteractionEffects = InteractionEffectsBox.IsChecked == true, RandomEasterEggs = EasterEggsBox.IsChecked == true, CodexTaskIntegration = FollowCodexBox.IsChecked == true, SystemNotifications = NotificationsBox.IsChecked == true, StartWithWindows = startupEnabled, WindowX = _settings.WindowX, WindowY = _settings.WindowY, Flipped = _settings.Flipped };
+            var updated = new PetSettings
+            {
+                Endpoint = selected.Endpoint,
+                AuthMode = selected.AuthMode,
+                HeaderName = selected.HeaderName,
+                TokenBlob = selected.TokenBlob,
+                BalancePath = selected.BalancePath,
+                Currency = selected.Currency,
+                RefreshSeconds = Math.Max(30, selected.RefreshSeconds),
+                LowThreshold = selected.LowThreshold,
+                PetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek",
+                InteractionMode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free",
+                UpdateCheckMode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily",
+                LastUpdateCheckUtc = _settings.LastUpdateCheckUtc,
+                Scale = ScaleSlider.Value,
+                Volume = VolumeSlider.Value,
+                Sound = SoundBox.IsChecked == true,
+                Bubble = BubbleBox.IsChecked == true,
+                InteractionEffects = InteractionEffectsBox.IsChecked == true,
+                RandomEasterEggs = EasterEggsBox.IsChecked == true,
+                CodexTaskIntegration = FollowCodexBox.IsChecked == true,
+                SystemNotifications = NotificationsBox.IsChecked == true,
+                StartWithWindows = startupEnabled,
+                WindowX = _settings.WindowX,
+                WindowY = _settings.WindowY,
+                Flipped = _settings.Flipped,
+                Monitors = _profiles.Select(CloneProfile).ToList(),
+                SelectedMonitorId = selected.Id
+            };
             var hookChanged = false;
             var hookWasInstalled = CodexHookInstaller.IsInstalled();
             if (updated.CodexTaskIntegration)
@@ -145,10 +314,10 @@ public partial class SettingsWindow : Window
             {
                 System.Windows.MessageBox.Show(this, "AI 任务联动已启用。Codex 会在出现 Hook 审核提示时请求信任；其他客户端可调用发布包 tools\\balancepet-task.ps1。之后任务开始、完成或停止都会自动通知桌宠。", "BalancePet", MessageBoxButton.OK, MessageBoxImage.Information);
             }
-            if (string.IsNullOrWhiteSpace(token))
+            if (string.IsNullOrWhiteSpace(selectedToken))
             {
                 MessageText.Foreground = System.Windows.Media.Brushes.DarkOrange;
-                MessageText.Text = "设置已保存；未填写访问令牌，已跳过余额 API 测试。";
+                MessageText.Text = "设置已保存；当前账户未填写访问令牌，已跳过余额 API 测试。";
                 DialogResult = true;
                 return;
             }
@@ -156,7 +325,7 @@ public partial class SettingsWindow : Window
             try
             {
                 using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-                var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(updated, token);
+                var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(selected, selectedToken);
                 MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
                 MessageText.Text = $"连接成功：{snapshot.Amount:0.00} {snapshot.Currency}";
                 DialogResult = true;

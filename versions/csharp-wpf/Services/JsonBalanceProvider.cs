@@ -9,6 +9,21 @@ namespace BalancePet.Wpf.Services;
 
 public sealed class JsonBalanceProvider(HttpClient http)
 {
+    public Task<BalanceSnapshot> FetchWithRetryAsync(MonitorProfile profile, string token, CancellationToken cancellationToken = default)
+    {
+        var settings = new PetSettings
+        {
+            Endpoint = profile.Endpoint,
+            AuthMode = profile.AuthMode,
+            HeaderName = profile.HeaderName,
+            BalancePath = profile.BalancePath,
+            Currency = profile.Currency,
+            RefreshSeconds = profile.RefreshSeconds,
+            LowThreshold = profile.LowThreshold
+        };
+        return FetchWithRetryAsync(settings, token, cancellationToken);
+    }
+
     public async Task<BalanceSnapshot> FetchWithRetryAsync(PetSettings settings, string token, CancellationToken cancellationToken = default)
     {
         Exception? last = null;
