@@ -167,6 +167,7 @@ public static class CodexHookInstaller
                 state = $State
                 sessionId = $sessionId
                 turnId = $turnId
+                provider = 'Codex'
             } | ConvertTo-Json -Compress
 
             $maxAttempts = if ($State -eq 'stop') { 2 } else { 3 }

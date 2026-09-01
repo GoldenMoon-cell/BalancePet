@@ -41,6 +41,8 @@ public partial class MainWindow : Window
     private readonly System.Windows.Media.MediaPlayer _releaseSound = new();
     private Forms.NotifyIcon? _trayIcon;
     private Forms.ContextMenuStrip? _trayMenu;
+    private Forms.ToolStripMenuItem? _trayDeepSeekStyleItem;
+    private Forms.ToolStripMenuItem? _trayChatGptStyleItem;
     private System.Drawing.Icon? _trayImage;
     private HwndSource? _windowSource;
     private PetSettings _settings = new();
@@ -64,6 +66,7 @@ public partial class MainWindow : Window
     private int _trayRecoveryAttempts;
     private uint _taskbarCreatedMessage;
     private readonly HashSet<string> _activeCodexTurns = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _activeTaskSources = new(StringComparer.Ordinal);
     private double _bubbleAnimationProgress;
     private double _bubbleAnimationFrom;
     private double _bubbleAnimationTo;
@@ -227,10 +230,12 @@ public partial class MainWindow : Window
         ConfigureSounds();
         _codexTaskBridge.Stop();
         _activeCodexTurns.Clear();
+        _activeTaskSources.Clear();
         _codexStartBalance = null;
         _codexShownPet = false;
         if (_settings.CodexTaskIntegration) _codexTaskBridge.Start();
         SetupTray();
+        UpdatePetStyleMenuChecks();
         // Enabling Codex task following must not change the pet's visibility.
         // The pet stays visible after startup and settings reload; hiding is
         // still available from the tray or the window close control.
@@ -534,6 +539,7 @@ public partial class MainWindow : Window
         InteractionMenuItem.Header = string.Equals(_settings.InteractionMode, "locked", StringComparison.OrdinalIgnoreCase)
             ? "切换为自由拖动"
             : "切换为锁定互动";
+        UpdatePetStyleMenuChecks();
     }
 
     private async void OnContextRefreshClick(object sender, RoutedEventArgs e) => await RefreshAsync(true);
@@ -561,6 +567,55 @@ public partial class MainWindow : Window
         _interactionTargetY = 0;
         ShowBubble("交互模式", _settings.InteractionMode == "locked" ? "锁定互动" : "自由拖动", _settings.InteractionMode == "locked" ? "可以拽嘴角和提呆毛" : "按住角色即可移动");
     }
+
+    private void OnPetStyleClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem item) ChangePetStyle(item.Tag?.ToString() ?? "deepseek");
+    }
+
+    private void ChangePetStyle(string style)
+    {
+        var normalized = string.Equals(style, "chatgpt", StringComparison.OrdinalIgnoreCase) ? "chatgpt" : "deepseek";
+        if (string.Equals(_settings.PetStyle, normalized, StringComparison.OrdinalIgnoreCase))
+        {
+            UpdatePetStyleMenuChecks();
+            return;
+        }
+
+        var previous = _settings.PetStyle;
+        _settings.PetStyle = normalized;
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            _settings.PetStyle = previous;
+            UpdatePetStyleMenuChecks();
+            ShowBubble("切换失败", "未保存", "请检查 BalancePet 配置目录权限");
+            return;
+        }
+
+        _activePetImagePath = null;
+        LoadPetVisual(_visualState);
+        ApplyFlipVisuals();
+        EnsurePetTransforms();
+        ResetInactiveTimer();
+        UpdatePetStyleMenuChecks();
+        ShowBubble("形象已切换", PetStyleDisplayName(normalized), "设置已保存", TimeSpan.FromSeconds(3.8));
+    }
+
+    private void UpdatePetStyleMenuChecks()
+    {
+        var isDragon = IsDragonStyle();
+        DeepSeekStyleMenuItem.IsChecked = !isDragon;
+        ChatGptStyleMenuItem.IsChecked = isDragon;
+        if (_trayDeepSeekStyleItem is not null) _trayDeepSeekStyleItem.Checked = !isDragon;
+        if (_trayChatGptStyleItem is not null) _trayChatGptStyleItem.Checked = isDragon;
+    }
+
+    private static string PetStyleDisplayName(string style) =>
+        string.Equals(style, "chatgpt", StringComparison.OrdinalIgnoreCase) ? "GPT 小龙「霁珑」" : "DeepSeek 小鲸鱼「澜汐」";
 
     private void OnContextSettingsClick(object sender, RoutedEventArgs e) => OnSettingsClick(this, new RoutedEventArgs());
 
@@ -627,7 +682,7 @@ public partial class MainWindow : Window
             AutoSize = true,
             AutoClose = true,
             ShowImageMargin = false,
-            ShowCheckMargin = false,
+            ShowCheckMargin = true,
             ShowItemToolTips = false,
             RenderMode = Forms.ToolStripRenderMode.System,
             Margin = new System.Windows.Forms.Padding(0),
@@ -636,6 +691,14 @@ public partial class MainWindow : Window
         menu.Items.Add("显示桌宠", null, (_, _) => { Show(); Activate(); });
         menu.Items.Add("立即刷新", null, async (_, _) => await RefreshAsync(true));
         menu.Items.Add("配置接口", null, (_, _) => OnSettingsClick(this, new RoutedEventArgs()));
+        var styleMenu = new Forms.ToolStripMenuItem("切换形象");
+        _trayDeepSeekStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("deepseek")) { Tag = "deepseek" };
+        _trayChatGptStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("chatgpt")) { Tag = "chatgpt" };
+        _trayDeepSeekStyleItem.Click += (_, _) => ChangePetStyle("deepseek");
+        _trayChatGptStyleItem.Click += (_, _) => ChangePetStyle("chatgpt");
+        styleMenu.DropDownItems.Add(_trayDeepSeekStyleItem);
+        styleMenu.DropDownItems.Add(_trayChatGptStyleItem);
+        menu.Items.Add(styleMenu);
         menu.Items.Add("检查更新", null, (_, _) => _ = CheckForUpdatesAsync(true));
         menu.Items.Add("用量统计", null, (_, _) => Dispatcher.BeginInvoke(new Action(OpenUsageWindow)));
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -650,6 +713,7 @@ public partial class MainWindow : Window
             ContextMenuStrip = menu,
             Visible = true
         };
+        UpdatePetStyleMenuChecks();
         _trayIcon.DoubleClick += (_, _) => { Show(); Activate(); };
         // Explorer may not have created the notification area yet during a
         // Windows logon launch. Re-register the icon a few times so startup
@@ -892,6 +956,8 @@ public partial class MainWindow : Window
 
         _trayMenu?.Dispose();
         _trayMenu = null;
+        _trayDeepSeekStyleItem = null;
+        _trayChatGptStyleItem = null;
         _trayImage?.Dispose();
         _trayImage = null;
     }
@@ -1186,9 +1252,10 @@ public partial class MainWindow : Window
         }));
     }
 
-    private async Task StartCodexTaskAsync(CodexTaskActivity activity)
+    private Task StartCodexTaskAsync(CodexTaskActivity activity)
     {
-        if (!_activeCodexTurns.Add(activity.Key)) return;
+        if (!_activeCodexTurns.Add(activity.Key)) return Task.CompletedTask;
+        _activeTaskSources[activity.Key] = TaskSourceLabel(activity.Provider);
         ResetInactiveTimer();
         _codexHideTimer.Stop();
         if (!IsVisible)
@@ -1200,37 +1267,33 @@ public partial class MainWindow : Window
         if (_activeCodexTurns.Count == 1)
         {
             _codexStartBalance = _lastBalance;
-            if (!_hasBalance)
-            {
-                await RefreshAsync(false);
-                if (_activeCodexTurns.Contains(activity.Key)) _codexStartBalance = _lastBalance;
-            }
         }
 
-        if (!_activeCodexTurns.Contains(activity.Key)) return;
-        SetStatus("正在查询");
+        if (!_activeCodexTurns.Contains(activity.Key)) return Task.CompletedTask;
+        SetStatus("AI 工作中");
         SetVisualState(PetVisualState.CodexWorking);
         ShowBubble(
-            "Codex 工作中",
+            $"{CurrentTaskSourceLabel()} 工作中",
             _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
             "任务完成或停止后会自动切换状态");
+        return Task.CompletedTask;
     }
 
     private Task CompleteCodexTaskAsync(CodexTaskActivity activity)
     {
-        if (!RemoveActiveCodexTurn(activity)) return Task.CompletedTask;
+        if (!RemoveActiveCodexTurn(activity, out var completedSource)) return Task.CompletedTask;
         ResetInactiveTimer();
         if (_activeCodexTurns.Count > 0)
         {
             SetVisualState(PetVisualState.CodexWorking);
-            ShowBubble("Codex 工作中", $"{_activeCodexTurns.Count} 个任务", "仍有任务正在处理");
+            ShowBubble($"{CurrentTaskSourceLabel()} 工作中", $"{_activeCodexTurns.Count} 个任务", "仍有任务正在处理");
             return Task.CompletedTask;
         }
 
         var spent = _codexStartBalance.HasValue && _lastBalance.HasValue ? Math.Max(0, _codexStartBalance.Value - _lastBalance.Value) : 0;
         SetVisualState(PetVisualState.CodexDone, CodexDoneDurationMs);
-        ShowBubble("Codex 已停止", spent > 0 ? $"-{spent:0.00} {_settings.Currency}" : "任务结束", spent > 0 ? $"当前余额 {_lastBalance:0.00} {_settings.Currency}" : "已完成或手动停止");
-        ShowSystemNotification("Codex 任务已停止", spent > 0 ? $"本次消耗 {spent:0.00} {_settings.Currency}" : "任务已完成或手动停止", Forms.ToolTipIcon.Info);
+        ShowBubble($"{completedSource} 已停止", spent > 0 ? $"-{spent:0.00} {_settings.Currency}" : "任务结束", spent > 0 ? $"当前余额 {_lastBalance:0.00} {_settings.Currency}" : "已完成或手动停止");
+        ShowSystemNotification($"{completedSource} 任务已停止", spent > 0 ? $"本次消耗 {spent:0.00} {_settings.Currency}" : "任务已完成或手动停止", Forms.ToolTipIcon.Info);
         _codexStartBalance = null;
         _ = RefreshAfterCodexCompletionAsync();
         if (_codexShownPet)
@@ -1241,6 +1304,23 @@ public partial class MainWindow : Window
         return Task.CompletedTask;
     }
 
+    private string CurrentTaskSourceLabel()
+    {
+        var sources = _activeTaskSources
+            .Where(pair => _activeCodexTurns.Contains(pair.Key))
+            .Select(pair => pair.Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return sources.Length == 1 ? sources[0] : "AI 任务";
+    }
+
+    private static string TaskSourceLabel(string? provider)
+    {
+        if (string.IsNullOrWhiteSpace(provider)) return "Codex";
+        var value = provider.Trim();
+        return value.Length <= 32 ? value : value[..32];
+    }
+
     private async Task RefreshAfterCodexCompletionAsync()
     {
         await Task.Delay(CodexDoneDurationMs);
@@ -1248,9 +1328,11 @@ public partial class MainWindow : Window
         await RefreshAsync(false);
     }
 
-    private bool RemoveActiveCodexTurn(CodexTaskActivity activity)
+    private bool RemoveActiveCodexTurn(CodexTaskActivity activity, out string completedSource)
     {
-        if (!string.IsNullOrWhiteSpace(activity.TurnId) && _activeCodexTurns.Remove(activity.Key)) return true;
+        completedSource = TaskSourceLabel(activity.Provider);
+
+        if (!string.IsNullOrWhiteSpace(activity.TurnId) && RemoveTaskKey(activity.Key, ref completedSource)) return true;
 
         // Stop payloads from different Codex hosts can omit or rotate turn_id.
         // A session has one user turn at a time, so use its session as a safe
@@ -1258,14 +1340,14 @@ public partial class MainWindow : Window
         var sessionPrefix = activity.SessionId + ":";
         var matchingKey = _activeCodexTurns.FirstOrDefault(key =>
             key.StartsWith(sessionPrefix, StringComparison.Ordinal));
-        if (matchingKey is not null) return _activeCodexTurns.Remove(matchingKey);
+        if (matchingKey is not null) return RemoveTaskKey(matchingKey, ref completedSource);
 
         // If only one task is active, an otherwise malformed identity cannot
         // be confused with another task, so still honor the Stop event.
         if (_activeCodexTurns.Count == 1)
         {
             var soleKey = _activeCodexTurns.First();
-            return _activeCodexTurns.Remove(soleKey);
+            return RemoveTaskKey(soleKey, ref completedSource);
         }
 
         // A Stop event always represents one completed turn. If a host rotated
@@ -1274,9 +1356,16 @@ public partial class MainWindow : Window
         if (_activeCodexTurns.Count > 0)
         {
             var fallbackKey = _activeCodexTurns.First();
-            return _activeCodexTurns.Remove(fallbackKey);
+            return RemoveTaskKey(fallbackKey, ref completedSource);
         }
         return false;
+    }
+
+    private bool RemoveTaskKey(string key, ref string completedSource)
+    {
+        if (!_activeCodexTurns.Remove(key)) return false;
+        if (_activeTaskSources.Remove(key, out var source)) completedSource = source;
+        return true;
     }
 
     private void HideAfterCodexCompletion()

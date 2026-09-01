@@ -2,7 +2,7 @@
 
 面向 Windows 的余额桌宠。项目当前只维护 C# WPF 版本：它会按设定间隔查询中转站提供的余额 API，并以可互动的桌宠显示状态和余额，不需要打开中转站网页。
 
-当前预览版本：`v0.1.0-beta.11`。
+当前稳定版本：`v0.1.0`。
 
 ## 功能
 
@@ -12,7 +12,7 @@
 - 通知与统计：低余额提示、系统通知、每日用量和最近使用记录。
 - 配置迁移：可导入/导出不含令牌的设置文件，适合切换中转站或迁移到另一台电脑。
 - 更新管理：可选每次启动、每天、每周或仅手动检查 GitHub Release；更新说明会按章节清晰显示，确认后自动下载、SHA-256 校验、静默替换并重启更新，重启后会显示更新完成版本。
-- 托盘驻留与开机启动：支持从托盘配置、刷新、查看统计和退出；可自动跟随 Codex 任务的开始和结束。
+- 托盘驻留与开机启动：支持从托盘配置、刷新、查看统计和退出；右键菜单的“切换形象”可快速切换澜汐与霁珑；可自动跟随 AI 客户端任务的开始和结束。
 - 状态素材：支持 DeepSeek 小鲸鱼「澜汐」与 GPT 小龙「霁珑」的待机、加载、成功、低余额、错误、点击、Codex 工作/完成和闲置状态图。
 
 ## 运行
@@ -83,8 +83,23 @@ inactive.png
 - **互动动作**：控制锁定互动时的按压、回弹、轻微倾斜和表情状态；关闭后仍可拖动桌宠、点击刷新余额。
 - **随机彩蛋**：控制澜汐/霁珑的角色专属短台词、闲置提示和连续互动彩蛋。连续快速互动四次才会触发一次彩蛋，避免频繁打扰。
 - **状态切换**：正常查询成功后会短暂显示成功图，再回到待机图；鼠标按住角色期间会持续显示点击图，松开后才进入刷新或互动反馈。后台自动刷新不会重置闲置计时，15 分钟没有用户互动后会显示闲置图。
-- **Codex 状态**：启用“自动跟随 Codex 任务”后，BalancePet 会安装一个需要 Codex 审核信任的本地 Hook。按发送箭头时，桌宠切换到 `codex-working`；任务完成或手动停止时，切换到 `codex-done` 并刷新余额。Hook 只传递开始/停止事件和任务 ID，不读取或保存提示词、回复或令牌。
+- **AI 任务状态**：启用“自动跟随 AI 任务”后，BalancePet 会监听当前用户专用的本地命名管道。Codex 继续使用内置 Hook；其他客户端或 CLI 可调用发布包中的 `tools/balancepet-task.ps1`。任务开始时切换到 `codex-working`，完成或手动停止时切换到 `codex-done` 并刷新余额；气泡和通知会显示客户端名称。联动只传递开始/结束、客户端名和任务 ID，不读取或保存提示词、回复或令牌。
+- **无令牌保存**：余额 API 访问令牌可以暂时留空。保存设置时会跳过余额连接测试，但仍会保存 AI 任务联动等设置；之后配置令牌即可恢复余额查询。
 - 气泡提示会比余额状态提示更短，余额查询、低余额和错误提示不受上述开关影响。
+
+## AI 客户端兼容联动
+
+BalancePet 不需要安装对应的 AI 客户端或 CLI。只要某个客户端能在任务开始和结束时执行命令，就可以调用发布包内的通用发送脚本；只支持批处理命令的客户端可以使用同目录的 `balancepet-task.cmd` 包装器。
+
+开始任务：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\\tools\\balancepet-task.ps1" start <task-id> <provider>`
+
+结束任务：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\\tools\\balancepet-task.ps1" stop <task-id> <provider>`
+
+例如客户端名可以填写 `Claude Code`、`通义灵码` 或 `generic`。`<task-id>` 应在同一任务的开始和结束事件中保持一致；停止事件没有任务 ID 时，桌宠也会在只有一个任务时自动匹配。脚本只连接本机当前用户的 `BalancePet.Task.v1` 命名管道，不开放网络端口。能够直接使用命名管道的客户端也可以发送一行 JSON（`state` 使用 `start` 或 `stop`）：`{"state":"start","sessionId":"external:<provider>","turnId":"<task-id>","provider":"<provider>"}`。未运行 BalancePet 或未勾选“自动跟随 AI 任务”时，脚本会返回错误码 2。
+
+Gemini CLI、Qwen Code 和 Claude Code 可以配置其生命周期 Hook 调用 `tools\\balancepet-client-hook.ps1`。该适配器只从 Hook 标准输入中识别 `session_id`，将其作为任务 ID，并始终返回空 JSON；它不会读取、记录或传递提示词、回复、API 令牌或网络请求。Gemini 应使用 `BeforeAgent` / `AfterAgent`，Qwen 和 Claude 应使用 `UserPromptSubmit` / `Stop`；具体命令路径必须指向当前发布包中的该脚本。
+
+若已安装 Gemini CLI、Qwen Code 或 Claude Code，可在发布包根目录运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\\tools\\install-balancepet-client-hooks.ps1"`，自动合并当前用户的 Hook 设置；也可以将 `-Client` 指定为 `Gemini`、`Qwen` 或 `Claude`。安装器按名称去重，保留其他设置，并在修改已有设置文件前创建带时间戳的备份；客户端重启后生效。
 
 ## 项目结构
 

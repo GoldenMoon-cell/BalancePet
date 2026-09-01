@@ -31,6 +31,10 @@
           <MenuItem Header="立即刷新" Click="OnContextRefreshClick"/>
           <MenuItem x:Name="BubbleMenuItem" Header="显示气泡" Click="OnContextBubbleClick"/>
           <MenuItem x:Name="InteractionMenuItem" Header="切换为锁定互动" Click="OnContextInteractionClick"/>
+          <MenuItem Header="切换形象">
+            <MenuItem x:Name="DeepSeekStyleMenuItem" Header="DeepSeek 小鲸鱼「澜汐」" Tag="deepseek" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem x:Name="ChatGptStyleMenuItem" Header="GPT 小龙「霁珑」" Tag="chatgpt" IsCheckable="True" Click="OnPetStyleClick"/>
+          </MenuItem>
           <Separator/>
            <MenuItem Header="配置接口" Click="OnContextSettingsClick"/>
            <MenuItem Header="检查更新" Click="OnContextUpdateClick"/>

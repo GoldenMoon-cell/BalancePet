@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.1.0-beta.11"
+    [string]$Version = "0.1.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,6 +30,11 @@ Copy-Item (Join-Path $root "README.md") $stage
 Copy-Item (Join-Path $root "LICENSE") $stage
 Copy-Item (Join-Path $root "THIRD_PARTY_NOTICES.md") $stage
 Copy-Item (Join-Path $root "docs\UPGRADE.md") $stage
+New-Item -ItemType Directory -Path (Join-Path $stage "tools") -Force | Out-Null
+Copy-Item (Join-Path $root "tools\balancepet-task.ps1") (Join-Path $stage "tools")
+Copy-Item (Join-Path $root "tools\balancepet-task.cmd") (Join-Path $stage "tools")
+Copy-Item (Join-Path $root "tools\balancepet-client-hook.ps1") (Join-Path $stage "tools")
+Copy-Item (Join-Path $root "tools\install-balancepet-client-hooks.ps1") (Join-Path $stage "tools")
 New-Item -ItemType Directory -Path (Join-Path $stage "docs\licenses") -Force | Out-Null
 Copy-Item (Join-Path $root "docs\licenses\MeteorNOX-MIT.txt") (Join-Path $stage "docs\licenses")
 

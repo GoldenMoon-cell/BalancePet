@@ -113,15 +113,13 @@ public partial class SettingsWindow : Window
             if (string.IsNullOrWhiteSpace(token)) token = _tokens.Unprotect(_settings.TokenBlob);
             var startupEnabled = StartupBox.IsChecked == true;
             var updated = new PetSettings { Endpoint = endpoint.ToString(), AuthMode = authMode, HeaderName = HeaderBox.Text.Trim(), TokenBlob = _tokens.Protect(token), BalancePath = PathBox.Text.Trim(), Currency = CurrencyBox.Text.Trim().ToUpperInvariant(), RefreshSeconds = refresh, LowThreshold = threshold, PetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek", InteractionMode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free", UpdateCheckMode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily", LastUpdateCheckUtc = _settings.LastUpdateCheckUtc, Scale = ScaleSlider.Value, Volume = VolumeSlider.Value, Sound = SoundBox.IsChecked == true, Bubble = BubbleBox.IsChecked == true, InteractionEffects = InteractionEffectsBox.IsChecked == true, RandomEasterEggs = EasterEggsBox.IsChecked == true, CodexTaskIntegration = FollowCodexBox.IsChecked == true, SystemNotifications = NotificationsBox.IsChecked == true, StartWithWindows = startupEnabled, WindowX = _settings.WindowX, WindowY = _settings.WindowY, Flipped = _settings.Flipped };
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-            var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(updated, token);
             var hookChanged = false;
             var hookWasInstalled = CodexHookInstaller.IsInstalled();
             if (updated.CodexTaskIntegration)
             {
                 if (!CodexHookInstaller.TryInstall(out var hookError))
                 {
-                    MessageText.Text = $"Codex 自动联动安装失败：{hookError}";
+                    MessageText.Text = $"Codex Hook 安装失败：{hookError}";
                     return;
                 }
                 // Reinstalling also refreshes the script after a BalancePet update.
@@ -131,7 +129,7 @@ public partial class SettingsWindow : Window
             {
                 if (!CodexHookInstaller.TryUninstall(out var hookError))
                 {
-                    MessageText.Text = $"Codex 自动联动移除失败：{hookError}";
+                    MessageText.Text = $"Codex Hook 移除失败：{hookError}";
                     return;
                 }
                 hookChanged = true;
@@ -140,14 +138,37 @@ public partial class SettingsWindow : Window
             if (!StartupManager.SetEnabled(startupEnabled))
             {
                 MessageText.Foreground = System.Windows.Media.Brushes.DarkOrange;
-                MessageText.Text = "连接成功，但开机启动项写入失败，请检查 Windows 权限。";
+                MessageText.Text = "设置已保存，但开机启动项写入失败，请检查 Windows 权限。";
                 return;
             }
             if (hookChanged && updated.CodexTaskIntegration)
             {
-                System.Windows.MessageBox.Show(this, "Codex 自动联动已安装。请在 Codex 出现 Hook 审核提示时确认信任；之后发送、完成或停止任务都会自动通知桌宠。", "BalancePet", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show(this, "AI 任务联动已启用。Codex 会在出现 Hook 审核提示时请求信任；其他客户端可调用发布包 tools\\balancepet-task.ps1。之后任务开始、完成或停止都会自动通知桌宠。", "BalancePet", MessageBoxButton.OK, MessageBoxImage.Information);
             }
-            MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen; MessageText.Text = $"连接成功：{snapshot.Amount:0.00} {snapshot.Currency}"; DialogResult = true;
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                MessageText.Foreground = System.Windows.Media.Brushes.DarkOrange;
+                MessageText.Text = "设置已保存；未填写访问令牌，已跳过余额 API 测试。";
+                DialogResult = true;
+                return;
+            }
+
+            try
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+                var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(updated, token);
+                MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+                MessageText.Text = $"连接成功：{snapshot.Amount:0.00} {snapshot.Currency}";
+                DialogResult = true;
+            }
+            catch (Exception error)
+            {
+                MessageText.Foreground = System.Windows.Media.Brushes.DarkOrange;
+                var message = $"设置已保存，但余额 API 测试失败：{error.Message}";
+                MessageText.Text = message;
+                System.Windows.MessageBox.Show(this, message, "BalancePet", MessageBoxButton.OK, MessageBoxImage.Warning);
+                DialogResult = true;
+            }
         }
         catch (Exception error) { MessageText.Text = error.Message; }
     }
