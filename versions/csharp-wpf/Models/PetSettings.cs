@@ -4,6 +4,7 @@ namespace BalancePet.Wpf.Models;
 
 public sealed class PetSettings
 {
+    [JsonPropertyName("language")] public string Language { get; set; } = "zh-CN";
     [JsonPropertyName("endpoint")] public string Endpoint { get; set; } = "https://ai.websee.top/api/v1/auth/me?timezone=Asia%2FShanghai";
     [JsonPropertyName("auth_mode")] public string AuthMode { get; set; } = "authorization";
     [JsonPropertyName("header_name")] public string HeaderName { get; set; } = "Authorization";

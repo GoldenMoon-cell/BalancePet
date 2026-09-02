@@ -43,21 +43,24 @@ RestartApplications=no
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
+ShowLanguageDialog=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 
-[Messages]
-BeveledLabel=BalancePet
-WelcomeLabel1=欢迎安装 BalancePet
-WelcomeLabel2=安装向导将把 BalancePet {#AppVersion} 安装到你的电脑。%n%n可以选择仅当前用户安装，或为所有用户安装到受保护目录（需要管理员权限）。
-SelectDirLabel3=请选择 BalancePet 的安装目录：
-SelectDirBrowseLabel=点击“浏览”选择其他目录，文件夹名称可以自定义。
-FinishedHeadingLabel=BalancePet 安装完成
-FinishedLabel=BalancePet 已安装完成。
+[CustomMessages]
+english.InstallScopeHint=You can install for the current user or use administrator permissions for a shared, protected location.
+english.DesktopShortcut=Create a desktop shortcut
+english.AdditionalTasks=Additional options:
+english.LaunchBalancePet=Launch BalancePet
+chinesesimplified.InstallScopeHint=可以选择仅当前用户安装，或为所有用户安装到受保护目录（需要管理员权限）。
+chinesesimplified.DesktopShortcut=创建桌面快捷方式
+chinesesimplified.AdditionalTasks=附加选项：
+chinesesimplified.LaunchBalancePet=启动 BalancePet
 
 [Tasks]
-Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: "附加选项："; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:DesktopShortcut}"; GroupDescription: "{cm:AdditionalTasks}"; Flags: unchecked
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -67,9 +70,14 @@ Name: "{autoprograms}\BalancePet"; Filename: "{app}\{#AppExeName}"; WorkingDir: 
 Name: "{autodesktop}\BalancePet"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#AppExeName}"; Description: "启动 BalancePet"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchBalancePet}"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+procedure InitializeWizard;
+begin
+  WizardForm.WelcomeLabel2.Caption := WizardForm.WelcomeLabel2.Caption + #13#10#13#10 + CustomMessage('InstallScopeHint');
+end;
+
 function GetDefaultDir(Param: String): String;
 begin
   if IsAdminInstallMode then

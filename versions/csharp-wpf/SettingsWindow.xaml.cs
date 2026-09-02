@@ -29,9 +29,10 @@ public partial class SettingsWindow : Window
             ? settings.Monitors.Select(CloneProfile).ToList()
             : new List<MonitorProfile> { CreateProfileFromLegacy(settings) };
         RefreshProfileList(settings.SelectedMonitorId);
-        SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode); SelectByTag(UpdateCheckBox, settings.UpdateCheckMode);
+        SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode); SelectByTag(UpdateCheckBox, settings.UpdateCheckMode); SelectByTag(LanguageBox, settings.Language);
         ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
+        AppLocalization.Apply(this, settings.Language);
     }
 
     private static void SelectByTag(System.Windows.Controls.ComboBox box, string tag)
@@ -196,9 +197,11 @@ public partial class SettingsWindow : Window
             else _profiles.Add(CreateProfileFromLegacy(imported));
             RefreshProfileList(imported.SelectedMonitorId);
             SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode); SelectByTag(UpdateCheckBox, imported.UpdateCheckMode);
+            SelectByTag(LanguageBox, imported.Language);
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
             SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; EasterEggsBox.IsChecked = imported.RandomEasterEggs; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
+            AppLocalization.Apply(this, imported.Language);
             TokenBox.Clear();
             MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
             MessageText.Text = "设置已导入。令牌不会从文件导入，请在各监控账户中重新填写令牌。";
@@ -221,6 +224,7 @@ public partial class SettingsWindow : Window
             var export = new
             {
                 endpoint = selected.Endpoint,
+                language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "zh-CN",
                 auth_mode = selected.AuthMode,
                 header_name = selected.HeaderName,
                 balance_path = selected.BalancePath,
@@ -301,6 +305,7 @@ public partial class SettingsWindow : Window
             var updated = new PetSettings
             {
                 Endpoint = selected.Endpoint,
+                Language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "zh-CN",
                 AuthMode = selected.AuthMode,
                 HeaderName = selected.HeaderName,
                 TokenBlob = selected.TokenBlob,
@@ -403,6 +408,12 @@ public partial class SettingsWindow : Window
             "custom" => "令牌框填写 Header 值；上方 Header 名必须与中转站文档完全一致。",
             _ => "请以中转站接口文档要求为准。"
         };
+    }
+
+    private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "zh-CN";
+        AppLocalization.Apply(this, language);
     }
     private void OnCancel(object sender, RoutedEventArgs e) => DialogResult = false;
 }

@@ -28,10 +28,10 @@
     <Grid x:Name="PetSurface" Canvas.Right="0" Canvas.Bottom="0" Width="238" Height="238" Panel.ZIndex="2" Background="Transparent" MouseLeftButtonDown="OnMouseLeftButtonDown" MouseLeftButtonUp="OnMouseLeftButtonUp" LostMouseCapture="OnPetLostMouseCapture" MouseMove="OnPetMouseMove" ContextMenuOpening="OnPetContextMenuOpening">
       <Grid.ContextMenu>
         <ContextMenu x:Name="PetContextMenu" Placement="MousePoint">
-          <MenuItem Header="立即刷新" Click="OnContextRefreshClick"/>
+          <MenuItem x:Name="ContextRefreshMenuItem" Header="立即刷新" Click="OnContextRefreshClick"/>
           <MenuItem x:Name="BubbleMenuItem" Header="显示气泡" Click="OnContextBubbleClick"/>
           <MenuItem x:Name="InteractionMenuItem" Header="切换为锁定互动" Click="OnContextInteractionClick"/>
-          <MenuItem Header="切换形象">
+          <MenuItem x:Name="ContextStyleMenuItem" Header="切换形象">
             <MenuItem x:Name="DeepSeekStyleMenuItem" Header="DeepSeek 小鲸鱼「澜汐」" Tag="deepseek" IsCheckable="True" Click="OnPetStyleClick"/>
             <MenuItem x:Name="ChatGptStyleMenuItem" Header="ChatGPT 小龙「霁珑」" Tag="chatgpt" IsCheckable="True" Click="OnPetStyleClick"/>
             <MenuItem x:Name="MiniMaxStyleMenuItem" Header="MiniMax 小海螺「绯音」" Tag="minimax" IsCheckable="True" Click="OnPetStyleClick"/>
@@ -39,12 +39,12 @@
           </MenuItem>
           <MenuItem x:Name="MonitorMenuItem" Header="当前账户"/>
           <Separator/>
-           <MenuItem Header="配置接口" Click="OnContextSettingsClick"/>
-           <MenuItem Header="检查更新" Click="OnContextUpdateClick"/>
-           <MenuItem Header="用量统计" Click="OnContextUsageClick"/>
-          <MenuItem Header="隐藏桌宠" Click="OnContextHideClick"/>
+           <MenuItem x:Name="ContextSettingsMenuItem" Header="配置接口" Click="OnContextSettingsClick"/>
+           <MenuItem x:Name="ContextUpdateMenuItem" Header="检查更新" Click="OnContextUpdateClick"/>
+           <MenuItem x:Name="ContextUsageMenuItem" Header="用量统计" Click="OnContextUsageClick"/>
+          <MenuItem x:Name="ContextHideMenuItem" Header="隐藏桌宠" Click="OnContextHideClick"/>
           <Separator/>
-          <MenuItem Header="退出" Click="OnContextExitClick"/>
+          <MenuItem x:Name="ContextExitMenuItem" Header="退出" Click="OnContextExitClick"/>
         </ContextMenu>
       </Grid.ContextMenu>
       <Image x:Name="PetImage" Stretch="Uniform" Margin="0,0,-6,-6" RenderTransformOrigin="0.5,0.86"

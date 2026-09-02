@@ -48,6 +48,13 @@ public partial class MainWindow : Window
     private Forms.ToolStripMenuItem? _trayMiniMaxStyleItem;
     private Forms.ToolStripMenuItem? _trayGeminiStyleItem;
     private Forms.ToolStripMenuItem? _trayMonitorMenu;
+    private Forms.ToolStripMenuItem? _trayShowItem;
+    private Forms.ToolStripMenuItem? _trayRefreshItem;
+    private Forms.ToolStripMenuItem? _traySettingsItem;
+    private Forms.ToolStripMenuItem? _trayUpdateItem;
+    private Forms.ToolStripMenuItem? _trayUsageItem;
+    private Forms.ToolStripMenuItem? _trayExitItem;
+    private Forms.ToolStripMenuItem? _trayStyleMenuItem;
     private readonly Dictionary<string, Forms.ToolStripMenuItem> _trayMonitorItems = new(StringComparer.OrdinalIgnoreCase);
     private System.Drawing.Icon? _trayImage;
     private HwndSource? _windowSource;
@@ -267,6 +274,7 @@ public partial class MainWindow : Window
         SetupTray();
         UpdateTrayMonitorMenu();
         UpdateContextMonitorMenu();
+        ApplyLocalization();
         UpdatePetStyleMenuChecks();
         // Enabling Codex task following must not change the pet's visibility.
         // The pet stays visible after startup and settings reload; hiding is
@@ -731,10 +739,13 @@ public partial class MainWindow : Window
 
     private void OnPetContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        BubbleMenuItem.Header = BubbleGroup.Visibility == Visibility.Visible ? "隐藏气泡" : "显示气泡";
+        ApplyLocalization();
+        BubbleMenuItem.Header = BubbleGroup.Visibility == Visibility.Visible
+            ? AppLocalization.Text(_settings.Language, "隐藏气泡", "Hide bubble")
+            : AppLocalization.Text(_settings.Language, "显示气泡", "Show bubble");
         InteractionMenuItem.Header = string.Equals(_settings.InteractionMode, "locked", StringComparison.OrdinalIgnoreCase)
-            ? "切换为自由拖动"
-            : "切换为锁定互动";
+            ? AppLocalization.Text(_settings.Language, "切换为自由拖动", "Switch to free drag")
+            : AppLocalization.Text(_settings.Language, "切换为锁定互动", "Switch to locked interaction");
         UpdatePetStyleMenuChecks();
     }
 
@@ -838,7 +849,7 @@ public partial class MainWindow : Window
             _trayMonitorMenu.DropDownItems.Add(item);
         }
         if (_trayMonitorMenu.DropDownItems.Count == 0)
-            _trayMonitorMenu.DropDownItems.Add(new Forms.ToolStripMenuItem("未配置账户") { Enabled = false });
+            _trayMonitorMenu.DropDownItems.Add(new Forms.ToolStripMenuItem(AppLocalization.Text(_settings.Language, "未配置账户", "No accounts configured")) { Enabled = false });
     }
 
     private void UpdateContextMonitorMenu()
@@ -858,7 +869,7 @@ public partial class MainWindow : Window
             MonitorMenuItem.Items.Add(item);
         }
         if (MonitorMenuItem.Items.Count == 0)
-            MonitorMenuItem.Items.Add(new MenuItem { Header = "未配置账户", IsEnabled = false });
+            MonitorMenuItem.Items.Add(new MenuItem { Header = AppLocalization.Text(_settings.Language, "未配置账户", "No accounts configured"), IsEnabled = false });
     }
 
     private void SelectMonitor(string profileId)
@@ -882,13 +893,43 @@ public partial class MainWindow : Window
         else ShowBubble("已切换账户", SelectedMonitor?.Profile.Name ?? "当前账户", "余额与状态已切换");
     }
 
-    private static string PetStyleDisplayName(string style) => NormalizePetStyle(style) switch
+    private string PetStyleDisplayName(string style) => NormalizePetStyle(style) switch
     {
-        "chatgpt" => "ChatGPT 小龙「霁珑」",
-        "minimax" => "MiniMax 小海螺「绯音」",
-        "gemini" => "Gemini 小星猫「星璃」",
-        _ => "DeepSeek 小鲸鱼「澜汐」"
+        "chatgpt" => AppLocalization.Text(_settings.Language, "ChatGPT 小龙「霁珑」", "ChatGPT Dragon \"Jilong\""),
+        "minimax" => AppLocalization.Text(_settings.Language, "MiniMax 小海螺「绯音」", "MiniMax Shell \"Feiyin\""),
+        "gemini" => AppLocalization.Text(_settings.Language, "Gemini 小星猫「星璃」", "Gemini Star Cat \"Xingli\""),
+        _ => AppLocalization.Text(_settings.Language, "DeepSeek 小鲸鱼「澜汐」", "DeepSeek Whale \"Lanxi\"")
     };
+
+    private void ApplyLocalization()
+    {
+        AppLocalization.Apply(this, _settings.Language);
+        ContextRefreshMenuItem.Header = AppLocalization.Text(_settings.Language, "立即刷新", "Refresh now");
+        ContextStyleMenuItem.Header = AppLocalization.Text(_settings.Language, "切换形象", "Change appearance");
+        MonitorMenuItem.Header = AppLocalization.Text(_settings.Language, "当前账户", "Current account");
+        ContextSettingsMenuItem.Header = AppLocalization.Text(_settings.Language, "配置接口", "Configure API");
+        ContextUpdateMenuItem.Header = AppLocalization.Text(_settings.Language, "检查更新", "Check for updates");
+        ContextUsageMenuItem.Header = AppLocalization.Text(_settings.Language, "用量统计", "Usage");
+        ContextHideMenuItem.Header = AppLocalization.Text(_settings.Language, "隐藏桌宠", "Hide pet");
+        ContextExitMenuItem.Header = AppLocalization.Text(_settings.Language, "退出", "Exit");
+        DeepSeekStyleMenuItem.Header = PetStyleDisplayName("deepseek");
+        ChatGptStyleMenuItem.Header = PetStyleDisplayName("chatgpt");
+        MiniMaxStyleMenuItem.Header = PetStyleDisplayName("minimax");
+        GeminiStyleMenuItem.Header = PetStyleDisplayName("gemini");
+        if (_trayShowItem is not null) _trayShowItem.Text = AppLocalization.Text(_settings.Language, "显示桌宠", "Show pet");
+        if (_trayRefreshItem is not null) _trayRefreshItem.Text = AppLocalization.Text(_settings.Language, "立即刷新", "Refresh now");
+        if (_traySettingsItem is not null) _traySettingsItem.Text = AppLocalization.Text(_settings.Language, "配置接口", "Configure API");
+        if (_trayStyleMenuItem is not null) _trayStyleMenuItem.Text = AppLocalization.Text(_settings.Language, "切换形象", "Change appearance");
+        if (_trayMonitorMenu is not null) _trayMonitorMenu.Text = AppLocalization.Text(_settings.Language, "当前账户", "Current account");
+        if (_trayUpdateItem is not null) _trayUpdateItem.Text = AppLocalization.Text(_settings.Language, "检查更新", "Check for updates");
+        if (_trayUsageItem is not null) _trayUsageItem.Text = AppLocalization.Text(_settings.Language, "用量统计", "Usage");
+        if (_trayExitItem is not null) _trayExitItem.Text = AppLocalization.Text(_settings.Language, "退出", "Exit");
+        if (_trayDeepSeekStyleItem is not null) _trayDeepSeekStyleItem.Text = PetStyleDisplayName("deepseek");
+        if (_trayChatGptStyleItem is not null) _trayChatGptStyleItem.Text = PetStyleDisplayName("chatgpt");
+        if (_trayMiniMaxStyleItem is not null) _trayMiniMaxStyleItem.Text = PetStyleDisplayName("minimax");
+        if (_trayGeminiStyleItem is not null) _trayGeminiStyleItem.Text = PetStyleDisplayName("gemini");
+        if (_trayIcon is not null) _trayIcon.Text = AppLocalization.Text(_settings.Language, "小余额", "BalancePet");
+    }
 
     private void OnContextSettingsClick(object sender, RoutedEventArgs e) => OnSettingsClick(this, new RoutedEventArgs());
 
@@ -961,10 +1002,17 @@ public partial class MainWindow : Window
             Margin = new System.Windows.Forms.Padding(0),
             Padding = new System.Windows.Forms.Padding(0)
         };
-        menu.Items.Add("显示桌宠", null, (_, _) => { Show(); Activate(); });
-        menu.Items.Add("立即刷新", null, async (_, _) => await RefreshAsync(true, true));
-        menu.Items.Add("配置接口", null, (_, _) => OnSettingsClick(this, new RoutedEventArgs()));
-        var styleMenu = new Forms.ToolStripMenuItem("切换形象");
+        _trayShowItem = new Forms.ToolStripMenuItem();
+        _trayShowItem.Click += (_, _) => { Show(); Activate(); };
+        menu.Items.Add(_trayShowItem);
+        _trayRefreshItem = new Forms.ToolStripMenuItem();
+        _trayRefreshItem.Click += async (_, _) => await RefreshAsync(true, true);
+        menu.Items.Add(_trayRefreshItem);
+        _traySettingsItem = new Forms.ToolStripMenuItem();
+        _traySettingsItem.Click += (_, _) => OnSettingsClick(this, new RoutedEventArgs());
+        menu.Items.Add(_traySettingsItem);
+        var styleMenu = new Forms.ToolStripMenuItem();
+        _trayStyleMenuItem = styleMenu;
         _trayDeepSeekStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("deepseek")) { Tag = "deepseek" };
         _trayChatGptStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("chatgpt")) { Tag = "chatgpt" };
         _trayMiniMaxStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("minimax")) { Tag = "minimax" };
@@ -978,22 +1026,29 @@ public partial class MainWindow : Window
         styleMenu.DropDownItems.Add(_trayMiniMaxStyleItem);
         styleMenu.DropDownItems.Add(_trayGeminiStyleItem);
         menu.Items.Add(styleMenu);
-        _trayMonitorMenu = new Forms.ToolStripMenuItem("当前账户");
+        _trayMonitorMenu = new Forms.ToolStripMenuItem();
         menu.Items.Add(_trayMonitorMenu);
-        menu.Items.Add("检查更新", null, (_, _) => _ = CheckForUpdatesAsync(true));
-        menu.Items.Add("用量统计", null, (_, _) => Dispatcher.BeginInvoke(new Action(OpenUsageWindow)));
+        _trayUpdateItem = new Forms.ToolStripMenuItem();
+        _trayUpdateItem.Click += (_, _) => _ = CheckForUpdatesAsync(true);
+        menu.Items.Add(_trayUpdateItem);
+        _trayUsageItem = new Forms.ToolStripMenuItem();
+        _trayUsageItem.Click += (_, _) => Dispatcher.BeginInvoke(new Action(OpenUsageWindow));
+        menu.Items.Add(_trayUsageItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("退出", null, (_, _) => { _closing = true; System.Windows.Application.Current.Shutdown(); });
+        _trayExitItem = new Forms.ToolStripMenuItem();
+        _trayExitItem.Click += (_, _) => { _closing = true; System.Windows.Application.Current.Shutdown(); };
+        menu.Items.Add(_trayExitItem);
         _trayMenu = menu;
         // Assign the icon before making the shell icon visible. Some Explorer
         // versions do not repaint a NotifyIcon that started with Icon == null.
         _trayIcon = new Forms.NotifyIcon
         {
-            Text = "小余额",
+            Text = "BalancePet",
             Icon = _trayImage,
             ContextMenuStrip = menu,
             Visible = true
         };
+        ApplyLocalization();
         UpdatePetStyleMenuChecks();
         _trayIcon.DoubleClick += (_, _) => { Show(); Activate(); };
         // Explorer may not have created the notification area yet during a
@@ -1023,7 +1078,7 @@ public partial class MainWindow : Window
             if (!UpdateInstaller.TryCreatePlan(release, AppContext.BaseDirectory, out var plan, out var planError) || plan is null)
                 throw new InvalidOperationException(planError);
 
-            var dialog = new UpdateWindow(release, plan) { Owner = this };
+            var dialog = new UpdateWindow(release, plan, _settings.Language) { Owner = this };
             if (dialog.ShowDialog() != true) return;
 
             ShowBubble("正在更新", release.TagName, "下载并校验中");
@@ -1256,6 +1311,13 @@ public partial class MainWindow : Window
         _trayMiniMaxStyleItem = null;
         _trayGeminiStyleItem = null;
         _trayMonitorMenu = null;
+        _trayShowItem = null;
+        _trayRefreshItem = null;
+        _traySettingsItem = null;
+        _trayUpdateItem = null;
+        _trayUsageItem = null;
+        _trayExitItem = null;
+        _trayStyleMenuItem = null;
         _trayMonitorItems.Clear();
         _trayImage?.Dispose();
         _trayImage = null;
@@ -1263,13 +1325,16 @@ public partial class MainWindow : Window
 
     private void OpenUsageWindow()
     {
-        var dialog = new UsageWindow(SelectedMonitor?.UsageStore ?? _usageStore) { Owner = this };
+        var dialog = new UsageWindow(SelectedMonitor?.UsageStore ?? _usageStore, _settings.Language) { Owner = this };
         dialog.ShowDialog();
     }
 
     private void ShowBubble(string label, string amount, string hint, TimeSpan? duration = null)
     {
         if (!_settings.Bubble) return;
+        label = AppLocalization.Translate(label, _settings.Language);
+        amount = AppLocalization.Translate(amount, _settings.Language);
+        hint = AppLocalization.Translate(hint, _settings.Language);
         _pendingBubbleLabel = label;
         _pendingBubbleAmount = amount;
         _pendingBubbleHint = hint;
