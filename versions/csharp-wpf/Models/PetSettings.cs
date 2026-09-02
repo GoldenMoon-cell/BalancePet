@@ -11,6 +11,7 @@ public sealed class PetSettings
     [JsonPropertyName("balance_path")] public string BalancePath { get; set; } = "balance";
     [JsonPropertyName("currency")] public string Currency { get; set; } = "USD";
     [JsonPropertyName("refresh_seconds")] public int RefreshSeconds { get; set; } = 60;
+    [JsonPropertyName("auto_refresh_enabled")] public bool AutoRefreshEnabled { get; set; } = true;
     [JsonPropertyName("low_threshold")] public double LowThreshold { get; set; } = 5;
     [JsonPropertyName("pet_style")] public string PetStyle { get; set; } = "deepseek";
     [JsonPropertyName("interaction_mode")] public string InteractionMode { get; set; } = "free";

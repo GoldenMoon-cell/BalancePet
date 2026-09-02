@@ -6,7 +6,20 @@ using System.Text.RegularExpressions;
 
 namespace BalancePet.Wpf.Services;
 
-public sealed record UpdateRelease(string TagName, string Name, string Body, Uri DownloadUri, string? Digest);
+public enum UpdateAssetKind
+{
+    PortableArchive,
+    Installer
+}
+
+public sealed record UpdateAsset(UpdateAssetKind Kind, string Name, Uri DownloadUri, string? Digest);
+
+public sealed record UpdateRelease(
+    string TagName,
+    string Name,
+    string Body,
+    UpdateAsset? PortableArchive,
+    UpdateAsset? Installer);
 
 public sealed class UpdateService(HttpClient http)
 {
@@ -31,38 +44,41 @@ public sealed class UpdateService(HttpClient http)
             if (!release.TryGetProperty("assets", out var assets)) continue;
 
             var version = tag.TrimStart('v', 'V');
-            var expectedNames = new[]
-            {
-                $"BalancePet-{tag}-win-x64.zip",
-                $"BalancePet-{version}-win-x64.zip"
-            };
+            UpdateAsset? archive = null;
+            UpdateAsset? installer = null;
             foreach (var asset in assets.EnumerateArray())
             {
                 var name = asset.TryGetProperty("name", out var nameValue) ? nameValue.GetString() : null;
-                if (!expectedNames.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
                 var urlText = asset.TryGetProperty("browser_download_url", out var urlValue) ? urlValue.GetString() : null;
                 if (!Uri.TryCreate(urlText, UriKind.Absolute, out var downloadUri)) continue;
-                var title = release.TryGetProperty("name", out var titleValue) ? titleValue.GetString() : null;
-                var body = release.TryGetProperty("body", out var bodyValue) ? bodyValue.GetString() ?? "" : "";
                 var digest = asset.TryGetProperty("digest", out var digestValue) ? digestValue.GetString() : null;
-                return new UpdateRelease(tag, title ?? tag, body, downloadUri, digest);
+                if (Matches(name, $"BalancePet-{tag}-win-x64.zip", $"BalancePet-{version}-win-x64.zip"))
+                    archive = new UpdateAsset(UpdateAssetKind.PortableArchive, name!, downloadUri, digest);
+                else if (Matches(name, $"BalancePet-{tag}-Setup.exe", $"BalancePet-{version}-Setup.exe"))
+                    installer = new UpdateAsset(UpdateAssetKind.Installer, name!, downloadUri, digest);
             }
+
+            if (archive is null && installer is null) continue;
+            var title = release.TryGetProperty("name", out var titleValue) ? titleValue.GetString() : null;
+            var body = release.TryGetProperty("body", out var bodyValue) ? bodyValue.GetString() ?? "" : "";
+            return new UpdateRelease(tag, title ?? tag, body, archive, installer);
         }
 
         return null;
     }
 
-    public async Task<string> DownloadAsync(UpdateRelease release, CancellationToken cancellationToken = default)
+    public async Task<string> DownloadAsync(UpdateAsset asset, CancellationToken cancellationToken = default)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, release.DownloadUri);
+        using var request = new HttpRequestMessage(HttpMethod.Get, asset.DownloadUri);
         request.Headers.Accept.ParseAdd("application/octet-stream");
         request.Headers.UserAgent.ParseAdd("BalancePet-Updater/1.0");
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
-        if (response.Content.Headers.ContentLength > 200 * 1024 * 1024)
+        if (response.Content.Headers.ContentLength > 512 * 1024 * 1024)
             throw new InvalidDataException("更新包大小异常，已停止下载。");
 
-        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"BalancePet-update-{Guid.NewGuid():N}.zip");
+        var extension = asset.Kind == UpdateAssetKind.Installer ? ".exe" : ".zip";
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"BalancePet-update-{Guid.NewGuid():N}{extension}");
         try
         {
             await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
@@ -71,12 +87,12 @@ public sealed class UpdateService(HttpClient http)
                 await input.CopyToAsync(output, cancellationToken);
             }
 
-            if (!string.IsNullOrWhiteSpace(release.Digest) && release.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(asset.Digest) && asset.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
             {
                 await using var downloaded = File.OpenRead(path);
                 var hash = await SHA256.HashDataAsync(downloaded, cancellationToken);
                 var actual = $"sha256:{Convert.ToHexString(hash).ToLowerInvariant()}";
-                if (!string.Equals(actual, release.Digest, StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(actual, asset.Digest, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("更新包校验失败，文件可能已损坏或被篡改。");
             }
 
@@ -88,6 +104,9 @@ public sealed class UpdateService(HttpClient http)
             throw;
         }
     }
+
+    private static bool Matches(string? name, params string[] expectedNames) =>
+        !string.IsNullOrWhiteSpace(name) && expectedNames.Contains(name, StringComparer.OrdinalIgnoreCase);
 
     private static bool IsNewer(string candidate, string current)
     {

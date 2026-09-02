@@ -42,10 +42,10 @@
     <Border Grid.Row="2" Background="White" BorderBrush="#DCE2EE" BorderThickness="0,1,0,0" Padding="28,16">
       <Grid>
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" VerticalAlignment="Center" MaxWidth="300" Text="下载完成后将校验 SHA-256，并替换当前程序目录。" TextWrapping="Wrap" Foreground="#71809E" FontSize="12"/>
+        <TextBlock Grid.Column="0" x:Name="InstallHintText" VerticalAlignment="Center" MaxWidth="300" Text="下载完成后将校验 SHA-256，并替换当前程序目录。" TextWrapping="Wrap" Foreground="#71809E" FontSize="12"/>
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
           <Button Content="暂不更新" IsCancel="True" Style="{StaticResource SecondaryButton}" Margin="0,0,10,0"/>
-          <Button Content="下载并更新" IsDefault="True" Style="{StaticResource PrimaryButton}" Click="OnConfirmClick"/>
+          <Button x:Name="ConfirmButton" Content="下载并更新" IsDefault="True" Style="{StaticResource PrimaryButton}" Click="OnConfirmClick"/>
         </StackPanel>
       </Grid>
     </Border>

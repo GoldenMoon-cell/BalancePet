@@ -72,6 +72,7 @@ public sealed class SettingsStore
                 BalancePath = settings.BalancePath,
                 Currency = settings.Currency,
                 RefreshSeconds = Math.Max(30, settings.RefreshSeconds),
+                AutoRefreshEnabled = settings.AutoRefreshEnabled,
                 LowThreshold = settings.LowThreshold,
                 Enabled = true
             };
@@ -89,6 +90,7 @@ public sealed class SettingsStore
         settings.BalancePath = selected.BalancePath;
         settings.Currency = selected.Currency;
         settings.RefreshSeconds = selected.RefreshSeconds;
+        settings.AutoRefreshEnabled = selected.AutoRefreshEnabled;
         settings.LowThreshold = selected.LowThreshold;
     }
 }

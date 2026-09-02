@@ -10,12 +10,17 @@ public partial class UpdateWindow : Window
 {
     private static readonly Regex MarkdownLink = new(@"\[([^\]]+)\]\([^)]+\)", RegexOptions.CultureInvariant);
 
-    public UpdateWindow(UpdateRelease release)
+    public UpdateWindow(UpdateRelease release, UpdateInstallPlan plan)
     {
         InitializeComponent();
         VersionText.Text = release.TagName;
         ReleaseTitleText.Text = string.Equals(release.Name, release.TagName, StringComparison.OrdinalIgnoreCase) ? "BalancePet 更新" : release.Name;
-        AddReleaseNotes(release.Body, release.Digest);
+        AddReleaseNotes(release.Body, plan.Asset.Digest);
+        if (plan.Method == UpdateInstallMethod.Installer)
+        {
+            InstallHintText.Text = "当前安装目录需要管理员权限。下载后将启动安装器；确认 UAC 后由安装器完成替换。";
+            ConfirmButton.Content = "下载并启动安装器";
+        }
     }
 
     private void AddReleaseNotes(string body, string? digest)

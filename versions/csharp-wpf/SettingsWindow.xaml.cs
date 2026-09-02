@@ -20,6 +20,7 @@ public partial class SettingsWindow : Window
     private readonly List<MonitorProfile> _profiles;
     private string _currentProfileId = "";
     private bool _suppressProfileChange;
+    private bool _suppressRefreshChange;
 
     public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings)
     {
@@ -47,6 +48,7 @@ public partial class SettingsWindow : Window
         BalancePath = settings.BalancePath,
         Currency = settings.Currency,
         RefreshSeconds = Math.Max(30, settings.RefreshSeconds),
+        AutoRefreshEnabled = settings.AutoRefreshEnabled,
         LowThreshold = settings.LowThreshold,
         Enabled = true
     };
@@ -62,6 +64,7 @@ public partial class SettingsWindow : Window
         BalancePath = profile.BalancePath,
         Currency = profile.Currency,
         RefreshSeconds = profile.RefreshSeconds,
+        AutoRefreshEnabled = profile.AutoRefreshEnabled,
         LowThreshold = profile.LowThreshold,
         Enabled = profile.Enabled
     };
@@ -90,7 +93,12 @@ public partial class SettingsWindow : Window
         HeaderBox.Text = profile.HeaderName;
         PathBox.Text = profile.BalancePath;
         CurrencyBox.Text = profile.Currency;
-        RefreshBox.Text = Math.Max(30, profile.RefreshSeconds).ToString(CultureInfo.InvariantCulture);
+        _suppressRefreshChange = true;
+        var refreshTag = !profile.AutoRefreshEnabled ? "off" : profile.RefreshSeconds is 30 or 60 or 300 or 900 or 1800 or 3600 ? profile.RefreshSeconds.ToString(CultureInfo.InvariantCulture) : "custom";
+        SelectByTag(RefreshBox, refreshTag);
+        RefreshCustomBox.Text = Math.Max(30, profile.RefreshSeconds).ToString(CultureInfo.InvariantCulture);
+        _suppressRefreshChange = false;
+        UpdateRefreshModeVisibility();
         ThresholdBox.Text = profile.LowThreshold.ToString(CultureInfo.InvariantCulture);
         SelectByTag(AuthModeBox, profile.AuthMode);
         MonitorEnabledBox.IsChecked = profile.Enabled;
@@ -108,10 +116,44 @@ public partial class SettingsWindow : Window
         profile.HeaderName = HeaderBox.Text.Trim();
         profile.BalancePath = PathBox.Text.Trim();
         profile.Currency = string.IsNullOrWhiteSpace(CurrencyBox.Text) ? "USD" : CurrencyBox.Text.Trim().ToUpperInvariant();
-        if (int.TryParse(RefreshBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var refresh)) profile.RefreshSeconds = Math.Max(30, refresh);
+        var refreshTag = (RefreshBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        profile.AutoRefreshEnabled = !string.Equals(refreshTag, "off", StringComparison.OrdinalIgnoreCase);
+        if (profile.AutoRefreshEnabled)
+        {
+            var refreshText = string.Equals(refreshTag, "custom", StringComparison.OrdinalIgnoreCase)
+                ? RefreshCustomBox.Text
+                : refreshTag;
+            if (int.TryParse(refreshText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var refresh)) profile.RefreshSeconds = Math.Max(30, refresh);
+        }
         if (double.TryParse(ThresholdBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold)) profile.LowThreshold = threshold;
         profile.Enabled = MonitorEnabledBox.IsChecked == true;
         if (!string.IsNullOrWhiteSpace(TokenBox.Password)) profile.TokenBlob = _tokens.Protect(TokenBox.Password);
+    }
+
+    private void OnRefreshModeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressRefreshChange) return;
+        UpdateRefreshModeVisibility();
+    }
+
+    private void UpdateRefreshModeVisibility()
+    {
+        var custom = string.Equals((RefreshBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), "custom", StringComparison.OrdinalIgnoreCase);
+        RefreshCustomBox.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private bool ValidateRefreshInput()
+    {
+        var tag = (RefreshBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        if (string.Equals(tag, "off", StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.Equals(tag, "custom", StringComparison.OrdinalIgnoreCase)
+            && (!int.TryParse(RefreshCustomBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds) || seconds < 30))
+        {
+            MessageText.Text = "自定义自动刷新间隔必须是大于等于 30 的整数秒。";
+            RefreshCustomBox.Focus();
+            return false;
+        }
+        return true;
     }
 
     private void OnProfileSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -184,6 +226,7 @@ public partial class SettingsWindow : Window
                 balance_path = selected.BalancePath,
                 currency = selected.Currency,
                 refresh_seconds = selected.RefreshSeconds,
+                auto_refresh_enabled = selected.AutoRefreshEnabled,
                 low_threshold = selected.LowThreshold,
                 pet_style = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek",
                 interaction_mode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free",
@@ -208,6 +251,7 @@ public partial class SettingsWindow : Window
                     balance_path = profile.BalancePath,
                     currency = profile.Currency,
                     refresh_seconds = Math.Max(30, profile.RefreshSeconds),
+                    auto_refresh_enabled = profile.AutoRefreshEnabled,
                     low_threshold = profile.LowThreshold,
                     enabled = profile.Enabled
                 }).ToArray()
@@ -228,6 +272,7 @@ public partial class SettingsWindow : Window
     {
         SaveCurrentProfileFields();
         if (_profiles.Count == 0) { MessageText.Text = "至少保留一个监控账户。"; return; }
+        if (!ValidateRefreshInput()) return;
         foreach (var profile in _profiles.Where(value => value.Enabled))
         {
             if (!Uri.TryCreate(profile.Endpoint, UriKind.Absolute, out var endpoint) || endpoint.Scheme is not ("http" or "https"))
@@ -262,6 +307,7 @@ public partial class SettingsWindow : Window
                 BalancePath = selected.BalancePath,
                 Currency = selected.Currency,
                 RefreshSeconds = Math.Max(30, selected.RefreshSeconds),
+                AutoRefreshEnabled = selected.AutoRefreshEnabled,
                 LowThreshold = selected.LowThreshold,
                 PetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek",
                 InteractionMode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free",

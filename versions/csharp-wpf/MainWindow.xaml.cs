@@ -18,6 +18,8 @@ namespace BalancePet.Wpf;
 
 public partial class MainWindow : Window
 {
+    private static readonly TimeSpan ManualRefreshCooldown = TimeSpan.FromSeconds(5);
+
     private readonly SettingsStore _settingsStore = new();
     private readonly DpapiTokenStore _tokenStore = new();
     private readonly UsageLedgerStore _usageStore = new();
@@ -63,6 +65,7 @@ public partial class MainWindow : Window
     private double _todayUsage;
     private bool _hasBalance;
     private bool _refreshing;
+    private DateTimeOffset _lastManualRefreshAttempt = DateTimeOffset.MinValue;
     private bool _updateBusy;
     private string? _configuredUpdateCheckMode;
     private int _trayRecoveryAttempts;
@@ -205,7 +208,7 @@ public partial class MainWindow : Window
         {
             LoadSettingsAndPosition();
             if (ShowPostUpdateConfirmation()) return;
-            await RefreshAsync(true);
+            await RefreshAsync(false);
         };
         Closing += (_, e) =>
         {
@@ -249,8 +252,7 @@ public partial class MainWindow : Window
             Top = Math.Clamp(savedTop, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - Height));
         }
         else { Left = workArea.Right - Width - 24; Top = workArea.Bottom - Height - 24; }
-        _refreshTimer.Interval = TimeSpan.FromSeconds(1);
-        _refreshTimer.Start();
+        ConfigureRefreshTimer();
         ConfigureUpdateChecks();
         _floatTimer.Start();
         ResetInactiveTimer();
@@ -292,6 +294,7 @@ public partial class MainWindow : Window
                 BalancePath = _settings.BalancePath,
                 Currency = _settings.Currency,
                 RefreshSeconds = Math.Max(30, _settings.RefreshSeconds),
+                AutoRefreshEnabled = _settings.AutoRefreshEnabled,
                 LowThreshold = _settings.LowThreshold
             });
         }
@@ -320,6 +323,21 @@ public partial class MainWindow : Window
 
     private bool IsSelectedMonitor(MonitorRuntime runtime) => string.Equals(runtime.Profile.Id, _settings.SelectedMonitorId, StringComparison.OrdinalIgnoreCase);
 
+    private void ConfigureRefreshTimer()
+    {
+        var shouldPoll = _monitorStates.Values.Any(runtime => runtime.Profile.Enabled
+            && runtime.Profile.AutoRefreshEnabled
+            && !string.IsNullOrWhiteSpace(runtime.Profile.Endpoint));
+        if (!shouldPoll)
+        {
+            _refreshTimer.Stop();
+            return;
+        }
+
+        _refreshTimer.Interval = TimeSpan.FromSeconds(1);
+        if (!_refreshTimer.IsEnabled) _refreshTimer.Start();
+    }
+
     private void SyncSelectedMonitorState()
     {
         var selected = SelectedMonitor;
@@ -335,37 +353,98 @@ public partial class MainWindow : Window
     {
         if (_closing) return;
         if (manual) ResetInactiveTimer();
+        var selected = SelectedMonitor;
+        if (selectedOnly)
+        {
+            if (_monitorStates.Count > 0 && !_monitorStates.Values.Any(runtime => runtime.Profile.Enabled))
+            {
+                SetUnavailable("没有启用账户", "--", "请在设置中至少启用一个监控账户", manual);
+                return;
+            }
+
+            if (selected is null)
+            {
+                SetUnavailable("没有监控账户", "--", "请先添加监控账户", manual);
+                return;
+            }
+
+            if (!selected.Profile.Enabled)
+            {
+                SetUnavailable("账户未启用", "--", $"{selected.Profile.Name} 未启用监控，请先在设置中启用", manual);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(selected.Profile.Endpoint))
+            {
+                SetUnavailable("接口未配置", "--", $"请先填写 {selected.Profile.Name} 的余额 API 地址", manual);
+                return;
+            }
+        }
+
         var profiles = _monitorStates.Values
-            .Where(runtime => runtime.Profile.Enabled && !string.IsNullOrWhiteSpace(runtime.Profile.Endpoint) && (!selectedOnly || IsSelectedMonitor(runtime)))
+            .Where(runtime => runtime.Profile.Enabled && !string.IsNullOrWhiteSpace(runtime.Profile.Endpoint)
+                && (selectedOnly || runtime.Profile.AutoRefreshEnabled || force)
+                && (!selectedOnly || IsSelectedMonitor(runtime)))
             .ToArray();
-        if (profiles.Length == 0) { SetStatus("请先完成接口设置"); ShowBubble("还没配置", "--", "点击齿轮添加监控账户"); return; }
-        if (_refreshing) return;
+        if (profiles.Length == 0)
+        {
+            if (!selectedOnly && !force && !_monitorStates.Values.Any(runtime => runtime.Profile.Enabled && runtime.Profile.AutoRefreshEnabled)) return;
+            var hasAccounts = _monitorStates.Count > 0;
+            var hasEnabled = _monitorStates.Values.Any(runtime => runtime.Profile.Enabled);
+            if (!hasAccounts) SetUnavailable("没有监控账户", "--", "请先添加监控账户", manual);
+            else if (!hasEnabled) SetUnavailable("没有启用账户", "--", "请在设置中至少启用一个监控账户", manual);
+            else SetUnavailable("接口未配置", "--", "请在设置中填写已启用账户的余额 API 地址", manual);
+            return;
+        }
+        if (_refreshing)
+        {
+            if (manual) ShowBubble("正在刷新", "--", "上一轮查询尚未完成");
+            return;
+        }
         var now = DateTimeOffset.UtcNow;
-        var due = profiles.Where(runtime => force || manual || now - runtime.LastRefreshAttempt >= TimeSpan.FromSeconds(Math.Max(30, runtime.Profile.RefreshSeconds))).ToArray();
+        var due = profiles.Where(runtime =>
+            force || (manual
+                ? now - _lastManualRefreshAttempt >= ManualRefreshCooldown
+                : now - runtime.LastRefreshAttempt >= TimeSpan.FromSeconds(Math.Max(30, runtime.Profile.RefreshSeconds))))
+            .ToArray();
         if (due.Length == 0)
         {
             if (manual)
             {
-                var selected = SelectedMonitor;
-                var remaining = selected is null ? 30 : Math.Max(1, Math.Ceiling((TimeSpan.FromSeconds(Math.Max(30, selected.Profile.RefreshSeconds)) - (now - selected.LastRefreshAttempt)).TotalSeconds));
-                ShowBubble("请稍候", $"{remaining:0} 秒", "两次请求至少间隔 30 秒");
+                var remaining = Math.Max(1, Math.Ceiling((ManualRefreshCooldown - (now - _lastManualRefreshAttempt)).TotalSeconds));
+                ShowBubble("请稍候", $"{remaining:0} 秒", "手动刷新至少间隔 5 秒；自动刷新间隔可在设置中调整");
             }
             return;
         }
         _refreshing = true;
         try
         {
-            SetStatus("正在查询");
-            if (_activeCodexTurns.Count == 0) SetVisualState(PetVisualState.Loading);
-            if (manual) ShowBubble("正在刷新", "--", due.Length == 1 ? $"正在联系 {due[0].Profile.Name}" : $"正在查询 {due.Length} 个账户");
+            var selectedIsDue = due.Any(IsSelectedMonitor);
+            if (selectedIsDue)
+            {
+                SetStatus("正在查询");
+                if (_activeCodexTurns.Count == 0) SetVisualState(PetVisualState.Loading);
+                if (manual) ShowBubble("正在刷新", "--", due.Length == 1 ? $"正在联系 {due[0].Profile.Name}" : $"正在查询 {due.Length} 个账户");
+            }
             await Task.WhenAll(due.Select(runtime => RefreshMonitorAsync(runtime, manual)));
         }
         finally { _refreshing = false; }
     }
 
+    private void SetUnavailable(string title, string amount, string detail, bool notify)
+    {
+        SetStatus(title);
+        if (!notify) return;
+        if (_activeCodexTurns.Count == 0) RestoreSteadyVisualState();
+        ShowBubble(title, amount, detail);
+    }
+
     private async Task RefreshMonitorAsync(MonitorRuntime runtime, bool manual)
     {
-        runtime.LastRefreshAttempt = DateTimeOffset.UtcNow;
+        var attemptAt = DateTimeOffset.UtcNow;
+        runtime.LastRefreshAttempt = attemptAt;
+        if (manual) _lastManualRefreshAttempt = attemptAt;
+        runtime.Refreshing = true;
         try
         {
             var token = _tokenStore.Unprotect(runtime.Profile.TokenBlob);
@@ -421,6 +500,7 @@ public partial class MainWindow : Window
                 runtime.LastErrorNotification = DateTimeOffset.Now;
             }
         }
+        finally { runtime.Refreshing = false; }
     }
 
     private void SetStatus(string status)
@@ -623,7 +703,7 @@ public partial class MainWindow : Window
     private async Task RefreshAfterClickAsync()
     {
         if (_settings.InteractionEffects) await Task.Delay(420);
-        if (!_closing) await RefreshAsync(true);
+        if (!_closing) await RefreshAsync(true, true);
     }
 
     private void KickReleaseBounce()
@@ -647,7 +727,7 @@ public partial class MainWindow : Window
             _interactionTargetY = _lockedKind == "hair" ? dy * .16 : 0;
         }
     }
-    private async void OnRefreshClick(object sender, RoutedEventArgs e) => await RefreshAsync(true);
+    private async void OnRefreshClick(object sender, RoutedEventArgs e) => await RefreshAsync(true, true);
 
     private void OnPetContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
@@ -658,7 +738,7 @@ public partial class MainWindow : Window
         UpdatePetStyleMenuChecks();
     }
 
-    private async void OnContextRefreshClick(object sender, RoutedEventArgs e) => await RefreshAsync(true);
+    private async void OnContextRefreshClick(object sender, RoutedEventArgs e) => await RefreshAsync(true, true);
 
     private void OnContextBubbleClick(object sender, RoutedEventArgs e)
     {
@@ -831,7 +911,7 @@ public partial class MainWindow : Window
         {
             LoadSettingsAndPosition();
             ConfigureSounds();
-            await RefreshAsync(true);
+            await RefreshAsync(true, true);
         }
     }
     private void OnCloseClick(object sender, RoutedEventArgs e) => Hide();
@@ -882,7 +962,7 @@ public partial class MainWindow : Window
             Padding = new System.Windows.Forms.Padding(0)
         };
         menu.Items.Add("显示桌宠", null, (_, _) => { Show(); Activate(); });
-        menu.Items.Add("立即刷新", null, async (_, _) => await RefreshAsync(true));
+        menu.Items.Add("立即刷新", null, async (_, _) => await RefreshAsync(true, true));
         menu.Items.Add("配置接口", null, (_, _) => OnSettingsClick(this, new RoutedEventArgs()));
         var styleMenu = new Forms.ToolStripMenuItem("切换形象");
         _trayDeepSeekStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("deepseek")) { Tag = "deepseek" };
@@ -940,17 +1020,31 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var dialog = new UpdateWindow(release) { Owner = this };
+            if (!UpdateInstaller.TryCreatePlan(release, AppContext.BaseDirectory, out var plan, out var planError) || plan is null)
+                throw new InvalidOperationException(planError);
+
+            var dialog = new UpdateWindow(release, plan) { Owner = this };
             if (dialog.ShowDialog() != true) return;
 
             ShowBubble("正在更新", release.TagName, "下载并校验中");
-            var archive = await _updateService.DownloadAsync(release);
-            if (!UpdateInstaller.TryLaunch(archive, AppContext.BaseDirectory, Environment.ProcessId, release.TagName, out var error))
+            var payload = await _updateService.DownloadAsync(plan.Asset);
+            if (plan.Method == UpdateInstallMethod.Installer)
             {
-                try { File.Delete(archive); } catch (IOException) { }
-                throw new InvalidOperationException(error);
+                if (!UpdateInstaller.TryLaunchInstaller(payload, AppContext.BaseDirectory, out var installerError))
+                {
+                    try { File.Delete(payload); } catch (IOException) { }
+                    throw new InvalidOperationException(installerError);
+                }
+
+                ShowBubble("安装器已启动", release.TagName, "请在安装器中确认管理员授权并完成更新");
+                return;
             }
 
+            if (!UpdateInstaller.TryLaunchArchive(payload, AppContext.BaseDirectory, Environment.ProcessId, release.TagName, out var error))
+            {
+                try { File.Delete(payload); } catch (IOException) { }
+                throw new InvalidOperationException(error);
+            }
             _closing = true;
             System.Windows.Application.Current.Shutdown();
         }

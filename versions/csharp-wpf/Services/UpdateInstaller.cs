@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -6,7 +7,53 @@ namespace BalancePet.Wpf.Services;
 
 public static class UpdateInstaller
 {
-    public static bool TryLaunch(string archivePath, string targetDirectory, int processId, string targetVersion, out string error)
+    public static bool TryCreatePlan(UpdateRelease release, string targetDirectory, out UpdateInstallPlan? plan, out string error)
+    {
+        plan = null;
+        error = "";
+        if (CanWriteToDirectory(targetDirectory))
+        {
+            if (release.PortableArchive is not null)
+            {
+                plan = new UpdateInstallPlan(UpdateInstallMethod.PortableArchive, release.PortableArchive);
+                return true;
+            }
+
+            if (release.Installer is not null)
+            {
+                plan = new UpdateInstallPlan(UpdateInstallMethod.Installer, release.Installer);
+                return true;
+            }
+
+            error = "该版本没有可用的更新文件。";
+            return false;
+        }
+
+        if (release.Installer is not null)
+        {
+            plan = new UpdateInstallPlan(UpdateInstallMethod.Installer, release.Installer);
+            return true;
+        }
+
+        error = "当前安装目录需要管理员权限，但该版本未提供安装器更新包。请下载 Setup.exe 后手动更新。";
+        return false;
+    }
+
+    public static bool CanWriteToDirectory(string targetDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(targetDirectory) || !Directory.Exists(targetDirectory)) return false;
+        var probe = Path.Combine(targetDirectory, $".balancepet-write-probe-{Guid.NewGuid():N}.tmp");
+        try
+        {
+            using (File.Create(probe)) { }
+            File.Delete(probe);
+            return true;
+        }
+        catch (UnauthorizedAccessException) { return false; }
+        catch (IOException) { return false; }
+    }
+
+    public static bool TryLaunchArchive(string archivePath, string targetDirectory, int processId, string targetVersion, out string error)
     {
         error = "";
         if (!File.Exists(archivePath)) { error = "找不到已下载的更新包。"; return false; }
@@ -67,5 +114,48 @@ try {
         }
     }
 
+    public static bool TryLaunchInstaller(string installerPath, string targetDirectory, out string error)
+    {
+        error = "";
+        if (!File.Exists(installerPath)) { error = "找不到已下载的安装器。"; return false; }
+
+        try
+        {
+            var installer = Process.Start(new ProcessStartInfo
+            {
+                FileName = installerPath,
+                Arguments = $"/ALLUSERS /DIR=\"{QuoteArgument(targetDirectory)}\" /CLOSEAPPLICATIONS",
+                UseShellExecute = true,
+                Verb = "runas"
+            });
+            if (installer is null)
+            {
+                error = "无法启动安装器。";
+                return false;
+            }
+            return true;
+        }
+        catch (Win32Exception exception) when (exception.NativeErrorCode == 1223)
+        {
+            error = "已取消管理员授权，当前版本不会被修改。";
+            return false;
+        }
+        catch (Exception exception)
+        {
+            error = exception.Message;
+            return false;
+        }
+    }
+
     private static string Quote(string value) => value.Replace("'", "''", StringComparison.Ordinal);
+
+    private static string QuoteArgument(string value) => value.Replace("\"", "\\\"", StringComparison.Ordinal);
 }
+
+public enum UpdateInstallMethod
+{
+    PortableArchive,
+    Installer
+}
+
+public sealed record UpdateInstallPlan(UpdateInstallMethod Method, UpdateAsset Asset);
