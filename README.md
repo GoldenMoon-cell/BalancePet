@@ -69,6 +69,8 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 
 ## 素材
 
+素材来源：BiliBili UP @ZipZipPipe 
+
 状态图位于：
 
 ```text
