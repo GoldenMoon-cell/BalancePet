@@ -50,6 +50,9 @@ public static class AppLocalization
     private static readonly (string Chinese, string English)[] Pairs =
     {
         ("小余额设置", "BalancePet Settings"), ("监控账户", "Monitor accounts"), ("新增", "Add"), ("删除", "Delete"), ("启用", "Enabled"),
+        ("接口预设", "Endpoint preset"), ("自动识别（推荐）", "Automatic detection (recommended)"), ("通用 /v1/usage", "Generic /v1/usage"),
+        ("New API /api/usage/token", "New API /api/usage/token"), ("自定义接口", "Custom endpoint"), ("中转站地址", "Relay site address"),
+        ("只填写站点根地址，例如 https://example.com；程序会自动补全余额接口。", "Enter only the site root, such as https://example.com; BalancePet completes the balance endpoint."),
         ("余额 API 地址", "Balance API endpoint"), ("填写中转站文档中的余额查询 URL，不是网站首页或聊天接口。", "Enter the balance URL from your relay provider's documentation, not the website or chat endpoint."),
         ("认证方式", "Authentication"), ("Bearer Token（只填令牌）", "Bearer token (token only)"), ("完整 Authorization（需含 Bearer）", "Full Authorization (include Bearer)"),
         ("中转站会话（websee-session）", "Relay session (websee-session)"), ("自定义 Header", "Custom header"), ("x-api-key", "x-api-key"),

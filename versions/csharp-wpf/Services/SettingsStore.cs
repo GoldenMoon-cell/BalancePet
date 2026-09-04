@@ -57,6 +57,9 @@ public sealed class SettingsStore
             profile.Name = string.IsNullOrWhiteSpace(profile.Name) ? "监控账户" : profile.Name.Trim();
             profile.RefreshSeconds = Math.Max(30, profile.RefreshSeconds);
             profile.Currency = string.IsNullOrWhiteSpace(profile.Currency) ? "USD" : profile.Currency.Trim().ToUpperInvariant();
+            profile.PresetId = BalancePresetCatalog.NormalizeId(profile.PresetId);
+            if (BalancePresetCatalog.UsesSiteUrl(profile.PresetId))
+                BalancePresetCatalog.Apply(profile, profile.PresetId, BalancePresetCatalog.ResolveSiteUrl(profile));
         }
 
         if (settings.Monitors.Count == 0)
@@ -65,6 +68,7 @@ public sealed class SettingsStore
             {
                 Id = "default",
                 Name = "默认账户",
+                PresetId = BalancePresetCatalog.Custom,
                 Endpoint = settings.Endpoint,
                 AuthMode = settings.AuthMode,
                 HeaderName = settings.HeaderName,

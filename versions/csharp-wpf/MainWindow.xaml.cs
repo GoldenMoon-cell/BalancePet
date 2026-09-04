@@ -295,6 +295,7 @@ public partial class MainWindow : Window
             {
                 Id = "default",
                 Name = "默认账户",
+                PresetId = BalancePresetCatalog.Custom,
                 Endpoint = _settings.Endpoint,
                 AuthMode = _settings.AuthMode,
                 HeaderName = _settings.HeaderName,
@@ -313,6 +314,9 @@ public partial class MainWindow : Window
             profile.Name = string.IsNullOrWhiteSpace(profile.Name) ? "监控账户" : profile.Name.Trim();
             profile.RefreshSeconds = Math.Max(30, profile.RefreshSeconds);
             profile.Currency = string.IsNullOrWhiteSpace(profile.Currency) ? "USD" : profile.Currency.Trim().ToUpperInvariant();
+            profile.PresetId = BalancePresetCatalog.NormalizeId(profile.PresetId);
+            if (BalancePresetCatalog.UsesSiteUrl(profile.PresetId))
+                BalancePresetCatalog.Apply(profile, profile.PresetId, BalancePresetCatalog.ResolveSiteUrl(profile));
             var runtime = new MonitorRuntime(profile);
             if (runtime.CacheStore.TryLoad(out var cached))
             {
@@ -457,6 +461,7 @@ public partial class MainWindow : Window
         {
             var token = _tokenStore.Unprotect(runtime.Profile.TokenBlob);
             var snapshot = await new JsonBalanceProvider(_httpClient).FetchWithRetryAsync(runtime.Profile, token);
+            if (!string.IsNullOrWhiteSpace(snapshot.Currency)) runtime.Profile.Currency = snapshot.Currency;
             var hadBalance = runtime.HasBalance;
             var wasLow = hadBalance && runtime.LastBalance <= runtime.Profile.LowThreshold;
             var observation = runtime.UsageStore.Record(snapshot.Amount, snapshot.Currency, snapshot.UpdatedAt);

@@ -9,6 +9,8 @@ public sealed class MonitorProfile
 {
     [JsonPropertyName("id")] public string Id { get; set; } = Guid.NewGuid().ToString("N");
     [JsonPropertyName("name")] public string Name { get; set; } = "默认账户";
+    [JsonPropertyName("preset_id")] public string PresetId { get; set; } = "custom";
+    [JsonPropertyName("site_url")] public string SiteUrl { get; set; } = "";
     [JsonPropertyName("endpoint")] public string Endpoint { get; set; } = "";
     [JsonPropertyName("auth_mode")] public string AuthMode { get; set; } = "bearer";
     [JsonPropertyName("header_name")] public string HeaderName { get; set; } = "Authorization";

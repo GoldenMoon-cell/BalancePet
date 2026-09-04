@@ -1,9 +1,22 @@
 {
-  "endpoint": "https://your-relay.example/api/user/balance",
-  "auth_mode": "bearer",
-  "token_blob": "",
-  "balance_path": "data.balance",
-  "currency": "USD",
-  "refresh_seconds": 300,
-  "low_threshold": 5.0
+  "language": "zh-CN",
+  "selected_monitor_id": "example",
+  "monitors": [
+    {
+      "id": "example",
+      "name": "示例中转站",
+      "preset_id": "auto",
+      "site_url": "https://your-relay.example",
+      "endpoint": "https://your-relay.example",
+      "auth_mode": "bearer",
+      "header_name": "Authorization",
+      "token_blob": "",
+      "balance_path": "auto",
+      "currency": "USD",
+      "refresh_seconds": 300,
+      "auto_refresh_enabled": true,
+      "low_threshold": 5.0,
+      "enabled": true
+    }
+  ]
 }

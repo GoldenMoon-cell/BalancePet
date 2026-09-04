@@ -2,11 +2,11 @@
 
 面向 Windows 的余额桌宠。项目当前只维护 C# WPF 版本：它会按设定间隔查询中转站提供的余额 API，并以可互动的桌宠显示状态和余额，不需要打开中转站网页。
 
-当前发布版本：`v0.3.1`。
+当前发布版本：`v0.3.2`。
 
 ## 功能
 
-- 通用余额接口：可配置 API 地址、认证方式、请求头和余额 JSON 路径。
+- 余额接口预设：可自动识别常见接口，也可选择通用 `/v1/usage`、New API `/api/usage/token` 或完整自定义配置。
 - 多账户监控：可在设置中新增多个 API/中转站账户，每个账户独立令牌、刷新间隔、缓存、用量和低余额阈值；桌宠聚合显示当前选中账户，托盘可快速切换。
 - 凭证保护：令牌由 Windows DPAPI 按当前用户加密保存，不以明文写入项目配置。
 - 桌宠交互：置顶显示、自由拖动、边缘吸附、锁定互动、点击刷新和状态气泡；可独立关闭互动动作或随机彩蛋。
@@ -33,7 +33,9 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 
 ## 配置接口
 
-- **监控账户**：设置窗口顶部可以新增、删除和启用多个账户；每个账户单独填写 API 地址、认证方式、令牌、JSON 路径、刷新间隔和阈值。令牌仍按账户使用 Windows DPAPI 加密保存。
+- **监控账户**：设置窗口顶部可以新增、删除和启用多个账户；每个账户单独保存接口预设、令牌、刷新间隔和阈值。令牌仍按账户使用 Windows DPAPI 加密保存。
+- **接口预设**：“自动识别”会在同一站点依次尝试只读的 `/v1/usage` 和 `/api/usage/token`；也可直接选择对应协议。预设模式只需填写中转站根地址和 API Key，程序会补全接口、Bearer 认证与余额字段；New API 会读取公开状态中的额度比例和 USD/CNY/Token/自定义货币设置后再显示。
+- **自定义接口**：选择“自定义接口”后，可继续手动配置完整 API 地址、认证方式、请求头和 JSON 路径，旧版账户会按此模式无损迁移。
 - **余额 API 地址**：中转站文档给出的余额查询 API 完整 URL，不是网站首页或聊天接口。
 - **认证方式**：支持 `Bearer Token`、完整 `Authorization`、`x-api-key` 和自定义 Header。
 - **余额 JSON 路径**：例如 `{ "data": { "balance": 12.3 } }` 填写 `data.balance`。
@@ -46,7 +48,7 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 
 令牌、接口地址和本地用量数据均不应提交到 Git。配置与令牌保存在 `%LOCALAPPDATA%\BalancePet`；令牌使用 Windows DPAPI 加密。
 
-可参考无凭证示例：[docs/balance-pet.example.json](docs/balance-pet.example.json)。
+可参考无凭证示例：[docs/balance-pet.example.json](docs/balance-pet.example.json)。自动识别只向用户填写的同一站点发送令牌，不会把令牌交给第三方识别服务。
 
 ## 素材
 

@@ -4,8 +4,14 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
       <TextBlock Text="监控账户"/><Grid Margin="0,4,0,4"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="ProfileBox" SelectionChanged="OnProfileSelectionChanged" Margin="0,0,6,0"/><Button Grid.Column="1" Content="新增" Click="OnAddProfile" Padding="10,4" Margin="0,0,6,0"/><Button Grid.Column="2" Content="删除" Click="OnDeleteProfile" Padding="10,4" Margin="0,0,6,0"/><CheckBox x:Name="MonitorEnabledBox" Grid.Column="3" Content="启用" VerticalAlignment="Center"/></Grid>
       <TextBox x:Name="ProfileNameBox" ToolTip="给这个余额账户起一个容易识别的名称" Margin="0,0,0,12"/>
+      <TextBlock Text="接口预设"/><ComboBox x:Name="PresetBox" SelectionChanged="OnPresetChanged" Margin="0,4,0,2">
+        <ComboBoxItem Tag="auto">自动识别（推荐）</ComboBoxItem><ComboBoxItem Tag="v1-usage">通用 /v1/usage</ComboBoxItem><ComboBoxItem Tag="new-api-token">New API /api/usage/token</ComboBoxItem><ComboBoxItem Tag="custom">自定义接口</ComboBoxItem>
+      </ComboBox>
+      <TextBlock x:Name="PresetHint" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock x:Name="SiteUrlLabel" Text="中转站地址"/><TextBox x:Name="SiteUrlBox" TextChanged="OnSiteUrlChanged" Margin="0,4,0,2"/>
+      <TextBlock x:Name="SiteUrlHint" Text="只填写站点根地址，例如 https://example.com；程序会自动补全余额接口。" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
       <TextBlock Text="余额 API 地址"/><TextBox x:Name="EndpointBox" Margin="0,4,0,2"/>
-      <TextBlock Text="填写中转站文档中的余额查询 URL，不是网站首页或聊天接口。" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+      <TextBlock x:Name="EndpointHint" Text="填写中转站文档中的余额查询 URL，不是网站首页或聊天接口。" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
       <TextBlock Text="认证方式"/><ComboBox x:Name="AuthModeBox" SelectionChanged="OnAuthModeChanged" Margin="0,4,0,2">
         <ComboBoxItem Tag="bearer">Bearer Token（只填令牌）</ComboBoxItem><ComboBoxItem Tag="authorization">完整 Authorization（需含 Bearer）</ComboBoxItem><ComboBoxItem Tag="websee-session">中转站会话（websee-session）</ComboBoxItem><ComboBoxItem Tag="x-api-key">x-api-key</ComboBoxItem><ComboBoxItem Tag="custom">自定义 Header</ComboBoxItem>
       </ComboBox>

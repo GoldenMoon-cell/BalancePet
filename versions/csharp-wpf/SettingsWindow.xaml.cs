@@ -21,6 +21,8 @@ public partial class SettingsWindow : Window
     private string _currentProfileId = "";
     private bool _suppressProfileChange;
     private bool _suppressRefreshChange;
+    private bool _suppressPresetChange;
+    private bool _suppressSiteUrlChange;
 
     public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings)
     {
@@ -42,6 +44,7 @@ public partial class SettingsWindow : Window
     {
         Id = "default",
         Name = "默认账户",
+        PresetId = BalancePresetCatalog.Custom,
         Endpoint = settings.Endpoint,
         AuthMode = settings.AuthMode,
         HeaderName = settings.HeaderName,
@@ -58,6 +61,8 @@ public partial class SettingsWindow : Window
     {
         Id = profile.Id,
         Name = profile.Name,
+        PresetId = profile.PresetId,
+        SiteUrl = profile.SiteUrl,
         Endpoint = profile.Endpoint,
         AuthMode = profile.AuthMode,
         HeaderName = profile.HeaderName,
@@ -90,6 +95,12 @@ public partial class SettingsWindow : Window
         if (profile is null) return;
         _currentProfileId = profile.Id;
         ProfileNameBox.Text = profile.Name;
+        _suppressPresetChange = true;
+        SelectByTag(PresetBox, BalancePresetCatalog.NormalizeId(profile.PresetId));
+        _suppressPresetChange = false;
+        _suppressSiteUrlChange = true;
+        SiteUrlBox.Text = BalancePresetCatalog.UsesSiteUrl(profile.PresetId) ? BalancePresetCatalog.ResolveSiteUrl(profile) : "";
+        _suppressSiteUrlChange = false;
         EndpointBox.Text = profile.Endpoint;
         HeaderBox.Text = profile.HeaderName;
         PathBox.Text = profile.BalancePath;
@@ -105,6 +116,7 @@ public partial class SettingsWindow : Window
         MonitorEnabledBox.IsChecked = profile.Enabled;
         TokenBox.Clear();
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
+        UpdatePresetUi(true);
     }
 
     private void SaveCurrentProfileFields()
@@ -112,10 +124,19 @@ public partial class SettingsWindow : Window
         var profile = CurrentProfile;
         if (profile is null) return;
         profile.Name = string.IsNullOrWhiteSpace(ProfileNameBox.Text) ? "监控账户" : ProfileNameBox.Text.Trim();
-        profile.Endpoint = EndpointBox.Text.Trim();
-        profile.AuthMode = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "bearer";
-        profile.HeaderName = HeaderBox.Text.Trim();
-        profile.BalancePath = PathBox.Text.Trim();
+        var presetId = (PresetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? BalancePresetCatalog.Custom;
+        if (BalancePresetCatalog.UsesSiteUrl(presetId))
+        {
+            BalancePresetCatalog.Apply(profile, presetId, SiteUrlBox.Text);
+        }
+        else
+        {
+            profile.PresetId = BalancePresetCatalog.Custom;
+            profile.Endpoint = EndpointBox.Text.Trim();
+            profile.AuthMode = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "bearer";
+            profile.HeaderName = HeaderBox.Text.Trim();
+            profile.BalancePath = PathBox.Text.Trim();
+        }
         profile.Currency = string.IsNullOrWhiteSpace(CurrencyBox.Text) ? "USD" : CurrencyBox.Text.Trim().ToUpperInvariant();
         var refreshTag = (RefreshBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
         profile.AutoRefreshEnabled = !string.Equals(refreshTag, "off", StringComparison.OrdinalIgnoreCase);
@@ -135,6 +156,68 @@ public partial class SettingsWindow : Window
     {
         if (_suppressRefreshChange) return;
         UpdateRefreshModeVisibility();
+    }
+
+    private void OnPresetChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressPresetChange || PresetBox is null || SiteUrlBox is null) return;
+        var presetId = (PresetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? BalancePresetCatalog.Custom;
+        if (BalancePresetCatalog.UsesSiteUrl(presetId) && string.IsNullOrWhiteSpace(SiteUrlBox.Text))
+        {
+            _suppressSiteUrlChange = true;
+            SiteUrlBox.Text = BalancePresetCatalog.NormalizeSiteUrl(EndpointBox.Text);
+            _suppressSiteUrlChange = false;
+        }
+        UpdatePresetUi(true);
+    }
+
+    private void OnSiteUrlChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressSiteUrlChange || PresetBox is null) return;
+        UpdatePresetPreview();
+    }
+
+    private void UpdatePresetUi(bool updatePreview)
+    {
+        if (PresetBox is null || SiteUrlBox is null || EndpointBox is null || AuthModeBox is null || PathBox is null) return;
+        var presetId = (PresetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? BalancePresetCatalog.Custom;
+        var usesSiteUrl = BalancePresetCatalog.UsesSiteUrl(presetId);
+        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        var visibility = usesSiteUrl ? Visibility.Visible : Visibility.Collapsed;
+        SiteUrlLabel.Visibility = visibility;
+        SiteUrlBox.Visibility = visibility;
+        SiteUrlHint.Visibility = visibility;
+        EndpointBox.IsReadOnly = usesSiteUrl;
+        AuthModeBox.IsEnabled = !usesSiteUrl;
+        PathBox.IsReadOnly = usesSiteUrl;
+        EndpointHint.Text = AppLocalization.Text(language,
+            usesSiteUrl ? "接口地址由预设自动生成；切换到“自定义接口”后可以手动修改。" : "填写中转站文档中的余额查询 URL，不是网站首页或聊天接口。",
+            usesSiteUrl ? "The endpoint is generated by the preset. Switch to Custom endpoint to edit it." : "Enter the balance URL from your relay provider's documentation, not the website or chat endpoint.");
+        PresetHint.Text = presetId switch
+        {
+            BalancePresetCatalog.Auto => AppLocalization.Text(language, "依次尝试同一站点的 /v1/usage 和 /api/usage/token，只执行只读查询。", "Tries /v1/usage and /api/usage/token on the same site using read-only requests."),
+            BalancePresetCatalog.V1Usage => AppLocalization.Text(language, "适用于提供 /v1/usage 的中转站；自动识别 balance、remaining 和单位。", "For relays exposing /v1/usage; balance, remaining, and units are detected automatically."),
+            BalancePresetCatalog.NewApiToken => AppLocalization.Text(language, "适用于标准 New API 令牌额度接口，并按站点公开的额度与货币设置换算。", "Uses the standard New API token-usage endpoint and the site's published quota and currency settings."),
+            _ => AppLocalization.Text(language, "手动填写完整接口、认证方式和 JSON 路径。", "Enter the full endpoint, authentication method, and JSON path manually.")
+        };
+        if (updatePreview && usesSiteUrl) UpdatePresetPreview();
+        OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
+    }
+
+    private void UpdatePresetPreview()
+    {
+        var presetId = (PresetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? BalancePresetCatalog.Custom;
+        if (!BalancePresetCatalog.UsesSiteUrl(presetId)) return;
+        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        EndpointBox.Text = BalancePresetCatalog.BuildEndpoint(SiteUrlBox.Text, presetId);
+        SelectByTag(AuthModeBox, "bearer");
+        HeaderBox.Text = "Authorization";
+        PathBox.Text = presetId switch
+        {
+            BalancePresetCatalog.V1Usage => AppLocalization.Text(language, "balance / remaining（自动）", "balance / remaining (automatic)"),
+            BalancePresetCatalog.NewApiToken => AppLocalization.Text(language, "data.total_available（自动换算）", "data.total_available (automatic conversion)"),
+            _ => AppLocalization.Text(language, "自动识别", "Automatic detection")
+        };
     }
 
     private void UpdateRefreshModeVisibility()
@@ -167,10 +250,10 @@ public partial class SettingsWindow : Window
     private void OnAddProfile(object sender, RoutedEventArgs e)
     {
         SaveCurrentProfileFields();
-        var profile = new MonitorProfile { Id = Guid.NewGuid().ToString("N"), Name = $"监控账户 {_profiles.Count + 1}", Endpoint = "", Enabled = true };
+        var profile = new MonitorProfile { Id = Guid.NewGuid().ToString("N"), Name = $"监控账户 {_profiles.Count + 1}", PresetId = BalancePresetCatalog.Auto, Endpoint = "", Enabled = true };
         _profiles.Add(profile);
         RefreshProfileList(profile.Id);
-        EndpointBox.Focus();
+        SiteUrlBox.Focus();
     }
 
     private void OnDeleteProfile(object sender, RoutedEventArgs e)
@@ -249,6 +332,8 @@ public partial class SettingsWindow : Window
                 {
                     id = profile.Id,
                     name = profile.Name,
+                    preset_id = profile.PresetId,
+                    site_url = profile.SiteUrl,
                     endpoint = profile.Endpoint,
                     auth_mode = profile.AuthMode,
                     header_name = profile.HeaderName,
@@ -279,14 +364,15 @@ public partial class SettingsWindow : Window
         if (!ValidateRefreshInput()) return;
         foreach (var profile in _profiles.Where(value => value.Enabled))
         {
-            if (!Uri.TryCreate(profile.Endpoint, UriKind.Absolute, out var endpoint) || endpoint.Scheme is not ("http" or "https"))
+            var address = BalancePresetCatalog.UsesSiteUrl(profile.PresetId) ? profile.SiteUrl : profile.Endpoint;
+            if (!Uri.TryCreate(address, UriKind.Absolute, out var endpoint) || endpoint.Scheme is not ("http" or "https"))
             {
-                MessageText.Text = $"监控账户“{profile.Name}”的接口地址无效。";
+                MessageText.Text = $"监控账户“{profile.Name}”的{(BalancePresetCatalog.UsesSiteUrl(profile.PresetId) ? "中转站地址" : "接口地址")}无效。";
                 RefreshProfileList(profile.Id);
                 return;
             }
-            if (string.IsNullOrWhiteSpace(profile.BalancePath)) { MessageText.Text = $"监控账户“{profile.Name}”的余额 JSON 路径不能为空。"; RefreshProfileList(profile.Id); return; }
-            if (profile.AuthMode == "custom" && string.IsNullOrWhiteSpace(profile.HeaderName)) { MessageText.Text = $"监控账户“{profile.Name}”使用自定义 Header 时必须填写 Header 名。"; RefreshProfileList(profile.Id); return; }
+            if (!BalancePresetCatalog.UsesSiteUrl(profile.PresetId) && string.IsNullOrWhiteSpace(profile.BalancePath)) { MessageText.Text = $"监控账户“{profile.Name}”的余额 JSON 路径不能为空。"; RefreshProfileList(profile.Id); return; }
+            if (!BalancePresetCatalog.UsesSiteUrl(profile.PresetId) && profile.AuthMode == "custom" && string.IsNullOrWhiteSpace(profile.HeaderName)) { MessageText.Text = $"监控账户“{profile.Name}”使用自定义 Header 时必须填写 Header 名。"; RefreshProfileList(profile.Id); return; }
         }
         var selected = CurrentProfile ?? _profiles[0];
         string selectedToken;
@@ -378,7 +464,10 @@ public partial class SettingsWindow : Window
                 using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
                 var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(selected, selectedToken);
                 MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
-                MessageText.Text = $"连接成功：{snapshot.Amount:0.00} {snapshot.Currency}";
+                var resolved = selected.PresetId == BalancePresetCatalog.Auto && !string.IsNullOrWhiteSpace(snapshot.ResolvedPresetId)
+                    ? $"；已识别为 {BalancePresetCatalog.DisplayName(snapshot.ResolvedPresetId, updated.Language)}"
+                    : "";
+                MessageText.Text = $"连接成功：{snapshot.Amount:0.00} {snapshot.Currency}{resolved}";
                 DialogResult = true;
             }
             catch (Exception error)
@@ -397,7 +486,8 @@ public partial class SettingsWindow : Window
     {
         if (HeaderBox is null || AuthModeBox is null) return;
         var custom = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() == "custom";
-        HeaderBox.IsEnabled = custom;
+        var presetUsesSiteUrl = BalancePresetCatalog.UsesSiteUrl((PresetBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString());
+        HeaderBox.IsEnabled = custom && !presetUsesSiteUrl;
         if (!custom) HeaderBox.Text = "Authorization";
         AuthHint.Text = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() switch
         {
@@ -414,6 +504,7 @@ public partial class SettingsWindow : Window
     {
         var language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "zh-CN";
         AppLocalization.Apply(this, language);
+        UpdatePresetUi(false);
     }
     private void OnCancel(object sender, RoutedEventArgs e) => DialogResult = false;
 }

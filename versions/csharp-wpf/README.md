@@ -1,12 +1,12 @@
 # BalancePet C# WPF
 
-Current release: `v0.3.0`.
+Current release: `v0.3.2`.
 
 Native Windows implementation of BalancePet, built with C# WPF.
 
 ## Current use
 
-Run `launch-balance-pet-csharp.bat` from the workspace root. Open the tray menu and choose `配置接口` to edit the endpoint, authentication mode, Authorization value, JSON path, automatic refresh interval, pet image, and interaction mode. Automatic refresh can be disabled or set to common intervals or a custom value with a 30-second minimum; manual refreshes use a separate five-second cooldown. The token is stored with Windows DPAPI.
+Run `launch-balance-pet-csharp.bat` from the workspace root. Open the tray menu and choose `配置接口`. New profiles can automatically detect the read-only `/v1/usage` and New API `/api/usage/token` protocols from a relay root URL, while Custom endpoint preserves manual endpoint, authentication, and JSON-path configuration. Automatic refresh can be disabled or set to common intervals or a custom value with a 30-second minimum; manual refreshes use a separate five-second cooldown. The token is stored with Windows DPAPI.
 
 Its settings are stored at `%LOCALAPPDATA%\\BalancePet\\csharp-settings.json`; the token is protected in that file with Windows DPAPI.
 
