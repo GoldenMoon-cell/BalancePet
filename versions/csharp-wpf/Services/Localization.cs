@@ -66,7 +66,7 @@ public static class AppLocalization
         ("自动检查更新", "Automatic update checks"), ("每次启动时", "At every startup"), ("每天一次（推荐）", "Daily (recommended)"), ("每周一次", "Weekly"), ("仅手动检查", "Manual only"),
         ("桌宠大小", "Pet size"), ("音量", "Volume"), ("按压音效", "Press sound"), ("对话气泡", "Speech bubble"), ("互动动作", "Interaction effects"),
         ("随机彩蛋", "Random easter eggs"), ("自动跟随 AI 任务", "Follow AI tasks"), ("系统通知", "System notifications"), ("随 Windows 启动（进入托盘）", "Start with Windows (tray)"),
-        ("导入设置", "Import settings"), ("导出设置", "Export settings"), ("取消", "Cancel"), ("保存并测试", "Save and test"), ("语言", "Language"),
+        ("导入设置", "Import settings"), ("导出设置", "Export settings"), ("保存设置", "Save settings"), ("取消", "Cancel"), ("保存并测试", "Save and test"), ("语言", "Language"),
         ("简体中文", "Simplified Chinese"), ("English", "English"), ("用量统计", "Usage"), ("最近用量", "Recent usage"), ("本机保存的余额变化记录", "Balance changes saved on this computer"),
         ("日期", "Date"), ("消耗", "Usage"), ("共", "Total"), ("发现新版本", "New version available"), ("暂不更新", "Not now"), ("下载并更新", "Download and update"),
         ("下载并启动安装器", "Download and launch installer"), ("更新说明", "Release notes"), ("校验", "Verification"), ("BalancePet 更新", "BalancePet update"),

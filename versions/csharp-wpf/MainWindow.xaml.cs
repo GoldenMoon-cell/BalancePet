@@ -19,11 +19,12 @@ namespace BalancePet.Wpf;
 public partial class MainWindow : Window
 {
     private static readonly TimeSpan ManualRefreshCooldown = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan RefreshOperationTimeout = TimeSpan.FromSeconds(45);
 
     private readonly SettingsStore _settingsStore = new();
     private readonly DpapiTokenStore _tokenStore = new();
     private readonly UsageLedgerStore _usageStore = new();
-    private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly HttpClient _httpClient = CreateBalanceHttpClient();
     private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromMinutes(2) };
     private readonly UpdateService _updateService;
     private readonly DispatcherTimer _refreshTimer;
@@ -72,6 +73,7 @@ public partial class MainWindow : Window
     private double _todayUsage;
     private bool _hasBalance;
     private bool _refreshing;
+    private CancellationTokenSource? _refreshCancellation;
     private DateTimeOffset _lastManualRefreshAttempt = DateTimeOffset.MinValue;
     private bool _updateBusy;
     private string? _configuredUpdateCheckMode;
@@ -115,6 +117,20 @@ public partial class MainWindow : Window
     private ScaleTransform _petScale = new(1, 1);
     private RotateTransform _petRotate = new();
     private IntPtr WindowHandle => new WindowInteropHelper(this).Handle;
+
+    private static HttpClient CreateBalanceHttpClient()
+    {
+        var handler = new SocketsHttpHandler
+        {
+            // Relay services and NAT devices may drop long-idle connections. Rotate
+            // pooled connections periodically so a later manual refresh gets a
+            // fresh route without requiring an application restart.
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+            ConnectTimeout = TimeSpan.FromSeconds(10)
+        };
+        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(20) };
+    }
 
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoMove = 0x0002;
@@ -220,6 +236,7 @@ public partial class MainWindow : Window
         Closing += (_, e) =>
         {
             if (!_closing) { e.Cancel = true; Hide(); return; }
+            _refreshCancellation?.Cancel();
             _trayRecoveryTimer.Stop();
             _updateTimer.Stop();
             _codexTaskBridge.Dispose();
@@ -429,6 +446,8 @@ public partial class MainWindow : Window
             return;
         }
         _refreshing = true;
+        using var refreshCancellation = new CancellationTokenSource(RefreshOperationTimeout);
+        _refreshCancellation = refreshCancellation;
         try
         {
             var selectedIsDue = due.Any(IsSelectedMonitor);
@@ -438,9 +457,18 @@ public partial class MainWindow : Window
                 if (_activeCodexTurns.Count == 0) SetVisualState(PetVisualState.Loading);
                 if (manual) ShowBubble("正在刷新", "--", due.Length == 1 ? $"正在联系 {due[0].Profile.Name}" : $"正在查询 {due.Length} 个账户");
             }
-            await Task.WhenAll(due.Select(runtime => RefreshMonitorAsync(runtime, manual)));
+            await Task.WhenAll(due.Select(runtime => RefreshMonitorAsync(runtime, manual, refreshCancellation.Token)));
         }
-        finally { _refreshing = false; }
+        catch (OperationCanceledException) when (refreshCancellation.IsCancellationRequested)
+        {
+            // A settings reload or the operation deadline canceled this round.
+            // Do not replace a valid cached balance with a misleading error state.
+        }
+        finally
+        {
+            if (ReferenceEquals(_refreshCancellation, refreshCancellation)) _refreshCancellation = null;
+            _refreshing = false;
+        }
     }
 
     private void SetUnavailable(string title, string amount, string detail, bool notify)
@@ -451,7 +479,7 @@ public partial class MainWindow : Window
         ShowBubble(title, amount, detail);
     }
 
-    private async Task RefreshMonitorAsync(MonitorRuntime runtime, bool manual)
+    private async Task RefreshMonitorAsync(MonitorRuntime runtime, bool manual, CancellationToken cancellationToken)
     {
         var attemptAt = DateTimeOffset.UtcNow;
         runtime.LastRefreshAttempt = attemptAt;
@@ -460,7 +488,7 @@ public partial class MainWindow : Window
         try
         {
             var token = _tokenStore.Unprotect(runtime.Profile.TokenBlob);
-            var snapshot = await new JsonBalanceProvider(_httpClient).FetchWithRetryAsync(runtime.Profile, token);
+            var snapshot = await new JsonBalanceProvider(_httpClient).FetchWithRetryAsync(runtime.Profile, token, cancellationToken);
             if (!string.IsNullOrWhiteSpace(snapshot.Currency)) runtime.Profile.Currency = snapshot.Currency;
             var hadBalance = runtime.HasBalance;
             var wasLow = hadBalance && runtime.LastBalance <= runtime.Profile.LowThreshold;
@@ -487,6 +515,21 @@ public partial class MainWindow : Window
                 if (snapshot.Amount <= runtime.Profile.LowThreshold && (!wasLow || !hadBalance))
                     ShowSystemNotification($"{runtime.Profile.Name} 余额偏低", $"当前余额 {snapshot.Amount:0.00} {snapshot.Currency}", Forms.ToolTipIcon.Warning);
                 if (manual || !hadBalance) ShowBubble("账户余额", $"{snapshot.Amount:0.00} {snapshot.Currency}", $"{runtime.Profile.Name} · 更新于 {snapshot.UpdatedAt:HH:mm:ss} · 今日已用 {observation.TodayUsage:0.00}");
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Cancellation is expected when settings are reloaded or a request
+            // exceeds the bounded refresh window; leave the previous cache intact.
+            if (IsSelectedMonitor(runtime))
+            {
+                SyncSelectedMonitorState();
+                SetStatus("刷新失败");
+                if (_activeCodexTurns.Count == 0)
+                {
+                    RestoreSteadyVisualState();
+                    if (manual) ShowBubble("刷新失败", "--", $"{runtime.Profile.Name} 请求超时或已取消，请稍后重试");
+                }
             }
         }
         catch (Exception error)
@@ -952,13 +995,30 @@ public partial class MainWindow : Window
 
     private async void OnSettingsClick(object sender, RoutedEventArgs e)
     {
-        var dialog = new SettingsWindow(_settingsStore, _tokenStore, _settings) { Owner = this };
-        if (dialog.ShowDialog() == true)
+        var refreshTimerWasEnabled = _refreshTimer.IsEnabled;
+        _refreshTimer.Stop();
+        await StopActiveRefreshAsync();
+        try
         {
-            LoadSettingsAndPosition();
-            ConfigureSounds();
-            await RefreshAsync(true, true);
+            var dialog = new SettingsWindow(_settingsStore, _tokenStore, _settings) { Owner = this };
+            if (dialog.ShowDialog() == true)
+            {
+                LoadSettingsAndPosition();
+                ConfigureSounds();
+                await RefreshAsync(true, true);
+            }
         }
+        finally
+        {
+            if (!_closing && refreshTimerWasEnabled) ConfigureRefreshTimer();
+        }
+    }
+
+    private async Task StopActiveRefreshAsync()
+    {
+        _refreshCancellation?.Cancel();
+        while (_refreshing)
+            await Task.Delay(25);
     }
     private void OnCloseClick(object sender, RoutedEventArgs e) => Hide();
 

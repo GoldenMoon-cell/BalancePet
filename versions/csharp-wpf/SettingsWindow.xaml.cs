@@ -152,6 +152,12 @@ public partial class SettingsWindow : Window
         if (!string.IsNullOrWhiteSpace(TokenBox.Password)) profile.TokenBlob = _tokens.Protect(TokenBox.Password);
     }
 
+    private void OnProfileNameChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressProfileChange || ProfileBox is null || ProfileBox.SelectedItem is not ComboBoxItem item) return;
+        item.Content = string.IsNullOrWhiteSpace(ProfileNameBox.Text) ? "监控账户" : ProfileNameBox.Text.Trim();
+    }
+
     private void OnRefreshModeChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressRefreshChange) return;
@@ -359,6 +365,16 @@ public partial class SettingsWindow : Window
 
     private async void OnSave(object sender, RoutedEventArgs e)
     {
+        await SaveSettingsAndMaybeTestAsync(testConnection: true);
+    }
+
+    private async void OnApply(object sender, RoutedEventArgs e)
+    {
+        await SaveSettingsAndMaybeTestAsync(testConnection: false);
+    }
+
+    private async Task SaveSettingsAndMaybeTestAsync(bool testConnection)
+    {
         SaveCurrentProfileFields();
         if (_profiles.Count == 0) { MessageText.Text = "至少保留一个监控账户。"; return; }
         if (!ValidateRefreshInput()) return;
@@ -375,15 +391,18 @@ public partial class SettingsWindow : Window
             if (!BalancePresetCatalog.UsesSiteUrl(profile.PresetId) && profile.AuthMode == "custom" && string.IsNullOrWhiteSpace(profile.HeaderName)) { MessageText.Text = $"监控账户“{profile.Name}”使用自定义 Header 时必须填写 Header 名。"; RefreshProfileList(profile.Id); return; }
         }
         var selected = CurrentProfile ?? _profiles[0];
-        string selectedToken;
-        try
+        var selectedToken = "";
+        if (testConnection)
         {
-            selectedToken = _tokens.Unprotect(selected.TokenBlob);
-        }
-        catch (Exception error)
-        {
-            MessageText.Text = $"当前账户令牌无法解密：{error.Message}";
-            return;
+            try
+            {
+                selectedToken = _tokens.Unprotect(selected.TokenBlob);
+            }
+            catch (Exception error)
+            {
+                MessageText.Text = $"当前账户令牌无法解密：{error.Message}";
+                return;
+            }
         }
         try
         {
@@ -447,6 +466,13 @@ public partial class SettingsWindow : Window
                 MessageText.Text = "设置已保存，但开机启动项写入失败，请检查 Windows 权限。";
                 return;
             }
+            if (!testConnection)
+            {
+                MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+                var language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+                MessageText.Text = AppLocalization.Text(language, "设置已保存，可以继续修改其他账户。", "Settings saved. You can continue editing other accounts.");
+                return;
+            }
             if (hookChanged && updated.CodexTaskIntegration)
             {
                 System.Windows.MessageBox.Show(this, "AI 任务联动已启用。Codex 会在出现 Hook 审核提示时请求信任；其他客户端可调用发布包 tools\\balancepet-task.ps1。之后任务开始、完成或停止都会自动通知桌宠。", "BalancePet", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -479,7 +505,10 @@ public partial class SettingsWindow : Window
                 DialogResult = true;
             }
         }
-        catch (Exception error) { MessageText.Text = error.Message; }
+        catch (Exception error)
+        {
+            MessageText.Text = error.Message;
+        }
     }
 
     private void OnAuthModeChanged(object sender, SelectionChangedEventArgs e)

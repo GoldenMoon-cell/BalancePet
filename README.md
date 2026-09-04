@@ -2,7 +2,24 @@
 
 面向 Windows 的余额桌宠。项目当前只维护 C# WPF 版本：它会按设定间隔查询中转站提供的余额 API，并以可互动的桌宠显示状态和余额，不需要打开中转站网页。
 
-当前发布版本：`v0.3.2`。
+当前发布版本：`v0.3.3`。
+
+## 项目统计
+
+<div align="center">
+<table>
+<tr>
+<td align="center"><a href="https://github.com/GoldenMoon-cell/BalancePet/stargazers"><img src="https://img.shields.io/github/stars/GoldenMoon-cell/BalancePet?style=flat-square&label=Stars" alt="GitHub stars"></a></td>
+<td align="center"><a href="https://github.com/GoldenMoon-cell/BalancePet/network/members"><img src="https://img.shields.io/github/forks/GoldenMoon-cell/BalancePet?style=flat-square&label=Forks" alt="GitHub forks"></a></td>
+<td align="center"><a href="https://github.com/GoldenMoon-cell/BalancePet/issues"><img src="https://img.shields.io/github/issues/GoldenMoon-cell/BalancePet?style=flat-square&label=Open%20issues" alt="Open issues"></a></td>
+</tr>
+<tr>
+<td align="center"><a href="https://github.com/GoldenMoon-cell/BalancePet/releases"><img src="https://img.shields.io/github/downloads/GoldenMoon-cell/BalancePet/total?style=flat-square&label=Downloads" alt="GitHub downloads"></a></td>
+<td align="center"><a href="https://github.com/GoldenMoon-cell/BalancePet/releases/latest"><img src="https://img.shields.io/github/v/release/GoldenMoon-cell/BalancePet?style=flat-square&label=Latest%20release" alt="Latest release"></a></td>
+<td align="center"><a href="https://github.com/GoldenMoon-cell/BalancePet/blob/main/LICENSE"><img src="https://img.shields.io/github/license/GoldenMoon-cell/BalancePet?style=flat-square&label=License" alt="License"></a></td>
+</tr>
+</table>
+</div>
 
 ## 功能
 

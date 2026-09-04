@@ -3,7 +3,7 @@
     <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
       <TextBlock Text="监控账户"/><Grid Margin="0,4,0,4"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="ProfileBox" SelectionChanged="OnProfileSelectionChanged" Margin="0,0,6,0"/><Button Grid.Column="1" Content="新增" Click="OnAddProfile" Padding="10,4" Margin="0,0,6,0"/><Button Grid.Column="2" Content="删除" Click="OnDeleteProfile" Padding="10,4" Margin="0,0,6,0"/><CheckBox x:Name="MonitorEnabledBox" Grid.Column="3" Content="启用" VerticalAlignment="Center"/></Grid>
-      <TextBox x:Name="ProfileNameBox" ToolTip="给这个余额账户起一个容易识别的名称" Margin="0,0,0,12"/>
+      <TextBox x:Name="ProfileNameBox" TextChanged="OnProfileNameChanged" ToolTip="给这个余额账户起一个容易识别的名称" Margin="0,0,0,12"/>
       <TextBlock Text="接口预设"/><ComboBox x:Name="PresetBox" SelectionChanged="OnPresetChanged" Margin="0,4,0,2">
         <ComboBoxItem Tag="auto">自动识别（推荐）</ComboBoxItem><ComboBoxItem Tag="v1-usage">通用 /v1/usage</ComboBoxItem><ComboBoxItem Tag="new-api-token">New API /api/usage/token</ComboBoxItem><ComboBoxItem Tag="custom">自定义接口</ComboBoxItem>
       </ComboBox>
@@ -34,6 +34,7 @@
         <Button Content="导出设置" Click="OnExport" Padding="12,7"/>
       </StackPanel>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="保存设置" Click="OnApply" Padding="14,7" Margin="0,0,8,0"/>
         <Button Content="取消" Click="OnCancel" Padding="18,7" Margin="0,0,8,0"/>
         <Button Content="保存并测试" Click="OnSave" Padding="18,7" Background="#263D78" Foreground="White"/>
       </StackPanel>
