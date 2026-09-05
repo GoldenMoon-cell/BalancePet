@@ -681,9 +681,10 @@ public partial class MainWindow : Window
             PetVisualState.CodexDone => "codex-done",
             _ => state.ToString().ToLowerInvariant()
         };
+        var styleDirectory = PetStyleCatalog.ResolveAssetDirectory(style);
         var baseName = style == "chatgpt" ? "chatgpt-dragon.png" : "pet.png";
-        var statePath = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", "pets", style, $"{stateName}.png");
-        var styleIdlePath = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", "pets", style, "idle.png");
+        var statePath = System.IO.Path.Combine(styleDirectory, $"{stateName}.png");
+        var styleIdlePath = System.IO.Path.Combine(styleDirectory, "idle.png");
         var basePath = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", baseName);
         var selectedPath = File.Exists(statePath) ? statePath : File.Exists(styleIdlePath) ? styleIdlePath : basePath;
         if (!File.Exists(selectedPath) || string.Equals(_activePetImagePath, selectedPath, StringComparison.OrdinalIgnoreCase)) return;
@@ -988,6 +989,7 @@ public partial class MainWindow : Window
 
     private void UpdatePetStyleAvailability()
     {
+        RefreshExtensionStyleMenus();
         foreach (var item in ContextStyleMenuItem.Items.OfType<MenuItem>())
         {
             if (item.Tag is string id)
@@ -1002,6 +1004,44 @@ public partial class MainWindow : Window
         {
             if (item.Tag is string id)
                 item.Enabled = PetStyleCatalog.IsAvailable(id);
+        }
+    }
+
+    private void RefreshExtensionStyleMenus()
+    {
+        var extensionStyles = PetStyleCatalog.GetAvailableExtensionStyles();
+        var availableExtensionIds = extensionStyles.Select(definition => definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var builtInIds = PetStyleCatalog.All.Select(definition => definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in ContextStyleMenuItem.Items.OfType<MenuItem>().ToArray())
+        {
+            if (item.Tag is string id && !builtInIds.Contains(id) && !availableExtensionIds.Contains(id))
+                ContextStyleMenuItem.Items.Remove(item);
+        }
+        var contextIds = ContextStyleMenuItem.Items.OfType<MenuItem>()
+            .Select(item => item.Tag?.ToString())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in extensionStyles)
+        {
+            if (!contextIds.Add(definition.Id)) continue;
+            var item = new MenuItem { Header = PetStyleDisplayName(definition.Id), Tag = definition.Id, IsCheckable = true };
+            item.Click += OnPetStyleClick;
+            ContextStyleMenuItem.Items.Add(item);
+        }
+
+        if (_trayStyleMenuItem is null) return;
+        foreach (var item in _trayStyleItems.Where(pair => !builtInIds.Contains(pair.Key) && !availableExtensionIds.Contains(pair.Key)).ToArray())
+        {
+            _trayStyleMenuItem.DropDownItems.Remove(item.Value);
+            _trayStyleItems.Remove(item.Key);
+        }
+        foreach (var definition in extensionStyles)
+        {
+            if (_trayStyleItems.ContainsKey(definition.Id)) continue;
+            var item = new Forms.ToolStripMenuItem(PetStyleDisplayName(definition.Id)) { Tag = definition.Id };
+            item.Click += (_, _) => ChangePetStyle(definition.Id);
+            _trayStyleItems[definition.Id] = item;
+            _trayStyleMenuItem.DropDownItems.Add(item);
         }
     }
 

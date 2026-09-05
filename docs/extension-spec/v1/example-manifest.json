@@ -1,0 +1,10 @@
+{
+  "id": "pet.example",
+  "type": "pet",
+  "name": "示例桌宠",
+  "name_en": "Example Pet",
+  "style": "pet.example",
+  "version": "1.0.0",
+  "api_version": 1,
+  "min_core_version": "0.5.0"
+}

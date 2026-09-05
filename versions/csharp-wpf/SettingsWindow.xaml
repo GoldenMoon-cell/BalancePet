@@ -1,43 +1,175 @@
-<Window x:Class="BalancePet.Wpf.SettingsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="小余额设置" Width="520" Height="650" WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+<Window x:Class="BalancePet.Wpf.SettingsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="小余额设置" Width="640" Height="720" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" Loaded="OnWindowLoaded">
   <Grid Margin="18">
-    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
-      <TextBlock Text="监控账户"/><Grid Margin="0,4,0,4"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="ProfileBox" SelectionChanged="OnProfileSelectionChanged" Margin="0,0,6,0"/><Button Grid.Column="1" Content="新增" Click="OnAddProfile" Padding="10,4" Margin="0,0,6,0"/><Button Grid.Column="2" Content="删除" Click="OnDeleteProfile" Padding="10,4" Margin="0,0,6,0"/><CheckBox x:Name="MonitorEnabledBox" Grid.Column="3" Content="启用" VerticalAlignment="Center"/></Grid>
-      <TextBox x:Name="ProfileNameBox" TextChanged="OnProfileNameChanged" ToolTip="给这个余额账户起一个容易识别的名称" Margin="0,0,0,12"/>
-      <TextBlock Text="接口预设"/><ComboBox x:Name="PresetBox" SelectionChanged="OnPresetChanged" Margin="0,4,0,2">
-        <ComboBoxItem Tag="auto">自动识别（推荐）</ComboBoxItem><ComboBoxItem Tag="v1-usage">通用 /v1/usage</ComboBoxItem><ComboBoxItem Tag="new-api-token">New API /api/usage/token</ComboBoxItem><ComboBoxItem Tag="custom">自定义接口</ComboBoxItem>
-      </ComboBox>
-      <TextBlock x:Name="PresetHint" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-      <TextBlock x:Name="SiteUrlLabel" Text="中转站地址"/><TextBox x:Name="SiteUrlBox" TextChanged="OnSiteUrlChanged" Margin="0,4,0,2"/>
-      <TextBlock x:Name="SiteUrlHint" Text="只填写站点根地址，例如 https://example.com；程序会自动补全余额接口。" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
-      <TextBlock Text="余额 API 地址"/><TextBox x:Name="EndpointBox" Margin="0,4,0,2"/>
-      <TextBlock x:Name="EndpointHint" Text="填写中转站文档中的余额查询 URL，不是网站首页或聊天接口。" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
-      <TextBlock Text="认证方式"/><ComboBox x:Name="AuthModeBox" SelectionChanged="OnAuthModeChanged" Margin="0,4,0,2">
-        <ComboBoxItem Tag="bearer">Bearer Token（只填令牌）</ComboBoxItem><ComboBoxItem Tag="authorization">完整 Authorization（需含 Bearer）</ComboBoxItem><ComboBoxItem Tag="websee-session">中转站会话（websee-session）</ComboBoxItem><ComboBoxItem Tag="x-api-key">x-api-key</ComboBoxItem><ComboBoxItem Tag="custom">自定义 Header</ComboBoxItem>
-      </ComboBox>
-      <TextBlock x:Name="AuthHint" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-      <TextBlock Text="自定义 Header 名"/><TextBox x:Name="HeaderBox" Margin="0,4,0,12"/>
-      <TextBlock Text="访问令牌（留空保持现有令牌；无令牌时跳过测试）"/><PasswordBox x:Name="TokenBox" Margin="0,4,0,12"/>
-      <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel Margin="0,0,8,0"><TextBlock Text="余额 JSON 路径"/><TextBox x:Name="PathBox" Margin="0,4,0,12"/></StackPanel><StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="货币"/><TextBox x:Name="CurrencyBox" Margin="0,4,0,12"/></StackPanel></Grid>
-      <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel Margin="0,0,8,0"><TextBlock Text="自动刷新间隔"/><ComboBox x:Name="RefreshBox" SelectionChanged="OnRefreshModeChanged" ToolTip="仅控制自动刷新；手动刷新固定至少间隔 5 秒。" Margin="0,4,0,2"><ComboBoxItem Tag="off">关闭自动刷新</ComboBoxItem><ComboBoxItem Tag="30">每 30 秒</ComboBoxItem><ComboBoxItem Tag="60">每 1 分钟</ComboBoxItem><ComboBoxItem Tag="300">每 5 分钟</ComboBoxItem><ComboBoxItem Tag="900">每 15 分钟</ComboBoxItem><ComboBoxItem Tag="1800">每 30 分钟</ComboBoxItem><ComboBoxItem Tag="3600">每 1 小时</ComboBoxItem><ComboBoxItem Tag="custom">自定义</ComboBoxItem></ComboBox><TextBox x:Name="RefreshCustomBox" Visibility="Collapsed" ToolTip="请输入自动刷新秒数，最少 30 秒" Margin="0,4,0,12"/></StackPanel><StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="低余额阈值"/><TextBox x:Name="ThresholdBox" Margin="0,4,0,12"/></StackPanel></Grid>
-       <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel Margin="0,0,8,0"><TextBlock Text="宠物形象"/><ComboBox x:Name="PetStyleBox" Margin="0,4,0,12"><ComboBoxItem Tag="deepseek" ToolTip="DeepSeek 小鲸鱼 / Whale-chan / 澜汐">DeepSeek 小鲸鱼「澜汐」</ComboBoxItem><ComboBoxItem Tag="chatgpt" ToolTip="ChatGPT 小白龙 / ChatGPT White Dragon / 霁珑">ChatGPT 小白龙「霁珑」</ComboBoxItem><ComboBoxItem Tag="minimax" ToolTip="MiniMax 小海螺 / 绯音">MiniMax 小海螺「绯音」</ComboBoxItem><ComboBoxItem Tag="gemini" ToolTip="Gemini 小星猫 / 星璃">Gemini 小星猫「星璃」</ComboBoxItem><ComboBoxItem Tag="grok" ToolTip="Grok 小恶魔 / Grok Little Demon / 烬斧">Grok 小恶魔「烬斧」</ComboBoxItem><ComboBoxItem Tag="claude" IsEnabled="False" ToolTip="素材尚未完成">Claude 小书灵「丹笺」</ComboBoxItem><ComboBoxItem Tag="kimi" IsEnabled="False" ToolTip="素材尚未完成">Kimi 小棱镜「虹谱」</ComboBoxItem><ComboBoxItem Tag="qwen" IsEnabled="False" ToolTip="素材尚未完成">Qwen 小折扇「绀华」</ComboBoxItem><ComboBoxItem Tag="ernie" IsEnabled="False" ToolTip="素材尚未完成">Ernie 小病书灵「青绡」</ComboBoxItem><ComboBoxItem Tag="glm" IsEnabled="False" ToolTip="素材尚未完成">GLM 小方灵「青棱」</ComboBoxItem><ComboBoxItem Tag="gpt-image2" IsEnabled="False" ToolTip="素材尚未完成">GPT Image 2 小墨龙「玄珏」</ComboBoxItem><ComboBoxItem Tag="llama" IsEnabled="False" ToolTip="素材尚未完成">Llama 小羊驼「绒眠」</ComboBoxItem><ComboBoxItem Tag="mimo" IsEnabled="False" ToolTip="素材尚未完成">MiMo 小兔码师「橙析」</ComboBoxItem><ComboBoxItem Tag="mistral" IsEnabled="False" ToolTip="素材尚未完成">Mistral 小猫骑士「麦霜」</ComboBoxItem><ComboBoxItem Tag="opencode" IsEnabled="False" ToolTip="素材尚未完成">OpenCode 小码灵「墨枢」</ComboBoxItem><ComboBoxItem Tag="perplexity" IsEnabled="False" ToolTip="素材尚未完成">Perplexity 小探灯「青鉴」</ComboBoxItem><ComboBoxItem Tag="rwkv" IsEnabled="False" ToolTip="素材尚未完成">RWKV 小乌鸦「夜翎」</ComboBoxItem><ComboBoxItem Tag="seedence" IsEnabled="False" ToolTip="素材尚未完成">Seedence 小星晶「澄芽」</ComboBoxItem></ComboBox></StackPanel><StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="交互模式"/><ComboBox x:Name="InteractionBox" Margin="0,4,0,12"><ComboBoxItem Tag="free">自由拖动</ComboBoxItem><ComboBoxItem Tag="locked">锁定互动</ComboBoxItem></ComboBox></StackPanel></Grid>
-      <TextBlock Text="自动检查更新"/><ComboBox x:Name="UpdateCheckBox" Margin="0,4,0,12"><ComboBoxItem Tag="startup">每次启动时</ComboBoxItem><ComboBoxItem Tag="daily">每天一次（推荐）</ComboBoxItem><ComboBoxItem Tag="weekly">每周一次</ComboBoxItem><ComboBoxItem Tag="manual">仅手动检查</ComboBoxItem></ComboBox>
-      <TextBlock Text="语言"/><ComboBox x:Name="LanguageBox" SelectionChanged="OnLanguageChanged" Margin="0,4,0,12"><ComboBoxItem Tag="zh-CN">简体中文</ComboBoxItem><ComboBoxItem Tag="en-US">English</ComboBoxItem></ComboBox>
-      <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><StackPanel Margin="0,0,8,0"><TextBlock Text="桌宠大小"/><Slider x:Name="ScaleSlider" Minimum="0.6" Maximum="1.4" TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,8,0,12"/></StackPanel><StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="音量"/><Slider x:Name="VolumeSlider" Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,8,0,12"/></StackPanel></Grid>
-      <WrapPanel Margin="0,0,0,12"><CheckBox x:Name="SoundBox" Content="按压音效" Margin="0,0,18,8"/><CheckBox x:Name="BubbleBox" Content="对话气泡" Margin="0,0,18,8"/><CheckBox x:Name="InteractionEffectsBox" Content="互动动作" Margin="0,0,18,8"/><CheckBox x:Name="EasterEggsBox" Content="随机彩蛋" Margin="0,0,18,8"/><CheckBox x:Name="FollowCodexBox" Content="自动跟随 AI 任务" ToolTip="兼容 Codex Hook 和其他客户端调用；只传递开始、结束、客户端名和任务 ID，不读取提示词、回复或令牌" Margin="0,0,18,8"/><CheckBox x:Name="AccountStatusBox" Content="识别 AI 登录账户" ToolTip="客户端仅上报账户类型、API 地址和令牌指纹；BalancePet 不读取网页登录凭据或明文令牌" Margin="0,0,18,8"/><CheckBox x:Name="NotificationsBox" Content="系统通知" Margin="0,0,18,8"/></WrapPanel>
-      <CheckBox x:Name="StartupBox" Content="随 Windows 启动（进入托盘）" Margin="0,0,0,12"/>
-      <TextBlock x:Name="MessageText" Foreground="#C43B52" TextWrapping="Wrap"/>
-    </StackPanel></ScrollViewer>
-    <Grid Grid.Row="1" Margin="0,12,0,0">
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-        <Button Content="导入设置" Click="OnImport" Padding="12,7" Margin="0,0,6,0"/>
-        <Button Content="导出设置" Click="OnExport" Padding="12,7"/>
-      </StackPanel>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-        <Button Content="保存设置" Click="OnApply" Padding="14,7" Margin="0,0,8,0"/>
-        <Button Content="取消" Click="OnCancel" Padding="18,7" Margin="0,0,8,0"/>
-        <Button Content="保存并测试" Click="OnSave" Padding="18,7" Background="#263D78" Foreground="White"/>
-      </StackPanel>
-    </Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <TabControl Grid.Row="0" Margin="0,0,0,10" SelectionChanged="OnTabSelectionChanged">
+      <TabItem Header="账户与接口">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="2">
+            <TextBlock Text="监控账户" FontWeight="SemiBold" FontSize="15"/>
+            <Grid Margin="0,5,0,4">
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <ComboBox x:Name="ProfileBox" SelectionChanged="OnProfileSelectionChanged" Margin="0,0,6,0"/>
+              <Button Grid.Column="1" Content="新增" Click="OnAddProfile" Padding="10,4" Margin="0,0,6,0"/>
+              <Button Grid.Column="2" Content="删除" Click="OnDeleteProfile" Padding="10,4" Margin="0,0,6,0"/>
+              <CheckBox x:Name="MonitorEnabledBox" Grid.Column="3" Content="启用" VerticalAlignment="Center"/>
+            </Grid>
+            <TextBox x:Name="ProfileNameBox" TextChanged="OnProfileNameChanged" ToolTip="给这个余额账户起一个容易识别的名称" Margin="0,0,0,14"/>
+
+            <TextBlock Text="接口预设"/>
+            <ComboBox x:Name="PresetBox" SelectionChanged="OnPresetChanged" Margin="0,5,0,2">
+              <ComboBoxItem Tag="auto">自动识别（推荐）</ComboBoxItem>
+              <ComboBoxItem Tag="v1-usage">通用 /v1/usage</ComboBoxItem>
+              <ComboBoxItem Tag="new-api-token">New API /api/usage/token</ComboBoxItem>
+              <ComboBoxItem Tag="custom">自定义接口</ComboBoxItem>
+            </ComboBox>
+            <TextBlock x:Name="PresetHint" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+            <TextBlock x:Name="SiteUrlLabel" Text="中转站地址"/>
+            <TextBox x:Name="SiteUrlBox" TextChanged="OnSiteUrlChanged" Margin="0,5,0,2"/>
+            <TextBlock x:Name="SiteUrlHint" Text="只填写站点根地址，例如 https://example.com；程序会自动补全余额接口。" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+            <TextBlock Text="余额 API 地址"/>
+            <TextBox x:Name="EndpointBox" Margin="0,5,0,2"/>
+            <TextBlock x:Name="EndpointHint" Text="填写中转站文档中的余额查询 URL，不是网站首页或聊天接口。" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+            <TextBlock Text="认证方式"/>
+            <ComboBox x:Name="AuthModeBox" SelectionChanged="OnAuthModeChanged" Margin="0,5,0,2">
+              <ComboBoxItem Tag="bearer">Bearer Token（只填令牌）</ComboBoxItem>
+              <ComboBoxItem Tag="authorization">完整 Authorization（需含 Bearer）</ComboBoxItem>
+              <ComboBoxItem Tag="websee-session">中转站会话（websee-session）</ComboBoxItem>
+              <ComboBoxItem Tag="x-api-key">x-api-key</ComboBoxItem>
+              <ComboBoxItem Tag="custom">自定义 Header</ComboBoxItem>
+            </ComboBox>
+            <TextBlock x:Name="AuthHint" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,9"/>
+
+            <TextBlock Text="自定义 Header 名"/>
+            <TextBox x:Name="HeaderBox" Margin="0,5,0,12"/>
+            <TextBlock Text="访问令牌（留空保持现有令牌；无令牌时跳过测试）" TextWrapping="Wrap"/>
+            <PasswordBox x:Name="TokenBox" Margin="0,5,0,12"/>
+
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,8,0"><TextBlock Text="余额 JSON 路径"/><TextBox x:Name="PathBox" Margin="0,5,0,12"/></StackPanel>
+              <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="货币"/><TextBox x:Name="CurrencyBox" Margin="0,5,0,12"/></StackPanel>
+            </Grid>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,8,0">
+                <TextBlock Text="自动刷新间隔"/>
+                <ComboBox x:Name="RefreshBox" SelectionChanged="OnRefreshModeChanged" ToolTip="仅控制自动刷新；手动刷新固定至少间隔 5 秒" Margin="0,5,0,2">
+                  <ComboBoxItem Tag="off">关闭自动刷新</ComboBoxItem><ComboBoxItem Tag="30">每 30 秒</ComboBoxItem><ComboBoxItem Tag="60">每 1 分钟</ComboBoxItem><ComboBoxItem Tag="300">每 5 分钟</ComboBoxItem><ComboBoxItem Tag="900">每 15 分钟</ComboBoxItem><ComboBoxItem Tag="1800">每 30 分钟</ComboBoxItem><ComboBoxItem Tag="3600">每 1 小时</ComboBoxItem><ComboBoxItem Tag="custom">自定义</ComboBoxItem>
+                </ComboBox>
+                <TextBox x:Name="RefreshCustomBox" Visibility="Collapsed" ToolTip="请输入自动刷新秒数，最少 30 秒" Margin="0,5,0,12"/>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="低余额阈值"/><TextBox x:Name="ThresholdBox" Margin="0,5,0,12"/></StackPanel>
+            </Grid>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="桌宠与交互">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="2">
+            <TextBlock Text="外观与操作" FontWeight="SemiBold" FontSize="15"/>
+            <Grid Margin="0,8,0,4">
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,8,0">
+                <TextBlock Text="宠物形象"/>
+                <ComboBox x:Name="PetStyleBox" Margin="0,5,0,12">
+                  <ComboBoxItem Tag="deepseek" ToolTip="DeepSeek 小鲸鱼 / Whale-chan / 澜汐">DeepSeek 小鲸鱼「澜汐」</ComboBoxItem>
+                  <ComboBoxItem Tag="chatgpt" ToolTip="ChatGPT 小白龙 / ChatGPT White Dragon / 霁珑">ChatGPT 小白龙「霁珑」</ComboBoxItem>
+                  <ComboBoxItem Tag="minimax" ToolTip="MiniMax 小海螺 / 绯音">MiniMax 小海螺「绯音」</ComboBoxItem>
+                  <ComboBoxItem Tag="gemini" ToolTip="Gemini 小星猫 / 星璃">Gemini 小星猫「星璃」</ComboBoxItem>
+                  <ComboBoxItem Tag="grok" ToolTip="Grok 小恶魔 / Grok Little Demon / 烬斧">Grok 小恶魔「烬斧」</ComboBoxItem>
+                  <ComboBoxItem Tag="claude" IsEnabled="False" ToolTip="素材尚未完成">Claude 小书灵「丹笺」</ComboBoxItem>
+                  <ComboBoxItem Tag="kimi" IsEnabled="False" ToolTip="素材尚未完成">Kimi 小棱镜「虹谱」</ComboBoxItem>
+                  <ComboBoxItem Tag="qwen" IsEnabled="False" ToolTip="素材尚未完成">Qwen 小折扇「绀华」</ComboBoxItem>
+                  <ComboBoxItem Tag="ernie" IsEnabled="False" ToolTip="素材尚未完成">Ernie 小病书灵「青绡」</ComboBoxItem>
+                  <ComboBoxItem Tag="glm" IsEnabled="False" ToolTip="素材尚未完成">GLM 小方灵「青棱」</ComboBoxItem>
+                  <ComboBoxItem Tag="gpt-image2" IsEnabled="False" ToolTip="素材尚未完成">GPT Image 2 小墨龙「玄珏」</ComboBoxItem>
+                  <ComboBoxItem Tag="llama" IsEnabled="False" ToolTip="素材尚未完成">Llama 小羊驼「绒眠」</ComboBoxItem>
+                  <ComboBoxItem Tag="mimo" IsEnabled="False" ToolTip="素材尚未完成">MiMo 小兔码师「橙析」</ComboBoxItem>
+                  <ComboBoxItem Tag="mistral" IsEnabled="False" ToolTip="素材尚未完成">Mistral 小猫骑士「麦霜」</ComboBoxItem>
+                  <ComboBoxItem Tag="opencode" IsEnabled="False" ToolTip="素材尚未完成">OpenCode 小码灵「墨枢」</ComboBoxItem>
+                  <ComboBoxItem Tag="perplexity" IsEnabled="False" ToolTip="素材尚未完成">Perplexity 小探灯「青鉴」</ComboBoxItem>
+                  <ComboBoxItem Tag="rwkv" IsEnabled="False" ToolTip="素材尚未完成">RWKV 小乌鸦「夜翎」</ComboBoxItem>
+                  <ComboBoxItem Tag="seedence" IsEnabled="False" ToolTip="素材尚未完成">Seedence 小星晶「澄芽」</ComboBoxItem>
+                </ComboBox>
+              </StackPanel>
+              <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="交互模式"/><ComboBox x:Name="InteractionBox" Margin="0,5,0,12"><ComboBoxItem Tag="free">自由拖动</ComboBoxItem><ComboBoxItem Tag="locked">锁定互动</ComboBoxItem></ComboBox></StackPanel>
+            </Grid>
+
+            <Grid Margin="0,2,0,8">
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,8,0"><TextBlock Text="桌宠大小"/><Slider x:Name="ScaleSlider" Minimum="0.6" Maximum="1.4" TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,8,0,12"/></StackPanel>
+              <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="音量"/><Slider x:Name="VolumeSlider" Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,8,0,12"/></StackPanel>
+            </Grid>
+
+            <TextBlock Text="功能开关" FontWeight="SemiBold" FontSize="15" Margin="0,2,0,8"/>
+            <StackPanel>
+              <CheckBox x:Name="SoundBox" Content="按压音效" Margin="0,0,0,9"/>
+              <CheckBox x:Name="BubbleBox" Content="对话气泡" Margin="0,0,0,9"/>
+              <CheckBox x:Name="InteractionEffectsBox" Content="互动动作" Margin="0,0,0,9"/>
+              <CheckBox x:Name="EasterEggsBox" Content="随机彩蛋" Margin="0,0,0,9"/>
+              <CheckBox x:Name="FollowCodexBox" Content="自动跟随 AI 任务" ToolTip="兼容 Codex Hook 和其他客户端调用；只传递开始、结束、客户端名和任务 ID，不读取提示词、回复或令牌" Margin="0,0,0,9"/>
+              <CheckBox x:Name="AccountStatusBox" Content="识别 AI 登录账户" ToolTip="客户端仅上报账户类型、API 地址和令牌指纹；BalancePet 不读取网页登录凭据或明文令牌" Margin="0,0,0,9"/>
+              <CheckBox x:Name="NotificationsBox" Content="系统通知" Margin="0,0,0,9"/>
+              <CheckBox x:Name="StartupBox" Content="随 Windows 启动（进入托盘）" Margin="0,0,0,12"/>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="扩展">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="2">
+            <TextBlock Text="扩展管理" FontWeight="SemiBold" FontSize="15"/>
+            <TextBlock Text="扩展安装在本机用户目录，主程序升级不会删除；当前版本只加载资源型宠物扩展，不执行第三方代码。" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,10"/>
+            <ListBox x:Name="ExtensionListBox" Height="300" DisplayMemberPath="DisplayLabel" SelectionChanged="OnExtensionSelectionChanged"/>
+            <WrapPanel Margin="0,10,0,12">
+              <Button Content="安装 ZIP…" Click="OnInstallExtension" Padding="12,5" Margin="0,0,6,0"/>
+              <Button x:Name="ExtensionToggleButton" Content="启用/禁用" Click="OnToggleExtension" Padding="12,5" Margin="0,0,6,0" IsEnabled="False"/>
+              <Button x:Name="ExtensionUninstallButton" Content="卸载选中" Click="OnUninstallExtension" Padding="12,5" IsEnabled="False"/>
+            </WrapPanel>
+            <TextBlock x:Name="ExtensionMessageText" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+            <Border Background="#F4F6FA" Padding="10" CornerRadius="4">
+              <TextBlock Text="扩展不会写入主程序安装目录。禁用或卸载当前正在使用的扩展后，桌宠会回退到内置形象。" Foreground="#53627F" FontSize="11" TextWrapping="Wrap"/>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="高级与迁移">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Margin="2">
+            <TextBlock Text="应用偏好" FontWeight="SemiBold" FontSize="15"/>
+            <TextBlock Text="自动检查更新" Margin="0,12,0,0"/>
+            <ComboBox x:Name="UpdateCheckBox" Margin="0,5,0,14"><ComboBoxItem Tag="startup">每次启动时</ComboBoxItem><ComboBoxItem Tag="daily">每天一次（推荐）</ComboBoxItem><ComboBoxItem Tag="weekly">每周一次</ComboBoxItem><ComboBoxItem Tag="manual">仅手动检查</ComboBoxItem></ComboBox>
+            <TextBlock Text="语言"/>
+            <ComboBox x:Name="LanguageBox" SelectionChanged="OnLanguageChanged" Margin="0,5,0,18"><ComboBoxItem Tag="zh-CN">简体中文</ComboBoxItem><ComboBoxItem Tag="en-US">English</ComboBoxItem></ComboBox>
+
+            <Separator Margin="0,0,0,14"/>
+            <TextBlock Text="设置迁移" FontWeight="SemiBold" FontSize="15"/>
+            <TextBlock Text="导出文件不包含访问令牌。迁移到其他用户或电脑后，需要重新填写令牌。" Foreground="#7885A3" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,10"/>
+            <WrapPanel>
+              <Button Content="导入设置" Click="OnImport" Padding="12,6" Margin="0,0,8,0"/>
+              <Button Content="导出设置" Click="OnExport" Padding="12,6"/>
+            </WrapPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+
+    <TextBlock x:Name="MessageText" Grid.Row="1" Foreground="#C43B52" TextWrapping="Wrap" MinHeight="28" Margin="0,0,0,6"/>
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="保存设置" Click="OnApply" Padding="14,7" Margin="0,0,8,0"/>
+      <Button Content="取消" Click="OnCancel" Padding="18,7" Margin="0,0,8,0"/>
+      <Button Content="保存并测试" Click="OnSave" Padding="18,7" Background="#263D78" Foreground="White"/>
+    </StackPanel>
   </Grid>
 </Window>

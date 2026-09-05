@@ -24,6 +24,8 @@ public static class PetStyleCatalog
         "codex-done.png"
     };
 
+    private static readonly PetExtensionManager Extensions = new();
+
     public static readonly IReadOnlyList<PetStyleDefinition> All = new[]
     {
         new PetStyleDefinition("deepseek", "DeepSeek 小鲸鱼「澜汐」", "DeepSeek Whale \"Lanxi\"", "DeepSeek 小鲸鱼", "DeepSeek Whale"),
@@ -65,17 +67,97 @@ public static class PetStyleCatalog
         "perplexity" => "perplexity",
         "rwkv" => "rwkv",
         "seedence" or "seedance" => "seedence",
-        _ => "deepseek"
+        _ => IsExtensionStyleId(value) ? value!.Trim().ToLowerInvariant() : "deepseek"
     };
 
     public static PetStyleDefinition Get(string? value)
-        => All.First(definition => string.Equals(definition.Id, NormalizeId(value), StringComparison.OrdinalIgnoreCase));
+    {
+        return TryGetDefinition(value, out var definition) ? definition : All[0];
+    }
+
+    /// <summary>
+    /// Resolves a value only when it is an actual built-in or installed pet style.
+    /// Unlike <see cref="NormalizeId"/>, this method does not turn arbitrary values
+    /// into the DeepSeek fallback. That distinction is important for controls that
+    /// also use tags for unrelated values (for example the language selector).
+    /// </summary>
+    public static bool TryGetDefinition(string? value, out PetStyleDefinition definition)
+    {
+        definition = All[0];
+        if (string.IsNullOrWhiteSpace(value)) return false;
+
+        var raw = value.Trim();
+        var canonicalId = raw.ToLowerInvariant() switch
+        {
+            "deepseek" => "deepseek",
+            "chatgpt" or "gpt" => "chatgpt",
+            "minimax" => "minimax",
+            "gemini" => "gemini",
+            "grok" => "grok",
+            "claude" => "claude",
+            "kimi" => "kimi",
+            "qwen" => "qwen",
+            "ernie" or "wenxin" => "ernie",
+            "glm" => "glm",
+            "gpt-image2" or "gpt image2" or "gpt image 2" => "gpt-image2",
+            "llama" => "llama",
+            "mimo" => "mimo",
+            "mistral" => "mistral",
+            "opencode" or "open-code" => "opencode",
+            "perplexity" => "perplexity",
+            "rwkv" => "rwkv",
+            "seedence" or "seedance" => "seedence",
+            _ => null
+        };
+
+        if (canonicalId is not null)
+        {
+            var builtIn = All.FirstOrDefault(item => string.Equals(item.Id, canonicalId, StringComparison.OrdinalIgnoreCase));
+            if (builtIn is not null)
+            {
+                definition = builtIn;
+                return true;
+            }
+        }
+
+        if (!IsExtensionStyleId(raw)) return false;
+        var extension = Extensions.GetLatestEnabled().FirstOrDefault(info => string.Equals(info.StyleId, raw, StringComparison.OrdinalIgnoreCase));
+        if (extension is null) return false;
+        var nameEn = string.IsNullOrWhiteSpace(extension.Manifest.NameEn) ? extension.Manifest.Name : extension.Manifest.NameEn;
+        definition = new PetStyleDefinition(extension.StyleId, extension.Manifest.Name, nameEn, extension.Manifest.Name, nameEn);
+        return true;
+    }
+
+    public static string ResolveAssetDirectory(string? value, string? baseDirectory = null)
+    {
+        var style = NormalizeId(value);
+        var root = baseDirectory ?? AppContext.BaseDirectory;
+        var builtIn = Path.Combine(root, "assets", "pets", style);
+        if (RequiredStateFiles.All(file => File.Exists(Path.Combine(builtIn, file)))) return builtIn;
+        var extension = Extensions.GetLatestEnabled().FirstOrDefault(info => string.Equals(info.StyleId, style, StringComparison.OrdinalIgnoreCase));
+        return extension is null ? builtIn : Path.Combine(extension.DirectoryPath, "assets", "pets", extension.StyleId);
+    }
+
+    public static IReadOnlyList<PetStyleDefinition> GetAvailableExtensionStyles()
+        => Extensions.GetLatestEnabled()
+            .Where(info => RequiredStateFiles.All(file => File.Exists(Path.Combine(info.DirectoryPath, "assets", "pets", info.StyleId, file))))
+            .Select(info => new PetStyleDefinition(info.StyleId, info.Manifest.Name,
+                string.IsNullOrWhiteSpace(info.Manifest.NameEn) ? info.Manifest.Name : info.Manifest.NameEn,
+                info.Manifest.Name, string.IsNullOrWhiteSpace(info.Manifest.NameEn) ? info.Manifest.Name : info.Manifest.NameEn))
+            .ToArray();
 
     public static bool IsAvailable(string? value, string? baseDirectory = null)
     {
         var style = NormalizeId(value);
         var root = baseDirectory ?? AppContext.BaseDirectory;
         var directory = Path.Combine(root, "assets", "pets", style);
-        return RequiredStateFiles.All(file => File.Exists(Path.Combine(directory, file)));
+        if (RequiredStateFiles.All(file => File.Exists(Path.Combine(directory, file)))) return true;
+        return Extensions.GetLatestEnabled().Any(info => string.Equals(info.StyleId, style, StringComparison.OrdinalIgnoreCase)
+            && RequiredStateFiles.All(file => File.Exists(Path.Combine(info.DirectoryPath, "assets", "pets", info.StyleId, file))));
     }
+
+    private static bool IsExtensionStyleId(string? value)
+        => !string.IsNullOrWhiteSpace(value) && value.Trim().Length is >= 2 and <= 64
+            && value.Trim().All(ch => (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch is '.' or '-')
+            && char.IsLetterOrDigit(value.Trim()[0]) && char.IsLetterOrDigit(value.Trim()[^1]);
 }

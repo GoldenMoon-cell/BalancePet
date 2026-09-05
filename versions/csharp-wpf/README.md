@@ -1,6 +1,6 @@
 # BalancePet C# WPF
 
-Current release: `v0.3.3`.
+Recent release: `v0.5.0`; next development version: `v0.6.0`.
 
 Native Windows implementation of BalancePet, built with C# WPF.
 
@@ -11,6 +11,8 @@ Run `launch-balance-pet-csharp.bat` from the workspace root. Open the tray menu 
 Its settings are stored at `%LOCALAPPDATA%\\BalancePet\\csharp-settings.json`; the token is protected in that file with Windows DPAPI.
 
 The settings dialog supports multiple API/relay monitor profiles. Each profile has its own encrypted token, refresh interval, cache, usage ledger, and low-balance threshold; the tray `当前账户` submenu selects which profile is shown in the pet bubble. The available pet labels are DeepSeek 小鲸鱼「澜汐」, ChatGPT 小白龙「霁珑」, MiniMax 小海螺「绯音」, Gemini 小星猫「星璃」, and Grok 小恶魔「烬斧」. Simultaneous AI tasks are reference-counted globally, while resumed turns from the same session replace an abandoned turn so a missed stop event cannot leave a duplicate task count.
+
+The Settings window also manages resource-only pet extensions. ZIP packages are validated and installed under `%LOCALAPPDATA%\\BalancePet\\extensions`; they can be enabled, disabled, or uninstalled independently of the main program. The v1 extension contract requires nine transparent PNG states and does not load extension code. See `docs/extension-spec/v1/README.md` in the repository for the package format.
 
 The current build includes a transparent pet window, independent settings dialog, tray menu, and quick appearance switching for DeepSeek 小鲸鱼「澜汐」、ChatGPT 小白龙「霁珑」、MiniMax 小海螺「绯音」、Gemini 小星猫「星璃」 and Grok 小恶魔「烬斧」. It supports multiple independent API/relay monitor profiles, optional Windows startup, periodic balance refresh, automatic retry for transient request failures, in-app GitHub update checks, status bubble, sound toggles, optional Windows system notifications, free-drag/locked interaction modes, daily usage tracking, recent usage history, balance-drop notifications, and optional automatic AI task notifications. State-specific PNGs can be added under `assets/pets/<style>/<state>.png`; missing states fall back to the base image. Multiple profiles refresh in parallel while the pet shows the selected profile; task state stays working until all active tasks finish. `互动动作` and `随机彩蛋` are independent. In-app updates download and validate the SHA-256 checksum of the matching release asset. User-writable installations replace the current directory from the ZIP; protected installations such as `C:\\Program Files` launch the `Setup.exe` installer with UAC and pass the current directory as its target. Configuration, DPAPI tokens, caches and ledgers remain under `%LOCALAPPDATA%\\BalancePet`.
 

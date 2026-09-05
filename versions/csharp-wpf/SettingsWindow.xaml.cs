@@ -17,6 +17,7 @@ public partial class SettingsWindow : Window
     private readonly SettingsStore _store;
     private readonly DpapiTokenStore _tokens;
     private readonly PetSettings _settings;
+    private readonly PetExtensionManager _extensions = new();
     private readonly List<MonitorProfile> _profiles;
     private string _currentProfileId = "";
     private bool _suppressProfileChange;
@@ -27,6 +28,8 @@ public partial class SettingsWindow : Window
     public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings)
     {
         InitializeComponent(); _store = store; _tokens = tokens; _settings = settings;
+        AddInstalledPetStyles();
+        RefreshExtensionList();
         UpdatePetStyleAvailability();
         _profiles = settings.Monitors is { Count: > 0 }
             ? settings.Monitors.Select(CloneProfile).ToList()
@@ -37,6 +40,32 @@ public partial class SettingsWindow : Window
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
         AppLocalization.Apply(this, settings.Language);
         UpdatePetStyleAvailability();
+    }
+
+    private void AddInstalledPetStyles()
+    {
+        if (PetStyleBox is null) return;
+        var builtInIds = PetStyleCatalog.All.Select(definition => definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var availableIds = PetStyleCatalog.GetAvailableExtensionStyles().Select(definition => definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in PetStyleBox.Items.OfType<ComboBoxItem>().ToArray())
+        {
+            if (item.Tag is string id && !builtInIds.Contains(id) && !availableIds.Contains(id))
+                PetStyleBox.Items.Remove(item);
+        }
+        var existing = PetStyleBox.Items.OfType<ComboBoxItem>()
+            .Select(item => item.Tag?.ToString())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in PetStyleCatalog.GetAvailableExtensionStyles())
+        {
+            if (!existing.Add(definition.Id)) continue;
+            PetStyleBox.Items.Add(new ComboBoxItem
+            {
+                Tag = definition.Id,
+                Content = definition.ChineseName,
+                ToolTip = $"{AppLocalization.Text(_settings.Language, "资源扩展：", "Resource extension: ")}{definition.Id}"
+            });
+        }
     }
 
     private static void SelectByTag(System.Windows.Controls.ComboBox box, string tag)
@@ -53,6 +82,107 @@ public partial class SettingsWindow : Window
             item.IsEnabled = available;
             item.ToolTip = available ? null : AppLocalization.Text(language, "素材尚未完成", "Assets are not ready");
         }
+    }
+
+    private void RefreshExtensionList()
+    {
+        if (ExtensionListBox is null) return;
+        ExtensionListBox.ItemsSource = null;
+        ExtensionListBox.ItemsSource = _extensions.GetInstalled();
+        UpdateExtensionButtons();
+    }
+
+    private void UpdateExtensionButtons()
+    {
+        var selected = ExtensionListBox?.SelectedItem as PetExtensionInfo;
+        if (ExtensionToggleButton is not null)
+        {
+            var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+            ExtensionToggleButton.Content = selected?.IsEnabled == true
+                ? AppLocalization.Text(language, "禁用选中", "Disable selected")
+                : AppLocalization.Text(language, "启用选中", "Enable selected");
+        }
+        if (ExtensionToggleButton is not null) ExtensionToggleButton.IsEnabled = selected is not null;
+        if (ExtensionUninstallButton is not null) ExtensionUninstallButton.IsEnabled = selected is not null;
+    }
+
+    private void OnExtensionSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateExtensionButtons();
+
+    private void OnWindowLoaded(object sender, RoutedEventArgs e)
+    {
+        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        AppLocalization.Apply(this, language);
+        UpdatePresetUi(false);
+        UpdatePetStyleAvailability();
+        UpdateExtensionButtons();
+    }
+
+    private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || sender is not System.Windows.Controls.TabControl tabs || tabs.SelectedItem is not TabItem selectedTab) return;
+        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        AppLocalization.Apply(selectedTab, language);
+    }
+
+    private void OnInstallExtension(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "BalancePet 宠物扩展 (*.zip)|*.zip|所有文件 (*.*)|*.*",
+            Title = "安装 BalancePet 宠物扩展"
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            var installed = _extensions.InstallPetPackage(dialog.FileName);
+            AddInstalledPetStyles();
+            UpdatePetStyleAvailability();
+            RefreshExtensionList();
+            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+            ExtensionMessageText.Text = AppLocalization.Text(language, $"已安装：{installed.DisplayLabel}。可以在“宠物形象”中选择。", $"Installed: {installed.DisplayLabel}. You can select it under Pet appearance.");
+        }
+        catch (Exception error) when (error is InvalidDataException or IOException or UnauthorizedAccessException or JsonException)
+        {
+            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.Firebrick;
+            var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+            ExtensionMessageText.Text = AppLocalization.Text(language, $"安装失败：{error.Message}", $"Installation failed: {error.Message}");
+        }
+    }
+
+    private void OnToggleExtension(object sender, RoutedEventArgs e)
+    {
+        if (ExtensionListBox.SelectedItem is not PetExtensionInfo selected) return;
+        var enabled = !selected.IsEnabled;
+        if (!_extensions.SetEnabled(selected.Manifest.Id, enabled)) return;
+        if (!enabled && string.Equals((PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), selected.StyleId, StringComparison.OrdinalIgnoreCase))
+            SelectByTag(PetStyleBox, "deepseek");
+        AddInstalledPetStyles();
+        UpdatePetStyleAvailability();
+        RefreshExtensionList();
+        ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        ExtensionMessageText.Text = enabled
+            ? AppLocalization.Text(language, "扩展已启用。", "Extension enabled.")
+            : AppLocalization.Text(language, "扩展已禁用；已使用它的形象会回退到 DeepSeek。", "Extension disabled; appearances using it fall back to DeepSeek.");
+    }
+
+    private void OnUninstallExtension(object sender, RoutedEventArgs e)
+    {
+        if (ExtensionListBox.SelectedItem is not PetExtensionInfo selected) return;
+        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        var answer = System.Windows.MessageBox.Show(this,
+            AppLocalization.Text(language, $"确定卸载扩展“{selected.Manifest.Name}”吗？这只会删除它的扩展目录，不会影响主程序和其他扩展。", $"Uninstall extension \"{selected.Manifest.Name}\"? Only its extension directory will be removed; the main program and other extensions are unaffected."),
+            AppLocalization.Text(language, "卸载扩展", "Uninstall extension"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (answer != MessageBoxResult.Yes) return;
+        if (!_extensions.Uninstall(selected.Manifest.Id)) return;
+        if (string.Equals((PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), selected.StyleId, StringComparison.OrdinalIgnoreCase))
+            SelectByTag(PetStyleBox, "deepseek");
+        AddInstalledPetStyles();
+        UpdatePetStyleAvailability();
+        RefreshExtensionList();
+        ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+        ExtensionMessageText.Text = AppLocalization.Text(language, "扩展已卸载。点击“保存设置”后，新的形象选择会写入配置。", "Extension uninstalled. Click Save settings to persist the new appearance selection.");
     }
 
     private static MonitorProfile CreateProfileFromLegacy(PetSettings settings) => new()
@@ -479,6 +609,11 @@ public partial class SettingsWindow : Window
                 hookChanged = true;
             }
             _store.Save(updated);
+            _settings.Language = updated.Language;
+            AppLocalization.Apply(this, updated.Language);
+            UpdatePresetUi(false);
+            UpdatePetStyleAvailability();
+            UpdateExtensionButtons();
             if (!StartupManager.SetEnabled(startupEnabled))
             {
                 MessageText.Foreground = System.Windows.Media.Brushes.DarkOrange;
@@ -533,18 +668,19 @@ public partial class SettingsWindow : Window
     private void OnAuthModeChanged(object sender, SelectionChangedEventArgs e)
     {
         if (HeaderBox is null || AuthModeBox is null) return;
+        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
         var custom = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() == "custom";
         var presetUsesSiteUrl = BalancePresetCatalog.UsesSiteUrl((PresetBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString());
         HeaderBox.IsEnabled = custom && !presetUsesSiteUrl;
         if (!custom) HeaderBox.Text = "Authorization";
         AuthHint.Text = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() switch
         {
-            "bearer" => "令牌框只填写令牌本身，程序会自动发送 Authorization: Bearer <令牌>。",
-            "authorization" => "令牌框填写完整 Authorization 值，例如 Bearer sk-...。",
-            "websee-session" => "令牌框填写 websee-session 会话值；仅适用于提供该接口格式的中转站。",
-            "x-api-key" => "令牌框填写 API key，程序会发送 x-api-key 请求头。",
-            "custom" => "令牌框填写 Header 值；上方 Header 名必须与中转站文档完全一致。",
-            _ => "请以中转站接口文档要求为准。"
+            "bearer" => AppLocalization.Text(language, "令牌框只填写令牌本身，程序会自动发送 Authorization: Bearer <令牌>。", "Enter only the token; BalancePet sends Authorization: Bearer <token> automatically."),
+            "authorization" => AppLocalization.Text(language, "令牌框填写完整 Authorization 值，例如 Bearer sk-...。", "Enter the complete Authorization value, for example Bearer sk-...."),
+            "websee-session" => AppLocalization.Text(language, "令牌框填写 websee-session 会话值；仅适用于提供该接口格式的中转站。", "Enter the websee-session value; this works only with relays that provide this interface format."),
+            "x-api-key" => AppLocalization.Text(language, "令牌框填写 API key，程序会发送 x-api-key 请求头。", "Enter the API key; BalancePet sends it in the x-api-key header."),
+            "custom" => AppLocalization.Text(language, "令牌框填写 Header 值；上方 Header 名必须与中转站文档完全一致。", "Enter the header value; the header name above must exactly match the relay documentation."),
+            _ => AppLocalization.Text(language, "请以中转站接口文档要求为准。", "Follow the requirements in the relay API documentation.")
         };
     }
 

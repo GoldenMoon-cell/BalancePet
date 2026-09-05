@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/v1/manifest.schema.json",
+  "title": "BalancePet resource extension manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "type", "name", "style", "version", "api_version", "min_core_version"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,62}[a-z0-9]$" },
+    "type": { "const": "pet" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "name_en": { "type": "string", "maxLength": 120 },
+    "style": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]{0,62}[a-z0-9]$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$" },
+    "api_version": { "const": 1 },
+    "min_core_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }
+  }
+}

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Media.Media3D;
 
 namespace BalancePet.Wpf.Services;
 
@@ -14,11 +15,13 @@ public static class AppLocalization
 
     public static void Apply(DependencyObject root, string? language)
     {
-        ApplyNode(root, language);
+        ApplyNode(root, language, new HashSet<DependencyObject>());
     }
 
-    private static void ApplyNode(DependencyObject node, string? language)
+    private static void ApplyNode(DependencyObject node, string? language, HashSet<DependencyObject> visited)
     {
+        if (!visited.Add(node)) return;
+
         if (node is Window window) window.Title = Translate(window.Title, language);
         if (node is TextBlock textBlock) textBlock.Text = Translate(textBlock.Text, language);
         if (node is FrameworkElement element && element.ToolTip is string toolTip) element.ToolTip = Translate(toolTip, language);
@@ -29,20 +32,43 @@ public static class AppLocalization
                 if (comboItem.Content is string comboItemText) comboItem.Content = Translate(comboItemText, language);
         if (node is MenuItem menuItem && menuItem.Tag is string menuStyle)
         {
-            var definition = PetStyleCatalog.All.FirstOrDefault(value => string.Equals(value.Id, PetStyleCatalog.NormalizeId(menuStyle), StringComparison.OrdinalIgnoreCase));
-            if (definition is not null) menuItem.Header = Text(language, definition.ChineseName, definition.EnglishName);
+            // MenuItem.Tag is also used by account/profile entries. Only
+            // translate tags that resolve to an actual pet style; unknown
+            // values must not fall back to DeepSeek here.
+            if (PetStyleCatalog.TryGetDefinition(menuStyle, out var definition))
+                menuItem.Header = Text(language, definition.ChineseName, definition.EnglishName);
         }
+        if (node is HeaderedContentControl headeredContent && headeredContent.Header is string contentHeader)
+            headeredContent.Header = Translate(contentHeader, language);
         if (node is ComboBoxItem styleItem && styleItem.Tag is string comboStyle)
         {
-            var definition = PetStyleCatalog.All.FirstOrDefault(value => string.Equals(value.Id, PetStyleCatalog.NormalizeId(comboStyle), StringComparison.OrdinalIgnoreCase));
-            if (definition is not null) styleItem.Content = Text(language, definition.ChineseName, definition.EnglishName);
+            // ComboBoxItem.Tag is shared by preset, refresh, interaction and
+            // language selectors. Do not treat an unrelated tag as a pet style:
+            // NormalizeId intentionally falls back to DeepSeek for unknown
+            // values, which would otherwise overwrite those controls.
+            if (PetStyleCatalog.TryGetDefinition(comboStyle, out var definition))
+                styleItem.Content = Text(language, definition.ChineseName, definition.EnglishName);
         }
         if (node is HeaderedItemsControl headered && headered.Header is string header) headered.Header = Translate(header, language);
         if (node is ContentControl content && content.Content is string contentText) content.Content = Translate(contentText, language);
         if (node is ComboBoxItem item && item.Content is string itemText) item.Content = Translate(itemText, language);
 
-        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
-            ApplyNode(VisualTreeHelper.GetChild(node, i), language);
+        // Logical trees also contain Grid RowDefinition/ColumnDefinition
+        // objects, which are DependencyObjects but not visual nodes. Calling
+        // VisualTreeHelper for those throws and used to crash menu actions
+        // that opened a localized window. Only walk the visual tree for actual
+        // Visual/Visual3D instances.
+        if (node is Visual || node is Visual3D)
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+                ApplyNode(VisualTreeHelper.GetChild(node, i), language, visited);
+        }
+
+        // Some tab contents are present in the logical tree before they are
+        // materialized in the visual tree. Walk both trees so every tab is
+        // localized even before it has been opened.
+        foreach (var child in LogicalTreeHelper.GetChildren(node).OfType<DependencyObject>())
+            ApplyNode(child, language, visited);
     }
 
     public static string Translate(string? value, string? language)
@@ -81,6 +107,13 @@ public static class AppLocalization
         ("Mistral 小猫骑士「麦霜」", "Mistral Cat Knight \"Maishuang\""), ("OpenCode 小码灵「墨枢」", "OpenCode Code Sprite \"Moshu\""),
         ("Perplexity 小探灯「青鉴」", "Perplexity Little Lantern \"Qingjian\""), ("RWKV 小乌鸦「夜翎」", "RWKV Little Raven \"Yeling\""),
         ("Seedence 小星晶「澄芽」", "Seedence Little Star Crystal \"Chengya\""), ("素材尚未完成", "Assets are not ready"),
+        ("账户与接口", "Accounts & API"), ("桌宠与交互", "Pet & interaction"), ("扩展", "Extensions"), ("高级与迁移", "Advanced & migration"),
+        ("外观与操作", "Appearance & interaction"), ("功能开关", "Feature switches"), ("扩展管理", "Extension management"), ("应用偏好", "Application preferences"), ("设置迁移", "Settings migration"),
+        ("扩展不会写入主程序安装目录。禁用或卸载当前正在使用的扩展后，桌宠会回退到内置形象。", "Extensions are not written to the main program directory. Disabling or uninstalling the active extension falls back to a built-in appearance."),
+        ("导出文件不包含访问令牌。迁移到其他用户或电脑后，需要重新填写令牌。", "Exported files do not contain access tokens. Tokens must be entered again after moving to another user or computer."),
+        ("扩展安装在本机用户目录，主程序升级不会删除；当前版本只加载资源型宠物扩展，不执行第三方代码。", "Extensions are installed for the current Windows user; main program upgrades do not remove them. This version loads pet resources only and never executes extension code."),
+        ("安装 ZIP…", "Install ZIP..."), ("启用/禁用", "Enable/disable"), ("启用选中", "Enable selected"), ("禁用选中", "Disable selected"), ("卸载选中", "Uninstall selected"),
+        ("资源扩展：", "Resource extension: "), ("扩展已启用。", "Extension enabled."), ("扩展已禁用；已使用它的形象会回退到 DeepSeek。", "Extension disabled; appearances using it fall back to DeepSeek."),
         ("自动检查更新", "Automatic update checks"), ("每次启动时", "At every startup"), ("每天一次（推荐）", "Daily (recommended)"), ("每周一次", "Weekly"), ("仅手动检查", "Manual only"),
         ("桌宠大小", "Pet size"), ("音量", "Volume"), ("按压音效", "Press sound"), ("对话气泡", "Speech bubble"), ("互动动作", "Interaction effects"),
         ("随机彩蛋", "Random easter eggs"), ("自动跟随 AI 任务", "Follow AI tasks"), ("识别 AI 登录账户", "Detect AI login accounts"), ("客户端仅上报账户类型、API 地址和令牌指纹；BalancePet 不读取网页登录凭据或明文令牌", "Clients report only account type, API address, and token fingerprint; BalancePet never reads web credentials or plaintext tokens"), ("系统通知", "System notifications"), ("随 Windows 启动（进入托盘）", "Start with Windows (tray)"),

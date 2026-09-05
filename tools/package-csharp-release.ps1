@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.4.0",
+    [string]$Version = "0.5.0",
     [switch]$SkipInstaller
 )
 
@@ -60,14 +60,23 @@ if ($SkipInstaller) {
     return
 }
 
-$innoCandidates = @(
+$rawInnoCandidates = @(
     (Get-Command ISCC.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue),
     (Get-Command iscc -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue),
     (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe"),
     (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
     (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
-) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath $_) }
-$iscc = $innoCandidates | Select-Object -First 1
+) # candidate list ends
+$innoCandidates = @()
+foreach ($candidate in $rawInnoCandidates) {
+    if ($null -ne $candidate) {
+        $candidatePath = [string]$candidate
+        if (-not [string]::IsNullOrWhiteSpace($candidatePath) -and (Test-Path -LiteralPath $candidatePath)) {
+            $innoCandidates += $candidatePath
+        }
+    }
+}
+$iscc = if ($innoCandidates.Count -gt 0) { $innoCandidates[0] } else { "" }
 if ([string]::IsNullOrWhiteSpace($iscc)) {
     throw "Inno Setup 6 was not found. Install it, or pass -SkipInstaller when building a portable ZIP only."
 }
