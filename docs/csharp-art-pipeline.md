@@ -5,9 +5,10 @@ C# WPF 版本从 `versions/csharp-wpf/assets/pets/<style>/<state>.png` 加载状
 ## 角色名称
 
 - `DeepSeek 小鲸鱼 / Whale-chan / 澜汐`
-- `ChatGPT 小龙 / ChatGPT Dragon / 霁珑`
+- `ChatGPT 小白龙 / ChatGPT White Dragon / 霁珑`
 - `MiniMax 小海螺 / 绯音`
 - `Gemini 小星猫 / 星璃`
+- `Grok 小恶魔 / Grok Little Demon / 烬斧`
 
 这些是本项目使用的非官方角色称呼，不代表 DeepSeek、OpenAI 或其他平台的官方角色。
 
@@ -44,6 +45,7 @@ inactive.png
 ```text
 versions/csharp-wpf/assets/pets/deepseek/idle.png
 versions/csharp-wpf/assets/pets/chatgpt/loading.png
+versions/csharp-wpf/assets/pets/grok/codex-working.png
 ```
 
 替换同名文件后重新执行发布打包脚本即可。不要将 API Key、Authorization、生成服务密钥或桌面截图提交到仓库。

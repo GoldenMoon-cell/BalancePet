@@ -55,7 +55,7 @@ public sealed class CodexTaskBridge : IDisposable
                     PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                 await pipe.WaitForConnectionAsync(cancellationToken);
-                _ = ProcessClientAsync(pipe, defaultProvider, cancellationToken);
+                await ProcessClientAsync(pipe, defaultProvider, cancellationToken);
                 pipe = null;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

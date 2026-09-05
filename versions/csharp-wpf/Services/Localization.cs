@@ -27,6 +27,16 @@ public static class AppLocalization
         if (node is System.Windows.Controls.ComboBox comboBox)
             foreach (var comboItem in comboBox.Items.OfType<ComboBoxItem>())
                 if (comboItem.Content is string comboItemText) comboItem.Content = Translate(comboItemText, language);
+        if (node is MenuItem menuItem && menuItem.Tag is string menuStyle)
+        {
+            var definition = PetStyleCatalog.All.FirstOrDefault(value => string.Equals(value.Id, PetStyleCatalog.NormalizeId(menuStyle), StringComparison.OrdinalIgnoreCase));
+            if (definition is not null) menuItem.Header = Text(language, definition.ChineseName, definition.EnglishName);
+        }
+        if (node is ComboBoxItem styleItem && styleItem.Tag is string comboStyle)
+        {
+            var definition = PetStyleCatalog.All.FirstOrDefault(value => string.Equals(value.Id, PetStyleCatalog.NormalizeId(comboStyle), StringComparison.OrdinalIgnoreCase));
+            if (definition is not null) styleItem.Content = Text(language, definition.ChineseName, definition.EnglishName);
+        }
         if (node is HeaderedItemsControl headered && headered.Header is string header) headered.Header = Translate(header, language);
         if (node is ContentControl content && content.Content is string contentText) content.Content = Translate(contentText, language);
         if (node is ComboBoxItem item && item.Content is string itemText) item.Content = Translate(itemText, language);
@@ -61,11 +71,19 @@ public static class AppLocalization
         ("每 30 秒", "Every 30 seconds"), ("每 1 分钟", "Every 1 minute"), ("每 5 分钟", "Every 5 minutes"), ("每 15 分钟", "Every 15 minutes"),
         ("每 30 分钟", "Every 30 minutes"), ("每 1 小时", "Every hour"), ("自定义", "Custom"), ("低余额阈值", "Low-balance threshold"),
         ("宠物形象", "Pet appearance"), ("交互模式", "Interaction mode"), ("自由拖动", "Free drag"), ("锁定互动", "Locked interaction"),
-        ("DeepSeek 小鲸鱼「澜汐」", "DeepSeek Whale \"Lanxi\""), ("ChatGPT 小龙「霁珑」", "ChatGPT Dragon \"Jilong\""),
+        ("DeepSeek 小鲸鱼「澜汐」", "DeepSeek Whale \"Lanxi\""), ("ChatGPT 小白龙「霁珑」", "ChatGPT White Dragon \"Jilong\""),
         ("MiniMax 小海螺「绯音」", "MiniMax Shell \"Feiyin\""), ("Gemini 小星猫「星璃」", "Gemini Star Cat \"Xingli\""),
+        ("Grok 小恶魔「烬斧」", "Grok Little Demon \"Jinfu\""),
+        ("Claude 小书灵「丹笺」", "Claude Little Book Spirit \"Danqian\""), ("Kimi 小棱镜「虹谱」", "Kimi Little Prism \"Hongpu\""),
+        ("Qwen 小折扇「绀华」", "Qwen Folding Fan \"Ganhua\""), ("Ernie 小病书灵「青绡」", "Ernie Little Book Spirit \"Qingxiao\""),
+        ("GLM 小方灵「青棱」", "GLM Little Square Spirit \"Qingleng\""), ("GPT Image 2 小墨龙「玄珏」", "GPT Image 2 Ink Dragon \"Xuanjue\""),
+        ("Llama 小羊驼「绒眠」", "Llama Alpaca \"Rongmian\""), ("MiMo 小兔码师「橙析」", "MiMo Bunny Coder \"Chengxi\""),
+        ("Mistral 小猫骑士「麦霜」", "Mistral Cat Knight \"Maishuang\""), ("OpenCode 小码灵「墨枢」", "OpenCode Code Sprite \"Moshu\""),
+        ("Perplexity 小探灯「青鉴」", "Perplexity Little Lantern \"Qingjian\""), ("RWKV 小乌鸦「夜翎」", "RWKV Little Raven \"Yeling\""),
+        ("Seedence 小星晶「澄芽」", "Seedence Little Star Crystal \"Chengya\""), ("素材尚未完成", "Assets are not ready"),
         ("自动检查更新", "Automatic update checks"), ("每次启动时", "At every startup"), ("每天一次（推荐）", "Daily (recommended)"), ("每周一次", "Weekly"), ("仅手动检查", "Manual only"),
         ("桌宠大小", "Pet size"), ("音量", "Volume"), ("按压音效", "Press sound"), ("对话气泡", "Speech bubble"), ("互动动作", "Interaction effects"),
-        ("随机彩蛋", "Random easter eggs"), ("自动跟随 AI 任务", "Follow AI tasks"), ("系统通知", "System notifications"), ("随 Windows 启动（进入托盘）", "Start with Windows (tray)"),
+        ("随机彩蛋", "Random easter eggs"), ("自动跟随 AI 任务", "Follow AI tasks"), ("识别 AI 登录账户", "Detect AI login accounts"), ("客户端仅上报账户类型、API 地址和令牌指纹；BalancePet 不读取网页登录凭据或明文令牌", "Clients report only account type, API address, and token fingerprint; BalancePet never reads web credentials or plaintext tokens"), ("系统通知", "System notifications"), ("随 Windows 启动（进入托盘）", "Start with Windows (tray)"),
         ("导入设置", "Import settings"), ("导出设置", "Export settings"), ("保存设置", "Save settings"), ("取消", "Cancel"), ("保存并测试", "Save and test"), ("语言", "Language"),
         ("简体中文", "Simplified Chinese"), ("English", "English"), ("用量统计", "Usage"), ("最近用量", "Recent usage"), ("本机保存的余额变化记录", "Balance changes saved on this computer"),
         ("日期", "Date"), ("消耗", "Usage"), ("共", "Total"), ("发现新版本", "New version available"), ("暂不更新", "Not now"), ("下载并更新", "Download and update"),

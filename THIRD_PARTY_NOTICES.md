@@ -9,4 +9,6 @@ Some pet artwork and press/release sound assets in `versions/csharp-wpf/assets/`
 
 The BalancePet application is an independent desktop companion and is not affiliated with DeepSeek, DeepSeek Harness, or the original project author.
 
+The anime character reference images used to create the pet state artwork are credited to Bilibili creator `ZipZipPipe`. The scope of use and any attribution requirements follow the original creator's publication terms.
+
 The MIT license in the repository root applies to original BalancePet source code. It does not replace or relicense third-party assets; those assets remain subject to the notices and license terms stated above.

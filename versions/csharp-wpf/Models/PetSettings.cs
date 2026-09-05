@@ -26,6 +26,7 @@ public sealed class PetSettings
     [JsonPropertyName("interaction_effects")] public bool InteractionEffects { get; set; } = true;
     [JsonPropertyName("random_easter_eggs")] public bool RandomEasterEggs { get; set; } = true;
     [JsonPropertyName("codex_task_integration")] public bool CodexTaskIntegration { get; set; }
+    [JsonPropertyName("account_status_integration")] public bool AccountStatusIntegration { get; set; } = true;
     [JsonPropertyName("system_notifications")] public bool SystemNotifications { get; set; } = true;
     [JsonPropertyName("update_check_mode")] public string UpdateCheckMode { get; set; } = "daily";
     [JsonPropertyName("last_update_check_utc")] public DateTimeOffset? LastUpdateCheckUtc { get; set; }

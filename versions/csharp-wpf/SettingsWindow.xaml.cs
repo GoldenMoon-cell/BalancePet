@@ -27,18 +27,33 @@ public partial class SettingsWindow : Window
     public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings)
     {
         InitializeComponent(); _store = store; _tokens = tokens; _settings = settings;
+        UpdatePetStyleAvailability();
         _profiles = settings.Monitors is { Count: > 0 }
             ? settings.Monitors.Select(CloneProfile).ToList()
             : new List<MonitorProfile> { CreateProfileFromLegacy(settings) };
         RefreshProfileList(settings.SelectedMonitorId);
         SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode); SelectByTag(UpdateCheckBox, settings.UpdateCheckMode); SelectByTag(LanguageBox, settings.Language);
-        ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
+        ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; AccountStatusBox.IsChecked = settings.AccountStatusIntegration; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
         AppLocalization.Apply(this, settings.Language);
+        UpdatePetStyleAvailability();
     }
 
     private static void SelectByTag(System.Windows.Controls.ComboBox box, string tag)
-    { foreach (ComboBoxItem item in box.Items) if (string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase)) { box.SelectedItem = item; return; } box.SelectedIndex = 0; }
+    { foreach (ComboBoxItem item in box.Items) if (item.IsEnabled && string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase)) { box.SelectedItem = item; return; } box.SelectedIndex = 0; }
+
+    private void UpdatePetStyleAvailability()
+    {
+        if (PetStyleBox is null) return;
+        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        foreach (ComboBoxItem item in PetStyleBox.Items)
+        {
+            if (item.Tag is not string id) continue;
+            var available = PetStyleCatalog.IsAvailable(id);
+            item.IsEnabled = available;
+            item.ToolTip = available ? null : AppLocalization.Text(language, "素材尚未完成", "Assets are not ready");
+        }
+    }
 
     private static MonitorProfile CreateProfileFromLegacy(PetSettings settings) => new()
     {
@@ -288,7 +303,7 @@ public partial class SettingsWindow : Window
             SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode); SelectByTag(UpdateCheckBox, imported.UpdateCheckMode);
             SelectByTag(LanguageBox, imported.Language);
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
-            SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; EasterEggsBox.IsChecked = imported.RandomEasterEggs; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
+            SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; EasterEggsBox.IsChecked = imported.RandomEasterEggs; AccountStatusBox.IsChecked = imported.AccountStatusIntegration; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
             AppLocalization.Apply(this, imported.Language);
             TokenBox.Clear();
@@ -331,6 +346,7 @@ public partial class SettingsWindow : Window
                 interaction_effects = InteractionEffectsBox.IsChecked == true,
                 random_easter_eggs = EasterEggsBox.IsChecked == true,
                 codex_task_integration = FollowCodexBox.IsChecked == true,
+                account_status_integration = AccountStatusBox.IsChecked == true,
                 system_notifications = NotificationsBox.IsChecked == true,
                 start_with_windows = StartupBox.IsChecked == true,
                 selected_monitor_id = selected.Id,
@@ -407,6 +423,8 @@ public partial class SettingsWindow : Window
         try
         {
             var startupEnabled = StartupBox.IsChecked == true;
+            var selectedPetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek";
+            if (!PetStyleCatalog.IsAvailable(selectedPetStyle)) selectedPetStyle = "deepseek";
             var updated = new PetSettings
             {
                 Endpoint = selected.Endpoint,
@@ -419,7 +437,7 @@ public partial class SettingsWindow : Window
                 RefreshSeconds = Math.Max(30, selected.RefreshSeconds),
                 AutoRefreshEnabled = selected.AutoRefreshEnabled,
                 LowThreshold = selected.LowThreshold,
-                PetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek",
+                PetStyle = selectedPetStyle,
                 InteractionMode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free",
                 UpdateCheckMode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily",
                 LastUpdateCheckUtc = _settings.LastUpdateCheckUtc,
@@ -430,6 +448,7 @@ public partial class SettingsWindow : Window
                 InteractionEffects = InteractionEffectsBox.IsChecked == true,
                 RandomEasterEggs = EasterEggsBox.IsChecked == true,
                 CodexTaskIntegration = FollowCodexBox.IsChecked == true,
+                AccountStatusIntegration = AccountStatusBox.IsChecked == true,
                 SystemNotifications = NotificationsBox.IsChecked == true,
                 StartWithWindows = startupEnabled,
                 WindowX = _settings.WindowX,
@@ -533,6 +552,7 @@ public partial class SettingsWindow : Window
     {
         var language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "zh-CN";
         AppLocalization.Apply(this, language);
+        UpdatePetStyleAvailability();
         UpdatePresetUi(false);
     }
     private void OnCancel(object sender, RoutedEventArgs e) => DialogResult = false;

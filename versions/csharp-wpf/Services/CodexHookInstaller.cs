@@ -150,7 +150,12 @@ public static class CodexHookInstaller
         try {
             $sessionId = ''
             $turnId = ''
-            $inputText = [Console]::In.ReadToEnd()
+            # Read only a bounded prefix and do not wait forever when a client
+            # is interrupted before it closes Hook stdin.
+            $inputBuffer = New-Object char[] 8192
+            $readTask = [Console]::In.ReadAsync($inputBuffer, 0, $inputBuffer.Length)
+            $readCount = if ($readTask.Wait(1000)) { [int]$readTask.Result } else { 0 }
+            $inputText = if ($readCount -gt 0) { -join $inputBuffer[0..($readCount - 1)] } else { '' }
             if (-not [string]::IsNullOrWhiteSpace($inputText)) {
                 try {
                     $hookInput = $inputText | ConvertFrom-Json

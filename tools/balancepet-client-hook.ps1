@@ -16,14 +16,11 @@ $pipeName = "BalancePet.Task.v1"
 $inputStream = [Console]::OpenStandardInput()
 $buffer = New-Object char[] 8192
 $reader = [System.IO.StreamReader]::new($inputStream, [System.Text.UTF8Encoding]::new($false), $true, 8192, $false)
-$offset = 0
-while ($offset -lt $buffer.Length)
-{
-    $read = $reader.Read($buffer, $offset, $buffer.Length - $offset)
-    if ($read -le 0) { break }
-    $offset += $read
-}
-$inputText = if ($offset -gt 0) { -join $buffer[0..($offset - 1)] } else { "" }
+# Read a bounded prefix with a deadline. When a client is interrupted, stdin
+# may never close; a hook must still be able to send the Stop event.
+$readTask = $reader.ReadAsync($buffer, 0, $buffer.Length)
+$readCount = if ($readTask.Wait(1000)) { [int]$readTask.Result } else { 0 }
+$inputText = if ($readCount -gt 0) { -join $buffer[0..($readCount - 1)] } else { "" }
 
 $sessionMatch = [regex]::Match(
     $inputText,

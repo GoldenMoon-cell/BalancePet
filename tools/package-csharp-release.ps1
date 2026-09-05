@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.3.3",
+    [string]$Version = "0.4.0",
     [switch]$SkipInstaller
 )
 
@@ -44,6 +44,7 @@ Copy-Item (Join-Path $root "docs\UPGRADE.md") $stage
 New-Item -ItemType Directory -Path (Join-Path $stage "tools") -Force | Out-Null
 Copy-Item (Join-Path $root "tools\balancepet-task.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\balancepet-task.cmd") (Join-Path $stage "tools")
+Copy-Item (Join-Path $root "tools\balancepet-account.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\balancepet-client-hook.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\install-balancepet-client-hooks.ps1") (Join-Path $stage "tools")
 New-Item -ItemType Directory -Path (Join-Path $stage "docs\licenses") -Force | Out-Null

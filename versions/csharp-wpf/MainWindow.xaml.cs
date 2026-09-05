@@ -10,6 +10,8 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 using Forms = System.Windows.Forms;
 using BalancePet.Wpf.Models;
 using BalancePet.Wpf.Services;
@@ -20,6 +22,12 @@ public partial class MainWindow : Window
 {
     private static readonly TimeSpan ManualRefreshCooldown = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan RefreshOperationTimeout = TimeSpan.FromSeconds(45);
+    private const int EdgeSnapDistance = 32;
+    private const double BubbleTextMaxWidth = 252;
+    // A stop can arrive just before the corresponding start when a client
+    // reconnects. Keep the short-lived marker only for that transport race.
+    private static readonly TimeSpan TaskStopReorderWindow = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan RetiredTaskWindow = TimeSpan.FromMinutes(2);
 
     private readonly SettingsStore _settingsStore = new();
     private readonly DpapiTokenStore _tokenStore = new();
@@ -31,6 +39,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _bubbleTimer;
     private readonly DispatcherTimer _floatTimer;
     private readonly CodexTaskBridge _codexTaskBridge = new();
+    private readonly AccountStatusBridge _accountStatusBridge = new();
     private readonly DispatcherTimer _stateTimer;
     private readonly DispatcherTimer _inactiveTimer;
     private readonly DispatcherTimer _bubbleAnimationTimer;
@@ -48,6 +57,8 @@ public partial class MainWindow : Window
     private Forms.ToolStripMenuItem? _trayChatGptStyleItem;
     private Forms.ToolStripMenuItem? _trayMiniMaxStyleItem;
     private Forms.ToolStripMenuItem? _trayGeminiStyleItem;
+    private Forms.ToolStripMenuItem? _trayGrokStyleItem;
+    private readonly Dictionary<string, Forms.ToolStripMenuItem> _trayStyleItems = new(StringComparer.OrdinalIgnoreCase);
     private Forms.ToolStripMenuItem? _trayMonitorMenu;
     private Forms.ToolStripMenuItem? _trayShowItem;
     private Forms.ToolStripMenuItem? _trayRefreshItem;
@@ -82,6 +93,10 @@ public partial class MainWindow : Window
     private readonly HashSet<string> _activeCodexTurns = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _activeTaskSources = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _activeTaskProfiles = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> _recentTaskStops = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> _retiredTaskKeys = new(StringComparer.Ordinal);
+    private DateTimeOffset _lastAccountStatusAt = DateTimeOffset.MinValue;
+    private string _lastAccountStatusKey = "";
     private double _bubbleAnimationProgress;
     private double _bubbleAnimationFrom;
     private double _bubbleAnimationTo;
@@ -168,6 +183,7 @@ public partial class MainWindow : Window
         public bool HasBalance { get; set; }
         public bool Refreshing { get; set; }
         public string? LastError { get; set; }
+        public string TokenFingerprint { get; set; } = "";
 
         public MonitorRuntime(MonitorProfile profile)
         {
@@ -206,6 +222,7 @@ public partial class MainWindow : Window
         _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _floatTimer.Tick += (_, _) => AnimatePet();
         _codexTaskBridge.ActivityReceived += OnCodexTaskActivityReceived;
+        _accountStatusBridge.ActivityReceived += OnAccountStatusReceived;
         _stateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _stateTimer.Tick += (_, _) => RestoreSteadyVisualState();
         _inactiveTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(15) };
@@ -240,6 +257,7 @@ public partial class MainWindow : Window
             _trayRecoveryTimer.Stop();
             _updateTimer.Stop();
             _codexTaskBridge.Dispose();
+            _accountStatusBridge.Dispose();
             UnregisterTaskbarCreatedHook();
             SavePosition(); DisposeTray(); _httpClient.Dispose(); _updateHttpClient.Dispose();
         };
@@ -282,12 +300,16 @@ public partial class MainWindow : Window
         ResetInactiveTimer();
         ConfigureSounds();
         _codexTaskBridge.Stop();
+        _accountStatusBridge.Stop();
         _activeCodexTurns.Clear();
         _activeTaskSources.Clear();
         _activeTaskProfiles.Clear();
+        _recentTaskStops.Clear();
+        _retiredTaskKeys.Clear();
         _codexStartBalances.Clear();
         _codexShownPet = false;
         if (_settings.CodexTaskIntegration) _codexTaskBridge.Start();
+        if (_settings.AccountStatusIntegration) _accountStatusBridge.Start();
         SetupTray();
         UpdateTrayMonitorMenu();
         UpdateContextMonitorMenu();
@@ -335,6 +357,8 @@ public partial class MainWindow : Window
             if (BalancePresetCatalog.UsesSiteUrl(profile.PresetId))
                 BalancePresetCatalog.Apply(profile, profile.PresetId, BalancePresetCatalog.ResolveSiteUrl(profile));
             var runtime = new MonitorRuntime(profile);
+            try { runtime.TokenFingerprint = FingerprintToken(_tokenStore.Unprotect(profile.TokenBlob)); }
+            catch (Exception error) when (error is FormatException or System.Security.SecurityException or CryptographicException) { }
             if (runtime.CacheStore.TryLoad(out var cached))
             {
                 runtime.LastBalance = cached.Amount;
@@ -448,10 +472,11 @@ public partial class MainWindow : Window
         _refreshing = true;
         using var refreshCancellation = new CancellationTokenSource(RefreshOperationTimeout);
         _refreshCancellation = refreshCancellation;
+        var selectedRefreshStarted = false;
         try
         {
-            var selectedIsDue = due.Any(IsSelectedMonitor);
-            if (selectedIsDue)
+            selectedRefreshStarted = due.Any(IsSelectedMonitor);
+            if (selectedRefreshStarted)
             {
                 SetStatus("正在查询");
                 if (_activeCodexTurns.Count == 0) SetVisualState(PetVisualState.Loading);
@@ -468,6 +493,44 @@ public partial class MainWindow : Window
         {
             if (ReferenceEquals(_refreshCancellation, refreshCancellation)) _refreshCancellation = null;
             _refreshing = false;
+            ReconcileSelectedRefreshUi(manual, selectedRefreshStarted);
+        }
+    }
+
+    private void ReconcileSelectedRefreshUi(bool manual, bool selectedRefreshStarted)
+    {
+        if (_closing || !selectedRefreshStarted) return;
+
+        // A task event can race the HTTP completion. Never leave the loading
+        // artwork or its pending bubble behind after the request has ended.
+        if (_activeCodexTurns.Count > 0)
+        {
+            if (_visualState == PetVisualState.Loading)
+            {
+                SetVisualState(PetVisualState.CodexWorking);
+                ShowBubble(
+                    $"{CurrentTaskSourceLabel()} 工作中",
+                    _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
+                    "任务完成或停止后会自动切换状态");
+            }
+            return;
+        }
+
+        if (_visualState != PetVisualState.Loading) return;
+        var selected = SelectedMonitor;
+        if (selected?.HasBalance == true && selected.LastBalance.HasValue && selected.LastError is null)
+        {
+            var low = selected.LastBalance.Value <= selected.Profile.LowThreshold;
+            SetVisualState(low ? PetVisualState.Low : PetVisualState.Success, low ? 0 : 1800);
+            if (manual)
+            {
+                var currency = string.IsNullOrWhiteSpace(selected.Profile.Currency) ? "USD" : selected.Profile.Currency;
+                ShowBubble("账户余额", $"{selected.LastBalance.Value:0.00} {currency}", $"{selected.Profile.Name} · 刷新完成");
+            }
+        }
+        else
+        {
+            RestoreSteadyVisualState();
         }
     }
 
@@ -503,7 +566,11 @@ public partial class MainWindow : Window
             SyncSelectedMonitorState();
             SetStatus(snapshot.Amount <= runtime.Profile.LowThreshold ? "余额偏低" : "查询成功");
             if (manual) PlaySound(_releaseSound);
-            if (_activeCodexTurns.Count > 0) return;
+            // Automatic polling keeps the task artwork authoritative. A user
+            // initiated refresh must still show its result even if an older
+            // client missed its Stop event; the state timer returns to working
+            // afterward when a task is genuinely still active.
+            if (_activeCodexTurns.Count > 0 && _visualState == PetVisualState.CodexWorking && !manual) return;
             if (observation.Spent > 0.000001)
             {
                 SetVisualState(PetVisualState.Clicked, 1200);
@@ -511,8 +578,10 @@ public partial class MainWindow : Window
             }
             else
             {
-                SetVisualState(snapshot.Amount <= runtime.Profile.LowThreshold ? PetVisualState.Low : PetVisualState.Success, snapshot.Amount <= runtime.Profile.LowThreshold ? 0 : 1800);
-                if (snapshot.Amount <= runtime.Profile.LowThreshold && (!wasLow || !hadBalance))
+                var low = snapshot.Amount <= runtime.Profile.LowThreshold;
+                var temporaryMs = low && _activeCodexTurns.Count > 0 && manual ? 1800 : low ? 0 : 1800;
+                SetVisualState(low ? PetVisualState.Low : PetVisualState.Success, temporaryMs);
+                if (low && (!wasLow || !hadBalance))
                     ShowSystemNotification($"{runtime.Profile.Name} 余额偏低", $"当前余额 {snapshot.Amount:0.00} {snapshot.Currency}", Forms.ToolTipIcon.Warning);
                 if (manual || !hadBalance) ShowBubble("账户余额", $"{snapshot.Amount:0.00} {snapshot.Currency}", $"{runtime.Profile.Name} · 更新于 {snapshot.UpdatedAt:HH:mm:ss} · 今日已用 {observation.TodayUsage:0.00}");
             }
@@ -530,6 +599,14 @@ public partial class MainWindow : Window
                     RestoreSteadyVisualState();
                     if (manual) ShowBubble("刷新失败", "--", $"{runtime.Profile.Name} 请求超时或已取消，请稍后重试");
                 }
+                else if (_visualState != PetVisualState.CodexWorking)
+                {
+                    SetVisualState(PetVisualState.CodexWorking);
+                    ShowBubble(
+                        $"{CurrentTaskSourceLabel()} 工作中",
+                        _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
+                        "任务完成或停止后会自动切换状态");
+                }
             }
         }
         catch (Exception error)
@@ -538,7 +615,18 @@ public partial class MainWindow : Window
             if (!IsSelectedMonitor(runtime)) return;
             SyncSelectedMonitorState();
             SetStatus("刷新失败");
-            if (_activeCodexTurns.Count > 0) return;
+            if (_activeCodexTurns.Count > 0)
+            {
+                if (_visualState != PetVisualState.CodexWorking)
+                {
+                    SetVisualState(PetVisualState.CodexWorking);
+                    ShowBubble(
+                        $"{CurrentTaskSourceLabel()} 工作中",
+                        _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
+                        "任务完成或停止后会自动切换状态");
+                }
+                return;
+            }
             SetVisualState(PetVisualState.Error);
             var detail = error.Message.Length > 90 ? error.Message[..90] + "…" : error.Message;
             if (runtime.CacheStore.TryLoad(out var cached))
@@ -645,6 +733,7 @@ public partial class MainWindow : Window
             "chatgpt" => ("霁珑在等你", "慢慢来", "需要时再喊我就好"),
             "minimax" => ("绯音在这里", "小憩一下", "回来后我还会继续守着余额"),
             "gemini" => ("星璃在这里", "小憩一下", "回来后我还会继续守着余额"),
+            "grok" => ("烬斧在这里", "小憩一下", "回来后我还会继续守着余额"),
             _ => ("澜汐在这里", "小憩一下", "回来后我还会继续守着余额")
         };
         ShowBubble(line.Item1, line.Item2, line.Item3, TimeSpan.FromSeconds(4.2));
@@ -670,6 +759,16 @@ public partial class MainWindow : Window
     {
         StatusDot.HorizontalAlignment = _settings.Flipped ? System.Windows.HorizontalAlignment.Left : System.Windows.HorizontalAlignment.Right;
         StatusDot.Margin = _settings.Flipped ? new Thickness(22, 0, 0, 27) : new Thickness(0, 0, 22, 27);
+        if (_settings.Flipped)
+        {
+            PetSurface.ClearValue(System.Windows.Controls.Canvas.RightProperty);
+            System.Windows.Controls.Canvas.SetLeft(PetSurface, 0);
+        }
+        else
+        {
+            PetSurface.ClearValue(System.Windows.Controls.Canvas.LeftProperty);
+            System.Windows.Controls.Canvas.SetRight(PetSurface, 0);
+        }
         EnsurePetTransforms();
         _petScale.ScaleX = Math.Abs(_petScale.ScaleX) * (_settings.Flipped ? -1 : 1);
     }
@@ -835,7 +934,12 @@ public partial class MainWindow : Window
 
     private void ChangePetStyle(string style)
     {
-        var normalized = NormalizePetStyle(style);
+        var normalized = PetStyleCatalog.NormalizeId(style);
+        if (!PetStyleCatalog.IsAvailable(normalized))
+        {
+            UpdatePetStyleAvailability();
+            return;
+        }
         if (string.Equals(_settings.PetStyle, normalized, StringComparison.OrdinalIgnoreCase))
         {
             UpdatePetStyleMenuChecks();
@@ -872,10 +976,33 @@ public partial class MainWindow : Window
         ChatGptStyleMenuItem.IsChecked = style == "chatgpt";
         MiniMaxStyleMenuItem.IsChecked = style == "minimax";
         GeminiStyleMenuItem.IsChecked = style == "gemini";
+        GrokStyleMenuItem.IsChecked = style == "grok";
         if (_trayDeepSeekStyleItem is not null) _trayDeepSeekStyleItem.Checked = style == "deepseek";
         if (_trayChatGptStyleItem is not null) _trayChatGptStyleItem.Checked = style == "chatgpt";
         if (_trayMiniMaxStyleItem is not null) _trayMiniMaxStyleItem.Checked = style == "minimax";
         if (_trayGeminiStyleItem is not null) _trayGeminiStyleItem.Checked = style == "gemini";
+        if (_trayGrokStyleItem is not null) _trayGrokStyleItem.Checked = style == "grok";
+        foreach (var item in _trayStyleItems.Values) item.Checked = style == item.Tag?.ToString();
+        UpdatePetStyleAvailability();
+    }
+
+    private void UpdatePetStyleAvailability()
+    {
+        foreach (var item in ContextStyleMenuItem.Items.OfType<MenuItem>())
+        {
+            if (item.Tag is string id)
+            {
+                var available = PetStyleCatalog.IsAvailable(id);
+                item.IsEnabled = available;
+                item.ToolTip = available ? null : AppLocalization.Text(_settings.Language, "素材尚未完成", "Assets are not ready");
+            }
+        }
+
+        foreach (var item in _trayStyleItems.Values)
+        {
+            if (item.Tag is string id)
+                item.Enabled = PetStyleCatalog.IsAvailable(id);
+        }
     }
 
     private void UpdateTrayMonitorMenu()
@@ -920,7 +1047,7 @@ public partial class MainWindow : Window
             MonitorMenuItem.Items.Add(new MenuItem { Header = AppLocalization.Text(_settings.Language, "未配置账户", "No accounts configured"), IsEnabled = false });
     }
 
-    private void SelectMonitor(string profileId)
+    private void SelectMonitor(string profileId, bool announce = true, bool refreshWhenMissing = true)
     {
         if (!_monitorStates.ContainsKey(profileId)) return;
         _settings.SelectedMonitorId = profileId;
@@ -937,17 +1064,15 @@ public partial class MainWindow : Window
         UpdateTrayMonitorMenu();
         UpdateContextMonitorMenu();
         RestoreSteadyVisualState();
-        if (SelectedMonitor is { HasBalance: false }) _ = RefreshAsync(true, true);
-        else ShowBubble("已切换账户", SelectedMonitor?.Profile.Name ?? "当前账户", "余额与状态已切换");
+        if (refreshWhenMissing && SelectedMonitor is { HasBalance: false }) _ = RefreshAsync(true, true);
+        else if (announce) ShowBubble("已切换账户", SelectedMonitor?.Profile.Name ?? "当前账户", "余额与状态已切换");
     }
 
-    private string PetStyleDisplayName(string style) => NormalizePetStyle(style) switch
+    private string PetStyleDisplayName(string style)
     {
-        "chatgpt" => AppLocalization.Text(_settings.Language, "ChatGPT 小龙「霁珑」", "ChatGPT Dragon \"Jilong\""),
-        "minimax" => AppLocalization.Text(_settings.Language, "MiniMax 小海螺「绯音」", "MiniMax Shell \"Feiyin\""),
-        "gemini" => AppLocalization.Text(_settings.Language, "Gemini 小星猫「星璃」", "Gemini Star Cat \"Xingli\""),
-        _ => AppLocalization.Text(_settings.Language, "DeepSeek 小鲸鱼「澜汐」", "DeepSeek Whale \"Lanxi\"")
-    };
+        var definition = PetStyleCatalog.Get(style);
+        return AppLocalization.Text(_settings.Language, definition.ChineseName, definition.EnglishName);
+    }
 
     private void ApplyLocalization()
     {
@@ -964,6 +1089,9 @@ public partial class MainWindow : Window
         ChatGptStyleMenuItem.Header = PetStyleDisplayName("chatgpt");
         MiniMaxStyleMenuItem.Header = PetStyleDisplayName("minimax");
         GeminiStyleMenuItem.Header = PetStyleDisplayName("gemini");
+        GrokStyleMenuItem.Header = PetStyleDisplayName("grok");
+        foreach (var item in ContextStyleMenuItem.Items.OfType<MenuItem>())
+            if (item.Tag is string id) item.Header = PetStyleDisplayName(id);
         if (_trayShowItem is not null) _trayShowItem.Text = AppLocalization.Text(_settings.Language, "显示桌宠", "Show pet");
         if (_trayRefreshItem is not null) _trayRefreshItem.Text = AppLocalization.Text(_settings.Language, "立即刷新", "Refresh now");
         if (_traySettingsItem is not null) _traySettingsItem.Text = AppLocalization.Text(_settings.Language, "配置接口", "Configure API");
@@ -976,6 +1104,9 @@ public partial class MainWindow : Window
         if (_trayChatGptStyleItem is not null) _trayChatGptStyleItem.Text = PetStyleDisplayName("chatgpt");
         if (_trayMiniMaxStyleItem is not null) _trayMiniMaxStyleItem.Text = PetStyleDisplayName("minimax");
         if (_trayGeminiStyleItem is not null) _trayGeminiStyleItem.Text = PetStyleDisplayName("gemini");
+        if (_trayGrokStyleItem is not null) _trayGrokStyleItem.Text = PetStyleDisplayName("grok");
+        foreach (var item in _trayStyleItems.Values)
+            if (item.Tag is string id) item.Text = PetStyleDisplayName(id);
         if (_trayIcon is not null) _trayIcon.Text = AppLocalization.Text(_settings.Language, "小余额", "BalancePet");
     }
 
@@ -1031,23 +1162,30 @@ public partial class MainWindow : Window
         if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref info)) { SavePosition(); return; }
         var width = rect.Right - rect.Left; var height = rect.Bottom - rect.Top;
         var x = rect.Left; var y = rect.Top;
-        // Snap once the window center enters an outer screen zone.
-        // quarter of the monitor, which is much easier to trigger than a
-        // fixed pixel-distance threshold on transparent windows.
-        var centerX = rect.Left + width / 2.0;
-        var centerY = rect.Top + height / 2.0;
-        if (centerX < info.Work.Left + (info.Work.Right - info.Work.Left) / 4.0)
+        var snappedLeft = false;
+        var snappedHorizontal = false;
+        if (rect.Left <= info.Work.Left + EdgeSnapDistance)
+        {
             x = info.Work.Left;
-        else if (centerX > info.Work.Left + (info.Work.Right - info.Work.Left) * .75)
+            snappedLeft = true;
+            snappedHorizontal = true;
+        }
+        else if (rect.Right >= info.Work.Right - EdgeSnapDistance)
+        {
             x = info.Work.Right - width;
-        if (centerY < info.Work.Top + (info.Work.Bottom - info.Work.Top) / 4.0)
+            snappedHorizontal = true;
+        }
+        if (rect.Top <= info.Work.Top + EdgeSnapDistance)
             y = info.Work.Top;
-        else if (centerY > info.Work.Top + (info.Work.Bottom - info.Work.Top) * .75)
+        else if (rect.Bottom >= info.Work.Bottom - EdgeSnapDistance)
             y = info.Work.Bottom - height;
         x = Math.Clamp(x, info.Work.Left, info.Work.Right - width);
         y = Math.Clamp(y, info.Work.Top, info.Work.Bottom - height);
-        _settings.Flipped = x == info.Work.Left;
-        ApplyFlipVisuals();
+        if (snappedHorizontal)
+        {
+            _settings.Flipped = snappedLeft;
+            ApplyFlipVisuals();
+        }
         SetWindowPos(WindowHandle, IntPtr.Zero, x, y, 0, 0, SwpNoSize | SwpNoZOrder | SwpNoActivate);
         Dispatcher.BeginInvoke(SavePosition, DispatcherPriority.ApplicationIdle);
     }
@@ -1082,14 +1220,32 @@ public partial class MainWindow : Window
         _trayChatGptStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("chatgpt")) { Tag = "chatgpt" };
         _trayMiniMaxStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("minimax")) { Tag = "minimax" };
         _trayGeminiStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("gemini")) { Tag = "gemini" };
+        _trayGrokStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("grok")) { Tag = "grok" };
         _trayDeepSeekStyleItem.Click += (_, _) => ChangePetStyle("deepseek");
         _trayChatGptStyleItem.Click += (_, _) => ChangePetStyle("chatgpt");
         _trayMiniMaxStyleItem.Click += (_, _) => ChangePetStyle("minimax");
         _trayGeminiStyleItem.Click += (_, _) => ChangePetStyle("gemini");
+        _trayGrokStyleItem.Click += (_, _) => ChangePetStyle("grok");
+        _trayStyleItems.Clear();
+        _trayStyleItems["deepseek"] = _trayDeepSeekStyleItem;
+        _trayStyleItems["chatgpt"] = _trayChatGptStyleItem;
+        _trayStyleItems["minimax"] = _trayMiniMaxStyleItem;
+        _trayStyleItems["gemini"] = _trayGeminiStyleItem;
+        _trayStyleItems["grok"] = _trayGrokStyleItem;
+        foreach (var definition in PetStyleCatalog.All)
+        {
+            if (definition.Id is "deepseek" or "chatgpt" or "minimax" or "gemini" or "grok") continue;
+            var item = new Forms.ToolStripMenuItem(PetStyleDisplayName(definition.Id)) { Tag = definition.Id };
+            item.Click += (_, _) => ChangePetStyle(definition.Id);
+            _trayStyleItems[definition.Id] = item;
+        }
         styleMenu.DropDownItems.Add(_trayDeepSeekStyleItem);
         styleMenu.DropDownItems.Add(_trayChatGptStyleItem);
         styleMenu.DropDownItems.Add(_trayMiniMaxStyleItem);
         styleMenu.DropDownItems.Add(_trayGeminiStyleItem);
+        styleMenu.DropDownItems.Add(_trayGrokStyleItem);
+        styleMenu.DropDownItems.Add(new Forms.ToolStripSeparator());
+        foreach (var item in _trayStyleItems.Values) styleMenu.DropDownItems.Add(item);
         menu.Items.Add(styleMenu);
         _trayMonitorMenu = new Forms.ToolStripMenuItem();
         menu.Items.Add(_trayMonitorMenu);
@@ -1375,6 +1531,8 @@ public partial class MainWindow : Window
         _trayChatGptStyleItem = null;
         _trayMiniMaxStyleItem = null;
         _trayGeminiStyleItem = null;
+        _trayGrokStyleItem = null;
+        _trayStyleItems.Clear();
         _trayMonitorMenu = null;
         _trayShowItem = null;
         _trayRefreshItem = null;
@@ -1441,9 +1599,38 @@ public partial class MainWindow : Window
     private void SetBubbleText(string label, string amount, string hint)
     {
         BubbleLabel.Text = label;
-        BubbleAmount.Text = amount;
-        BubbleAmount.FontSize = GetBubbleAmountFontSize(amount);
+        BubbleLabel.MaxWidth = BubbleTextMaxWidth;
+        BubbleLabel.TextWrapping = TextWrapping.Wrap;
+        BubbleLabel.TextTrimming = TextTrimming.None;
+        SetBubbleAmountText(amount);
         BubbleHint.Text = hint;
+    }
+
+    private void SetBubbleAmountText(string amount)
+    {
+        BubbleAmount.Text = amount;
+        BubbleAmount.Width = double.NaN;
+        BubbleAmount.MaxWidth = double.PositiveInfinity;
+        BubbleAmount.TextWrapping = TextWrapping.NoWrap;
+        BubbleAmount.TextTrimming = TextTrimming.None;
+
+        var fittedSize = GetBubbleAmountFontSize(amount);
+        for (var size = fittedSize; size >= 14; size -= 0.5)
+        {
+            BubbleAmount.FontSize = size;
+            BubbleAmount.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+            if (BubbleAmount.DesiredSize.Width <= BubbleTextMaxWidth)
+            {
+                fittedSize = size;
+                break;
+            }
+            fittedSize = size;
+        }
+
+        BubbleAmount.FontSize = fittedSize;
+        BubbleAmount.MaxWidth = BubbleTextMaxWidth;
+        BubbleAmount.Width = BubbleTextMaxWidth;
+        BubbleAmount.TextWrapping = TextWrapping.Wrap;
     }
 
     private static double GetBubbleAmountFontSize(string amount)
@@ -1485,6 +1672,13 @@ public partial class MainWindow : Window
                 ("慢慢来", "不用着急", "需要时我会在这里"),
                 ("工作继续", "保持专注", "完成后会显示本次消耗")
             },
+            "grok" => new[]
+            {
+                ("烬斧在看着", "放心吧", "余额变动会告诉你"),
+                ("蝙蝠发饰晃了一下", "轻一点", "点击角色可以刷新余额"),
+                ("慢慢来", "不用着急", "需要时我会在这里"),
+                ("工作继续", "保持专注", "完成后会显示本次消耗")
+            },
             _ => new[]
             {
                 ("澜汐在看着", "放心吧", "余额变动会告诉你"),
@@ -1513,6 +1707,7 @@ public partial class MainWindow : Window
                 "chatgpt" => ("被发现了", "霁珑笑了一下", "连续互动彩蛋"),
                 "minimax" => ("被发现了", "绯音眨了眨眼", "连续互动彩蛋"),
                 "gemini" => ("被发现了", "星璃眨了眨眼", "连续互动彩蛋"),
+                "grok" => ("被发现了", "烬斧露出了小尖牙", "连续互动彩蛋"),
                 _ => ("被发现了", "澜汐眨了眨眼", "连续互动彩蛋")
             };
             ShowBubble(surprise.Item1, surprise.Item2, surprise.Item3, TimeSpan.FromSeconds(4.2));
@@ -1558,6 +1753,16 @@ public partial class MainWindow : Window
             };
         }
 
+        if (style == "grok")
+        {
+            return kind switch
+            {
+                "hair" => new[] { ("发饰被碰到", "有点痒", "烬斧轻轻晃了晃蝙蝠发饰"), ("不要戳发饰", "轻一点", "小心她的 X 形武器") },
+                "mouth" => new[] { ("脸颊被碰到", "唔", "烬斧有点害羞"), ("轻一点嘛", "在呢", "我会继续看着余额") },
+                _ => new[] { ("被戳到了", "在呢", "点击可以刷新余额") }
+            };
+        }
+
         return kind switch
         {
             "hair" => new[] { ("呆毛被提起", "哎呀", "澜汐的发型要乱啦"), ("不要拽呆毛", "轻一点", "会痒的") },
@@ -1566,13 +1771,11 @@ public partial class MainWindow : Window
         };
     }
 
-    private static string NormalizePetStyle(string? style) => style?.Trim().ToLowerInvariant() switch
+    private static string NormalizePetStyle(string? style)
     {
-        "chatgpt" or "gpt" => "chatgpt",
-        "minimax" => "minimax",
-        "gemini" => "gemini",
-        _ => "deepseek"
-    };
+        var normalized = PetStyleCatalog.NormalizeId(style);
+        return PetStyleCatalog.IsAvailable(normalized) ? normalized : "deepseek";
+    }
 
     private bool IsDragonStyle() => NormalizePetStyle(_settings.PetStyle) == "chatgpt";
 
@@ -1622,7 +1825,7 @@ public partial class MainWindow : Window
         var eased = 1 - Math.Pow(1 - _amountAnimationProgress, 3);
         _displayBalance = _amountFrom + (_amountTo - _amountFrom) * eased;
         if (BubbleGroup.Visibility == Visibility.Visible && BubbleLabel.Text.Contains("余额", StringComparison.Ordinal))
-            BubbleAmount.Text = $"{_displayBalance:0.00} {_amountCurrency}";
+            SetBubbleAmountText($"{_displayBalance:0.00} {_amountCurrency}");
         if (_amountAnimationProgress >= 1) _amountAnimationTimer.Stop();
     }
     private void AnimatePet()
@@ -1730,8 +1933,155 @@ public partial class MainWindow : Window
         }));
     }
 
+    private void OnAccountStatusReceived(object? sender, AiAccountActivity activity)
+    {
+        Dispatcher.BeginInvoke(new Action(() => HandleAccountStatus(activity)));
+    }
+
+    private void HandleAccountStatus(AiAccountActivity activity)
+    {
+        if (_closing || !_settings.AccountStatusIntegration) return;
+        var key = $"{activity.State}|{activity.Provider}|{activity.AccountType}|{activity.AccountLabel}|{activity.Endpoint}|{activity.TokenFingerprint}";
+        var now = DateTimeOffset.UtcNow;
+        if (string.Equals(key, _lastAccountStatusKey, StringComparison.Ordinal) && now - _lastAccountStatusAt < TimeSpan.FromSeconds(2)) return;
+        _lastAccountStatusKey = key;
+        _lastAccountStatusAt = now;
+
+        if (activity.State == "logout")
+        {
+            ShowBubble($"{activity.Provider} 已退出", "登录状态已更新", "重新登录后会再次提示");
+            return;
+        }
+
+        var label = string.IsNullOrWhiteSpace(activity.AccountLabel) ? "" : $" · {activity.AccountLabel}";
+        var accountType = AccountSourceClassifier.ResolveAccountType(activity);
+        if (accountType == "official")
+        {
+            ShowBubble($"{activity.Provider} 官方账户已登录", "登录成功", $"官方账户{label}");
+            return;
+        }
+        else if (accountType == "official-api")
+        {
+            var amount = activity.ReportedBalance.HasValue
+                ? FormatAccountBalance(activity.ReportedBalance.Value, activity.Currency)
+                : "余额未提供";
+            ShowBubble($"{activity.Provider} API 已登录", amount, $"官方 API{label}");
+            return;
+        }
+
+        var local = FindMatchingMonitor(activity);
+        if (local is not null)
+        {
+            if (!IsSelectedMonitor(local)) SelectMonitor(local.Profile.Id, announce: false, refreshWhenMissing: false);
+            var balance = local.LastBalance.HasValue
+                ? FormatAccountBalance(local.LastBalance.Value, local.Profile.Currency)
+                : "余额待查询";
+            ShowBubble(
+                $"{local.Profile.Name} API 已登录",
+                balance,
+                $"已匹配本地账户 · {local.Profile.Name}");
+            _ = RefreshAsync(true, true, true);
+            return;
+        }
+
+        if (accountType is "relay-api" or "third-party")
+        {
+            const string reminder = "是否保存到 BalancePet？右键桌宠打开“配置接口”";
+            ShowBubble("第三方 API 已登录", "未匹配本地账户", reminder);
+            ShowSystemNotification("未收录的第三方 API", reminder, Forms.ToolTipIcon.Info);
+        }
+        else
+        {
+            ShowBubble($"{activity.Provider} 账户已登录", "登录成功", $"来源未分类{label}");
+        }
+    }
+
+    private MonitorRuntime? FindMatchingMonitor(AiAccountActivity activity)
+    {
+        var enabled = _monitorStates.Values.Where(runtime => runtime.Profile.Enabled).ToArray();
+        if (activity.TokenFingerprint.Length == 64)
+        {
+            var exact = enabled.FirstOrDefault(runtime => string.Equals(runtime.TokenFingerprint, activity.TokenFingerprint, StringComparison.OrdinalIgnoreCase));
+            if (exact is not null) return exact;
+        }
+
+        if (string.IsNullOrWhiteSpace(activity.Endpoint)) return null;
+        var endpointMatches = enabled.Where(runtime => EndpointMatches(runtime.Profile, activity.Endpoint)).ToArray();
+        if (endpointMatches.Length == 1) return endpointMatches[0];
+
+        // AI clients usually report their model API base (/v1), while the
+        // saved monitor points at a balance endpoint (/v1/usage). The origin
+        // is a safe fallback only when it identifies exactly one local profile.
+        var originMatches = enabled.Where(runtime => EndpointOriginMatches(runtime.Profile, activity.Endpoint)).ToArray();
+        return originMatches.Length == 1 ? originMatches[0] : null;
+    }
+
+    private static bool EndpointMatches(MonitorProfile profile, string endpoint)
+    {
+        var incoming = NormalizeAccountEndpoint(endpoint);
+        if (incoming.Length == 0) return false;
+        var profileEndpoint = NormalizeAccountEndpoint(profile.Endpoint);
+        var siteEndpoint = NormalizeAccountEndpoint(profile.SiteUrl);
+        return string.Equals(incoming, profileEndpoint, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(incoming, siteEndpoint, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool EndpointOriginMatches(MonitorProfile profile, string endpoint)
+    {
+        var incomingOrigin = AccountEndpointOrigin(endpoint);
+        if (incomingOrigin.Length == 0) return false;
+        return string.Equals(incomingOrigin, AccountEndpointOrigin(profile.Endpoint), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(incomingOrigin, AccountEndpointOrigin(profile.SiteUrl), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string AccountEndpointOrigin(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) return "";
+        return uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+    }
+
+    private static string NormalizeAccountEndpoint(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) return "";
+        var path = uri.AbsolutePath.TrimEnd('/');
+        foreach (var suffix in new[] { "/v1/usage", "/api/usage/token" })
+        {
+            if (path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                path = path[..^suffix.Length].TrimEnd('/');
+                break;
+            }
+        }
+        return uri.GetLeftPart(UriPartial.Authority).TrimEnd('/') + path;
+    }
+
+    private static string FingerprintToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return "";
+        var normalized = token.Trim();
+        if (normalized.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) normalized = normalized[7..].Trim();
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    private static string DisplayCurrency(string? currency) => string.IsNullOrWhiteSpace(currency) ? "" : currency.Trim().ToUpperInvariant();
+
+    private static string FormatAccountBalance(double amount, string? currency)
+    {
+        var unit = DisplayCurrency(currency);
+        return unit.Length == 0 ? $"{amount:0.00}" : $"{amount:0.00} {unit}";
+    }
+
     private Task StartCodexTaskAsync(CodexTaskActivity activity)
     {
+        PruneRecentTaskStops();
+        if (WasRecentlyStopped(activity)) return Task.CompletedTask;
+        _retiredTaskKeys.Remove(activity.Key);
+
+        // A resumed Codex turn keeps its session id but may receive a new
+        // turn id. Replace the abandoned turn from that same session so a
+        // missing Stop event cannot make the next task look like a second job.
+        ReplaceActiveTaskForSession(activity);
         if (!_activeCodexTurns.Add(activity.Key)) return Task.CompletedTask;
         _activeTaskSources[activity.Key] = TaskSourceLabel(activity.Provider);
         _activeTaskProfiles[activity.Key] = FindMonitorProfile(activity.Provider)?.Id ?? "";
@@ -1764,7 +2114,14 @@ public partial class MainWindow : Window
 
     private Task CompleteCodexTaskAsync(CodexTaskActivity activity)
     {
-        if (!RemoveActiveCodexTurn(activity, out var completedSource, out var completedProfileId)) return Task.CompletedTask;
+        PruneRecentTaskStops();
+        if (!RemoveActiveCodexTurn(activity, out var completedSource, out var completedProfileId))
+        {
+            // Keep a very short marker for out-of-order start/stop messages.
+            // It expires quickly so a real later task is unaffected.
+            RememberUnmatchedStop(activity);
+            return Task.CompletedTask;
+        }
         ResetInactiveTimer();
         if (_activeCodexTurns.Count > 0)
         {
@@ -1825,31 +2182,46 @@ public partial class MainWindow : Window
         completedSource = TaskSourceLabel(activity.Provider);
         completedProfileId = "";
 
-        if (!string.IsNullOrWhiteSpace(activity.TurnId) && RemoveTaskKey(activity.Key, ref completedSource, out completedProfileId)) return true;
-
-        // Stop payloads from different Codex hosts can omit or rotate turn_id.
-        // A session has one user turn at a time, so use its session as a safe
-        // fallback instead of dropping the completion event entirely.
-        var sessionPrefix = activity.SessionId + ":";
-        var matchingKey = _activeCodexTurns.FirstOrDefault(key =>
-            key.StartsWith(sessionPrefix, StringComparison.Ordinal));
-        if (matchingKey is not null) return RemoveTaskKey(matchingKey, ref completedSource, out completedProfileId);
-
-        // If only one task is active, an otherwise malformed identity cannot
-        // be confused with another task, so still honor the Stop event.
-        if (_activeCodexTurns.Count == 1)
+        if (!string.IsNullOrWhiteSpace(activity.TurnId))
         {
-            var soleKey = _activeCodexTurns.First();
-            return RemoveTaskKey(soleKey, ref completedSource, out completedProfileId);
+            if (RemoveTaskKey(activity.Key, ref completedSource, out completedProfileId)) return true;
+            // A previous start from this session may have been replaced by a
+            // resumed turn. Its delayed Stop must not end the newer turn.
+            if (_retiredTaskKeys.ContainsKey(activity.Key)) return false;
+
+            // Some hosts rotate turn_id between start and Stop. If this key
+            // was not retired, match the currently active turn in the same
+            // session rather than leaving the task stuck forever.
+            var sessionPrefix = activity.SessionId + ":";
+            var matchingKey = _activeCodexTurns.FirstOrDefault(key =>
+                key.StartsWith(sessionPrefix, StringComparison.Ordinal));
+            if (matchingKey is not null) return RemoveTaskKey(matchingKey, ref completedSource, out completedProfileId);
+            return false;
         }
 
-        // A Stop event always represents one completed turn. If a host rotated
-        // identifiers or failed to include them, consume one active task rather
-        // than leaving the pet stuck in the working state forever.
-        if (_activeCodexTurns.Count > 0)
+        // Hosts may omit turn_id on Stop. Only then use the session or sole-task
+        // fallback; a stale event with an old, non-empty turn_id must never end
+        // a newer resumed turn from the same session.
+        if (string.IsNullOrWhiteSpace(activity.TurnId))
         {
-            var fallbackKey = _activeCodexTurns.First();
-            return RemoveTaskKey(fallbackKey, ref completedSource, out completedProfileId);
+            var sessionPrefix = activity.SessionId + ":";
+            var matchingKey = _activeCodexTurns.FirstOrDefault(key =>
+                key.StartsWith(sessionPrefix, StringComparison.Ordinal));
+            if (matchingKey is not null) return RemoveTaskKey(matchingKey, ref completedSource, out completedProfileId);
+
+            if (_activeCodexTurns.Count == 1)
+            {
+                var soleKey = _activeCodexTurns.First();
+                return RemoveTaskKey(soleKey, ref completedSource, out completedProfileId);
+            }
+
+            // A Stop without identity still represents one completed turn. If
+            // several tasks remain, consume one rather than staying stuck.
+            if (_activeCodexTurns.Count > 0)
+            {
+                var fallbackKey = _activeCodexTurns.First();
+                return RemoveTaskKey(fallbackKey, ref completedSource, out completedProfileId);
+            }
         }
         return false;
     }
@@ -1862,6 +2234,61 @@ public partial class MainWindow : Window
         if (_activeTaskProfiles.TryGetValue(key, out var knownProfileId)) profileId = knownProfileId ?? "";
         _activeTaskProfiles.Remove(key);
         return true;
+    }
+
+    private void ReplaceActiveTaskForSession(CodexTaskActivity activity)
+    {
+        var sessionPrefix = activity.SessionId + ":";
+        var replacedKeys = _activeCodexTurns
+            .Where(key => key.StartsWith(sessionPrefix, StringComparison.Ordinal) && !string.Equals(key, activity.Key, StringComparison.Ordinal))
+            .ToArray();
+        foreach (var key in replacedKeys)
+        {
+            _retiredTaskKeys[key] = DateTimeOffset.UtcNow;
+            var ignoredSource = "Codex";
+            RemoveTaskKey(key, ref ignoredSource, out _);
+        }
+    }
+
+    private void PruneRecentTaskStops()
+    {
+        var cutoff = DateTimeOffset.UtcNow - TaskStopReorderWindow;
+        foreach (var key in _recentTaskStops
+                     .Where(pair => pair.Value < cutoff)
+                     .Select(pair => pair.Key)
+                     .ToArray())
+        {
+            _recentTaskStops.Remove(key);
+        }
+
+        var retiredCutoff = DateTimeOffset.UtcNow - RetiredTaskWindow;
+        foreach (var key in _retiredTaskKeys
+                     .Where(pair => pair.Value < retiredCutoff)
+                     .Select(pair => pair.Key)
+                     .ToArray())
+        {
+            _retiredTaskKeys.Remove(key);
+        }
+    }
+
+    private void RememberUnmatchedStop(CodexTaskActivity activity)
+    {
+        var stoppedAt = DateTimeOffset.UtcNow;
+        if (!string.IsNullOrWhiteSpace(activity.TurnId)) _recentTaskStops[activity.Key] = stoppedAt;
+    }
+
+    private bool WasRecentlyStopped(CodexTaskActivity activity)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var matched = false;
+        if (!string.IsNullOrWhiteSpace(activity.TurnId)
+            && _recentTaskStops.TryGetValue(activity.Key, out var exactStop))
+        {
+            _recentTaskStops.Remove(activity.Key);
+            matched = now - exactStop <= TaskStopReorderWindow;
+        }
+
+        return matched;
     }
 
     private MonitorProfile? FindMonitorProfile(string? provider)

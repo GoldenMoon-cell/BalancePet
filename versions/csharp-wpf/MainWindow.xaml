@@ -17,8 +17,8 @@
       <Border Width="300" Height="210" HorizontalAlignment="Left" VerticalAlignment="Top" Background="White" BorderBrush="#263D78" BorderThickness="5" CornerRadius="105" Padding="24">
         <StackPanel x:Name="BubbleContent" VerticalAlignment="Center" Opacity="1" RenderTransformOrigin="0.5,0.5">
           <TextBlock x:Name="BubbleLabel" Text="账户余额" Foreground="#667DB1" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-          <TextBlock x:Name="BubbleAmount" Text="--" Foreground="#263D78" FontSize="39" FontWeight="Bold" HorizontalAlignment="Center" Width="235" Margin="0,4" TextAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-          <TextBlock x:Name="BubbleHint" Text="点击角色刷新" Foreground="#8092BC" FontSize="13" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" MaxWidth="235"/>
+          <TextBlock x:Name="BubbleAmount" Text="--" Foreground="#263D78" FontSize="39" FontWeight="Bold" HorizontalAlignment="Center" Width="252" Margin="0,4" TextAlignment="Center" TextWrapping="Wrap" TextTrimming="None"/>
+          <TextBlock x:Name="BubbleHint" Text="点击角色刷新" Foreground="#8092BC" FontSize="13" TextWrapping="Wrap" TextTrimming="None" TextAlignment="Center" HorizontalAlignment="Center" MaxWidth="252"/>
         </StackPanel>
       </Border>
       <Ellipse Width="37" Height="26" Fill="White" Stroke="#263D78" StrokeThickness="4" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,21,34"/>
@@ -33,9 +33,24 @@
           <MenuItem x:Name="InteractionMenuItem" Header="切换为锁定互动" Click="OnContextInteractionClick"/>
           <MenuItem x:Name="ContextStyleMenuItem" Header="切换形象">
             <MenuItem x:Name="DeepSeekStyleMenuItem" Header="DeepSeek 小鲸鱼「澜汐」" Tag="deepseek" IsCheckable="True" Click="OnPetStyleClick"/>
-            <MenuItem x:Name="ChatGptStyleMenuItem" Header="ChatGPT 小龙「霁珑」" Tag="chatgpt" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem x:Name="ChatGptStyleMenuItem" Header="ChatGPT 小白龙「霁珑」" Tag="chatgpt" IsCheckable="True" Click="OnPetStyleClick"/>
             <MenuItem x:Name="MiniMaxStyleMenuItem" Header="MiniMax 小海螺「绯音」" Tag="minimax" IsCheckable="True" Click="OnPetStyleClick"/>
             <MenuItem x:Name="GeminiStyleMenuItem" Header="Gemini 小星猫「星璃」" Tag="gemini" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem x:Name="GrokStyleMenuItem" Header="Grok 小恶魔「烬斧」" Tag="grok" IsCheckable="True" Click="OnPetStyleClick"/>
+            <Separator/>
+            <MenuItem Header="Claude 小书灵「丹笺」" Tag="claude" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="Kimi 小棱镜「虹谱」" Tag="kimi" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="Qwen 小折扇「绀华」" Tag="qwen" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="Ernie 小病书灵「青绡」" Tag="ernie" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="GLM 小方灵「青棱」" Tag="glm" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="GPT Image 2 小墨龙「玄珏」" Tag="gpt-image2" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="Llama 小羊驼「绒眠」" Tag="llama" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="MiMo 小兔码师「橙析」" Tag="mimo" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="Mistral 小猫骑士「麦霜」" Tag="mistral" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="OpenCode 小码灵「墨枢」" Tag="opencode" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="Perplexity 小探灯「青鉴」" Tag="perplexity" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="RWKV 小乌鸦「夜翎」" Tag="rwkv" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
+            <MenuItem Header="Seedence 小星晶「澄芽」" Tag="seedence" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
           </MenuItem>
           <MenuItem x:Name="MonitorMenuItem" Header="当前账户"/>
           <Separator/>
@@ -47,7 +62,7 @@
           <MenuItem x:Name="ContextExitMenuItem" Header="退出" Click="OnContextExitClick"/>
         </ContextMenu>
       </Grid.ContextMenu>
-      <Image x:Name="PetImage" Stretch="Uniform" Margin="0,0,-6,-6" RenderTransformOrigin="0.5,0.86"
+      <Image x:Name="PetImage" Stretch="Uniform" Margin="0,0,0,-6" RenderTransformOrigin="0.5,0.86"
              RenderOptions.BitmapScalingMode="Fant" SnapsToDevicePixels="False"
              IsHitTestVisible="False"/>
       <Ellipse x:Name="StatusDot" Width="16" Height="16" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,22,27" Fill="#91A2C8" Stroke="White" StrokeThickness="3"/>

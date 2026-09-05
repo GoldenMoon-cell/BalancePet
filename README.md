@@ -2,7 +2,7 @@
 
 面向 Windows 的余额桌宠。项目当前只维护 C# WPF 版本：它会按设定间隔查询中转站提供的余额 API，并以可互动的桌宠显示状态和余额，不需要打开中转站网页。
 
-当前发布版本：`v0.3.3`。
+当前发布版本：`v0.4.0`。
 
 ## 项目统计
 
@@ -31,8 +31,9 @@
 - 配置迁移：可导入/导出不含令牌的设置文件，适合切换中转站或迁移到另一台电脑。
 - 更新管理：可选每次启动、每天、每周或仅手动检查 GitHub Release；更新前会下载并校验 SHA-256。可写安装目录直接替换 ZIP，受保护目录会改用管理员安装器。
 - 双语界面：安装器启动时可选择简体中文或 English；桌宠设置中也可随时切换应用语言。
-- 托盘驻留与开机启动：支持从托盘配置、刷新、查看统计和退出；右键菜单的“切换形象”可快速切换澜汐、霁珑、绯音和星璃；可自动跟随 AI 客户端任务的开始和结束。
-- 状态素材：支持 DeepSeek 小鲸鱼「澜汐」、ChatGPT 小龙「霁珑」、MiniMax 小海螺「绯音」和 Gemini 小星猫「星璃」的待机、加载、成功、低余额、错误、点击、Codex 工作/完成和闲置状态图。
+- 托盘驻留与开机启动：支持从托盘配置、刷新、查看统计和退出；右键菜单的“切换形象”可快速切换当前已完成的澜汐、霁珑、绯音、星璃和烬斧；可自动跟随 AI 客户端任务的开始和结束。
+- AI 登录状态识别：客户端可通过本机命名管道报告官方账户、官方 API 或第三方 API 登录；已保存的 API 账户按令牌指纹或唯一接口自动匹配并切换，未收录的第三方 API 会提示添加到本地。BalancePet 不读取网页登录凭据，也不接收明文令牌。
+- 状态素材：当前支持 DeepSeek 小鲸鱼「澜汐」、ChatGPT 小白龙「霁珑」、MiniMax 小海螺「绯音」、Gemini 小星猫「星璃」和 Grok 小恶魔「烬斧」的待机、加载、成功、低余额、错误、点击、Codex 工作/完成和闲置状态图；其他已登记形象会在素材完整前保持禁用。
 
 ## 运行
 
@@ -58,6 +59,7 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 - **余额 JSON 路径**：例如 `{ "data": { "balance": 12.3 } }` 填写 `data.balance`。
 - **自动刷新间隔**：可选择关闭、30 秒、1/5/15/30 分钟、1 小时或自定义（最少 30 秒）；例如填写 `300` 表示每 5 分钟自动查询一次。关闭后不再运行后台轮询。桌宠手动刷新不受此设置影响，但两次手动刷新至少间隔 5 秒；AI 任务完成后的余额更新属于内部强制刷新。
 - **语言**：可选择“简体中文”或 “English”。保存后会应用到设置窗口、桌宠菜单、气泡提示、用量统计和更新窗口。
+- **识别 AI 登录账户**：启用后监听当前 Windows 用户的 `BalancePet.Account.v1` 本地命名管道。客户端只能上报登录类型、模型/服务名、可选账户标签、接口地址、令牌 SHA-256 指纹和可选余额；BalancePet 不会读取网站 Cookie、网页登录凭据或明文令牌。官方账户只显示登录状态；官方 API 可显示客户端上报的余额；已匹配本地 API 账户会自动切换并显示本地缓存余额；未匹配的第三方 API 会提示在设置中添加。
 - **网络失败处理**：请求遇到超时、网络波动或 408/425/429/5xx 响应时会自动重试 2 次，仍失败则显示最近一次缓存余额（如有）。
 - **设置导入/导出**：设置窗口底部可导入或导出 JSON；导出文件不会包含访问令牌，换电脑后需重新填写令牌。
 
@@ -68,6 +70,8 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 可参考无凭证示例：[docs/balance-pet.example.json](docs/balance-pet.example.json)。自动识别只向用户填写的同一站点发送令牌，不会把令牌交给第三方识别服务。
 
 ## 素材
+
+桌宠状态图所使用的二次元形象参考素材均来自 Bilibili UP 主 `ZipZipPipe`。感谢原作者的公开分享；素材的使用范围和授权条件以原作者发布页面的说明为准。
 
 状态图位于：
 
@@ -122,6 +126,26 @@ inactive.png
 ## AI 客户端兼容联动
 
 BalancePet 不需要安装对应的 AI 客户端或 CLI。只要某个客户端能在任务开始和结束时执行命令，就可以调用发布包内的通用发送脚本；只支持批处理命令的客户端可以使用同目录的 `balancepet-task.cmd` 包装器。
+
+登录状态上报使用发布包中的 `tools\balancepet-account.ps1`。例如：
+
+```powershell
+# 官方网页登录账户
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\balancepet-account.ps1" login ChatGPT official -AccountLabel "example@example.com"
+
+# 官方 API；余额为可选的客户端已知值
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\balancepet-account.ps1" login OpenAI official-api -Endpoint "https://api.openai.com" -Balance 12.5 -Currency USD
+
+# 第三方中转站；推荐同时传入令牌 SHA-256 指纹以匹配本地账户
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\balancepet-account.ps1" login NewAPI relay-api -Endpoint "https://relay.example.com/v1/usage" -TokenFingerprint TOKEN_FINGERPRINT_64_HEX
+
+# 退出登录
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\balancepet-account.ps1" logout ChatGPT official
+```
+
+`TokenFingerprint` 必须是令牌本身（去掉 `Bearer ` 前缀后）的 SHA-256 十六进制结果，不能把令牌明文放进命令参数。没有指纹时，只有当接口地址恰好只对应一个本地账户时才会自动匹配；多个账户共用同一站点时不会猜测账户。客户端也可以直接向 `BalancePet.Account.v1` 发送一行 JSON，字段名与脚本参数对应。
+
+Windows 没有可供所有 AI 客户端共用的登录状态接口，因此客户端或 Hook 必须在登录状态变化时调用上述脚本或命名管道；BalancePet 不会扫描浏览器 Cookie、客户端认证文件或进程内存。官方 API 也没有统一的余额查询协议：客户端已知余额时可通过 `-Balance` 和 `-Currency` 一并上报；匹配到本地中转站账户时，则由 BalancePet 使用该账户原有的余额配置自动刷新。
 
 开始任务：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\\tools\\balancepet-task.ps1" start <task-id> <provider>`
 
