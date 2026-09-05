@@ -71,7 +71,7 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 
 ## 素材
 
-桌宠状态图所使用的二次元形象参考素材均来自 Bilibili UP 主 `ZipZipPipe`。感谢原作者的公开分享；素材的使用范围和授权条件以原作者发布页面的说明为准。
+桌宠状态图所使用的二次元形象参考素材均来自 Bilibili UP 主 `@ZipZipPipe`。感谢原作者的公开分享；素材的使用范围和授权条件以原作者发布页面的说明为准。
 
 状态图位于：
 
