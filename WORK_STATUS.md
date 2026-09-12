@@ -8,11 +8,11 @@
 
 - 项目：BalancePet，Windows 桌面宠物，用于轮询用户配置的中转站余额接口并显示结果。
 - 当前仓库可见并持续构建的实现：`versions/csharp-wpf`。Python 版本保留为 fallback，不主动删除；如果后续恢复或新增 Electron 实现，继续遵守根目录 `AGENTS.md` 中关于 Electron 主进程凭据隔离的约束。
-- 发布候选：主程序 `v0.7.8`，功能扩展 `Usage Analytics v0.2.9`；上一版已发布版本为 `v0.5.0`。
-- 工作区：主程序 `v0.7.8` 与 `BalancePet-Ext-Feature-UsageAnalytics v0.2.9` 已完成规范整理、构建和打包，准备发布。
+- 当前发布：主程序 `v0.7.8`，功能扩展 `Usage Analytics v0.2.9`；两者均已发布到 GitHub。
+- 发布仓库：[BalancePet](https://github.com/GoldenMoon-cell/BalancePet)；[BalancePet-Ext-Feature-UsageAnalytics](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics)。对应 Release：[主程序 v0.7.8](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v0.7.8)；[插件 v0.2.9](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/tag/v0.2.9)。
 - 最近验证：主程序和用量统计插件的 `dotnet build` 均通过，0 警告、0 错误；主程序 Inno Setup 6.7.3 打包成功；`v0.7.6` 安装器与便携 ZIP、统计扩展 0.2.4 ZIP 均已生成；脱敏 Usage Event v1 写入脚本已通过字段校验；设置窗口保持紧凑的 640×720 分栏布局，并加入浅色主题、统一控件边框和卡片容器；扩展页现可将同一 ID 的多个版本合并为一个条目，行内提供图标化安装/卸载、启用/禁用、更新和启动操作，并支持独立的扩展更新检查频率；扩展清单可声明 GitHub `update_url`，下载后仍经过 ZIP 与 manifest 校验；用量统计插件的“仪表盘/使用记录/提供方与模型”侧边导航已接通，生命周期-only 数据会明确提示客户端尚未上报 Token、模型和耗时；统计窗口使用无边框内置标题栏、深色滚动条和实时倒计时；Codex Hook、通用 Task.v1 和 Usage.v1 解析支持更多嵌套用量字段。
 - `v0.3.3` 是 GitHub 已发布版本。此前为测试新预设而生成的同名本地包仍在 `dist/`，但不应再作为发布物使用：`BalancePet-0.3.3-win-x64.zip`（200,236,072 bytes，SHA-256 `c5d4f105169172a320b62dc81cb06ae39962068f0f40fbbae61f2586adba30cb`）；`BalancePet-0.3.3-Setup.exe`（180,300,513 bytes，SHA-256 `c1ed3088885087d165344f6947f7efefecec77f30bbfc776a7eedd94a291ad5a`）。
-- 当前已发布版本为 `0.5.0`；`0.7.8` 主程序与 `Usage Analytics 0.2.9` 功能扩展已完成构建，发布说明和规范检查，等待推送与 Release 创建。
+- `v0.7.8` 主程序与 `Usage Analytics v0.2.9` 功能扩展已完成构建、规范检查、推送和 GitHub Release 创建；资产 SHA-256 见下方记录。
 - `0.4.0` 发布资产：`BalancePet-0.4.0-win-x64.zip` SHA-256 `2a677017695b353f6b11be0fc1f8e3d387f6db87c4ce8815398f501ba409be68`；`BalancePet-0.4.0-Setup.exe` SHA-256 `d8fe4651146f8537c838a049dcebd16a76776124e8017c3bfd5616be02e3bba0`。
 - `0.5.0` GitHub 发布包（含分栏设置界面、完整页签英文本地化、普通保存后语言刷新、认证提示翻译修复、菜单窗口崩溃修复、语言选项显示修复和资源型扩展基础）：`BalancePet-0.5.0-win-x64.zip`（202,447,550 bytes，SHA-256 `34c7fbed86a08e45fcfae619ed36a0a4bc5960c75b9b723806b9e161f0eb3d06`）；`BalancePet-0.5.0-Setup.exe`（180,318,110 bytes，SHA-256 `df5f270a2ce6c6664386c0c34653a258ff6812d04650793a7639730e26204732`）。
 - `0.7.0` 本地测试包（扩展版本合并、行内图标操作、扩展独立更新检查，以及设置窗口模态关闭修复）：`BalancePet-0.7.0-win-x64.zip`（200,284,236 bytes，SHA-256 `06066D03AE8A6A717B1F6139E773D45743740AFDDAF7460390DF6DC89B90285D`）；`BalancePet-0.7.0-Setup.exe`（180,338,402 bytes，SHA-256 `50E9B9B95836A6813476CF54A77188C314224BA2CE24792B394A5DBC40AD2942`）。尚未提交或发布。
@@ -28,7 +28,7 @@
 - `Usage Analytics v0.2.4` 本地插件包：`balancepet.ext.feature.usage-analytics-0.2.4-win-x64.zip`（72,049,611 bytes，SHA-256 `F2B5C2C7824039991539B72C5E5EFC38FBF27D38ABD7FCD98BC1FE7C2F27896D`）。尚未提交或发布；增加无边框融合窗口、深色滚动条、实时刷新倒计时，并扩展客户端用量字段兼容。
 - `0.3.4` 本地压缩包：`BalancePet-0.3.4-win-x64.zip`（200,236,187 bytes，SHA-256 `89752153EB5E47D2ECBF9853F45C3CC543492CFF9F6B56D763A2F0B7939A1D77`）。
 - `0.3.4` 本地安装程序：`BalancePet-0.3.4-Setup.exe`（180,293,335 bytes，SHA-256 `5233D09665B524F38B1B5190AD7FF6FF29C50A96AD58F4336ECF542AF7607F3A`）。
-- GitHub 发布、推送和版本号变更必须等用户明确授权；本轮用户已明确授权上传主程序与功能插件。
+- GitHub 发布、推送和版本号变更必须等用户明确授权；本轮用户已明确授权，主程序与功能插件均已完成发布。
 
 ## 已完成能力
 
@@ -73,11 +73,11 @@
 | `v0.7.0` | 本地已打包，未发布 | 同一扩展 ID 的多版本合并显示；行内图标化安装/卸载、启用/禁用、更新和启动；主程序独立的扩展更新频率设置、GitHub Release 元数据检查、缓存和下载校验；插件版本仍独立管理。 |
 | `v0.7.1` | 本地已打包，未发布 | 修复更新频率选择始终回到每日的问题；扩大 Hook/Usage.v1 对嵌套用量字段的兼容范围；改善插件侧边导航刷新后的定位和生命周期-only 提示。 |
 | `v0.7.6` | 本地已打包，未发布 | 扩大 Codex Hook、通用 Task.v1 和 Usage.v1 的用量字段兼容范围；统计插件采用无边框融合标题栏、深色滚动条并显示实时自动刷新倒计时。 |
-| `v0.7.8` | 本地已打包，未发布 | 停止钩子缺少 stdin 身份时回填最近开始事件的会话/回合 ID，确保 Codex 本地 Token 记录可以写入用量事件。 |
+| `v0.7.8` | 已发布 | 停止钩子缺少 stdin 身份时回填最近开始事件的会话/回合 ID，确保 Codex 本地 Token 记录可以写入用量事件；同步更新 Usage Event v1、扩展宿主和功能扩展规范。 |
 | `Usage Analytics v0.2.2` | 本地已打包，未发布 | 增加 `update_url`，可由主程序按独立插件版本检查并安装更新；不改变用量事件协议。 |
 | `Usage Analytics v0.2.3` | 本地已打包，未发布 | 增加完整用量事件测试说明；未上报的计数不再写入为 0；刷新或调整窗口后侧边导航定位更可靠。 |
 | `Usage Analytics v0.2.4` | 本地已打包，未发布 | 统计窗口融合标题栏与滚动条样式，显示实时刷新倒计时，并扩展用量字段别名兼容。 |
-| `Usage Analytics v0.2.9` | 准备发布 | 缓存命中率统一为 `Cache Read / Input`；趋势图增加 Input、Output、Cache Creation、Cache Read 和 Cache Hit Rate；用量窗口与任务栏使用 BalancePet ICO；左侧导航顺序与页面一致并随滚动自动高亮。ZIP SHA-256：`ee8de6360ecdefcbb11af2b5be8ac1f19441db1451e4ae79ca68d8fbe9d134a9`。 |
+| `Usage Analytics v0.2.9` | 已发布 | 缓存命中率统一为 `Cache Read / Input`；趋势图增加 Input、Output、Cache Creation、Cache Read 和 Cache Hit Rate；用量窗口与任务栏使用 BalancePet ICO；左侧导航顺序与页面一致并随滚动自动高亮。ZIP SHA-256：`ee8de6360ecdefcbb11af2b5be8ac1f19441db1451e4ae79ca68d8fbe9d134a9`。 |
 
 ### 版本号规则
 
