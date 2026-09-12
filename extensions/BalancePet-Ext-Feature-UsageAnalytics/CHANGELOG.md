@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.10
+
+- Rewrite the README as a Chinese/English bilingual usage, privacy, compatibility, and build guide.
+- Document the release-note structure and link directly to the Feature Extension API v1 contract.
+
 ## 0.2.9
 
 - Align cache-hit calculations with relay dashboards: cache read is divided by the complete input total.
