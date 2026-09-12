@@ -36,11 +36,13 @@ All nine PNG files are required. They must be transparent RGBA PNG files with th
   "style": "pet.example",
   "version": "1.0.0",
   "api_version": 1,
-  "min_core_version": "0.5.0"
+  "min_core_version": "0.5.0",
+  "update_url": "https://api.github.com/repos/OWNER/REPOSITORY/releases/latest"
 }
 ```
 
 `id` identifies the extension package. `style` identifies the appearance and must be unique across built-in and installed styles. Use lower-case ASCII letters, digits, dots, and hyphens, and keep the value between 2 and 64 characters. `version` follows `x.y.z` semantic versioning. `api_version` must be `1` for this specification. `min_core_version` prevents an extension from being installed by an older incompatible host.
+`update_url` is optional and uses the same GitHub Release metadata contract as feature extensions.
 
 ## Installation and lifecycle
 
@@ -52,7 +54,12 @@ If the selected appearance is disabled or uninstalled, BalancePet falls back to 
 
 The host rejects path traversal, absolute ZIP paths, oversized archives, too many files, executable files, scripts, DLLs, duplicate style IDs, incomplete state sets, invalid manifests, and incompatible API versions. Extensions must not contain access tokens, cookies, user settings, or code intended for execution.
 
-Code extensions and an online extension catalog are intentionally outside v1. A future code-extension API must use a separate versioned sandbox contract and explicit permissions; a resource extension must remain installable without it.
+Executable code is intentionally outside this resource-only contract. Feature
+extensions use the separate, versioned
+[Feature Extension Specification v1](../feature-v1/README.md), with explicit
+process and capability rules; a resource extension must remain installable
+without executable code. Neither resource nor feature compatibility requires a
+shared visual theme, logo, window layout, or typography.
 
 ## Building a package
 

@@ -1,14 +1,19 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.5.0",
-    [switch]$SkipInstaller
+    [string]$Version = "0.7.8",
+    [switch]$SkipInstaller,
+    [string]$StagePath = ""
 )
 
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $project = Join-Path $root "versions\csharp-wpf\BalancePet.Wpf.csproj"
 $dist = Join-Path $root "dist"
-$stage = Join-Path $dist "BalancePet-$Version-win-x64"
+$stage = if ([string]::IsNullOrWhiteSpace($StagePath)) {
+    Join-Path $dist "BalancePet-$Version-win-x64"
+} else {
+    [System.IO.Path]::GetFullPath($StagePath)
+}
 $zip = Join-Path $dist "BalancePet-$Version-win-x64.zip"
 $installerScript = Join-Path $root "installer\BalancePet.iss"
 $setup = Join-Path $dist "BalancePet-$Version-Setup.exe"
@@ -46,6 +51,7 @@ Copy-Item (Join-Path $root "tools\balancepet-task.ps1") (Join-Path $stage "tools
 Copy-Item (Join-Path $root "tools\balancepet-task.cmd") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\balancepet-account.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\balancepet-client-hook.ps1") (Join-Path $stage "tools")
+Copy-Item (Join-Path $root "tools\balancepet-usage.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\install-balancepet-client-hooks.ps1") (Join-Path $stage "tools")
 New-Item -ItemType Directory -Path (Join-Path $stage "docs\licenses") -Force | Out-Null
 Copy-Item (Join-Path $root "docs\licenses\MeteorNOX-MIT.txt") (Join-Path $stage "docs\licenses")

@@ -28,8 +28,26 @@ public static class AppLocalization
         if (node is System.Windows.Controls.Button button && button.Content is string buttonText) button.Content = Translate(buttonText, language);
         if (node is System.Windows.Controls.CheckBox checkBox && checkBox.Content is string checkBoxText) checkBox.Content = Translate(checkBoxText, language);
         if (node is System.Windows.Controls.ComboBox comboBox)
+        {
             foreach (var comboItem in comboBox.Items.OfType<ComboBoxItem>())
+            {
+                // Language names are keyed by their stable tags. Translating
+                // the already-translated display text can otherwise make the
+                // selected value drift from the actual saved language.
+                var tag = comboItem.Tag?.ToString();
+                if (string.Equals(tag, "zh-CN", StringComparison.OrdinalIgnoreCase))
+                {
+                    comboItem.Content = Text(language, "简体中文", "Simplified Chinese");
+                    continue;
+                }
+                if (string.Equals(tag, "en-US", StringComparison.OrdinalIgnoreCase))
+                {
+                    comboItem.Content = "English";
+                    continue;
+                }
                 if (comboItem.Content is string comboItemText) comboItem.Content = Translate(comboItemText, language);
+            }
+        }
         if (node is MenuItem menuItem && menuItem.Tag is string menuStyle)
         {
             // MenuItem.Tag is also used by account/profile entries. Only
@@ -109,15 +127,20 @@ public static class AppLocalization
         ("Seedence 小星晶「澄芽」", "Seedence Little Star Crystal \"Chengya\""), ("素材尚未完成", "Assets are not ready"),
         ("账户与接口", "Accounts & API"), ("桌宠与交互", "Pet & interaction"), ("扩展", "Extensions"), ("高级与迁移", "Advanced & migration"),
         ("外观与操作", "Appearance & interaction"), ("功能开关", "Feature switches"), ("扩展管理", "Extension management"), ("应用偏好", "Application preferences"), ("设置迁移", "Settings migration"),
+        ("扩展库中的 ZIP 只负责保存版本；点击每行的“安装”后才会启用，功能扩展再点击“启动”。", "ZIP files in the extension library only store versions; click Install on a row to enable one, then click Launch for feature extensions."),
+        ("扩展库操作", "Extension library"), ("扫描库", "Scan library"), ("打开文件夹", "Open folder"), ("导入 ZIP", "Import ZIP"),
         ("扩展不会写入主程序安装目录。禁用或卸载当前正在使用的扩展后，桌宠会回退到内置形象。", "Extensions are not written to the main program directory. Disabling or uninstalling the active extension falls back to a built-in appearance."),
+        ("扩展不会写入主程序安装目录。禁用或卸载当前正在使用的资源扩展后，桌宠会回退到内置形象；功能扩展始终在独立进程中运行。", "Extensions are not written to the main program directory. Disabling or uninstalling the active resource extension falls back to a built-in appearance; feature extensions always run in a separate process."),
         ("导出文件不包含访问令牌。迁移到其他用户或电脑后，需要重新填写令牌。", "Exported files do not contain access tokens. Tokens must be entered again after moving to another user or computer."),
-        ("扩展安装在本机用户目录，主程序升级不会删除；当前版本只加载资源型宠物扩展，不执行第三方代码。", "Extensions are installed for the current Windows user; main program upgrades do not remove them. This version loads pet resources only and never executes extension code."),
-        ("安装 ZIP…", "Install ZIP..."), ("启用/禁用", "Enable/disable"), ("启用选中", "Enable selected"), ("禁用选中", "Disable selected"), ("卸载选中", "Uninstall selected"),
+        ("扩展运行副本保存在本机用户目录，主程序升级不会删除；资源扩展只加载图片，功能扩展不会加载进主程序进程。", "Installed extension copies are stored for the current Windows user and survive core upgrades; resource extensions load images only, and feature extensions are never loaded into the main process."),
+        ("同一扩展的不同版本会合并为一行。扩展库位于主程序目录旁的 extension-library 文件夹，主程序升级不会删除；卸载只移除已安装副本，不删除扩展库中的 ZIP。", "Different versions of the same extension are grouped into one row. The extension library is the extension-library folder beside the main program and survives core upgrades; uninstall removes only the installed copy and keeps the library ZIP."),
+        ("扫描扩展库", "Scan extension library"), ("打开扩展库", "Open extension library"), ("导入 ZIP 到扩展库…", "Import ZIP to library..."), ("安装选中", "Install selected"),
+        ("安装 ZIP…", "Install ZIP..."), ("启用/禁用", "Enable/disable"), ("启用选中", "Enable selected"), ("禁用选中", "Disable selected"), ("启动选中", "Launch selected"), ("卸载选中", "Uninstall selected"),
         ("资源扩展：", "Resource extension: "), ("扩展已启用。", "Extension enabled."), ("扩展已禁用；已使用它的形象会回退到 DeepSeek。", "Extension disabled; appearances using it fall back to DeepSeek."),
-        ("自动检查更新", "Automatic update checks"), ("每次启动时", "At every startup"), ("每天一次（推荐）", "Daily (recommended)"), ("每周一次", "Weekly"), ("仅手动检查", "Manual only"),
+        ("自动检查更新", "Automatic update checks"), ("自动检查扩展更新", "Automatic extension update checks"), ("每次启动时", "At every startup"), ("每天一次（推荐）", "Daily (recommended)"), ("每周一次", "Weekly"), ("仅手动检查", "Manual only"),
         ("桌宠大小", "Pet size"), ("音量", "Volume"), ("按压音效", "Press sound"), ("对话气泡", "Speech bubble"), ("互动动作", "Interaction effects"),
         ("随机彩蛋", "Random easter eggs"), ("自动跟随 AI 任务", "Follow AI tasks"), ("识别 AI 登录账户", "Detect AI login accounts"), ("客户端仅上报账户类型、API 地址和令牌指纹；BalancePet 不读取网页登录凭据或明文令牌", "Clients report only account type, API address, and token fingerprint; BalancePet never reads web credentials or plaintext tokens"), ("系统通知", "System notifications"), ("随 Windows 启动（进入托盘）", "Start with Windows (tray)"),
-        ("导入设置", "Import settings"), ("导出设置", "Export settings"), ("保存设置", "Save settings"), ("取消", "Cancel"), ("保存并测试", "Save and test"), ("语言", "Language"),
+        ("导入设置", "Import settings"), ("导出设置", "Export settings"), ("保存设置", "Save settings"), ("取消", "Cancel"), ("确定", "OK"), ("应用", "Apply"), ("保存并测试", "Save and test"), ("语言", "Language"),
         ("简体中文", "Simplified Chinese"), ("English", "English"), ("用量统计", "Usage"), ("最近用量", "Recent usage"), ("本机保存的余额变化记录", "Balance changes saved on this computer"),
         ("日期", "Date"), ("消耗", "Usage"), ("共", "Total"), ("发现新版本", "New version available"), ("暂不更新", "Not now"), ("下载并更新", "Download and update"),
         ("下载并启动安装器", "Download and launch installer"), ("更新说明", "Release notes"), ("校验", "Verification"), ("BalancePet 更新", "BalancePet update"),

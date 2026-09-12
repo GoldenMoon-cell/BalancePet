@@ -150,9 +150,10 @@ public static class CodexHookInstaller
         try {
             $sessionId = ''
             $turnId = ''
+            $hookInput = $null
             # Read only a bounded prefix and do not wait forever when a client
             # is interrupted before it closes Hook stdin.
-            $inputBuffer = New-Object char[] 8192
+            $inputBuffer = New-Object char[] 65536
             $readTask = [Console]::In.ReadAsync($inputBuffer, 0, $inputBuffer.Length)
             $readCount = if ($readTask.Wait(1000)) { [int]$readTask.Result } else { 0 }
             $inputText = if ($readCount -gt 0) { -join $inputBuffer[0..($readCount - 1)] } else { '' }
@@ -168,12 +169,55 @@ public static class CodexHookInstaller
                     if ($State -eq 'start') { throw }
                 }
             }
+            function Get-UsageValue([string]$Name) {
+                $aliases = @{
+                    model = @('model')
+                    input_tokens = @('input_tokens', 'inputTokens', 'prompt_tokens', 'promptTokens', 'input_token_count', 'inputTokenCount', 'prompt_token_count', 'promptTokenCount')
+                    output_tokens = @('output_tokens', 'outputTokens', 'completion_tokens', 'completionTokens', 'output_token_count', 'outputTokenCount', 'candidates_token_count', 'candidatesTokenCount', 'completion_token_count', 'completionTokenCount')
+                    cache_read_tokens = @('cache_read_tokens', 'cacheReadTokens', 'cached_tokens', 'cachedTokens', 'cache_read_input_tokens', 'cacheReadInputTokens', 'cache_hit_tokens', 'cacheHitTokens')
+                    cache_write_tokens = @('cache_write_tokens', 'cacheWriteTokens', 'cache_creation_input_tokens', 'cacheCreationInputTokens')
+                    duration_ms = @('duration_ms', 'durationMs', 'elapsed_ms', 'elapsedMs')
+                    time_to_first_token_ms = @('time_to_first_token_ms', 'timeToFirstTokenMs', 'ttft_ms', 'time_to_first_token', 'timeToFirstToken')
+                    tool_calls = @('tool_calls', 'toolCalls')
+                    steps = @('steps')
+                    success = @('success')
+                }
+                $names = if ($aliases.ContainsKey($Name)) { $aliases[$Name] } else { @($Name) }
+                $usageSources = @(
+                    $hookInput.usage,
+                    $hookInput.token_usage,
+                    $hookInput.usage_metadata,
+                    $hookInput.usageMetadata,
+                    $hookInput.tokenUsage,
+                    $hookInput.response.usage,
+                    $hookInput.response.usage_metadata,
+                    $hookInput.response.usageMetadata,
+                    $hookInput.result.usage,
+                    $hookInput.result.usage_metadata,
+                    $hookInput.metadata,
+                    $hookInput.stats,
+                    $hookInput.metrics,
+                    $hookInput
+                )
+                foreach ($source in $usageSources) {
+                    if ($null -eq $source) { continue }
+                    foreach ($candidate in $names) { if ($null -ne $source.$candidate) { return $source.$candidate } }
+                }
+                return $null
+            }
             $message = @{
                 state = $State
                 sessionId = $sessionId
                 turnId = $turnId
                 provider = 'Codex'
             } | ConvertTo-Json -Compress
+            $usageFields = @('model', 'input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens', 'duration_ms', 'time_to_first_token_ms', 'tool_calls', 'steps', 'success')
+            $messageObject = $message | ConvertFrom-Json
+            foreach ($field in $usageFields) {
+                $value = Get-UsageValue $field
+                if ($null -ne $value -and "$value" -ne '') { $messageObject | Add-Member -Force -NotePropertyName $field -NotePropertyValue $value }
+            }
+            $message = $messageObject | ConvertTo-Json -Compress
 
             $maxAttempts = if ($State -eq 'stop') { 2 } else { 3 }
             $connectTimeout = if ($State -eq 'stop') { 300 } else { 800 }

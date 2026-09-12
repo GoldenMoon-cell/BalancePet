@@ -1,0 +1,258 @@
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.Text.Json;
+
+namespace BalancePet.Wpf.Services;
+
+public sealed class ExtensionPackageDescriptor
+{
+    public string PackagePath { get; }
+    public string PackageFileName => Path.GetFileName(PackagePath);
+    public string Id { get; }
+    public string Type { get; }
+    public string Name { get; }
+    public string NameEn { get; }
+    public string Version { get; }
+    public string MinCoreVersion { get; }
+    public string UpdateUrl { get; }
+    public string DisplayLabel => $"{(Type == "feature" ? "功能扩展" : "资源扩展")} · {Name}  v{Version}";
+
+    public ExtensionPackageDescriptor(string packagePath, string id, string type, string name, string nameEn, string version, string minCoreVersion, string updateUrl = "")
+    {
+        PackagePath = packagePath;
+        Id = id;
+        Type = type;
+        Name = name;
+        NameEn = nameEn;
+        Version = version;
+        MinCoreVersion = minCoreVersion;
+        UpdateUrl = updateUrl;
+    }
+}
+
+public sealed class ExtensionCatalogEntry
+{
+    private readonly IReadOnlyList<ExtensionPackageDescriptor> _packages;
+    private readonly IReadOnlyList<PetExtensionInfo> _pets;
+    private readonly IReadOnlyList<FeatureExtensionInfo> _features;
+    public ExtensionUpdateRelease? RemoteUpdate { get; set; }
+    public ExtensionPackageDescriptor? Package => _packages.FirstOrDefault();
+    public PetExtensionInfo? Pet => _pets.FirstOrDefault();
+    public FeatureExtensionInfo? Feature => _features.FirstOrDefault();
+    public bool IsEnglish { get; set; }
+    public string Id => Package?.Id ?? Pet?.Manifest.Id ?? Feature?.Manifest.Id ?? "";
+    public string Type => Package?.Type ?? (Pet is not null ? "pet" : "feature");
+    public bool IsInstalled => Pet is not null || Feature is not null;
+    public bool IsEnabled => Pet?.IsEnabled == true || Feature?.IsEnabled == true;
+    public bool IsRunning => Feature?.IsRunning == true;
+    public bool HasPackage => Package is not null;
+    public string InstalledVersion => Pet?.Manifest.Version ?? Feature?.Manifest.Version ?? "";
+    public string UpdateUrl => _packages.Select(value => value.UpdateUrl)
+        .Concat(Pet is null ? Array.Empty<string>() : new[] { Pet.Manifest.UpdateUrl })
+        .Concat(Feature is null ? Array.Empty<string>() : new[] { Feature.Manifest.UpdateUrl })
+        .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
+    public string AvailableVersion
+    {
+        get
+        {
+            var local = Package?.Version ?? "";
+            var remote = RemoteUpdate?.Version ?? "";
+            return CompareVersions(remote, local) > 0 ? remote : local;
+        }
+    }
+    public bool HasUpdate => IsInstalled && CompareVersions(AvailableVersion, InstalledVersion) > 0;
+    public bool HasRemoteUpdate => IsInstalled && RemoteUpdate is not null && CompareVersions(RemoteUpdate.Version, InstalledVersion) > 0;
+    public bool CanInstallOrUninstall => IsInstalled || Package is not null;
+    public bool CanLaunch => Feature?.IsEnabled == true;
+    public string InstallGlyph => IsInstalled ? "×" : "⇩";
+    public string ToggleGlyph => !IsInstalled ? "—" : IsEnabled ? "◉" : "○";
+    public string UpdateGlyph => "↻";
+    public string InstallActionText => IsEnglish ? (IsInstalled ? "Uninstall" : "Install") : (IsInstalled ? "卸载" : "安装");
+    public string ToggleActionText => !IsInstalled ? (IsEnglish ? "Enable" : "启用") : IsEnabled ? (IsEnglish ? "Disable" : "禁用") : (IsEnglish ? "Enable" : "启用");
+    public string UpdateActionText => IsEnglish ? "Update" : "更新";
+    public string LaunchActionText => IsEnglish ? "Launch" : "启动";
+    public string InstallTooltip => IsEnglish ? (IsInstalled ? "Uninstall" : "Install") : (IsInstalled ? "卸载" : "安装");
+    public string ToggleTooltip => IsEnglish ? (IsEnabled ? "Disable" : "Enable") : (IsEnabled ? "禁用" : "启用");
+    public string UpdateTooltip => IsEnglish ? $"Update to v{AvailableVersion}" : $"更新到 v{AvailableVersion}";
+    public string LaunchTooltip => IsEnglish ? "Launch" : "启动";
+    public string UpdateStatusText => HasUpdate
+        ? IsEnglish ? $"Latest version: v{AvailableVersion}" : $"发现新版本：v{AvailableVersion}"
+        : IsInstalled
+            ? IsEnglish ? "Up to date" : "已是最新版本"
+            : IsEnglish ? $"Available: v{AvailableVersion}" : $"可安装：v{AvailableVersion}";
+    public string DisplayLabel
+    {
+        get
+        {
+            var name = Package?.Name ?? Pet?.Manifest.Name ?? Feature?.Manifest.Name ?? Id;
+            var kind = Type == "feature" ? "功能扩展" : "资源扩展";
+            var version = IsInstalled ? $"已安装 v{InstalledVersion}" : "未安装";
+            var latest = HasUpdate ? $" · 最新 v{AvailableVersion}" : !IsInstalled && Package is not null ? $" · 可安装 v{AvailableVersion}" : "";
+            var status = !IsInstalled ? "未安装" : IsRunning ? "运行中" : IsEnabled ? "已启用" : "已禁用";
+            return $"{kind} · {name}  {version}{latest}  [{status}]";
+        }
+    }
+
+    public string DisplayText => IsEnglish ? DisplayLabelEn : DisplayLabel;
+
+    public string DisplayLabelEn
+    {
+        get
+        {
+            var name = Package?.NameEn ?? Pet?.Manifest.NameEn ?? Feature?.Manifest.NameEn;
+            if (string.IsNullOrWhiteSpace(name)) name = Package?.Name ?? Pet?.Manifest.Name ?? Feature?.Manifest.Name ?? Id;
+            var kind = Type == "feature" ? "Feature extension" : "Resource extension";
+            var version = IsInstalled ? $"Installed v{InstalledVersion}" : "Not installed";
+            var latest = HasUpdate ? $" · Latest v{AvailableVersion}" : !IsInstalled && Package is not null ? $" · Available v{AvailableVersion}" : "";
+            var status = !IsInstalled ? "Not installed" : IsRunning ? "Running" : IsEnabled ? "Enabled" : "Disabled";
+            return $"{kind} · {name}  {version}{latest}  [{status}]";
+        }
+    }
+
+    public ExtensionCatalogEntry(IEnumerable<ExtensionPackageDescriptor> packages, IEnumerable<PetExtensionInfo> pets, IEnumerable<FeatureExtensionInfo> features)
+    {
+        _packages = packages.OrderByDescending(value => ParseVersion(value.Version)).ToArray();
+        _pets = pets.OrderByDescending(value => ParseVersion(value.Manifest.Version)).ToArray();
+        _features = features.OrderByDescending(value => ParseVersion(value.Manifest.Version)).ToArray();
+    }
+
+    public static int CompareVersions(string left, string right) => ParseVersion(left).CompareTo(ParseVersion(right));
+
+    private static Version ParseVersion(string value)
+    {
+        var numeric = value?.Split('-', '+')[0];
+        return Version.TryParse(numeric, out var version) ? version : new Version(0, 0, 0);
+    }
+}
+
+/// <summary>
+/// Scans the user-managed extension library. ZIPs remain untouched until the
+/// user explicitly installs one, and uninstalling never removes the ZIP.
+/// </summary>
+public sealed class ExtensionPackageCatalog
+{
+    private const long MaxPackageBytes = 500L * 1024 * 1024;
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    public string RootDirectory { get; }
+
+    public ExtensionPackageCatalog(string? rootDirectory = null)
+    {
+        // Keep the package library beside the executable so portable installs
+        // and normal user installs have one obvious, inspectable location.
+        // Installed runtime copies remain under LocalAppData and are managed
+        // by the extension managers, so an application upgrade cannot delete
+        // them accidentally.
+        RootDirectory = rootDirectory ?? Path.Combine(AppContext.BaseDirectory, "extension-library");
+    }
+
+    public IReadOnlyList<ExtensionPackageDescriptor> Scan()
+    {
+        try
+        {
+            EnsureDirectory();
+        }
+        catch (IOException) { return Array.Empty<ExtensionPackageDescriptor>(); }
+        catch (UnauthorizedAccessException) { return Array.Empty<ExtensionPackageDescriptor>(); }
+        var result = new List<ExtensionPackageDescriptor>();
+        IEnumerable<string> files;
+        try { files = Directory.EnumerateFiles(RootDirectory, "*.zip", SearchOption.TopDirectoryOnly); }
+        catch (IOException) { return Array.Empty<ExtensionPackageDescriptor>(); }
+        catch (UnauthorizedAccessException) { return Array.Empty<ExtensionPackageDescriptor>(); }
+        foreach (var path in files.OrderBy(value => value, StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var info = new FileInfo(path);
+                if (info.Length <= 0 || info.Length > MaxPackageBytes) continue;
+                if (TryReadDescriptor(path, out var descriptor) && descriptor is not null) result.Add(descriptor);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            catch (InvalidDataException) { }
+            catch (JsonException) { }
+            catch (NotSupportedException) { }
+        }
+        return result
+            .GroupBy(value => $"{value.Id}@{value.Version}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(value => value.Type, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(value => value.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(value => value.Version, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public IReadOnlyList<ExtensionCatalogEntry> BuildEntries(
+        IEnumerable<PetExtensionInfo> pets,
+        IEnumerable<FeatureExtensionInfo> features)
+    {
+        var petValues = pets.ToArray();
+        var featureValues = features.ToArray();
+        var packages = Scan();
+        return packages
+            .Concat(petValues.Select(info => new ExtensionPackageDescriptor("", info.Manifest.Id, "pet", info.Manifest.Name, info.Manifest.NameEn, info.Manifest.Version, info.Manifest.MinCoreVersion, info.Manifest.UpdateUrl)))
+            .Concat(featureValues.Select(info => new ExtensionPackageDescriptor("", info.Manifest.Id, "feature", info.Manifest.Name, info.Manifest.NameEn, info.Manifest.Version, info.Manifest.MinCoreVersion, info.Manifest.UpdateUrl)))
+            .GroupBy(value => $"{value.Type}:{value.Id}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => new ExtensionCatalogEntry(
+                group.Where(value => !string.IsNullOrWhiteSpace(value.PackagePath)),
+                petValues.Where(info => group.First().Type == "pet" && string.Equals(info.Manifest.Id, group.First().Id, StringComparison.OrdinalIgnoreCase)),
+                featureValues.Where(info => group.First().Type == "feature" && string.Equals(info.Manifest.Id, group.First().Id, StringComparison.OrdinalIgnoreCase))))
+            .OrderBy(entry => entry.Type, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public void EnsureDirectory() => Directory.CreateDirectory(RootDirectory);
+
+    public string ImportPackage(string sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath)) throw new FileNotFoundException("扩展 ZIP 不存在。", sourcePath);
+        var source = Path.GetFullPath(sourcePath);
+        var root = Path.GetFullPath(RootDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        EnsureDirectory();
+        if (source.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return source;
+        var fileInfo = new FileInfo(source);
+        if (fileInfo.Length <= 0 || fileInfo.Length > MaxPackageBytes) throw new InvalidDataException("扩展 ZIP 超过 500 MB 限制。");
+        if (!TryReadDescriptor(source, out var descriptor) || descriptor is null) throw new InvalidDataException("无法读取扩展 manifest.json。");
+        var safeName = new string(Path.GetFileName(source).Where(character => char.IsLetterOrDigit(character) || character is '.' or '-' or '_').ToArray());
+        if (string.IsNullOrWhiteSpace(safeName)) safeName = $"{descriptor.Id}-{descriptor.Version}.zip";
+        var destination = Path.Combine(RootDirectory, safeName);
+        if (File.Exists(destination) && !string.Equals(Path.GetFullPath(source), Path.GetFullPath(destination), StringComparison.OrdinalIgnoreCase))
+            destination = Path.Combine(RootDirectory, $"{descriptor.Id}-{descriptor.Version}-{Guid.NewGuid():N}.zip");
+        File.Copy(source, destination, true);
+        return destination;
+    }
+
+    public void OpenFolder()
+    {
+        EnsureDirectory();
+        Process.Start(new ProcessStartInfo("explorer.exe", RootDirectory) { UseShellExecute = true });
+    }
+
+    private static bool TryReadDescriptor(string path, out ExtensionPackageDescriptor? descriptor)
+    {
+        descriptor = null;
+        using var archive = ZipFile.OpenRead(path);
+        if (archive.Entries.Count == 0 || archive.Entries.Count > 4096) return false;
+        var manifestEntry = archive.Entries.FirstOrDefault(entry => string.Equals(entry.FullName, "manifest.json", StringComparison.OrdinalIgnoreCase));
+        if (manifestEntry is null || manifestEntry.Length > 256 * 1024) return false;
+        using var reader = new StreamReader(manifestEntry.Open());
+        using var document = JsonDocument.Parse(reader.ReadToEnd());
+        if (document.RootElement.ValueKind != JsonValueKind.Object) return false;
+        var root = document.RootElement;
+        var id = ReadString(root, "id");
+        var type = ReadString(root, "type").ToLowerInvariant();
+        var name = ReadString(root, "name");
+        var nameEn = ReadString(root, "name_en");
+        var version = ReadString(root, "version");
+        var minCore = ReadString(root, "min_core_version");
+        var updateUrl = ReadString(root, "update_url");
+        if (string.IsNullOrWhiteSpace(id) || type is not ("pet" or "feature") || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(version)) return false;
+        descriptor = new ExtensionPackageDescriptor(path, id, type, name, nameEn, version, minCore, updateUrl);
+        return true;
+    }
+
+    private static string ReadString(JsonElement root, string name)
+        => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString()?.Trim() ?? "" : "";
+}

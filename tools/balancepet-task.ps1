@@ -8,7 +8,18 @@ param(
     [string]$TaskId = "",
 
     [Parameter(Position = 2)]
-    [string]$Provider = "generic"
+    [string]$Provider = "generic",
+
+    [string]$Model = "",
+    [long]$InputTokens = -1,
+    [long]$OutputTokens = -1,
+    [long]$CacheReadTokens = -1,
+    [long]$CacheWriteTokens = -1,
+    [long]$DurationMs = -1,
+    [long]$TimeToFirstTokenMs = -1,
+    [long]$ToolCalls = -1,
+    [long]$Steps = -1,
+    [bool]$Success = $true
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,18 +35,40 @@ $providerValue = if ([string]::IsNullOrWhiteSpace($Provider)) { "generic" } else
 $taskValue = if ($null -eq $TaskId) { "" } else { $TaskId.Trim() }
 Assert-SafeValue "Provider" $providerValue 32
 Assert-SafeValue "TaskId" $taskValue 256
+Assert-SafeValue "Model" $Model 160
 if ($State -eq "start" -and [string]::IsNullOrWhiteSpace($taskValue)) {
     throw "TaskId is required for a start event."
 }
+foreach ($value in @($InputTokens, $OutputTokens, $CacheReadTokens, $CacheWriteTokens, $DurationMs, $TimeToFirstTokenMs, $ToolCalls, $Steps)) {
+    if ($value -lt -1) { throw "Usage counters must be -1 (not supplied) or non-negative." }
+}
 
-# The payload contains only lifecycle metadata. Never add prompts, replies,
-# credentials, or provider request data here.
-$message = @{
+# The payload contains lifecycle metadata plus optional non-sensitive counters
+# and timings. Never add prompts, replies, credentials, or provider request
+# data here.
+$message = [ordered]@{
     state = $State
     sessionId = "external:$providerValue"
     turnId = $taskValue
     provider = $providerValue
-} | ConvertTo-Json -Compress
+}
+$optionalUsage = @{
+    model = $Model
+    input_tokens = $InputTokens
+    output_tokens = $OutputTokens
+    cache_read_tokens = $CacheReadTokens
+    cache_write_tokens = $CacheWriteTokens
+    duration_ms = $DurationMs
+    time_to_first_token_ms = $TimeToFirstTokenMs
+    tool_calls = $ToolCalls
+    steps = $Steps
+}
+foreach ($entry in $optionalUsage.GetEnumerator()) {
+    if ($entry.Key -eq 'model' -and -not [string]::IsNullOrWhiteSpace([string]$entry.Value)) { $message[$entry.Key] = [string]$entry.Value }
+    elseif ($entry.Key -ne 'model' -and [long]$entry.Value -ge 0) { $message[$entry.Key] = [long]$entry.Value }
+}
+if ($State -eq 'stop') { $message.success = $Success }
+$message = $message | ConvertTo-Json -Compress
 
 $attempts = if ($State -eq "stop") { 2 } else { 3 }
 $timeoutMs = if ($State -eq "stop") { 300 } else { 800 }

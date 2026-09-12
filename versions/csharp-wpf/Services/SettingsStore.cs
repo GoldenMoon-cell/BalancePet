@@ -26,6 +26,7 @@ public sealed class SettingsStore
             if (File.Exists(_path))
             {
                 var settings = JsonSerializer.Deserialize<PetSettings>(File.ReadAllText(_path), Options) ?? new PetSettings();
+                NormalizeUpdateModes(settings);
                 EnsureMonitorProfiles(settings);
                 return settings;
             }
@@ -33,12 +34,14 @@ public sealed class SettingsStore
         catch (JsonException) { }
         catch (IOException) { }
         var defaults = new PetSettings();
+        NormalizeUpdateModes(defaults);
         EnsureMonitorProfiles(defaults);
         return defaults;
     }
 
     public void Save(PetSettings settings)
     {
+        NormalizeUpdateModes(settings);
         EnsureMonitorProfiles(settings);
         var directory = System.IO.Path.GetDirectoryName(_path);
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
@@ -97,4 +100,13 @@ public sealed class SettingsStore
         settings.AutoRefreshEnabled = selected.AutoRefreshEnabled;
         settings.LowThreshold = selected.LowThreshold;
     }
+
+    private static void NormalizeUpdateModes(PetSettings settings)
+    {
+        settings.UpdateCheckMode = NormalizeUpdateMode(settings.UpdateCheckMode);
+        settings.ExtensionUpdateCheckMode = NormalizeUpdateMode(settings.ExtensionUpdateCheckMode);
+    }
+
+    private static string NormalizeUpdateMode(string? mode)
+        => mode is "startup" or "daily" or "weekly" or "manual" ? mode : "daily";
 }

@@ -14,20 +14,30 @@ namespace BalancePet.Wpf;
 
 public partial class SettingsWindow : Window
 {
+    public bool SettingsApplied { get; private set; }
+    public event EventHandler? SettingsAppliedChanged;
+
     private readonly SettingsStore _store;
     private readonly DpapiTokenStore _tokens;
     private readonly PetSettings _settings;
     private readonly PetExtensionManager _extensions = new();
+    private readonly FeatureExtensionManager _featureExtensions;
+    private readonly ExtensionPackageCatalog _extensionLibrary = new();
+    private readonly HttpClient _extensionUpdateHttpClient = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly ExtensionUpdateService _extensionUpdates;
     private readonly List<MonitorProfile> _profiles;
     private string _currentProfileId = "";
     private bool _suppressProfileChange;
     private bool _suppressRefreshChange;
     private bool _suppressPresetChange;
     private bool _suppressSiteUrlChange;
+    private bool _suppressLanguageChange;
 
-    public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings)
+    public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings, FeatureExtensionManager? featureExtensions = null)
     {
-        InitializeComponent(); _store = store; _tokens = tokens; _settings = settings;
+        InitializeComponent(); _store = store; _tokens = tokens; _settings = settings; _featureExtensions = featureExtensions ?? new FeatureExtensionManager();
+        _extensionUpdates = new ExtensionUpdateService(_extensionUpdateHttpClient);
+        Closed += (_, _) => _extensionUpdateHttpClient.Dispose();
         AddInstalledPetStyles();
         RefreshExtensionList();
         UpdatePetStyleAvailability();
@@ -35,11 +45,36 @@ public partial class SettingsWindow : Window
             ? settings.Monitors.Select(CloneProfile).ToList()
             : new List<MonitorProfile> { CreateProfileFromLegacy(settings) };
         RefreshProfileList(settings.SelectedMonitorId);
-        SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode); SelectByTag(UpdateCheckBox, settings.UpdateCheckMode); SelectByTag(LanguageBox, settings.Language);
+        SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode); SelectByTag(UpdateCheckBox, settings.UpdateCheckMode); SelectByTag(ExtensionUpdateCheckBox, settings.ExtensionUpdateCheckMode);
+        _suppressLanguageChange = true;
+        SelectByTag(LanguageBox, settings.Language);
+        _suppressLanguageChange = false;
         ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; AccountStatusBox.IsChecked = settings.AccountStatusIntegration; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
         AppLocalization.Apply(this, settings.Language);
+        RefreshLanguageSelector(settings.Language, selectLanguage: false);
+        SyncAllComboDisplays();
         UpdatePetStyleAvailability();
+    }
+
+    private void RefreshLanguageSelector(string language, bool selectLanguage)
+    {
+        if (LanguageBox is null) return;
+        _suppressLanguageChange = true;
+        try
+        {
+            foreach (var item in LanguageBox.Items.OfType<ComboBoxItem>())
+            {
+                item.Content = item.Tag?.ToString() switch
+                {
+                    "zh-CN" => AppLocalization.Text(language, "简体中文", "Simplified Chinese"),
+                    "en-US" => "English",
+                    _ => item.Content
+                };
+            }
+            if (selectLanguage) SelectByTag(LanguageBox, language);
+        }
+        finally { _suppressLanguageChange = false; }
     }
 
     private void AddInstalledPetStyles()
@@ -69,12 +104,66 @@ public partial class SettingsWindow : Window
     }
 
     private static void SelectByTag(System.Windows.Controls.ComboBox box, string tag)
-    { foreach (ComboBoxItem item in box.Items) if (item.IsEnabled && string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase)) { box.SelectedItem = item; return; } box.SelectedIndex = 0; }
+    {
+        var requested = string.IsNullOrWhiteSpace(tag) ? "" : tag.Trim();
+        foreach (ComboBoxItem item in box.Items)
+        {
+            if (!item.IsEnabled || !string.Equals(item.Tag?.ToString(), requested, StringComparison.OrdinalIgnoreCase)) continue;
+            box.SelectedItem = item;
+            return;
+        }
+        if (box.Items.Count > 0)
+            box.SelectedIndex = 0;
+    }
+
+    private static string SelectedTag(System.Windows.Controls.ComboBox box, string fallback)
+    {
+        var tag = (box.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        if (!string.IsNullOrWhiteSpace(tag)) return tag;
+        var value = box.SelectedValue as string;
+        return !string.IsNullOrWhiteSpace(value) ? value : fallback;
+    }
+
+    private static void SyncComboDisplay(System.Windows.Controls.ComboBox? box)
+    {
+        if (box?.SelectedItem is not ComboBoxItem item) return;
+        var text = item.Content?.ToString() ?? string.Empty;
+        if (!string.Equals(box.Text, text, StringComparison.Ordinal)) box.Text = text;
+    }
+
+    private void SyncAllComboDisplays()
+    {
+        SyncComboDisplay(ProfileBox);
+        SyncComboDisplay(PresetBox);
+        SyncComboDisplay(AuthModeBox);
+        SyncComboDisplay(RefreshBox);
+        SyncComboDisplay(PetStyleBox);
+        SyncComboDisplay(InteractionBox);
+        SyncComboDisplay(UpdateCheckBox);
+        SyncComboDisplay(ExtensionUpdateCheckBox);
+        SyncComboDisplay(LanguageBox);
+    }
+
+    private void OnComboSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.ComboBox box) SyncComboDisplay(box);
+    }
+
+    private void OnComboDropDownClosed(object sender, EventArgs e)
+    {
+        if (sender is System.Windows.Controls.ComboBox box) SyncComboDisplay(box);
+    }
+
+    private static string SelectionTag(System.Windows.Controls.ComboBox box, string fallback)
+    {
+        var value = SelectedTag(box, fallback);
+        return value is "startup" or "daily" or "weekly" or "manual" ? value : fallback;
+    }
 
     private void UpdatePetStyleAvailability()
     {
         if (PetStyleBox is null) return;
-        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         foreach (ComboBoxItem item in PetStyleBox.Items)
         {
             if (item.Tag is not string id) continue;
@@ -87,102 +176,254 @@ public partial class SettingsWindow : Window
     private void RefreshExtensionList()
     {
         if (ExtensionListBox is null) return;
+        var pets = _extensions.GetInstalled();
+        var features = _featureExtensions.GetInstalled();
+        var entries = _extensionLibrary.BuildEntries(pets, features).ToList();
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        foreach (var entry in entries) entry.IsEnglish = AppLocalization.IsEnglish(language);
         ExtensionListBox.ItemsSource = null;
-        ExtensionListBox.ItemsSource = _extensions.GetInstalled();
+        ExtensionListBox.ItemsSource = entries
+            .OrderBy(entry => entry.Type, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(entry => entry.DisplayLabel, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         UpdateExtensionButtons();
+        ExtensionUpdateService.ApplyCachedUpdates(entries, _extensionUpdates.LoadCache());
+        ExtensionListBox.ItemsSource = null;
+        ExtensionListBox.ItemsSource = entries.OrderBy(entry => entry.Type, StringComparer.OrdinalIgnoreCase).ThenBy(entry => entry.DisplayLabel, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
     private void UpdateExtensionButtons()
     {
-        var selected = ExtensionListBox?.SelectedItem as PetExtensionInfo;
-        if (ExtensionToggleButton is not null)
+        // Row-level action buttons are data-bound in the item template.
+    }
+
+    private void OnInstallOrUninstallExtension(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button button || button.DataContext is not ExtensionCatalogEntry selected) return;
+        if (selected.IsInstalled) OnUninstallExtension(sender, e);
+        else OnInstallSelectedExtension(sender, e);
+    }
+
+    private async void OnUpdateExtension(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button button || button.DataContext is not ExtensionCatalogEntry selected || (!selected.HasUpdate && selected.Package is null)) return;
+        try
         {
-            var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
-            ExtensionToggleButton.Content = selected?.IsEnabled == true
-                ? AppLocalization.Text(language, "禁用选中", "Disable selected")
-                : AppLocalization.Text(language, "启用选中", "Enable selected");
+            var packagePath = selected.Package?.PackagePath ?? "";
+            if (selected.RemoteUpdate is not null && selected.HasRemoteUpdate)
+            {
+                packagePath = await _extensionUpdates.DownloadAsync(selected.RemoteUpdate);
+                try { _extensionLibrary.ImportPackage(packagePath); } finally { try { File.Delete(packagePath); } catch (IOException) { } }
+                packagePath = _extensionLibrary.Scan().First(value => string.Equals(value.Id, selected.Id, StringComparison.OrdinalIgnoreCase) && string.Equals(value.Version, selected.RemoteUpdate.Version, StringComparison.OrdinalIgnoreCase)).PackagePath;
+            }
+            if (string.IsNullOrWhiteSpace(packagePath)) return;
+            if (selected.Type == "feature") _featureExtensions.InstallFeaturePackage(packagePath); else _extensions.InstallPetPackage(packagePath);
+            RefreshExtensionList();
+            ExtensionMessageText.Text = AppLocalization.Text(_settings.Language, "扩展已更新。", "Extension updated.");
         }
-        if (ExtensionToggleButton is not null) ExtensionToggleButton.IsEnabled = selected is not null;
-        if (ExtensionUninstallButton is not null) ExtensionUninstallButton.IsEnabled = selected is not null;
+        catch (Exception error) when (error is IOException or InvalidDataException or HttpRequestException or UnauthorizedAccessException or JsonException)
+        { ShowExtensionError($"更新失败：{error.Message}", $"Update failed: {error.Message}"); }
+    }
+
+    private async void OnCheckExtensionUpdates(object sender, RoutedEventArgs e)
+    {
+        await CheckExtensionUpdatesAsync(true);
+    }
+
+    private async Task CheckExtensionUpdatesAsync(bool manual)
+    {
+        try
+        {
+            var entries = ExtensionListBox.Items.OfType<ExtensionCatalogEntry>().ToArray();
+            var result = await _extensionUpdates.CheckAsync(entries);
+            _settings.LastExtensionUpdateCheckUtc = DateTimeOffset.UtcNow;
+            _store.Save(_settings);
+            var found = result.Releases.Values.Count(value => entries.Any(entry => string.Equals(entry.Id, value.Id, StringComparison.OrdinalIgnoreCase) && entry.IsInstalled && ExtensionCatalogEntry.CompareVersions(value.Version, entry.InstalledVersion) > 0));
+            ExtensionUpdateStatusText.Text = found > 0 ? AppLocalization.Text(_settings.Language, $"发现 {found} 个扩展更新。", $"{found} extension update(s) available.") : AppLocalization.Text(_settings.Language, "扩展已是最新版本。", "All extensions are up to date.");
+            RefreshExtensionList();
+        }
+        catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or JsonException or TaskCanceledException)
+        {
+            ExtensionUpdateStatusText.Text = AppLocalization.Text(_settings.Language, $"扩展更新检查失败：{error.Message}", $"Extension update check failed: {error.Message}");
+            if (manual) ShowExtensionError($"扩展更新检查失败：{error.Message}", $"Extension update check failed: {error.Message}");
+        }
     }
 
     private void OnExtensionSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateExtensionButtons();
 
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
-        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         AppLocalization.Apply(this, language);
+        RefreshLanguageSelector(language, selectLanguage: false);
+        SyncAllComboDisplays();
         UpdatePresetUi(false);
         UpdatePetStyleAvailability();
         UpdateExtensionButtons();
+        RefreshExtensionActionLabels(language);
     }
 
     private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded || sender is not System.Windows.Controls.TabControl tabs || tabs.SelectedItem is not TabItem selectedTab) return;
-        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         AppLocalization.Apply(selectedTab, language);
+        SyncAllComboDisplays();
+    }
+
+    private void OnScanExtensionLibrary(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _extensionLibrary.EnsureDirectory();
+            RefreshExtensionList();
+            var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            ExtensionMessageText.Text = AppLocalization.Text(language, "扩展库扫描完成。可使用每行右侧的图标操作。", "Extension library scanned. Use the icons on each row to manage extensions.");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            ShowExtensionError($"扫描扩展库失败：{error.Message}", $"Failed to scan extension library: {error.Message}");
+        }
+    }
+
+    private void RefreshExtensionActionLabels(string language)
+    {
+        if (ExtensionScanButton is null) return;
+        ExtensionScanButton.ToolTip = AppLocalization.Text(language, "扫描扩展库", "Scan extension library");
+        ExtensionOpenButton.ToolTip = AppLocalization.Text(language, "打开扩展库", "Open extension library");
+        ExtensionImportButton.ToolTip = AppLocalization.Text(language, "导入 ZIP 到扩展库", "Import ZIP to extension library");
+        ExtensionCheckButton.ToolTip = AppLocalization.Text(language, "检查扩展更新", "Check extension updates");
+    }
+
+    private void OnOpenExtensionLibrary(object sender, RoutedEventArgs e)
+    {
+        try { _extensionLibrary.OpenFolder(); }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException)
+        { ShowExtensionError($"打开扩展库失败：{error.Message}", $"Failed to open extension library: {error.Message}"); }
     }
 
     private void OnInstallExtension(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Filter = "BalancePet 宠物扩展 (*.zip)|*.zip|所有文件 (*.*)|*.*",
-            Title = "安装 BalancePet 宠物扩展"
+            Filter = "BalancePet 扩展 (*.zip)|*.zip|所有文件 (*.*)|*.*",
+            Title = "导入 BalancePet 扩展到扩展库"
         };
         if (dialog.ShowDialog(this) != true) return;
         try
         {
-            var installed = _extensions.InstallPetPackage(dialog.FileName);
-            AddInstalledPetStyles();
-            UpdatePetStyleAvailability();
+            var path = _extensionLibrary.ImportPackage(dialog.FileName);
             RefreshExtensionList();
             ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
-            var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
-            ExtensionMessageText.Text = AppLocalization.Text(language, $"已安装：{installed.DisplayLabel}。可以在“宠物形象”中选择。", $"Installed: {installed.DisplayLabel}. You can select it under Pet appearance.");
+            var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+            ExtensionMessageText.Text = AppLocalization.Text(language, $"已放入扩展库：{Path.GetFileName(path)}。可使用对应行右侧的安装图标。", $"Added to extension library: {Path.GetFileName(path)}. Use the install icon on its row.");
         }
-        catch (Exception error) when (error is InvalidDataException or IOException or UnauthorizedAccessException or JsonException)
+        catch (Exception error) when (error is InvalidDataException or IOException or UnauthorizedAccessException or FileNotFoundException or NotSupportedException or JsonException)
         {
-            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.Firebrick;
-            var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
-            ExtensionMessageText.Text = AppLocalization.Text(language, $"安装失败：{error.Message}", $"Installation failed: {error.Message}");
+            ShowExtensionError($"导入失败：{error.Message}", $"Import failed: {error.Message}");
         }
+    }
+
+    private void OnInstallSelectedExtension(object sender, RoutedEventArgs e)
+    {
+        if (GetExtensionEntry(sender) is not ExtensionCatalogEntry selected || selected.Package is null) return;
+        try
+        {
+            if (selected.Package.Type.Equals("feature", StringComparison.OrdinalIgnoreCase))
+                _featureExtensions.InstallFeaturePackage(selected.Package.PackagePath);
+            else if (selected.Package.Type.Equals("pet", StringComparison.OrdinalIgnoreCase))
+            {
+                _extensions.InstallPetPackage(selected.Package.PackagePath);
+                AddInstalledPetStyles();
+                UpdatePetStyleAvailability();
+            }
+            else throw new InvalidDataException("无法识别扩展类型。");
+            RefreshExtensionList();
+            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+            var packageName = AppLocalization.IsEnglish(language) && !string.IsNullOrWhiteSpace(selected.Package.NameEn)
+                ? selected.Package.NameEn
+                : selected.Package.Name;
+            ExtensionMessageText.Text = AppLocalization.Text(language, $"已安装：{packageName} v{selected.Package.Version}。", $"Installed: {packageName} v{selected.Package.Version}.");
+        }
+        catch (Exception error) when (error is InvalidDataException or IOException or UnauthorizedAccessException or FileNotFoundException or NotSupportedException or JsonException)
+        { ShowExtensionError($"安装失败：{error.Message}", $"Installation failed: {error.Message}"); }
     }
 
     private void OnToggleExtension(object sender, RoutedEventArgs e)
     {
-        if (ExtensionListBox.SelectedItem is not PetExtensionInfo selected) return;
+        if (GetExtensionEntry(sender) is not ExtensionCatalogEntry selected || !selected.IsInstalled) return;
         var enabled = !selected.IsEnabled;
-        if (!_extensions.SetEnabled(selected.Manifest.Id, enabled)) return;
-        if (!enabled && string.Equals((PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), selected.StyleId, StringComparison.OrdinalIgnoreCase))
+        var changed = selected.Pet is not null
+            ? _extensions.SetEnabled(selected.Pet.Manifest.Id, enabled)
+            : selected.Feature is not null && _featureExtensions.SetEnabled(selected.Feature.Manifest.Id, enabled);
+        if (!changed) return;
+        if (selected.Pet is PetExtensionInfo petSelected && !enabled && string.Equals(SelectedTag(PetStyleBox, "deepseek"), petSelected.StyleId, StringComparison.OrdinalIgnoreCase))
             SelectByTag(PetStyleBox, "deepseek");
-        AddInstalledPetStyles();
-        UpdatePetStyleAvailability();
+        if (selected.Pet is not null)
+        {
+            AddInstalledPetStyles();
+            UpdatePetStyleAvailability();
+        }
         RefreshExtensionList();
         ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
-        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         ExtensionMessageText.Text = enabled
             ? AppLocalization.Text(language, "扩展已启用。", "Extension enabled.")
             : AppLocalization.Text(language, "扩展已禁用；已使用它的形象会回退到 DeepSeek。", "Extension disabled; appearances using it fall back to DeepSeek.");
     }
 
+    private void OnLaunchExtension(object sender, RoutedEventArgs e)
+    {
+        if (GetExtensionEntry(sender) is not ExtensionCatalogEntry entry || entry.Feature is not FeatureExtensionInfo selected) return;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        if (_featureExtensions.TryLaunch(selected.Manifest.Id, out var error))
+        {
+            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            ExtensionMessageText.Text = AppLocalization.Text(language, "功能扩展已启动。", "Feature extension launched.");
+        }
+        else
+        {
+            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.Firebrick;
+            ExtensionMessageText.Text = AppLocalization.Text(language, $"启动失败：{error}", $"Launch failed: {error}");
+        }
+        RefreshExtensionList();
+    }
+
     private void OnUninstallExtension(object sender, RoutedEventArgs e)
     {
-        if (ExtensionListBox.SelectedItem is not PetExtensionInfo selected) return;
-        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        if (GetExtensionEntry(sender) is not ExtensionCatalogEntry selected || !selected.IsInstalled) return;
+        var selectedName = selected.Pet?.Manifest.Name ?? selected.Feature?.Manifest.Name ?? selected.Id;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         var answer = System.Windows.MessageBox.Show(this,
-            AppLocalization.Text(language, $"确定卸载扩展“{selected.Manifest.Name}”吗？这只会删除它的扩展目录，不会影响主程序和其他扩展。", $"Uninstall extension \"{selected.Manifest.Name}\"? Only its extension directory will be removed; the main program and other extensions are unaffected."),
+            AppLocalization.Text(language, $"确定卸载扩展“{selectedName}”吗？这只会删除它的扩展目录，不会影响主程序和其他扩展。", $"Uninstall extension \"{selectedName}\"? Only its extension directory will be removed; the main program and other extensions are unaffected."),
             AppLocalization.Text(language, "卸载扩展", "Uninstall extension"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (answer != MessageBoxResult.Yes) return;
-        if (!_extensions.Uninstall(selected.Manifest.Id)) return;
-        if (string.Equals((PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), selected.StyleId, StringComparison.OrdinalIgnoreCase))
+        var removed = selected.Pet is not null
+            ? _extensions.Uninstall(selected.Pet.Manifest.Id)
+            : selected.Feature is not null && _featureExtensions.Uninstall(selected.Feature.Manifest.Id);
+        if (!removed) return;
+        if (selected.Pet is PetExtensionInfo petSelected && string.Equals(SelectedTag(PetStyleBox, "deepseek"), petSelected.StyleId, StringComparison.OrdinalIgnoreCase))
             SelectByTag(PetStyleBox, "deepseek");
-        AddInstalledPetStyles();
-        UpdatePetStyleAvailability();
+        if (selected.Pet is not null)
+        {
+            AddInstalledPetStyles();
+            UpdatePetStyleAvailability();
+        }
         RefreshExtensionList();
         ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
-        ExtensionMessageText.Text = AppLocalization.Text(language, "扩展已卸载。点击“保存设置”后，新的形象选择会写入配置。", "Extension uninstalled. Click Save settings to persist the new appearance selection.");
+        ExtensionMessageText.Text = AppLocalization.Text(language, "扩展已卸载；扩展库中的 ZIP 仍然保留。点击“扫描扩展库”可再次安装。", "Extension uninstalled; the ZIP in the library was kept. Scan the library to install it again.");
+    }
+
+    private ExtensionCatalogEntry? GetExtensionEntry(object sender)
+        => (sender as FrameworkElement)?.DataContext as ExtensionCatalogEntry ?? ExtensionListBox.SelectedItem as ExtensionCatalogEntry;
+
+    private void ShowExtensionError(string chinese, string english)
+    {
+        ExtensionMessageText.Foreground = System.Windows.Media.Brushes.Firebrick;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        ExtensionMessageText.Text = AppLocalization.Text(language, chinese, english);
     }
 
     private static MonitorProfile CreateProfileFromLegacy(PetSettings settings) => new()
@@ -269,7 +510,7 @@ public partial class SettingsWindow : Window
         var profile = CurrentProfile;
         if (profile is null) return;
         profile.Name = string.IsNullOrWhiteSpace(ProfileNameBox.Text) ? "监控账户" : ProfileNameBox.Text.Trim();
-        var presetId = (PresetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? BalancePresetCatalog.Custom;
+        var presetId = SelectedTag(PresetBox, BalancePresetCatalog.Custom);
         if (BalancePresetCatalog.UsesSiteUrl(presetId))
         {
             BalancePresetCatalog.Apply(profile, presetId, SiteUrlBox.Text);
@@ -278,12 +519,12 @@ public partial class SettingsWindow : Window
         {
             profile.PresetId = BalancePresetCatalog.Custom;
             profile.Endpoint = EndpointBox.Text.Trim();
-            profile.AuthMode = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "bearer";
+            profile.AuthMode = SelectedTag(AuthModeBox, "bearer");
             profile.HeaderName = HeaderBox.Text.Trim();
             profile.BalancePath = PathBox.Text.Trim();
         }
         profile.Currency = string.IsNullOrWhiteSpace(CurrencyBox.Text) ? "USD" : CurrencyBox.Text.Trim().ToUpperInvariant();
-        var refreshTag = (RefreshBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        var refreshTag = SelectedTag(RefreshBox, "off");
         profile.AutoRefreshEnabled = !string.Equals(refreshTag, "off", StringComparison.OrdinalIgnoreCase);
         if (profile.AutoRefreshEnabled)
         {
@@ -305,14 +546,16 @@ public partial class SettingsWindow : Window
 
     private void OnRefreshModeChanged(object sender, SelectionChangedEventArgs e)
     {
+        SyncComboDisplay(RefreshBox);
         if (_suppressRefreshChange) return;
         UpdateRefreshModeVisibility();
     }
 
     private void OnPresetChanged(object sender, SelectionChangedEventArgs e)
     {
+        SyncComboDisplay(PresetBox);
         if (_suppressPresetChange || PresetBox is null || SiteUrlBox is null) return;
-        var presetId = (PresetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? BalancePresetCatalog.Custom;
+        var presetId = SelectedTag(PresetBox, BalancePresetCatalog.Custom);
         if (BalancePresetCatalog.UsesSiteUrl(presetId) && string.IsNullOrWhiteSpace(SiteUrlBox.Text))
         {
             _suppressSiteUrlChange = true;
@@ -331,9 +574,9 @@ public partial class SettingsWindow : Window
     private void UpdatePresetUi(bool updatePreview)
     {
         if (PresetBox is null || SiteUrlBox is null || EndpointBox is null || AuthModeBox is null || PathBox is null) return;
-        var presetId = (PresetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? BalancePresetCatalog.Custom;
+        var presetId = SelectedTag(PresetBox, BalancePresetCatalog.Custom);
         var usesSiteUrl = BalancePresetCatalog.UsesSiteUrl(presetId);
-        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         var visibility = usesSiteUrl ? Visibility.Visible : Visibility.Collapsed;
         SiteUrlLabel.Visibility = visibility;
         SiteUrlBox.Visibility = visibility;
@@ -357,9 +600,9 @@ public partial class SettingsWindow : Window
 
     private void UpdatePresetPreview()
     {
-        var presetId = (PresetBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? BalancePresetCatalog.Custom;
+        var presetId = SelectedTag(PresetBox, BalancePresetCatalog.Custom);
         if (!BalancePresetCatalog.UsesSiteUrl(presetId)) return;
-        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         EndpointBox.Text = BalancePresetCatalog.BuildEndpoint(SiteUrlBox.Text, presetId);
         SelectByTag(AuthModeBox, "bearer");
         HeaderBox.Text = "Authorization";
@@ -373,13 +616,13 @@ public partial class SettingsWindow : Window
 
     private void UpdateRefreshModeVisibility()
     {
-        var custom = string.Equals((RefreshBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), "custom", StringComparison.OrdinalIgnoreCase);
+        var custom = string.Equals(SelectedTag(RefreshBox, "off"), "custom", StringComparison.OrdinalIgnoreCase);
         RefreshCustomBox.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private bool ValidateRefreshInput()
     {
-        var tag = (RefreshBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        var tag = SelectedTag(RefreshBox, "off");
         if (string.Equals(tag, "off", StringComparison.OrdinalIgnoreCase)) return true;
         if (string.Equals(tag, "custom", StringComparison.OrdinalIgnoreCase)
             && (!int.TryParse(RefreshCustomBox.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds) || seconds < 30))
@@ -393,6 +636,7 @@ public partial class SettingsWindow : Window
 
     private void OnProfileSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        SyncComboDisplay(ProfileBox);
         if (_suppressProfileChange || ProfileBox.SelectedItem is not ComboBoxItem item) return;
         SaveCurrentProfileFields();
         LoadProfile(item.Tag?.ToString() ?? "");
@@ -430,12 +674,13 @@ public partial class SettingsWindow : Window
             if (imported.Monitors is { Count: > 0 }) _profiles.AddRange(imported.Monitors.Select(CloneProfile));
             else _profiles.Add(CreateProfileFromLegacy(imported));
             RefreshProfileList(imported.SelectedMonitorId);
-            SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode); SelectByTag(UpdateCheckBox, imported.UpdateCheckMode);
+            SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode); SelectByTag(UpdateCheckBox, imported.UpdateCheckMode); SelectByTag(ExtensionUpdateCheckBox, imported.ExtensionUpdateCheckMode);
             SelectByTag(LanguageBox, imported.Language);
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
             SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; EasterEggsBox.IsChecked = imported.RandomEasterEggs; AccountStatusBox.IsChecked = imported.AccountStatusIntegration; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
             AppLocalization.Apply(this, imported.Language);
+            RefreshLanguageSelector(imported.Language, selectLanguage: false);
             TokenBox.Clear();
             MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
             MessageText.Text = "设置已导入。令牌不会从文件导入，请在各监控账户中重新填写令牌。";
@@ -458,7 +703,7 @@ public partial class SettingsWindow : Window
             var export = new
             {
                 endpoint = selected.Endpoint,
-                language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "zh-CN",
+                language = SelectedTag(LanguageBox, "zh-CN"),
                 auth_mode = selected.AuthMode,
                 header_name = selected.HeaderName,
                 balance_path = selected.BalancePath,
@@ -466,9 +711,10 @@ public partial class SettingsWindow : Window
                 refresh_seconds = selected.RefreshSeconds,
                 auto_refresh_enabled = selected.AutoRefreshEnabled,
                 low_threshold = selected.LowThreshold,
-                pet_style = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek",
-                interaction_mode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free",
-                update_check_mode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily",
+                pet_style = SelectedTag(PetStyleBox, "deepseek"),
+                interaction_mode = SelectedTag(InteractionBox, "free"),
+                update_check_mode = SelectionTag(UpdateCheckBox, "daily"),
+                extension_update_check_mode = SelectionTag(ExtensionUpdateCheckBox, "daily"),
                 pet_scale = ScaleSlider.Value,
                 sound = SoundBox.IsChecked == true,
                 volume = VolumeSlider.Value,
@@ -509,17 +755,17 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private async void OnSave(object sender, RoutedEventArgs e)
+    private async void OnOk(object sender, RoutedEventArgs e)
     {
-        await SaveSettingsAndMaybeTestAsync(testConnection: true);
+        await SaveSettingsAndMaybeTestAsync(testConnection: false, closeAfterSave: true);
     }
 
     private async void OnApply(object sender, RoutedEventArgs e)
     {
-        await SaveSettingsAndMaybeTestAsync(testConnection: false);
+        await SaveSettingsAndMaybeTestAsync(testConnection: false, closeAfterSave: false);
     }
 
-    private async Task SaveSettingsAndMaybeTestAsync(bool testConnection)
+    private async Task SaveSettingsAndMaybeTestAsync(bool testConnection, bool closeAfterSave)
     {
         SaveCurrentProfileFields();
         if (_profiles.Count == 0) { MessageText.Text = "至少保留一个监控账户。"; return; }
@@ -553,12 +799,12 @@ public partial class SettingsWindow : Window
         try
         {
             var startupEnabled = StartupBox.IsChecked == true;
-            var selectedPetStyle = (PetStyleBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "deepseek";
+            var selectedPetStyle = SelectedTag(PetStyleBox, "deepseek");
             if (!PetStyleCatalog.IsAvailable(selectedPetStyle)) selectedPetStyle = "deepseek";
             var updated = new PetSettings
             {
                 Endpoint = selected.Endpoint,
-                Language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "zh-CN",
+                Language = SelectedTag(LanguageBox, "zh-CN"),
                 AuthMode = selected.AuthMode,
                 HeaderName = selected.HeaderName,
                 TokenBlob = selected.TokenBlob,
@@ -568,9 +814,11 @@ public partial class SettingsWindow : Window
                 AutoRefreshEnabled = selected.AutoRefreshEnabled,
                 LowThreshold = selected.LowThreshold,
                 PetStyle = selectedPetStyle,
-                InteractionMode = (InteractionBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "free",
-                UpdateCheckMode = (UpdateCheckBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "daily",
+                InteractionMode = SelectedTag(InteractionBox, "free"),
+                UpdateCheckMode = SelectionTag(UpdateCheckBox, "daily"),
                 LastUpdateCheckUtc = _settings.LastUpdateCheckUtc,
+                ExtensionUpdateCheckMode = SelectionTag(ExtensionUpdateCheckBox, "daily"),
+                LastExtensionUpdateCheckUtc = _settings.LastExtensionUpdateCheckUtc,
                 Scale = ScaleSlider.Value,
                 Volume = VolumeSlider.Value,
                 Sound = SoundBox.IsChecked == true,
@@ -610,7 +858,12 @@ public partial class SettingsWindow : Window
             }
             _store.Save(updated);
             _settings.Language = updated.Language;
+            _settings.UpdateCheckMode = updated.UpdateCheckMode;
+            _settings.ExtensionUpdateCheckMode = updated.ExtensionUpdateCheckMode;
+            _settings.LastUpdateCheckUtc = updated.LastUpdateCheckUtc;
+            _settings.LastExtensionUpdateCheckUtc = updated.LastExtensionUpdateCheckUtc;
             AppLocalization.Apply(this, updated.Language);
+            RefreshLanguageSelector(updated.Language, selectLanguage: false);
             UpdatePresetUi(false);
             UpdatePetStyleAvailability();
             UpdateExtensionButtons();
@@ -623,8 +876,10 @@ public partial class SettingsWindow : Window
             if (!testConnection)
             {
                 MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
-                var language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
-                MessageText.Text = AppLocalization.Text(language, "设置已保存，可以继续修改其他账户。", "Settings saved. You can continue editing other accounts.");
+                var language = SelectedTag(LanguageBox, _settings.Language);
+                MessageText.Text = AppLocalization.Text(language, "设置已保存。", "Settings saved.");
+                if (closeAfterSave) CompleteAndClose();
+                else NotifySettingsApplied();
                 return;
             }
             if (hookChanged && updated.CodexTaskIntegration)
@@ -635,7 +890,7 @@ public partial class SettingsWindow : Window
             {
                 MessageText.Foreground = System.Windows.Media.Brushes.DarkOrange;
                 MessageText.Text = "设置已保存；当前账户未填写访问令牌，已跳过余额 API 测试。";
-                DialogResult = true;
+                CompleteAndClose();
                 return;
             }
 
@@ -648,7 +903,7 @@ public partial class SettingsWindow : Window
                     ? $"；已识别为 {BalancePresetCatalog.DisplayName(snapshot.ResolvedPresetId, updated.Language)}"
                     : "";
                 MessageText.Text = $"连接成功：{snapshot.Amount:0.00} {snapshot.Currency}{resolved}";
-                DialogResult = true;
+                CompleteAndClose();
             }
             catch (Exception error)
             {
@@ -656,7 +911,7 @@ public partial class SettingsWindow : Window
                 var message = $"设置已保存，但余额 API 测试失败：{error.Message}";
                 MessageText.Text = message;
                 System.Windows.MessageBox.Show(this, message, "BalancePet", MessageBoxButton.OK, MessageBoxImage.Warning);
-                DialogResult = true;
+                CompleteAndClose();
             }
         }
         catch (Exception error)
@@ -667,13 +922,14 @@ public partial class SettingsWindow : Window
 
     private void OnAuthModeChanged(object sender, SelectionChangedEventArgs e)
     {
+        SyncComboDisplay(AuthModeBox);
         if (HeaderBox is null || AuthModeBox is null) return;
-        var language = (LanguageBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _settings.Language;
-        var custom = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() == "custom";
-        var presetUsesSiteUrl = BalancePresetCatalog.UsesSiteUrl((PresetBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString());
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        var custom = SelectedTag(AuthModeBox, "bearer") == "custom";
+        var presetUsesSiteUrl = BalancePresetCatalog.UsesSiteUrl(SelectedTag(PresetBox, BalancePresetCatalog.Custom));
         HeaderBox.IsEnabled = custom && !presetUsesSiteUrl;
         if (!custom) HeaderBox.Text = "Authorization";
-        AuthHint.Text = (AuthModeBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() switch
+        AuthHint.Text = SelectedTag(AuthModeBox, "bearer") switch
         {
             "bearer" => AppLocalization.Text(language, "令牌框只填写令牌本身，程序会自动发送 Authorization: Bearer <令牌>。", "Enter only the token; BalancePet sends Authorization: Bearer <token> automatically."),
             "authorization" => AppLocalization.Text(language, "令牌框填写完整 Authorization 值，例如 Bearer sk-...。", "Enter the complete Authorization value, for example Bearer sk-...."),
@@ -686,10 +942,28 @@ public partial class SettingsWindow : Window
 
     private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
     {
-        var language = (LanguageBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "zh-CN";
+        if (_suppressLanguageChange) return;
+        SyncComboDisplay(LanguageBox);
+        var language = SelectedTag(LanguageBox, "zh-CN");
         AppLocalization.Apply(this, language);
+        RefreshLanguageSelector(language, selectLanguage: false);
+        SyncAllComboDisplays();
         UpdatePetStyleAvailability();
         UpdatePresetUi(false);
+        RefreshExtensionList();
+        RefreshExtensionActionLabels(language);
     }
-    private void OnCancel(object sender, RoutedEventArgs e) => DialogResult = false;
+    private void CompleteAndClose()
+    {
+        NotifySettingsApplied();
+        Close();
+    }
+
+    private void NotifySettingsApplied()
+    {
+        SettingsApplied = true;
+        SettingsAppliedChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnCancel(object sender, RoutedEventArgs e) => Close();
 }

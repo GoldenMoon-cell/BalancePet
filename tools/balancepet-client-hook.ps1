@@ -21,6 +21,10 @@ $reader = [System.IO.StreamReader]::new($inputStream, [System.Text.UTF8Encoding]
 $readTask = $reader.ReadAsync($buffer, 0, $buffer.Length)
 $readCount = if ($readTask.Wait(1000)) { [int]$readTask.Result } else { 0 }
 $inputText = if ($readCount -gt 0) { -join $buffer[0..($readCount - 1)] } else { "" }
+$hookInput = $null
+if (-not [string]::IsNullOrWhiteSpace($inputText)) {
+    try { $hookInput = $inputText | ConvertFrom-Json } catch { $hookInput = $null }
+}
 
 $sessionMatch = [regex]::Match(
     $inputText,
@@ -39,12 +43,56 @@ else
     $taskId = "hook"
 }
 
-$message = @{
+$message = [ordered]@{
     state = $State
     sessionId = "external:$Provider"
     turnId = $taskId
     provider = $Provider
-} | ConvertTo-Json -Compress
+}
+$usageSources = if ($null -ne $hookInput) {
+    @(
+        $hookInput.usage,
+        $hookInput.token_usage,
+        $hookInput.usage_metadata,
+        $hookInput.usageMetadata,
+        $hookInput.tokenUsage,
+        $hookInput.response.usage,
+        $hookInput.response.usage_metadata,
+        $hookInput.response.usageMetadata,
+        $hookInput.result.usage,
+        $hookInput.result.usage_metadata,
+        $hookInput.metadata,
+        $hookInput.stats,
+        $hookInput.metrics,
+        $hookInput
+    )
+} else { @($null) }
+$usageAliases = @{
+    model = @('model')
+    input_tokens = @('input_tokens', 'inputTokens', 'prompt_tokens', 'promptTokens', 'input_token_count', 'inputTokenCount', 'prompt_token_count', 'promptTokenCount')
+    output_tokens = @('output_tokens', 'outputTokens', 'completion_tokens', 'completionTokens', 'output_token_count', 'outputTokenCount', 'candidates_token_count', 'candidatesTokenCount', 'completion_token_count', 'completionTokenCount')
+    cache_read_tokens = @('cache_read_tokens', 'cacheReadTokens', 'cached_tokens', 'cachedTokens', 'cache_read_input_tokens', 'cacheReadInputTokens', 'cache_hit_tokens', 'cacheHitTokens')
+    cache_write_tokens = @('cache_write_tokens', 'cacheWriteTokens', 'cache_creation_input_tokens', 'cacheCreationInputTokens')
+    duration_ms = @('duration_ms', 'durationMs', 'elapsed_ms', 'elapsedMs')
+    time_to_first_token_ms = @('time_to_first_token_ms', 'timeToFirstTokenMs', 'ttft_ms', 'time_to_first_token', 'timeToFirstToken')
+    tool_calls = @('tool_calls', 'toolCalls')
+    steps = @('steps')
+    success = @('success')
+}
+foreach ($field in $usageAliases.Keys) {
+    $value = $null
+    foreach ($usageSource in $usageSources) { if ($null -ne $usageSource) { foreach ($candidate in $usageAliases[$field]) { if ($null -ne $usageSource.$candidate) { $value = $usageSource.$candidate; break } } } if ($null -ne $value) { break } }
+    if ($null -eq $value) { continue }
+    if ($field -eq 'model') {
+        if (-not [string]::IsNullOrWhiteSpace([string]$value) -and ([string]$value).Length -le 160 -and ([string]$value) -notmatch "\p{C}") { $message[$field] = [string]$value }
+    }
+    elseif ($value -is [int] -or $value -is [long] -or $value -is [double] -or $value -is [decimal]) {
+        $number = [long]$value
+        if ($number -ge 0 -and $number -le 10000000000) { $message[$field] = $number }
+    }
+    elseif ($field -eq 'success' -and $value -is [bool]) { $message[$field] = $value }
+}
+$message = $message | ConvertTo-Json -Compress
 
 # A hook must never interrupt its client. The pipe is local to the current
 # Windows user, and a short best-effort send is enough for the desktop app.

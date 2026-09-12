@@ -15,6 +15,7 @@ public sealed class PetExtensionManifest
     [JsonPropertyName("version")] public string Version { get; set; } = "";
     [JsonPropertyName("api_version")] public int ApiVersion { get; set; }
     [JsonPropertyName("min_core_version")] public string MinCoreVersion { get; set; } = "0.5.0";
+    [JsonPropertyName("update_url")] public string UpdateUrl { get; set; } = "";
 }
 
 public sealed class PetExtensionInfo
@@ -204,7 +205,7 @@ public sealed class PetExtensionManager
         return true;
     }
 
-    private static Version CurrentCoreVersion => new(0, 5, 0);
+    private static Version CurrentCoreVersion => CoreVersion.Current;
     private static bool IsValidId(string? value) => !string.IsNullOrWhiteSpace(value)
         && value.Length is >= 2 and <= 64
         && value.All(ch => (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch is '.' or '-')

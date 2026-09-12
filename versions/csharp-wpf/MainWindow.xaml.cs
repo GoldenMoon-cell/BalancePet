@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Forms = System.Windows.Forms;
 using BalancePet.Wpf.Models;
 using BalancePet.Wpf.Services;
@@ -35,11 +36,16 @@ public partial class MainWindow : Window
     private readonly HttpClient _httpClient = CreateBalanceHttpClient();
     private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromMinutes(2) };
     private readonly UpdateService _updateService;
+    private readonly ExtensionUpdateService _extensionUpdateService;
+    private readonly ExtensionPackageCatalog _extensionLibrary = new();
+    private readonly PetExtensionManager _petExtensions = new();
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _bubbleTimer;
     private readonly DispatcherTimer _floatTimer;
     private readonly CodexTaskBridge _codexTaskBridge = new();
     private readonly AccountStatusBridge _accountStatusBridge = new();
+    private readonly UsageEventBridge _usageEventBridge = new();
+    private readonly FeatureExtensionManager _featureExtensions = new();
     private readonly DispatcherTimer _stateTimer;
     private readonly DispatcherTimer _inactiveTimer;
     private readonly DispatcherTimer _bubbleAnimationTimer;
@@ -48,6 +54,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _codexHideTimer;
     private readonly DispatcherTimer _trayRecoveryTimer;
     private readonly DispatcherTimer _updateTimer;
+    private readonly DispatcherTimer _extensionUpdateTimer;
     private readonly Dictionary<string, MonitorRuntime> _monitorStates = new(StringComparer.OrdinalIgnoreCase);
     private readonly System.Windows.Media.MediaPlayer _pressSound = new();
     private readonly System.Windows.Media.MediaPlayer _releaseSound = new();
@@ -88,11 +95,13 @@ public partial class MainWindow : Window
     private DateTimeOffset _lastManualRefreshAttempt = DateTimeOffset.MinValue;
     private bool _updateBusy;
     private string? _configuredUpdateCheckMode;
+    private string? _configuredExtensionUpdateCheckMode;
     private int _trayRecoveryAttempts;
     private uint _taskbarCreatedMessage;
     private readonly HashSet<string> _activeCodexTurns = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _activeTaskSources = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _activeTaskProfiles = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> _activeTaskStartedAt = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _recentTaskStops = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _retiredTaskKeys = new(StringComparer.Ordinal);
     private DateTimeOffset _lastAccountStatusAt = DateTimeOffset.MinValue;
@@ -217,6 +226,7 @@ public partial class MainWindow : Window
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync(false);
         _updateService = new UpdateService(_updateHttpClient);
+        _extensionUpdateService = new ExtensionUpdateService(_updateHttpClient);
         _bubbleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
         _bubbleTimer.Tick += (_, _) => HideBubble();
         _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
@@ -239,6 +249,8 @@ public partial class MainWindow : Window
         _trayRecoveryTimer.Tick += (_, _) => RecoverTrayRegistration();
         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(30) };
         _updateTimer.Tick += async (_, _) => await CheckForAutomaticUpdatesAsync();
+        _extensionUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(30) };
+        _extensionUpdateTimer.Tick += async (_, _) => await CheckForExtensionUpdatesAsync(false);
         SourceInitialized += (_, _) =>
         {
             HideFromTaskSwitcher();
@@ -256,8 +268,11 @@ public partial class MainWindow : Window
             _refreshCancellation?.Cancel();
             _trayRecoveryTimer.Stop();
             _updateTimer.Stop();
+            _extensionUpdateTimer.Stop();
             _codexTaskBridge.Dispose();
             _accountStatusBridge.Dispose();
+            _usageEventBridge.Dispose();
+            _featureExtensions.Dispose();
             UnregisterTaskbarCreatedHook();
             SavePosition(); DisposeTray(); _httpClient.Dispose(); _updateHttpClient.Dispose();
         };
@@ -296,20 +311,24 @@ public partial class MainWindow : Window
         else { Left = workArea.Right - Width - 24; Top = workArea.Bottom - Height - 24; }
         ConfigureRefreshTimer();
         ConfigureUpdateChecks();
+        ConfigureExtensionUpdateChecks();
         _floatTimer.Start();
         ResetInactiveTimer();
         ConfigureSounds();
         _codexTaskBridge.Stop();
         _accountStatusBridge.Stop();
+        _usageEventBridge.Stop();
         _activeCodexTurns.Clear();
         _activeTaskSources.Clear();
         _activeTaskProfiles.Clear();
+        _activeTaskStartedAt.Clear();
         _recentTaskStops.Clear();
         _retiredTaskKeys.Clear();
         _codexStartBalances.Clear();
         _codexShownPet = false;
         if (_settings.CodexTaskIntegration) _codexTaskBridge.Start();
         if (_settings.AccountStatusIntegration) _accountStatusBridge.Start();
+        _usageEventBridge.Start();
         SetupTray();
         UpdateTrayMonitorMenu();
         UpdateContextMonitorMenu();
@@ -1171,18 +1190,21 @@ public partial class MainWindow : Window
         await StopActiveRefreshAsync();
         try
         {
-            var dialog = new SettingsWindow(_settingsStore, _tokenStore, _settings) { Owner = this };
-            if (dialog.ShowDialog() == true)
-            {
-                LoadSettingsAndPosition();
-                ConfigureSounds();
-                await RefreshAsync(true, true);
-            }
+            var dialog = new SettingsWindow(_settingsStore, _tokenStore, _settings, _featureExtensions) { Owner = this };
+            dialog.SettingsAppliedChanged += OnSettingsAppliedFromDialog;
+            dialog.ShowDialog();
         }
         finally
         {
             if (!_closing && refreshTimerWasEnabled) ConfigureRefreshTimer();
         }
+    }
+
+    private async void OnSettingsAppliedFromDialog(object? sender, EventArgs e)
+    {
+        LoadSettingsAndPosition();
+        ConfigureSounds();
+        await RefreshAsync(true, true);
     }
 
     private async Task StopActiveRefreshAsync()
@@ -1402,9 +1424,58 @@ public partial class MainWindow : Window
 
     private async Task CheckForAutomaticUpdatesAsync()
     {
-        var interval = _settings.UpdateCheckMode == "weekly" ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1);
-        if (_settings.LastUpdateCheckUtc.HasValue && DateTimeOffset.UtcNow - _settings.LastUpdateCheckUtc.Value < interval) return;
-        await CheckForUpdatesAsync(false);
+        if (_settings.UpdateCheckMode != "manual")
+        {
+            var interval = _settings.UpdateCheckMode == "weekly" ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1);
+            if (!_settings.LastUpdateCheckUtc.HasValue || DateTimeOffset.UtcNow - _settings.LastUpdateCheckUtc.Value >= interval)
+                await CheckForUpdatesAsync(false);
+        }
+    }
+
+    private void ConfigureExtensionUpdateChecks()
+    {
+        if (string.Equals(_configuredExtensionUpdateCheckMode, _settings.ExtensionUpdateCheckMode, StringComparison.Ordinal)) return;
+        _configuredExtensionUpdateCheckMode = _settings.ExtensionUpdateCheckMode;
+        _extensionUpdateTimer.Stop();
+        if (_settings.ExtensionUpdateCheckMode == "manual") return;
+        if (_settings.ExtensionUpdateCheckMode == "startup")
+        {
+            _ = CheckForExtensionUpdatesAsync(false);
+            return;
+        }
+        _extensionUpdateTimer.Start();
+        _ = CheckForExtensionUpdatesAsync(false);
+    }
+
+    private async Task CheckForExtensionUpdatesAsync(bool manual)
+    {
+        if (!manual && _settings.ExtensionUpdateCheckMode == "manual") return;
+        if (!manual && _settings.ExtensionUpdateCheckMode == "startup")
+        {
+            // Startup mode deliberately checks once per application launch.
+        }
+        else
+        {
+            var interval = _settings.ExtensionUpdateCheckMode == "weekly" ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1);
+            if (!manual && _settings.LastExtensionUpdateCheckUtc.HasValue && DateTimeOffset.UtcNow - _settings.LastExtensionUpdateCheckUtc.Value < interval) return;
+        }
+        try
+        {
+            var entries = _extensionLibrary.BuildEntries(_petExtensions.GetInstalled(), _featureExtensions.GetInstalled());
+            var result = await _extensionUpdateService.CheckAsync(entries);
+            _settings.LastExtensionUpdateCheckUtc = DateTimeOffset.UtcNow;
+            _settingsStore.Save(_settings);
+            var updates = result.Releases.Values.Count(release => entries.Any(entry => entry.IsInstalled && string.Equals(entry.Id, release.Id, StringComparison.OrdinalIgnoreCase) && ExtensionCatalogEntry.CompareVersions(release.Version, entry.InstalledVersion) > 0));
+            if (updates > 0)
+            {
+                ShowBubble("发现扩展更新", $"{updates} 个扩展", "打开设置查看");
+                ShowSystemNotification("发现扩展更新", $"有 {updates} 个扩展可以更新", Forms.ToolTipIcon.Info);
+            }
+        }
+        catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or JsonException or TaskCanceledException)
+        {
+            if (manual) System.Windows.MessageBox.Show(this, $"检查扩展更新失败：{error.Message}", "BalancePet", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private static string GetCurrentVersion()
@@ -1588,6 +1659,7 @@ public partial class MainWindow : Window
 
     private void OpenUsageWindow()
     {
+        if (_featureExtensions.TryLaunch(FeatureExtensionManager.UsageAnalyticsId, out _)) return;
         var dialog = new UsageWindow(SelectedMonitor?.UsageStore ?? _usageStore, _settings.Language) { Owner = this };
         dialog.ShowDialog();
     }
@@ -2125,6 +2197,7 @@ public partial class MainWindow : Window
         if (!_activeCodexTurns.Add(activity.Key)) return Task.CompletedTask;
         _activeTaskSources[activity.Key] = TaskSourceLabel(activity.Provider);
         _activeTaskProfiles[activity.Key] = FindMonitorProfile(activity.Provider)?.Id ?? "";
+        _activeTaskStartedAt[activity.Key] = DateTimeOffset.UtcNow;
         ResetInactiveTimer();
         _codexHideTimer.Stop();
         if (!IsVisible)
@@ -2152,22 +2225,38 @@ public partial class MainWindow : Window
         return Task.CompletedTask;
     }
 
-    private Task CompleteCodexTaskAsync(CodexTaskActivity activity)
+    private async Task CompleteCodexTaskAsync(CodexTaskActivity activity)
     {
         PruneRecentTaskStops();
+        var startedAt = _activeTaskStartedAt.TryGetValue(activity.Key, out var recordedStart) ? recordedStart : (DateTimeOffset?)null;
+        // Stop hooks are allowed to omit or rotate turn_id. Resolve the
+        // matching active session before removing it so lifecycle events still
+        // get an elapsed duration instead of becoming count-only records.
+        if (!startedAt.HasValue && !string.IsNullOrWhiteSpace(activity.SessionId))
+        {
+            var sessionPrefix = activity.SessionId + ":";
+            startedAt = _activeTaskStartedAt
+                .Where(pair => pair.Key.StartsWith(sessionPrefix, StringComparison.Ordinal))
+                .OrderBy(pair => pair.Value)
+                .Select(pair => (DateTimeOffset?)pair.Value)
+                .FirstOrDefault();
+        }
+        if (!startedAt.HasValue && _activeTaskStartedAt.Count == 1)
+            startedAt = _activeTaskStartedAt.Values.First();
         if (!RemoveActiveCodexTurn(activity, out var completedSource, out var completedProfileId))
         {
             // Keep a very short marker for out-of-order start/stop messages.
             // It expires quickly so a real later task is unaffected.
             RememberUnmatchedStop(activity);
-            return Task.CompletedTask;
+            return;
         }
+        await RecordUsageFromTaskAsync(activity, startedAt);
         ResetInactiveTimer();
         if (_activeCodexTurns.Count > 0)
         {
             SetVisualState(PetVisualState.CodexWorking);
             ShowBubble($"{CurrentTaskSourceLabel()} 工作中", $"{_activeCodexTurns.Count} 个任务", "仍有任务正在处理");
-            return Task.CompletedTask;
+            return;
         }
 
         var selected = SelectedMonitor;
@@ -2190,7 +2279,7 @@ public partial class MainWindow : Window
             _codexHideTimer.Stop();
             _codexHideTimer.Start();
         }
-        return Task.CompletedTask;
+        return;
     }
 
     private string CurrentTaskSourceLabel()
@@ -2273,7 +2362,37 @@ public partial class MainWindow : Window
         if (_activeTaskSources.Remove(key, out var source)) completedSource = source;
         if (_activeTaskProfiles.TryGetValue(key, out var knownProfileId)) profileId = knownProfileId ?? "";
         _activeTaskProfiles.Remove(key);
+        _activeTaskStartedAt.Remove(key);
         return true;
+    }
+
+    private async Task RecordUsageFromTaskAsync(CodexTaskActivity activity, DateTimeOffset? startedAt)
+    {
+        var codexUsage = string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
+            ? await CodexUsageReader.TryReadTurnAsync(activity.SessionId, activity.TurnId, startedAt)
+            : null;
+        var duration = activity.DurationMs;
+        if (duration is null && startedAt.HasValue)
+            duration = Math.Max(0, (long)(DateTimeOffset.UtcNow - startedAt.Value).TotalMilliseconds);
+        var model = string.IsNullOrWhiteSpace(activity.Model) ? codexUsage?.Model : activity.Model;
+        try
+        {
+            await _usageEventBridge.RecordAsync(
+            activity.Provider,
+            model,
+            activity.InputTokens ?? codexUsage?.InputTokens,
+            activity.OutputTokens ?? codexUsage?.OutputTokens,
+            activity.CacheReadTokens ?? codexUsage?.CacheReadTokens,
+            activity.CacheWriteTokens ?? codexUsage?.CacheWriteTokens,
+            duration,
+            activity.TimeToFirstTokenMs,
+            activity.ToolCalls,
+            activity.Steps,
+            activity.Success ?? true);
+        }
+        catch (OperationCanceledException) { }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private void ReplaceActiveTaskForSession(CodexTaskActivity activity)

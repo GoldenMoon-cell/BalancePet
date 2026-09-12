@@ -1,5 +1,6 @@
 dist/
 archive/
+extensions/**/dist/
 **/bin/
 **/obj/
 *.key-v2
@@ -7,6 +8,7 @@ archive/
 
 # Local-only workspace and generated preview files
 /AGENTS.md
+/.agents/
 /BalancePet.lnk
 /flood-test.png
 /preview-test.png

@@ -2,7 +2,7 @@
 
 面向 Windows 的余额桌宠。项目当前只维护 C# WPF 版本：它会按设定间隔查询中转站提供的余额 API，并以可互动的桌宠显示状态和余额，不需要打开中转站网页。
 
-最近发布版本：`v0.5.0`；下一开发版本：`v0.6.0`。
+当前版本：`v0.7.8`；最近发布版本：`v0.7.8`。
 
 ## 项目统计
 
@@ -37,9 +37,9 @@
 
 ## 扩展
 
-`v0.5.0` 开始提供资源型宠物扩展基础。打开“配置接口”窗口的“扩展”区域，选择由可信来源提供的 `.zip` 包即可安装；安装后可以启用、禁用或卸载。扩展保存在 `%LOCALAPPDATA%\BalancePet\extensions`，主程序更新不会删除它们，卸载也只影响选中的扩展。当前扩展只包含 `manifest.json`、PNG 状态图和说明文件，不执行第三方 DLL、脚本或其他代码。
+`v0.5.0` 开始提供资源型宠物扩展基础；`v0.6.0` 增加功能扩展的独立进程宿主和脱敏用量事件管道。打开“配置接口”窗口的“扩展”区域，程序会扫描主程序目录旁 `extension-library` 文件夹中的顶层 `.zip` 包；同一扩展的不同版本会合并为一个条目，只显示已安装版本，并在有更新时显示最新版本。条目右侧提供图标化的安装/卸载、启用/禁用、更新和启动操作。扩展更新可单独选择每次启动、每天、每周或仅手动检查；更新地址由扩展 manifest 的 `update_url` 声明，下载后仍会经过正常的 ZIP 和 manifest 校验。卸载只删除 `%LOCALAPPDATA%\BalancePet\extensions` 中的运行副本，不删除扩展库里的 ZIP，因此之后可以重新安装。功能扩展不会被加载进主程序进程，只能通过声明的能力读取本机脱敏数据。
 
-扩展包格式和校验规则见 [docs/extension-spec/v1/README.md](docs/extension-spec/v1/README.md)，可用 [tools/package-pet-extension.ps1](tools/package-pet-extension.ps1) 打包自己的九状态宠物形象。未安装或已禁用的形象不会出现在可选列表中；如果当前正在使用的扩展被禁用或卸载，桌宠会自动回退到内置 DeepSeek 形象。在线扩展目录和可执行代码扩展属于后续版本范围。
+资源扩展包格式见 [docs/extension-spec/v1/README.md](docs/extension-spec/v1/README.md)，功能扩展协议见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)。可用 [tools/package-pet-extension.ps1](tools/package-pet-extension.ps1) 打包九状态宠物形象。用量统计插件位于 `extensions/BalancePet-Ext-Feature-UsageAnalytics/`，通过右键菜单“用量统计”启动；它会监听事件文件变化，并以不超过 60 秒的间隔自动刷新。任务完成事件可以自动记录请求次数和耗时；要统计真实 Token、缓存命中和首 Token 时间，客户端还需主动上报 Usage.v1 字段。主程序只接收计数和耗时等元数据，不接收提示词、回复或令牌。功能扩展协议只规定 manifest、`--data-dir`、Usage Event v1、能力和生命周期；第三方扩展可以自由选择 UI 工具包、主题、Logo、窗口布局和交互方式。
 
 ## 运行
 

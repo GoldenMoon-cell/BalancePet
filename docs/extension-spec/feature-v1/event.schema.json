@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/feature-v1/event.schema.json",
+  "title": "BalancePet usage event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "event_id", "occurred_at", "kind", "provider"],
+  "properties": {
+    "schema": { "const": "balancepet.usage.v1" },
+    "event_id": { "type": "string", "minLength": 8, "maxLength": 80 },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "kind": { "const": "llm_request" },
+    "provider": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "account_id": { "type": "string", "maxLength": 128 },
+    "model": { "type": "string", "maxLength": 160 },
+    "success": { "type": "boolean" },
+    "input_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Complete input total, including cache-read tokens."
+    },
+    "output_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Generated output token count."
+    },
+    "cache_read_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Input tokens served from cache; cache hit rate is cache_read_tokens / input_tokens."
+    },
+    "cache_write_tokens": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Tokens written to cache (cache creation), kept separate from cache reads."
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "End-to-end request duration."
+    },
+    "time_to_first_token_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Client-reported time to first token; omitted when unavailable."
+    },
+    "tool_calls": { "type": "integer", "minimum": 0 },
+    "steps": { "type": "integer", "minimum": 0 }
+  }
+}
