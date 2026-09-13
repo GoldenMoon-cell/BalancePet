@@ -10,7 +10,7 @@
 - 当前仓库可见并持续构建的实现：`versions/csharp-wpf`。Python 版本保留为 fallback，不主动删除；如果后续恢复或新增 Electron 实现，继续遵守根目录 `AGENTS.md` 中关于 Electron 主进程凭据隔离的约束。
 - 当前发布：主程序 `v0.7.8`，功能扩展 `Usage Analytics v0.2.10`；两者均已发布到 GitHub。
 - 发布仓库：[BalancePet](https://github.com/GoldenMoon-cell/BalancePet)；[BalancePet-Ext-Feature-UsageAnalytics](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics)。对应 Release：[主程序 v0.7.8](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v0.7.8)；[插件 v0.2.10](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/tag/v0.2.10)。
-- 最近验证：主程序和用量统计插件的 `dotnet build` 均通过，0 警告、0 错误；主程序 Inno Setup 6.7.3 打包成功；`v0.7.6` 安装器与便携 ZIP、统计扩展 0.2.4 ZIP 均已生成；脱敏 Usage Event v1 写入脚本已通过字段校验；设置窗口保持紧凑的 640×720 分栏布局，并加入浅色主题、统一控件边框和卡片容器；扩展页现可将同一 ID 的多个版本合并为一个条目，行内提供图标化安装/卸载、启用/禁用、更新和启动操作，并支持独立的扩展更新检查频率；扩展清单可声明 GitHub `update_url`，下载后仍经过 ZIP 与 manifest 校验；用量统计插件的“仪表盘/使用记录/提供方与模型”侧边导航已接通，生命周期-only 数据会明确提示客户端尚未上报 Token、模型和耗时；统计窗口使用无边框内置标题栏、深色滚动条和实时倒计时；Codex Hook、通用 Task.v1 和 Usage.v1 解析支持更多嵌套用量字段。
+- 最近验证：主程序和用量统计插件的 `dotnet build` 均通过，0 警告、0 错误；主程序 Inno Setup 6.7.3 打包成功；`v0.7.6` 安装器与便携 ZIP、统计扩展 0.2.4 ZIP 均已生成；脱敏 Usage Event v1 写入脚本已通过字段校验；设置窗口保持紧凑的 640×720 分栏布局，并加入浅色主题、统一控件边框和卡片容器；扩展页现可将同一 ID 的多个版本合并为一个条目，行内提供图标化安装/卸载、启用/禁用、更新和启动操作，并支持独立的扩展更新检查频率；扩展清单可声明 GitHub `update_url`，下载后仍经过 ZIP 与 manifest 校验；插件库第一版已接入设置窗口，支持远程目录、2 MB 上限、缓存回退、关键词搜索、兼容性提示、仓库入口和 SHA-256 校验安装；用量统计插件的“仪表盘/使用记录/提供方与模型”侧边导航已接通，生命周期-only 数据会明确提示客户端尚未上报 Token、模型和耗时；统计窗口使用无边框内置标题栏、深色滚动条和实时倒计时；Codex Hook、通用 Task.v1 和 Usage.v1 解析支持更多嵌套用量字段。
 - `v0.3.3` 是 GitHub 已发布版本。此前为测试新预设而生成的同名本地包仍在 `dist/`，但不应再作为发布物使用：`BalancePet-0.3.3-win-x64.zip`（200,236,072 bytes，SHA-256 `c5d4f105169172a320b62dc81cb06ae39962068f0f40fbbae61f2586adba30cb`）；`BalancePet-0.3.3-Setup.exe`（180,300,513 bytes，SHA-256 `c1ed3088885087d165344f6947f7efefecec77f30bbfc776a7eedd94a291ad5a`）。
 - `v0.7.8` 主程序与 `Usage Analytics v0.2.10` 功能扩展已完成构建、规范检查、推送和 GitHub Release 创建；资产 SHA-256 见下方记录。
 - `0.4.0` 发布资产：`BalancePet-0.4.0-win-x64.zip` SHA-256 `2a677017695b353f6b11be0fc1f8e3d387f6db87c4ce8815398f501ba409be68`；`BalancePet-0.4.0-Setup.exe` SHA-256 `d8fe4651146f8537c838a049dcebd16a76776124e8017c3bfd5616be02e3bba0`。
@@ -23,6 +23,7 @@
 - `0.7.5` 本地测试包（所有设置下拉框使用只读可编辑显示，选择变化和下拉关闭后立即同步显示文本；补充初始化、语言切换和标签页切换后的统一同步）：`BalancePet-0.7.5-win-x64.zip`（202,479,587 bytes，SHA-256 `A61793D0E0085A5F5D49A3B423A9DB048C75211BC52708728634BF425086782C`）；`BalancePet-0.7.5-Setup.exe`（180,341,166 bytes，SHA-256 `2CA68A290AFFC5DCF24AC80EB36AA02CBA3C45207671E639680198CB9CA70766`）。尚未提交或发布。
 - `0.7.6` 本地测试包（扩展用量字段兼容、统计窗口无边框融合标题栏和深色滚动条、自动刷新倒计时、Start/Stop 用量元数据合并）：`BalancePet-0.7.6-win-x64.zip`（SHA-256 `3C4E4FE1D2B64A060AC198AC177769AFF9395F73D6F1642A5E2261BDFC56656B`）；`BalancePet-0.7.6-Setup.exe`（SHA-256 `8D202BE0953C522571267BB22A4DB9269E054C673623749E51FDE2E696FAD91D`）。尚未提交或发布。
 - `0.7.8` 发布包（Codex 停止钩子身份回填、Usage Event 空字段省略、扩展包路径和更新地址校验）：`BalancePet-0.7.8-win-x64.zip`（SHA-256 `ff850f8423d0ef6305ef1cb9bb0d43fd2b5b8e4b40cd7506fd74001398cb942e`）；`BalancePet-0.7.8-Setup.exe`（SHA-256 `8f4c307047a7b0e898a97a360691f7aac89bb8c0d21c0a3d7b184b78b40a863d`）。
+- `0.8.0-plugin-catalog-test` 本地预览包（在线插件目录、缓存回退、搜索、兼容性提示和校验安装）：`BalancePet-0.8.0-plugin-catalog-test-win-x64.zip`（202,571,845 bytes，SHA-256 `614dbea612944b41fa38dd274aca57f851be62f9f264bbcde29ba50fcafb8673`）；安装器输出为 `BalancePet-0.8.0-Setup.exe`（180,399,073 bytes，SHA-256 `59da5219f27f43a9b6a41ed28e8149ef3378dbf3b47eb32e9c503b13164bd5c6`）。仅供本地验收，尚未提交或发布。
 - `Usage Analytics v0.2.2` 本地插件包：`balancepet.ext.feature.usage-analytics-0.2.2-win-x64.zip`（69,859,349 bytes，SHA-256 `317CE24491898B57F7B64C1FDF3B6CECC86954A03EFC0DA10097301D1F589530`）。尚未提交或发布；manifest 增加独立 GitHub Release 更新地址，插件仍可脱离主程序版本独立升级。
 - `Usage Analytics v0.2.3` 本地插件包：`balancepet.ext.feature.usage-analytics-0.2.3-win-x64.zip`（72,048,353 bytes，SHA-256 `8AE7A3C9ED25CEC7A52F7E59D74156A378556E9E5BD5646DD84CB40406354018`）。尚未提交或发布；增加导航稳定性、完整用量事件测试说明，并把未提供的计数从 0 改为缺省字段；发布包不再携带被安全策略禁止的 `.ps1` 测试脚本。
 - `Usage Analytics v0.2.4` 本地插件包：`balancepet.ext.feature.usage-analytics-0.2.4-win-x64.zip`（72,049,611 bytes，SHA-256 `F2B5C2C7824039991539B72C5E5EFC38FBF27D38ABD7FCD98BC1FE7C2F27896D`）。尚未提交或发布；增加无边框融合窗口、深色滚动条、实时刷新倒计时，并扩展客户端用量字段兼容。
@@ -44,7 +45,7 @@
 - 当前已制作 5 个模型的完整 9 状态桌宠素材（见下表）。
 - `v0.5.0` 扩展基础：资源型宠物 ZIP 清单、路径/大小/文件类型校验、独立安装目录、启用/禁用/卸载和设置界面管理；扩展不会加载 DLL 或执行脚本。
 - 设置窗口按“账户与接口”“桌宠与交互”“扩展”“高级与迁移”分栏，底部保存操作固定显示；控件名称和既有保存逻辑保持兼容。
-- 扩展规范位于 `docs/extension-spec/v1/`，打包工具为 `tools/package-pet-extension.ps1`。扩展与主程序通过稳定的九状态 PNG 合同解耦；在线目录和代码扩展留待后续版本。
+- 扩展规范位于 `docs/extension-spec/v1/`，打包工具为 `tools/package-pet-extension.ps1`；功能扩展规范位于 `docs/extension-spec/feature-v1/`，在线目录格式由 `catalog.schema.json` 约束。扩展与主程序通过稳定的九状态 PNG 合同解耦；插件作者仍可自由选择 UI 工具包、主题、Logo、语言和窗口布局。
 - 功能扩展规范位于 `docs/extension-spec/feature-v1/`；首个独立插件位于 `extensions/BalancePet-Ext-Feature-UsageAnalytics/`。它使用 `balancepet.ext.feature.usage-analytics` 命名空间，读取 `usage-events.ndjson`，只统计 Token、缓存、请求成功率和耗时等元数据，不接触令牌、提示词或回复。`v0.6.0` 已提供隔离进程宿主、能力校验和启动/停止/卸载生命周期；任务桥接现在会记录完成请求的次数和耗时，客户端提供脱敏计数时还会记录 Token/缓存等字段。
 
 ## 当前待办
@@ -52,8 +53,9 @@
 1. 使用本地 `v0.5.0` 测试包对资源扩展安装、启用、禁用和卸载进行运行时手工验收，确认当前形象回退和菜单刷新都正常。
 2. 用真实客户端/CLI 接入 `tools/balancepet-usage.ps1` 或带计数的 `BalancePet.Task.v1` 事件，验证 Usage Analytics 插件显示真实 Token 事件。
 3. 逐个把素材目录中的 13 个待制作角色制作成资源扩展；每次只处理一个模型，并根据角色特征调整动作提示词。
-4. 完成下一轮修复或素材后，重新运行检查、打包，并在本文件追加版本记录。
-5. 只有在用户确认后，才创建 Git 提交、推送和 GitHub Release。
+4. 将插件库功能随下一次主程序次版本（建议 `v0.8.0`）重新打包，补充真实 Windows 设置窗口截图并进行手工安装/更新验收。
+5. 完成下一轮修复或素材后，重新运行检查、打包，并在本文件追加版本记录。
+6. 只有在用户确认后，才创建 Git 提交、推送和 GitHub Release。
 
 ## 版本记录
 
@@ -74,6 +76,7 @@
 | `v0.7.1` | 本地已打包，未发布 | 修复更新频率选择始终回到每日的问题；扩大 Hook/Usage.v1 对嵌套用量字段的兼容范围；改善插件侧边导航刷新后的定位和生命周期-only 提示。 |
 | `v0.7.6` | 本地已打包，未发布 | 扩大 Codex Hook、通用 Task.v1 和 Usage.v1 的用量字段兼容范围；统计插件采用无边框融合标题栏、深色滚动条并显示实时自动刷新倒计时。 |
 | `v0.7.8` | 已发布 | 停止钩子缺少 stdin 身份时回填最近开始事件的会话/回合 ID，确保 Codex 本地 Token 记录可以写入用量事件；同步更新 Usage Event v1、扩展宿主和功能扩展规范。 |
+| `v0.8.0` | 本地开发中，未打包 | 设置窗口增加在线插件库：静态目录、缓存回退、搜索、兼容性状态、仓库链接和经 SHA-256/manifest/ZIP 校验的安装；新增插件目录 JSON Schema 与发布文档。 |
 | `Usage Analytics v0.2.2` | 本地已打包，未发布 | 增加 `update_url`，可由主程序按独立插件版本检查并安装更新；不改变用量事件协议。 |
 | `Usage Analytics v0.2.3` | 本地已打包，未发布 | 增加完整用量事件测试说明；未上报的计数不再写入为 0；刷新或调整窗口后侧边导航定位更可靠。 |
 | `Usage Analytics v0.2.4` | 本地已打包，未发布 | 统计窗口融合标题栏与滚动条样式，显示实时刷新倒计时，并扩展用量字段别名兼容。 |

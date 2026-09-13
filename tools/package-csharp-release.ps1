@@ -46,6 +46,7 @@ Copy-Item (Join-Path $root "README.md") $stage
 Copy-Item (Join-Path $root "LICENSE") $stage
 Copy-Item (Join-Path $root "THIRD_PARTY_NOTICES.md") $stage
 Copy-Item (Join-Path $root "docs\UPGRADE.md") $stage
+Copy-Item (Join-Path $root "plugin-catalog.json") $stage
 New-Item -ItemType Directory -Path (Join-Path $stage "tools") -Force | Out-Null
 Copy-Item (Join-Path $root "tools\balancepet-task.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\balancepet-task.cmd") (Join-Path $stage "tools")

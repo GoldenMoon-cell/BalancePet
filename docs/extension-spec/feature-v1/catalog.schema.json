@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BalancePet curated plugin catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "plugins"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "plugins": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/plugin" }
+    }
+  },
+  "$defs": {
+    "plugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "name", "version", "download_url", "sha256", "repository_url", "release_url"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,94}[a-z0-9])?$" },
+        "type": { "enum": ["feature", "pet"] },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "name_en": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 500 },
+        "description_en": { "type": "string", "maxLength": 500 },
+        "author": { "type": "string", "maxLength": 120 },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$" },
+        "min_core_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$" },
+        "update_url": { "type": "string", "format": "uri", "pattern": "^https://api\\.github\\.com/repos/[^/]+/[^/]+/releases/latest$" },
+        "download_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/.+/releases/download/.+\\.zip$" },
+        "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+        "repository_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/.+" },
+        "release_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/.+/releases/tag/.+" },
+        "categories": { "type": "array", "maxItems": 6, "items": { "type": "string", "maxLength": 32 } }
+      }
+    }
+  }
+}

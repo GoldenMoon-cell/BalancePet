@@ -105,6 +105,36 @@ version directory because updates may replace it; use a namespaced directory
 under `%LOCALAPPDATA%\BalancePet` only after that storage contract is
 documented by a future API revision.
 
+## Curated plugin catalog
+
+BalancePet can show a curated online plugin catalog inside the settings window.
+The catalog is a static JSON index maintained in the main repository at
+[`plugin-catalog.json`](../../../plugin-catalog.json) and validated against
+[`catalog.schema.json`](catalog.schema.json). It is fetched over HTTPS from the
+main repository, cached locally, and can fall back to the last valid cache when
+the network is unavailable.
+
+Catalog metadata is for discovery and presentation only. It contains the
+plugin ID, type, localized name and description, author, version, compatibility
+floor, categories, repository and release links, a direct GitHub ZIP asset URL,
+and its SHA-256 digest. The host downloads the asset only after the user clicks
+Install, then passes it through the normal extension-library import and full
+manifest/archive validation. A catalog entry is not a trust or signature
+boundary; community packages still run with the current user's permissions.
+
+The catalog does not impose a shared UI toolkit, theme, logo, language, or
+window layout. Plugin authors keep their own repository and GitHub Releases;
+the catalog only makes compatible packages easier to find. Local ZIP import
+remains available for offline and development installs.
+
+To propose a plugin for the shared directory, publish the plugin in its own
+GitHub repository and Release first, then submit a pull request that adds one
+entry to the main repository's `plugin-catalog.json`. The entry must match the
+published manifest, direct ZIP asset, release URL, compatibility floor, and
+SHA-256 digest. A catalog maintainer reviews the metadata before merging; this
+keeps discovery centralized without giving arbitrary remote JSON the ability to
+execute code or bypass the normal installer.
+
 ## Usage event protocol
 
 The host writes sanitized events to `%LOCALAPPDATA%\\BalancePet\\usage-events.ndjson`.

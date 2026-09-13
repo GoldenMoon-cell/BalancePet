@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -25,6 +26,9 @@ public partial class SettingsWindow : Window
     private readonly ExtensionPackageCatalog _extensionLibrary = new();
     private readonly HttpClient _extensionUpdateHttpClient = new() { Timeout = TimeSpan.FromSeconds(20) };
     private readonly ExtensionUpdateService _extensionUpdates;
+    private readonly PluginCatalogService _pluginCatalog;
+    private readonly CancellationTokenSource _pluginCatalogCancellation = new();
+    private IReadOnlyList<PluginCatalogRecord> _pluginCatalogEntries = Array.Empty<PluginCatalogRecord>();
     private readonly List<MonitorProfile> _profiles;
     private string _currentProfileId = "";
     private bool _suppressProfileChange;
@@ -37,7 +41,8 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent(); _store = store; _tokens = tokens; _settings = settings; _featureExtensions = featureExtensions ?? new FeatureExtensionManager();
         _extensionUpdates = new ExtensionUpdateService(_extensionUpdateHttpClient);
-        Closed += (_, _) => _extensionUpdateHttpClient.Dispose();
+        _pluginCatalog = new PluginCatalogService(_extensionUpdateHttpClient);
+        Closed += (_, _) => { _pluginCatalogCancellation.Cancel(); _pluginCatalogCancellation.Dispose(); _extensionUpdateHttpClient.Dispose(); };
         AddInstalledPetStyles();
         RefreshExtensionList();
         UpdatePetStyleAvailability();
@@ -190,6 +195,7 @@ public partial class SettingsWindow : Window
         ExtensionUpdateService.ApplyCachedUpdates(entries, _extensionUpdates.LoadCache());
         ExtensionListBox.ItemsSource = null;
         ExtensionListBox.ItemsSource = entries.OrderBy(entry => entry.Type, StringComparer.OrdinalIgnoreCase).ThenBy(entry => entry.DisplayLabel, StringComparer.OrdinalIgnoreCase).ToArray();
+        RebuildPluginCatalogItems();
     }
 
     private void UpdateExtensionButtons()
@@ -251,7 +257,7 @@ public partial class SettingsWindow : Window
 
     private void OnExtensionSelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateExtensionButtons();
 
-    private void OnWindowLoaded(object sender, RoutedEventArgs e)
+    private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         AppLocalization.Apply(this, language);
@@ -261,6 +267,8 @@ public partial class SettingsWindow : Window
         UpdatePetStyleAvailability();
         UpdateExtensionButtons();
         RefreshExtensionActionLabels(language);
+        RefreshPluginCatalogLabels(language);
+        await LoadPluginCatalogAsync(manual: false);
     }
 
     private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -294,6 +302,157 @@ public partial class SettingsWindow : Window
         ExtensionOpenButton.ToolTip = AppLocalization.Text(language, "打开扩展库", "Open extension library");
         ExtensionImportButton.ToolTip = AppLocalization.Text(language, "导入 ZIP 到扩展库", "Import ZIP to extension library");
         ExtensionCheckButton.ToolTip = AppLocalization.Text(language, "检查扩展更新", "Check extension updates");
+    }
+
+    private readonly HashSet<string> _pluginCatalogBusyIds = new(StringComparer.OrdinalIgnoreCase);
+
+    private void RefreshPluginCatalogLabels(string language)
+    {
+        if (PluginCatalogTitleText is null) return;
+        ExtensionManagementTitleText.Text = AppLocalization.Text(language, "扩展管理", "Extension management");
+        ExtensionManagementHintText.Text = AppLocalization.Text(language, "在线插件库负责发现扩展，本地扩展区负责安装、启用、更新和启动。", "Discover extensions online; manage installation, enablement, updates, and launching locally.");
+        PluginCatalogTitleText.Text = AppLocalization.Text(language, "在线插件库", "Online plugin catalog");
+        PluginCatalogHintText.Text = AppLocalization.Text(language, "从 BalancePet 官方目录发现插件；下载后仍会执行本地安全校验。", "Discover plugins from the curated BalancePet catalog; every download is still verified locally.");
+        PluginCatalogRefreshButton.Content = AppLocalization.Text(language, "刷新目录", "Refresh catalog");
+        PluginCatalogRefreshButton.ToolTip = AppLocalization.Text(language, "刷新在线插件目录", "Refresh the online plugin catalog");
+        PluginCatalogSearchBox.ToolTip = AppLocalization.Text(language, "搜索插件名称、作者或分类", "Search by plugin name, author, or category");
+        LocalExtensionsTitleText.Text = AppLocalization.Text(language, "本地扩展", "Local extensions");
+        LocalExtensionsHintText.Text = AppLocalization.Text(language, "已下载到扩展库的 ZIP 会显示在这里；扫描到不代表已经安装。", "ZIPs downloaded to the local library appear here; scanning does not install them.");
+    }
+
+    private async void OnRefreshPluginCatalog(object sender, RoutedEventArgs e)
+        => await LoadPluginCatalogAsync(manual: true);
+
+    private void OnPluginCatalogSearchChanged(object sender, TextChangedEventArgs e)
+        => RebuildPluginCatalogItems();
+
+    private async Task LoadPluginCatalogAsync(bool manual)
+    {
+        if (PluginCatalogRefreshButton is null) return;
+        PluginCatalogRefreshButton.IsEnabled = false;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        PluginCatalogStatusText.Text = AppLocalization.Text(language, "正在读取在线插件目录…", "Loading the online plugin catalog…");
+        try
+        {
+            var result = await _pluginCatalog.LoadAsync(_pluginCatalogCancellation.Token);
+            if (_pluginCatalogCancellation.IsCancellationRequested) return;
+            _pluginCatalogEntries = result.Entries;
+            RebuildPluginCatalogItems();
+            if (result.FromRemote)
+            {
+                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"已从官方目录加载 {_pluginCatalogEntries.Count} 个插件。", $"Loaded {_pluginCatalogEntries.Count} plugin(s) from the curated catalog.");
+            }
+            else if (_pluginCatalogEntries.Count > 0)
+            {
+                var suffix = string.IsNullOrWhiteSpace(result.Error) ? "" : $"（在线目录暂时不可用：{result.Error}）";
+                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"网络不可用，已使用本地缓存目录，共 {_pluginCatalogEntries.Count} 个插件{suffix}", $"Online catalog unavailable; showing {_pluginCatalogEntries.Count} cached plugin(s).{(string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error}")}");
+            }
+            else
+            {
+                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"插件目录加载失败：{result.Error ?? "暂无可用条目"}", $"Could not load the plugin catalog: {result.Error ?? "No entries are available."}");
+            }
+        }
+        catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or JsonException or TaskCanceledException)
+        {
+            if (!_pluginCatalogCancellation.IsCancellationRequested)
+            {
+                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"插件目录加载失败：{error.Message}", $"Could not load the plugin catalog: {error.Message}");
+                if (manual) ShowExtensionError($"插件目录加载失败：{error.Message}", $"Could not load the plugin catalog: {error.Message}");
+            }
+        }
+        finally
+        {
+            if (!_pluginCatalogCancellation.IsCancellationRequested) PluginCatalogRefreshButton.IsEnabled = true;
+        }
+    }
+
+    private void RebuildPluginCatalogItems()
+    {
+        if (PluginCatalogListBox is null) return;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        var english = AppLocalization.IsEnglish(language);
+        var installed = _extensionLibrary.BuildEntries(_extensions.GetInstalled(), _featureExtensions.GetInstalled())
+            .GroupBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var query = PluginCatalogSearchBox?.Text?.Trim() ?? "";
+        var views = _pluginCatalogEntries
+            .Where(record => string.IsNullOrWhiteSpace(query) || string.Join(" ", record.Id, record.Name, record.NameEn, record.Author, record.Description, record.DescriptionEn, string.Join(" ", record.Categories)).Contains(query, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(record => record.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(record =>
+            {
+                installed.TryGetValue(record.Id, out var local);
+                var view = new PluginCatalogItemView(record, local, english) { IsBusy = _pluginCatalogBusyIds.Contains(record.Id) };
+                return view;
+            })
+            .ToArray();
+        PluginCatalogListBox.ItemsSource = views;
+        PluginCatalogCountText.Text = AppLocalization.Text(language, $"{views.Length} 个插件", $"{views.Length} plugin(s)");
+    }
+
+    private async void OnInstallPluginCatalogItem(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button button || button.DataContext is not PluginCatalogItemView item || !item.CanInstall || !_pluginCatalogBusyIds.Add(item.Id)) return;
+        RebuildPluginCatalogItems();
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        try
+        {
+            var record = item.Record;
+            var downloaded = await _extensionUpdates.DownloadAsync(new ExtensionUpdateRelease
+            {
+                Id = record.Id,
+                Type = record.Type,
+                Version = record.Version,
+                PackageName = Path.GetFileName(new Uri(record.DownloadUrl).AbsolutePath),
+                DownloadUrl = record.DownloadUrl,
+                Digest = $"sha256:{record.Sha256}"
+            }, _pluginCatalogCancellation.Token);
+            try
+            {
+                _extensionLibrary.ImportPackage(downloaded);
+                var package = _extensionLibrary.Scan().FirstOrDefault(value => string.Equals(value.Id, record.Id, StringComparison.OrdinalIgnoreCase) && string.Equals(value.Version, record.Version, StringComparison.OrdinalIgnoreCase));
+                if (package is null) throw new InvalidDataException("下载的插件清单与目录版本不一致。");
+                if (record.Type.Equals("feature", StringComparison.OrdinalIgnoreCase))
+                    _featureExtensions.InstallFeaturePackage(package.PackagePath);
+                else if (record.Type.Equals("pet", StringComparison.OrdinalIgnoreCase))
+                {
+                    _extensions.InstallPetPackage(package.PackagePath);
+                    AddInstalledPetStyles();
+                    UpdatePetStyleAvailability();
+                }
+                else throw new InvalidDataException("无法识别插件类型。");
+            }
+            finally
+            {
+                try { File.Delete(downloaded); } catch (IOException) { }
+            }
+            RefreshExtensionList();
+            RebuildPluginCatalogItems();
+            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            var name = AppLocalization.IsEnglish(language) && !string.IsNullOrWhiteSpace(record.NameEn) ? record.NameEn : record.Name;
+            ExtensionMessageText.Text = AppLocalization.Text(language, $"已从插件库安装：{name} v{record.Version}。", $"Installed from the plugin catalog: {name} v{record.Version}.");
+        }
+        catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or UnauthorizedAccessException or FileNotFoundException or NotSupportedException or JsonException or TaskCanceledException)
+        {
+            if (!_pluginCatalogCancellation.IsCancellationRequested) ShowExtensionError($"插件库安装失败：{error.Message}", $"Plugin catalog installation failed: {error.Message}");
+        }
+        finally
+        {
+            _pluginCatalogBusyIds.Remove(item.Id);
+            if (!_pluginCatalogCancellation.IsCancellationRequested) RebuildPluginCatalogItems();
+        }
+    }
+
+    private void OnOpenPluginCatalogRepository(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button button || button.DataContext is not PluginCatalogItemView item) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(item.Record.RepositoryUrl) { UseShellExecute = true });
+        }
+        catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            ShowExtensionError($"打开插件仓库失败：{error.Message}", $"Could not open the plugin repository: {error.Message}");
+        }
     }
 
     private void OnOpenExtensionLibrary(object sender, RoutedEventArgs e)
@@ -952,6 +1111,8 @@ public partial class SettingsWindow : Window
         UpdatePresetUi(false);
         RefreshExtensionList();
         RefreshExtensionActionLabels(language);
+        RefreshPluginCatalogLabels(language);
+        RebuildPluginCatalogItems();
     }
     private void CompleteAndClose()
     {

@@ -19,5 +19,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Content Include="assets\**\*" Exclude="assets\**\*.key-v2" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\plugin-catalog.json" Link="plugin-catalog.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

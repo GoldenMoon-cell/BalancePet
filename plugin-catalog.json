@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-09-13T00:00:00Z",
+  "plugins": [
+    {
+      "id": "balancepet.ext.feature.usage-analytics",
+      "type": "feature",
+      "name": "用量统计",
+      "name_en": "Usage Analytics",
+      "description": "本地 Token、缓存和请求耗时统计仪表盘。",
+      "description_en": "A local dashboard for token, cache, and request-duration metrics.",
+      "author": "GoldenMoon-cell",
+      "version": "0.2.10",
+      "min_core_version": "0.7.7",
+      "update_url": "https://api.github.com/repos/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/latest",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/download/v0.2.10/balancepet.ext.feature.usage-analytics-0.2.10-win-x64.zip",
+      "sha256": "c623f9f49a960e78c2a418a3325af12b3bbf6bba26142f3c417ead7fb182b105",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/tag/v0.2.10",
+      "categories": ["统计", "工具"]
+    }
+  ]
+}

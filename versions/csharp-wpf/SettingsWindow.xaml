@@ -70,6 +70,11 @@
       <Setter Property="Margin" Value="2,0,0,0"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
     </Style>
+    <Style x:Key="CatalogActionButton" TargetType="Button" BasedOn="{StaticResource ExtensionActionButton}">
+      <Setter Property="MinWidth" Value="72"/>
+      <Setter Property="MinHeight" Value="32"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
     <Style TargetType="CheckBox">
       <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
       <Setter Property="FontFamily" Value="Segoe UI"/>
@@ -224,10 +229,54 @@
             <Grid Margin="0,0,0,8">
               <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
               <StackPanel>
-                <TextBlock Text="扩展管理" FontWeight="SemiBold" FontSize="16"/>
-                <TextBlock Text="扩展库中的 ZIP 只负责保存版本；点击每行的“安装”后才会启用，功能扩展再点击“启动”。" Foreground="#71809D" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                <TextBlock x:Name="ExtensionManagementTitleText" Text="扩展管理" FontWeight="SemiBold" FontSize="16"/>
+                <TextBlock x:Name="ExtensionManagementHintText" Text="在线插件库负责发现扩展，本地扩展区负责安装、启用、更新和启动。" Foreground="#71809D" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
               </StackPanel>
             </Grid>
+            <Border Background="#F7F9FE" BorderBrush="#D7DFEE" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10">
+              <StackPanel>
+                <Grid Margin="0,0,0,6">
+                  <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock x:Name="PluginCatalogTitleText" Text="在线插件库" FontWeight="SemiBold" FontSize="14"/>
+                    <TextBlock x:Name="PluginCatalogHintText" Text="从 BalancePet 官方目录发现插件；下载后仍会执行本地安全校验。" Foreground="#71809D" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                  </StackPanel>
+                  <Button x:Name="PluginCatalogRefreshButton" Grid.Column="1" Content="刷新目录" Click="OnRefreshPluginCatalog" ToolTip="刷新在线插件目录" Padding="10,5" Margin="8,0,0,0"/>
+                </Grid>
+                <Grid Margin="0,0,0,7">
+                  <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBox x:Name="PluginCatalogSearchBox" Height="29" ToolTip="搜索插件名称、作者或分类" TextChanged="OnPluginCatalogSearchChanged"/>
+                  <TextBlock Grid.Column="1" x:Name="PluginCatalogCountText" Foreground="#71809D" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </Grid>
+                <ListBox x:Name="PluginCatalogListBox" Height="218" BorderThickness="0" Background="Transparent" Padding="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Border Padding="8" Margin="0,2" Background="White" BorderBrush="#D7DFEE" BorderThickness="1" CornerRadius="7">
+                        <Grid>
+                          <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                          <Border Width="32" Height="32" Background="#EEF2FA" CornerRadius="8" VerticalAlignment="Top">
+                            <Image Source="pack://siteoforigin:,,,/assets/balance-pet.ico" Width="22" Height="22" Stretch="Uniform"/>
+                          </Border>
+                          <StackPanel Grid.Column="1" Margin="9,0,8,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding Description}" Foreground="#53627F" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                            <TextBlock Text="{Binding MetaText}" Foreground="#71809D" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <TextBlock Text="{Binding StatusText}" Foreground="#344F91" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                          </StackPanel>
+                          <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                            <Button Content="{Binding ActionText}" ToolTip="{Binding InstallTooltip}" Click="OnInstallPluginCatalogItem" IsEnabled="{Binding CanInstall}" Style="{StaticResource CatalogActionButton}"/>
+                            <Button Content="{Binding RepositoryText}" Click="OnOpenPluginCatalogRepository" ToolTip="{Binding RepositoryText}" Padding="4,3" Margin="0,5,0,0" Background="Transparent" BorderThickness="0" Foreground="{StaticResource AccentBrush}" FontSize="10"/>
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock x:Name="PluginCatalogStatusText" Foreground="#71809D" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"/>
+              </StackPanel>
+            </Border>
+            <TextBlock x:Name="LocalExtensionsTitleText" Text="本地扩展" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,5"/>
+            <TextBlock x:Name="LocalExtensionsHintText" Text="已下载到扩展库的 ZIP 会显示在这里；扫描到不代表已经安装。" Foreground="#71809D" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,7"/>
             <ListBox x:Name="ExtensionListBox" MinHeight="280" Height="360" SelectionChanged="OnExtensionSelectionChanged" BorderBrush="#D7DFEE" BorderThickness="1" Padding="7" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
               <ListBox.ItemTemplate>
                 <DataTemplate>

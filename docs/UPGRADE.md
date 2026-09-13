@@ -45,6 +45,6 @@ Claude、Qwen、Gemini 等客户端 Hook 如果仍使用旧目录下的 `tools` 
 
 ZIP 用户若选择了受保护目录，程序内更新会要求使用同版本的 `Setup.exe` 进行管理员安装。配置和令牌不会放在程序目录中，也不会被安装器或更新器删除。
 
-扩展 ZIP 位于主程序目录旁的 `extension-library` 文件夹，设置窗口会将同一扩展的多个版本合并成一个条目，并在行内提供安装/卸载、启用/禁用、更新和启动图标。升级主程序不会覆盖扩展；卸载只删除已安装的运行副本，不会删除扩展库 ZIP，因此可以随时重新安装。扩展更新检查可在高级设置中单独选择每次启动、每天、每周或仅手动；扩展通过 manifest 的 `update_url` 声明自己的 GitHub Release 地址。若主程序安装在 `Program Files` 等受保护目录，建议直接把 ZIP 放入该文件夹，或使用便携版/当前用户安装模式以便程序写入扩展库。扩展包损坏或不兼容时不会安装。资源扩展规范和制作工具见 [docs/extension-spec/v1/README.md](extension-spec/v1/README.md)，功能扩展规范见 [docs/extension-spec/feature-v1/README.md](extension-spec/feature-v1/README.md)。
+扩展 ZIP 位于主程序目录旁的 `extension-library` 文件夹，设置窗口的“在线插件库”会列出主仓库 `plugin-catalog.json` 中登记的可用扩展；目录只用于发现，点击安装后仍会下载、校验 SHA-256，并走本地 manifest/ZIP 安全校验。网络不可用时使用最近一次有效缓存，也可以继续手动导入本地 ZIP。设置窗口会将同一扩展的多个版本合并成一个条目，并在行内提供安装/卸载、启用/禁用、更新和启动图标。升级主程序不会覆盖扩展；卸载只删除已安装的运行副本，不会删除扩展库 ZIP，因此可以随时重新安装。扩展更新检查可在高级设置中单独选择每次启动、每天、每周或仅手动；扩展通过 manifest 的 `update_url` 声明自己的 GitHub Release 地址。若主程序安装在 `Program Files` 等受保护目录，建议直接把 ZIP 放入该文件夹，或使用便携版/当前用户安装模式以便程序写入扩展库。扩展包损坏或不兼容时不会安装。资源扩展规范和制作工具见 [docs/extension-spec/v1/README.md](extension-spec/v1/README.md)，功能扩展规范和插件目录格式见 [docs/extension-spec/feature-v1/README.md](extension-spec/feature-v1/README.md)。
 
 跨 Windows 用户或跨电脑迁移时，请在设置窗口导出设置，再在新环境导入。导出文件不包含访问令牌；令牌受 Windows DPAPI 保护，不能直接复制到其他用户或电脑使用，需要重新填写。
