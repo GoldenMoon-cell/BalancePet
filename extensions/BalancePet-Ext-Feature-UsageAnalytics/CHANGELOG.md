@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.11
+
+- Rename the first-token card to average time to first token (TTFT).
+- Show `暂无数据 / No data` when no client has reported TTFT instead of implying a zero or parser failure.
+- Keep the average restricted to valid, explicitly reported `time_to_first_token_ms` samples.
+
 ## 0.2.10
 
 - Rewrite the README as a Chinese/English bilingual usage, privacy, compatibility, and build guide.

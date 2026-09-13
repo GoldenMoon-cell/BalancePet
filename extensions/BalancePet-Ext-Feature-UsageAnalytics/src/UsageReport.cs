@@ -97,5 +97,7 @@ public static class UsageFormatting
         return value.Value >= 1000 ? $"{value.Value / 1000:0.##} s" : $"{value.Value:0} ms";
     }
 
+    public static string FirstToken(double? value) => value is null ? "暂无数据" : Milliseconds(value);
+
     public static string Rate(double? value) => value is null ? "—" : $"{value.Value:0} tok/s";
 }

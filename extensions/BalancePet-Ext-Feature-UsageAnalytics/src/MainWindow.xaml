@@ -160,9 +160,9 @@
           <Border Grid.Column="0" Margin="0,0,6,0" Padding="15,14" Background="{StaticResource PanelBrush}"
                   BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10">
             <StackPanel>
-              <TextBlock Text="平均首 Token" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
-              <TextBlock x:Name="FirstToken" Text="—" FontSize="21" FontWeight="SemiBold" Margin="0,8,0,0"/>
-              <TextBlock Text="客户端上报后可用" Foreground="{StaticResource SubtleBrush}" FontSize="11" Margin="0,3,0,0"/>
+              <TextBlock Text="平均首 Token 延迟（TTFT）" Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap"/>
+              <TextBlock x:Name="FirstToken" Text="暂无数据" FontSize="21" FontWeight="SemiBold" Margin="0,8,0,0"/>
+              <TextBlock x:Name="FirstTokenHint" Text="需客户端上报 TTFT" Foreground="{StaticResource SubtleBrush}" FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
           <Border Grid.Column="1" Margin="6,0" Padding="15,14" Background="{StaticResource PanelBrush}"

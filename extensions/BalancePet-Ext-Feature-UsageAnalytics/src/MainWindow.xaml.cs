@@ -194,7 +194,10 @@ public partial class MainWindow : Window
         CacheHit.Text = report.AllTime.InputTokens <= 0 ? "—" : $"{report.AllTime.CacheHitPercent:0.#}%";
         Requests.Text = report.AllTime.Requests.ToString("N0");
         SuccessRate.Text = $"成功率 {report.AllTime.SuccessPercent:0.#}%";
-        FirstToken.Text = UsageFormatting.Milliseconds(report.AllTime.AverageFirstTokenMs);
+        FirstToken.Text = UsageFormatting.FirstToken(report.AllTime.AverageFirstTokenMs);
+        FirstTokenHint.Text = report.AllTime.AverageFirstTokenMs is null
+            ? "需客户端上报 TTFT"
+            : "已按客户端上报事件计算";
         Throughput.Text = UsageFormatting.Rate(report.AllTime.OutputPerSecond);
         AverageDuration.Text = UsageFormatting.Milliseconds(report.AllTime.AverageDurationMs);
         var providers = events.Select(value => value.Provider).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Count();

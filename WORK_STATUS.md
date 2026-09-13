@@ -23,6 +23,7 @@
 - `0.7.5` 本地测试包（所有设置下拉框使用只读可编辑显示，选择变化和下拉关闭后立即同步显示文本；补充初始化、语言切换和标签页切换后的统一同步）：`BalancePet-0.7.5-win-x64.zip`（202,479,587 bytes，SHA-256 `A61793D0E0085A5F5D49A3B423A9DB048C75211BC52708728634BF425086782C`）；`BalancePet-0.7.5-Setup.exe`（180,341,166 bytes，SHA-256 `2CA68A290AFFC5DCF24AC80EB36AA02CBA3C45207671E639680198CB9CA70766`）。尚未提交或发布。
 - `0.7.6` 本地测试包（扩展用量字段兼容、统计窗口无边框融合标题栏和深色滚动条、自动刷新倒计时、Start/Stop 用量元数据合并）：`BalancePet-0.7.6-win-x64.zip`（SHA-256 `3C4E4FE1D2B64A060AC198AC177769AFF9395F73D6F1642A5E2261BDFC56656B`）；`BalancePet-0.7.6-Setup.exe`（SHA-256 `8D202BE0953C522571267BB22A4DB9269E054C673623749E51FDE2E696FAD91D`）。尚未提交或发布。
 - `0.7.8` 发布包（Codex 停止钩子身份回填、Usage Event 空字段省略、扩展包路径和更新地址校验）：`BalancePet-0.7.8-win-x64.zip`（SHA-256 `ff850f8423d0ef6305ef1cb9bb0d43fd2b5b8e4b40cd7506fd74001398cb942e`）；`BalancePet-0.7.8-Setup.exe`（SHA-256 `8f4c307047a7b0e898a97a360691f7aac89bb8c0d21c0a3d7b184b78b40a863d`）。
+- `Usage Analytics v0.2.11` 本地插件包（TTFT 卡片改名为“平均首 Token 延迟（TTFT）”；缺少客户端上报时显示“暂无数据”，仅对真实 `time_to_first_token_ms` 样本求平均）：`extensions/BalancePet-Ext-Feature-UsageAnalytics/dist/balancepet.ext.feature.usage-analytics-0.2.11-win-x64.zip`（SHA-256 `a57508cb41e0aafdd0b925dd8b323b992b429ce9c7ef9cc1e9400c5a84599040`）。尚未提交或发布。
 - `0.8.0-plugin-catalog-test` 本地预览包（在线插件目录、缓存回退、搜索、兼容性提示和校验安装）：`BalancePet-0.8.0-plugin-catalog-test-win-x64.zip`（202,571,845 bytes，SHA-256 `614dbea612944b41fa38dd274aca57f851be62f9f264bbcde29ba50fcafb8673`）；安装器输出为 `BalancePet-0.8.0-Setup.exe`（180,399,073 bytes，SHA-256 `59da5219f27f43a9b6a41ed28e8149ef3378dbf3b47eb32e9c503b13164bd5c6`）。仅供本地验收，尚未提交或发布。
 - `Usage Analytics v0.2.2` 本地插件包：`balancepet.ext.feature.usage-analytics-0.2.2-win-x64.zip`（69,859,349 bytes，SHA-256 `317CE24491898B57F7B64C1FDF3B6CECC86954A03EFC0DA10097301D1F589530`）。尚未提交或发布；manifest 增加独立 GitHub Release 更新地址，插件仍可脱离主程序版本独立升级。
 - `Usage Analytics v0.2.3` 本地插件包：`balancepet.ext.feature.usage-analytics-0.2.3-win-x64.zip`（72,048,353 bytes，SHA-256 `8AE7A3C9ED25CEC7A52F7E59D74156A378556E9E5BD5646DD84CB40406354018`）。尚未提交或发布；增加导航稳定性、完整用量事件测试说明，并把未提供的计数从 0 改为缺省字段；发布包不再携带被安全策略禁止的 `.ps1` 测试脚本。
@@ -82,6 +83,7 @@
 | `Usage Analytics v0.2.4` | 本地已打包，未发布 | 统计窗口融合标题栏与滚动条样式，显示实时刷新倒计时，并扩展用量字段别名兼容。 |
 | `Usage Analytics v0.2.9` | 已发布 | 缓存命中率统一为 `Cache Read / Input`；趋势图增加 Input、Output、Cache Creation、Cache Read 和 Cache Hit Rate；用量窗口与任务栏使用 BalancePet ICO；左侧导航顺序与页面一致并随滚动自动高亮。ZIP SHA-256：`ee8de6360ecdefcbb11af2b5be8ac1f19441db1451e4ae79ca68d8fbe9d134a9`。 |
 | `Usage Analytics v0.2.10` | 已发布 | README 改为中英双语，补充数据口径、隐私、兼容性、构建和插件规范说明；不改变 Usage Event v1 字段含义。ZIP SHA-256：`c623f9f49a960e78c2a418a3325af12b3bbf6bba26142f3c417ead7fb182b105`。 |
+| `Usage Analytics v0.2.11` | 本地已打包，未发布 | 将“平均首 Token”改为“平均首 Token 延迟（TTFT）”；无真实 TTFT 上报时显示“暂无数据”，不从总耗时或输出速度推算。 |
 
 ### 版本号规则
 

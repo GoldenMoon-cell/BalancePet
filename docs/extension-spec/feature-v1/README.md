@@ -68,7 +68,7 @@ another extension's files are available.
   "type": "feature",
   "name": "用量统计",
   "name_en": "Usage Analytics",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "api_version": 1,
   "min_core_version": "0.7.7",
   "update_url": "https://api.github.com/repos/OWNER/REPOSITORY/releases/latest",
@@ -224,7 +224,7 @@ interpreted as a zero-token provider response.
 The v1 host implementation and the usage event writer were introduced in the
 BalancePet `0.6.x` line. Extension library grouping and independent update
 checks are available in the `0.7.x` line; the current core implementation is
-`0.7.8`, and the current official Usage Analytics package is `0.2.10`. The
+`0.7.8`, and the current official Usage Analytics package is `0.2.11`. The
 Usage Analytics extension can be developed and packaged independently against
 this contract.
 
