@@ -21,4 +21,4 @@
 
 ## 文件校验
 
-- `balancepet.ext.feature.usage-analytics-0.3.0-win-x64.zip` SHA-256：`702f5c27a738d5682e6d4331c41be607959b8d5afb0027789b50794f89641f70`
+- `balancepet.ext.feature.usage-analytics-0.3.0-win-x64.zip` SHA-256：`a16e6940b53de426c726c39f243c8ece7f91038f37ed429c9d9ef221353a72da`
