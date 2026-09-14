@@ -4,9 +4,9 @@
         Title="BalancePet" Width="430" Height="410"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         BorderThickness="0" SnapsToDevicePixels="True" UseLayoutRounding="True"
-        Topmost="True" ShowInTaskbar="False"
+        Topmost="True" ShowInTaskbar="False" ClipToBounds="False"
         >
-  <Canvas>
+  <Canvas ClipToBounds="False">
     <Grid x:Name="BubbleGroup" Canvas.Left="5" Canvas.Top="8" Width="315" Height="220" Panel.ZIndex="1" Visibility="Collapsed" Opacity="0" RenderTransformOrigin="0.72,1" MouseLeftButtonDown="OnBubbleClick">
       <Grid.RenderTransform>
         <TransformGroup>
@@ -25,7 +25,18 @@
       <Ellipse Width="22" Height="16" Fill="White" Stroke="#263D78" StrokeThickness="4" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
     </Grid>
 
-    <Grid x:Name="PetSurface" Canvas.Right="0" Canvas.Bottom="0" Width="238" Height="238" Panel.ZIndex="2" Background="Transparent" MouseLeftButtonDown="OnMouseLeftButtonDown" MouseLeftButtonUp="OnMouseLeftButtonUp" LostMouseCapture="OnPetLostMouseCapture" MouseMove="OnPetMouseMove" ContextMenuOpening="OnPetContextMenuOpening">
+    <!-- Keep the visual in a larger, hit-test-free buffer so transforms can extend
+         past the 238px interaction area without being clipped at its edge. -->
+    <Grid x:Name="PetRenderBuffer" Canvas.Right="0" Canvas.Bottom="0" Width="300" Height="300" Panel.ZIndex="2" IsHitTestVisible="False" ClipToBounds="False">
+      <Grid x:Name="PetVisualHost" Width="238" Height="238" HorizontalAlignment="Right" VerticalAlignment="Bottom" ClipToBounds="False">
+        <Image x:Name="PetImage" Stretch="Uniform" Margin="0,0,0,-6" RenderTransformOrigin="0.5,0.86"
+               RenderOptions.BitmapScalingMode="Fant" SnapsToDevicePixels="False"
+               IsHitTestVisible="False" ClipToBounds="False"/>
+        <Ellipse x:Name="StatusDot" Width="16" Height="16" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,22,27" Fill="#91A2C8" Stroke="White" StrokeThickness="3"/>
+      </Grid>
+    </Grid>
+
+    <Grid x:Name="PetSurface" Canvas.Right="0" Canvas.Bottom="0" Width="238" Height="238" Panel.ZIndex="3" Background="Transparent" ClipToBounds="False" MouseLeftButtonDown="OnMouseLeftButtonDown" MouseLeftButtonUp="OnMouseLeftButtonUp" LostMouseCapture="OnPetLostMouseCapture" MouseMove="OnPetMouseMove" ContextMenuOpening="OnPetContextMenuOpening">
       <Grid.ContextMenu>
         <ContextMenu x:Name="PetContextMenu" Placement="MousePoint">
           <MenuItem x:Name="ContextRefreshMenuItem" Header="立即刷新" Click="OnContextRefreshClick"/>
@@ -37,10 +48,10 @@
             <MenuItem x:Name="MiniMaxStyleMenuItem" Header="MiniMax 小海螺「绯音」" Tag="minimax" IsCheckable="True" Click="OnPetStyleClick"/>
             <MenuItem x:Name="GeminiStyleMenuItem" Header="Gemini 小星猫「星璃」" Tag="gemini" IsCheckable="True" Click="OnPetStyleClick"/>
             <MenuItem x:Name="GrokStyleMenuItem" Header="Grok 小恶魔「烬斧」" Tag="grok" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem Header="Claude 小书灵「丹笺」" Tag="claude" IsCheckable="True" ToolTip="Claude 小书灵 / Little Book Spirit / 丹笺" Click="OnPetStyleClick"/>
+            <MenuItem Header="Kimi 小棱镜「虹谱」" Tag="kimi" IsCheckable="True" ToolTip="Kimi 小棱镜 / Little Prism / 虹谱" Click="OnPetStyleClick"/>
+            <MenuItem Header="Qwen 小折扇「绀华」" Tag="qwen" IsCheckable="True" ToolTip="Qwen 小折扇 / Folding Fan / 绀华" Click="OnPetStyleClick"/>
             <Separator/>
-            <MenuItem Header="Claude 小书灵「丹笺」" Tag="claude" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-            <MenuItem Header="Kimi 小棱镜「虹谱」" Tag="kimi" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-            <MenuItem Header="Qwen 小折扇「绀华」" Tag="qwen" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
             <MenuItem Header="Ernie 小病书灵「青绡」" Tag="ernie" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
             <MenuItem Header="GLM 小方灵「青棱」" Tag="glm" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
             <MenuItem Header="GPT Image 2 小墨龙「玄珏」" Tag="gpt-image2" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
@@ -62,10 +73,6 @@
           <MenuItem x:Name="ContextExitMenuItem" Header="退出" Click="OnContextExitClick"/>
         </ContextMenu>
       </Grid.ContextMenu>
-      <Image x:Name="PetImage" Stretch="Uniform" Margin="0,0,0,-6" RenderTransformOrigin="0.5,0.86"
-             RenderOptions.BitmapScalingMode="Fant" SnapsToDevicePixels="False"
-             IsHitTestVisible="False"/>
-      <Ellipse x:Name="StatusDot" Width="16" Height="16" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,22,27" Fill="#91A2C8" Stroke="White" StrokeThickness="3"/>
     </Grid>
   </Canvas>
 </Window>

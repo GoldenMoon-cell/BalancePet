@@ -99,5 +99,8 @@ public static class UsageFormatting
 
     public static string FirstToken(double? value) => value is null ? "暂无数据" : Milliseconds(value);
 
+    public static string Currency(double value, string currency)
+        => $"{value:0.00} {(string.IsNullOrWhiteSpace(currency) ? "USD" : currency)}";
+
     public static string Rate(double? value) => value is null ? "—" : $"{value.Value:0} tok/s";
 }

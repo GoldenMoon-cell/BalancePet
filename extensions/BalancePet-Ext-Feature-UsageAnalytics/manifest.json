@@ -3,7 +3,7 @@
   "type": "feature",
   "name": "用量统计",
   "name_en": "Usage Analytics",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "api_version": 1,
   "min_core_version": "0.7.7",
   "update_url": "https://api.github.com/repos/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/latest",

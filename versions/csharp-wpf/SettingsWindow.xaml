@@ -184,9 +184,9 @@
                   <ComboBoxItem Tag="minimax" ToolTip="MiniMax 小海螺 / 绯音">MiniMax 小海螺「绯音」</ComboBoxItem>
                   <ComboBoxItem Tag="gemini" ToolTip="Gemini 小星猫 / 星璃">Gemini 小星猫「星璃」</ComboBoxItem>
                   <ComboBoxItem Tag="grok" ToolTip="Grok 小恶魔 / Grok Little Demon / 烬斧">Grok 小恶魔「烬斧」</ComboBoxItem>
-                  <ComboBoxItem Tag="claude" IsEnabled="False" ToolTip="素材尚未完成">Claude 小书灵「丹笺」</ComboBoxItem>
-                  <ComboBoxItem Tag="kimi" IsEnabled="False" ToolTip="素材尚未完成">Kimi 小棱镜「虹谱」</ComboBoxItem>
-                  <ComboBoxItem Tag="qwen" IsEnabled="False" ToolTip="素材尚未完成">Qwen 小折扇「绀华」</ComboBoxItem>
+                  <ComboBoxItem Tag="claude" ToolTip="Claude 小书灵 / Little Book Spirit / 丹笺">Claude 小书灵「丹笺」</ComboBoxItem>
+                  <ComboBoxItem Tag="kimi" ToolTip="Kimi 小棱镜 / Little Prism / 虹谱">Kimi 小棱镜「虹谱」</ComboBoxItem>
+                  <ComboBoxItem Tag="qwen" ToolTip="Qwen 小折扇 / Folding Fan / 绀华">Qwen 小折扇「绀华」</ComboBoxItem>
                   <ComboBoxItem Tag="ernie" IsEnabled="False" ToolTip="素材尚未完成">Ernie 小病书灵「青绡」</ComboBoxItem>
                   <ComboBoxItem Tag="glm" IsEnabled="False" ToolTip="素材尚未完成">GLM 小方灵「青棱」</ComboBoxItem>
                   <ComboBoxItem Tag="gpt-image2" IsEnabled="False" ToolTip="素材尚未完成">GPT Image 2 小墨龙「玄珏」</ComboBoxItem>

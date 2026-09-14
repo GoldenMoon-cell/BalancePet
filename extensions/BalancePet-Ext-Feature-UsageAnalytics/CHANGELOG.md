@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.12
+
+- Replace the unavailable TTFT overview card with today's spending from the
+  host's credential-free `balance-usage.v1.json` summary.
+- Follow the selected BalancePet account and refresh when the host summary changes.
+- Document the balance-usage summary and its estimate-only semantics.
+
 ## 0.2.11
 
 - Rename the first-token card to average time to first token (TTFT).

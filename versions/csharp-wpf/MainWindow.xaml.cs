@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     private readonly CodexTaskBridge _codexTaskBridge = new();
     private readonly AccountStatusBridge _accountStatusBridge = new();
     private readonly UsageEventBridge _usageEventBridge = new();
+    private readonly BalanceUsageSnapshotStore _balanceUsageSnapshotStore = new();
     private readonly FeatureExtensionManager _featureExtensions = new();
     private readonly DispatcherTimer _stateTimer;
     private readonly DispatcherTimer _inactiveTimer;
@@ -295,6 +296,7 @@ public partial class MainWindow : Window
         }
         var scale = Math.Clamp(_settings.Scale, 0.6, 1.4);
         PetSurface.LayoutTransform = new System.Windows.Media.ScaleTransform(scale, scale);
+        PetRenderBuffer.LayoutTransform = new System.Windows.Media.ScaleTransform(scale, scale);
         LoadPetVisual(_visualState);
         ApplyFlipVisuals();
         EnsurePetTransforms();
@@ -387,6 +389,7 @@ public partial class MainWindow : Window
         }
         if (!_monitorStates.ContainsKey(_settings.SelectedMonitorId)) _settings.SelectedMonitorId = _settings.Monitors[0].Id;
         SyncSelectedMonitorState();
+        PublishBalanceUsageSnapshot();
     }
 
     private MonitorRuntime? SelectedMonitor => _monitorStates.TryGetValue(_settings.SelectedMonitorId, out var runtime)
@@ -419,6 +422,14 @@ public partial class MainWindow : Window
         _hasBalance = selected.HasBalance;
         _todayUsage = selected.TodayUsage;
         _amountCurrency = string.IsNullOrWhiteSpace(selected.Profile.Currency) ? "USD" : selected.Profile.Currency;
+    }
+
+    private void PublishBalanceUsageSnapshot()
+    {
+        _balanceUsageSnapshotStore.Publish(
+            _monitorStates.Values.Select(runtime =>
+                new BalanceUsageSnapshotStore.ProfileSource(runtime.Profile.Id, runtime.UsageStore)),
+            _settings.SelectedMonitorId);
     }
 
     private async Task RefreshAsync(bool manual, bool selectedOnly = false, bool force = false)
@@ -512,6 +523,7 @@ public partial class MainWindow : Window
         {
             if (ReferenceEquals(_refreshCancellation, refreshCancellation)) _refreshCancellation = null;
             _refreshing = false;
+            PublishBalanceUsageSnapshot();
             ReconcileSelectedRefreshUi(manual, selectedRefreshStarted);
         }
     }
@@ -783,11 +795,17 @@ public partial class MainWindow : Window
         {
             PetSurface.ClearValue(System.Windows.Controls.Canvas.RightProperty);
             System.Windows.Controls.Canvas.SetLeft(PetSurface, 0);
+            PetRenderBuffer.ClearValue(System.Windows.Controls.Canvas.RightProperty);
+            System.Windows.Controls.Canvas.SetLeft(PetRenderBuffer, 0);
+            PetVisualHost.HorizontalAlignment = System.Windows.HorizontalAlignment.Left;
         }
         else
         {
             PetSurface.ClearValue(System.Windows.Controls.Canvas.LeftProperty);
             System.Windows.Controls.Canvas.SetRight(PetSurface, 0);
+            PetRenderBuffer.ClearValue(System.Windows.Controls.Canvas.LeftProperty);
+            System.Windows.Controls.Canvas.SetRight(PetRenderBuffer, 0);
+            PetVisualHost.HorizontalAlignment = System.Windows.HorizontalAlignment.Right;
         }
         EnsurePetTransforms();
         _petScale.ScaleX = Math.Abs(_petScale.ScaleX) * (_settings.Flipped ? -1 : 1);
@@ -992,11 +1010,11 @@ public partial class MainWindow : Window
     private void UpdatePetStyleMenuChecks()
     {
         var style = NormalizePetStyle(_settings.PetStyle);
-        DeepSeekStyleMenuItem.IsChecked = style == "deepseek";
-        ChatGptStyleMenuItem.IsChecked = style == "chatgpt";
-        MiniMaxStyleMenuItem.IsChecked = style == "minimax";
-        GeminiStyleMenuItem.IsChecked = style == "gemini";
-        GrokStyleMenuItem.IsChecked = style == "grok";
+        foreach (var item in ContextStyleMenuItem.Items.OfType<MenuItem>())
+        {
+            if (item.Tag is string id)
+                item.IsChecked = string.Equals(PetStyleCatalog.NormalizeId(id), style, StringComparison.OrdinalIgnoreCase);
+        }
         if (_trayDeepSeekStyleItem is not null) _trayDeepSeekStyleItem.Checked = style == "deepseek";
         if (_trayChatGptStyleItem is not null) _trayChatGptStyleItem.Checked = style == "chatgpt";
         if (_trayMiniMaxStyleItem is not null) _trayMiniMaxStyleItem.Checked = style == "minimax";
@@ -1111,6 +1129,7 @@ public partial class MainWindow : Window
         if (!_monitorStates.ContainsKey(profileId)) return;
         _settings.SelectedMonitorId = profileId;
         SyncSelectedMonitorState();
+        PublishBalanceUsageSnapshot();
         try
         {
             _settingsStore.Save(_settings);

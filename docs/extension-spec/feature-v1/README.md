@@ -68,7 +68,7 @@ another extension's files are available.
   "type": "feature",
   "name": "用量统计",
   "name_en": "Usage Analytics",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "api_version": 1,
   "min_core_version": "0.7.7",
   "update_url": "https://api.github.com/repos/OWNER/REPOSITORY/releases/latest",
@@ -184,6 +184,29 @@ knows that a request finished but the client did not provide token counters.
 Such an event contributes to request counts and duration only; it must not be
 interpreted as a zero-token provider response.
 
+### Balance usage summary v1
+
+The host also publishes a separate credential-free summary at
+`%LOCALAPPDATA%\\BalancePet\\balance-usage.v1.json`. This file is described by
+[`balance-usage.schema.json`](balance-usage.schema.json) and is intended for
+extensions that need the same local balance-change statistic shown by the
+core's “用量统计” window. It contains only a schema/version, update time,
+sanitized local account IDs, dates, currency codes, and non-negative daily
+usage values. It never contains API URLs, tokens, prompts, replies, cookies,
+or raw provider responses.
+
+`selected_account_id` identifies the account selected in the core UI. An
+extension may use that value to show the current account's daily usage; when it
+is empty, entries may be aggregated. The value is derived from a decrease
+between two successful balance observations. Top-ups and balance increases do
+not count as negative usage, and a day with no successful observation may be
+missing. This is a local balance-change estimate, not a provider billing
+statement or a per-request token cost.
+
+Extensions should tolerate the file being absent, replaced atomically, empty,
+or partially written, and should refresh when it changes. The host may add
+fields only in a future schema revision; unknown fields must not be required.
+
 ## Security and lifecycle
 
 - Feature extensions run out of process; the host never passes provider/API
@@ -224,7 +247,7 @@ interpreted as a zero-token provider response.
 The v1 host implementation and the usage event writer were introduced in the
 BalancePet `0.6.x` line. Extension library grouping and independent update
 checks are available in the `0.7.x` line; the current core implementation is
-`0.7.8`, and the current official Usage Analytics package is `0.2.11`. The
+`0.8.1`, and the current official Usage Analytics package is `0.2.12`. The
 Usage Analytics extension can be developed and packaged independently against
 this contract.
 

@@ -1,6 +1,6 @@
 # BalancePet C# WPF
 
-Current version: `v0.7.8`; recent release: `v0.7.8`.
+Current version: `v0.8.1`; recent release: `v0.8.0`.
 
 Native Windows implementation of BalancePet, built with C# WPF.
 
@@ -10,7 +10,7 @@ Run `launch-balance-pet-csharp.bat` from the workspace root. Open the tray menu 
 
 Its settings are stored at `%LOCALAPPDATA%\\BalancePet\\csharp-settings.json`; the token is protected in that file with Windows DPAPI.
 
-The settings dialog supports multiple API/relay monitor profiles. Each profile has its own encrypted token, refresh interval, cache, usage ledger, and low-balance threshold; the tray `当前账户` submenu selects which profile is shown in the pet bubble. The available pet labels are DeepSeek 小鲸鱼「澜汐」, ChatGPT 小白龙「霁珑」, MiniMax 小海螺「绯音」, Gemini 小星猫「星璃」, and Grok 小恶魔「烬斧」. Simultaneous AI tasks are reference-counted globally, while resumed turns from the same session replace an abandoned turn so a missed stop event cannot leave a duplicate task count.
+The settings dialog supports multiple API/relay monitor profiles. Each profile has its own encrypted token, refresh interval, cache, usage ledger, and low-balance threshold; the tray `当前账户` submenu selects which profile is shown in the pet bubble. The available pet labels are DeepSeek 小鲸鱼「澜汐」, ChatGPT 小白龙「霁珑」, MiniMax 小海螺「绯音」, Gemini 小星猫「星璃」, Grok 小恶魔「烬斧」, Claude 小书灵「丹笺」, Kimi 小棱镜「虹谱」, and Qwen 小折扇「绀华」. Simultaneous AI tasks are reference-counted globally, while resumed turns from the same session replace an abandoned turn so a missed stop event cannot leave a duplicate task count.
 
 The Settings window scans extension ZIPs in `%LOCALAPPDATA%\\BalancePet\\extension-library`. A package is not extracted until the user selects it and chooses Install selected; installed copies live under `%LOCALAPPDATA%\\BalancePet\\extensions`. Uninstall removes only the extracted copy and keeps the library ZIP. Resource-only pet packages are validated against the nine-state transparent PNG contract; feature packages run out of process. See `docs/extension-spec/v1/README.md` and `docs/extension-spec/feature-v1/README.md` in the repository for the package formats.
 

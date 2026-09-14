@@ -16,9 +16,11 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _clockTimer;
     private readonly DispatcherTimer _fileRefreshTimer;
     private FileSystemWatcher? _watcher;
+    private FileSystemWatcher? _balanceWatcher;
     private bool _fileRefreshPending;
     private Button? _activeNav;
     private UsageReport? _lastReport;
+    private BalanceUsageSnapshot _lastBalanceUsage = BalanceUsageSnapshot.Read("");
     private IReadOnlyList<UsageEvent> _lastEvents = Array.Empty<UsageEvent>();
     private DateTimeOffset _nextRefreshAt = DateTimeOffset.Now.AddSeconds(60);
 
@@ -154,6 +156,16 @@ public partial class MainWindow : Window
             _watcher.Changed += OnDataFileChanged;
             _watcher.Created += OnDataFileChanged;
             _watcher.Renamed += OnDataFileRenamed;
+
+            _balanceWatcher = new FileSystemWatcher(_store.DirectoryPath, BalanceUsageSnapshot.FileName)
+            {
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                IncludeSubdirectories = false,
+                EnableRaisingEvents = true
+            };
+            _balanceWatcher.Changed += OnDataFileChanged;
+            _balanceWatcher.Created += OnDataFileChanged;
+            _balanceWatcher.Renamed += OnDataFileRenamed;
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
@@ -166,6 +178,8 @@ public partial class MainWindow : Window
         _fileRefreshTimer.Stop();
         _watcher?.Dispose();
         _watcher = null;
+        _balanceWatcher?.Dispose();
+        _balanceWatcher = null;
     }
 
     private void OnDataFileChanged(object sender, FileSystemEventArgs e) => QueueFileRefresh();
@@ -185,6 +199,7 @@ public partial class MainWindow : Window
         var events = _store.ReadAll();
         _lastEvents = events;
         _lastReport = UsageReport.Build(events, DateTimeOffset.Now);
+        _lastBalanceUsage = BalanceUsageSnapshot.Read(_store.DirectoryPath, DateTimeOffset.Now);
         var report = _lastReport;
         TwentyFourHourTokens.Text = report.TwentyFourHours.HasTokenData ? UsageFormatting.Tokens(report.TwentyFourHours.TotalTokens) : "未上报";
         AllTimeTokens.Text = report.AllTime.HasTokenData ? UsageFormatting.Tokens(report.AllTime.TotalTokens) : "未上报";
@@ -194,10 +209,12 @@ public partial class MainWindow : Window
         CacheHit.Text = report.AllTime.InputTokens <= 0 ? "—" : $"{report.AllTime.CacheHitPercent:0.#}%";
         Requests.Text = report.AllTime.Requests.ToString("N0");
         SuccessRate.Text = $"成功率 {report.AllTime.SuccessPercent:0.#}%";
-        FirstToken.Text = UsageFormatting.FirstToken(report.AllTime.AverageFirstTokenMs);
-        FirstTokenHint.Text = report.AllTime.AverageFirstTokenMs is null
-            ? "需客户端上报 TTFT"
-            : "已按客户端上报事件计算";
+        TodayUsage.Text = _lastBalanceUsage.HasData
+            ? UsageFormatting.Currency(_lastBalanceUsage.TodayUsage, _lastBalanceUsage.Currency)
+            : "暂无数据";
+        TodayUsageHint.Text = _lastBalanceUsage.HasData
+            ? "主程序余额变化记录"
+            : "主程序尚无余额记录";
         Throughput.Text = UsageFormatting.Rate(report.AllTime.OutputPerSecond);
         AverageDuration.Text = UsageFormatting.Milliseconds(report.AllTime.AverageDurationMs);
         var providers = events.Select(value => value.Provider).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Count();

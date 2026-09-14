@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/feature-v1/balance-usage.schema.json",
+  "title": "BalancePet balance usage summary v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "updated_at", "entries"],
+  "properties": {
+    "schema": { "const": "balancepet.balance-usage.v1" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "selected_account_id": { "type": "string", "maxLength": 128 },
+    "entries": {
+      "type": "array",
+      "maxItems": 2700,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["account_id", "date", "currency", "usage"],
+        "properties": {
+          "account_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "date": { "type": "string", "format": "date" },
+          "currency": { "type": "string", "minLength": 1, "maxLength": 12 },
+          "usage": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

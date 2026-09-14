@@ -9,6 +9,9 @@ C# WPF 版本从 `versions/csharp-wpf/assets/pets/<style>/<state>.png` 加载状
 - `MiniMax 小海螺 / 绯音`
 - `Gemini 小星猫 / 星璃`
 - `Grok 小恶魔 / Grok Little Demon / 烬斧`
+- `Claude 小书灵 / Claude Little Book Spirit / 丹笺`
+- `Kimi 小棱镜 / Kimi Little Prism / 虹谱`
+- `Qwen 小折扇 / Qwen Folding Fan / 绀华`
 
 这些是本项目使用的非官方角色称呼，不代表 DeepSeek、OpenAI 或其他平台的官方角色。
 
