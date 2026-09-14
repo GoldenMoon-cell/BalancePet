@@ -2,17 +2,17 @@
 
 > 这是一份用于迁移和交接的工作记录。每完成一次版本开发、打包或发布，都要更新“当前状态”和“版本记录”。
 >
-> 最后更新：2026-09-13
+> 最后更新：2026-09-14
 
 ## 当前状态
 
 - 项目：BalancePet，Windows 桌面宠物，用于轮询用户配置的中转站余额接口并显示结果。
 - 当前仓库可见并持续构建的实现：`versions/csharp-wpf`。Python 版本保留为 fallback，不主动删除；如果后续恢复或新增 Electron 实现，继续遵守根目录 `AGENTS.md` 中关于 Electron 主进程凭据隔离的约束。
-- 当前发布：主程序 `v0.7.8`，功能扩展 `Usage Analytics v0.2.10`；两者均已发布到 GitHub。
-- 发布仓库：[BalancePet](https://github.com/GoldenMoon-cell/BalancePet)；[BalancePet-Ext-Feature-UsageAnalytics](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics)。对应 Release：[主程序 v0.7.8](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v0.7.8)；[插件 v0.2.10](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/tag/v0.2.10)。
+- 当前发布：主程序 `v0.8.1`，功能扩展 `Usage Analytics v0.2.12`；两者均已发布到 GitHub。
+- 发布仓库：[BalancePet](https://github.com/GoldenMoon-cell/BalancePet)；[BalancePet-Ext-Feature-UsageAnalytics](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics)。对应 Release：[主程序 v0.8.1](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v0.8.1)；[插件 v0.2.12](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/tag/v0.2.12)。
 - 最近验证：主程序和用量统计插件的 `dotnet build` 均通过，0 警告、0 错误；主程序 Inno Setup 6.7.3 打包成功；`v0.7.6` 安装器与便携 ZIP、统计扩展 0.2.4 ZIP 均已生成；脱敏 Usage Event v1 写入脚本已通过字段校验；设置窗口保持紧凑的 640×720 分栏布局，并加入浅色主题、统一控件边框和卡片容器；扩展页现可将同一 ID 的多个版本合并为一个条目，行内提供图标化安装/卸载、启用/禁用、更新和启动操作，并支持独立的扩展更新检查频率；扩展清单可声明 GitHub `update_url`，下载后仍经过 ZIP 与 manifest 校验；插件库第一版已接入设置窗口，支持远程目录、2 MB 上限、缓存回退、关键词搜索、兼容性提示、仓库入口和 SHA-256 校验安装；用量统计插件的“仪表盘/使用记录/提供方与模型”侧边导航已接通，生命周期-only 数据会明确提示客户端尚未上报 Token、模型和耗时；统计窗口使用无边框内置标题栏、深色滚动条和实时倒计时；Codex Hook、通用 Task.v1 和 Usage.v1 解析支持更多嵌套用量字段。
 - `v0.3.3` 是 GitHub 已发布版本。此前为测试新预设而生成的同名本地包仍在 `dist/`，但不应再作为发布物使用：`BalancePet-0.3.3-win-x64.zip`（200,236,072 bytes，SHA-256 `c5d4f105169172a320b62dc81cb06ae39962068f0f40fbbae61f2586adba30cb`）；`BalancePet-0.3.3-Setup.exe`（180,300,513 bytes，SHA-256 `c1ed3088885087d165344f6947f7efefecec77f30bbfc776a7eedd94a291ad5a`）。
-- `v0.7.8` 主程序与 `Usage Analytics v0.2.10` 功能扩展已完成构建、规范检查、推送和 GitHub Release 创建；资产 SHA-256 见下方记录。
+- `v0.8.1` 主程序与 `Usage Analytics v0.2.12` 功能扩展已完成构建、规范检查、推送和 GitHub Release 创建；主程序 ZIP SHA-256 为 `74389ADA0720BB31ABBDEA9478F16C23D09CF9762ED1C2DCC659CBB97439F680`，安装器为 `B1F0B68599D1D488F5BC70739F99DAD501F29E51887129B87BC4A98CD272A5D2`，插件 ZIP 为 `8D3BC8BAEEF0015D660AEE3722ABDECB85552A99B410135F8DD6CE37CF2AF22A`。
 - `0.4.0` 发布资产：`BalancePet-0.4.0-win-x64.zip` SHA-256 `2a677017695b353f6b11be0fc1f8e3d387f6db87c4ce8815398f501ba409be68`；`BalancePet-0.4.0-Setup.exe` SHA-256 `d8fe4651146f8537c838a049dcebd16a76776124e8017c3bfd5616be02e3bba0`。
 - `0.5.0` GitHub 发布包（含分栏设置界面、完整页签英文本地化、普通保存后语言刷新、认证提示翻译修复、菜单窗口崩溃修复、语言选项显示修复和资源型扩展基础）：`BalancePet-0.5.0-win-x64.zip`（202,447,550 bytes，SHA-256 `34c7fbed86a08e45fcfae619ed36a0a4bc5960c75b9b723806b9e161f0eb3d06`）；`BalancePet-0.5.0-Setup.exe`（180,318,110 bytes，SHA-256 `df5f270a2ce6c6664386c0c34653a258ff6812d04650793a7639730e26204732`）。
 - `0.7.0` 本地测试包（扩展版本合并、行内图标操作、扩展独立更新检查，以及设置窗口模态关闭修复）：`BalancePet-0.7.0-win-x64.zip`（200,284,236 bytes，SHA-256 `06066D03AE8A6A717B1F6139E773D45743740AFDDAF7460390DF6DC89B90285D`）；`BalancePet-0.7.0-Setup.exe`（180,338,402 bytes，SHA-256 `50E9B9B95836A6813476CF54A77188C314224BA2CE24792B394A5DBC40AD2942`）。尚未提交或发布。
@@ -43,7 +43,7 @@
 - Codex 任务状态桥接：工作中、成功、失败、暂停/终止等状态可以驱动桌宠表现。
 - AI 登录状态桥接：通过 `BalancePet.Account.v1` 接收官方账户、官方 API、第三方 API 的元数据；令牌指纹匹配本地账户后自动切换，未匹配时仅提示配置。
 - 预设形象目录：所有已登记模型都会出现在右键菜单、托盘菜单和设置窗口；只有完整 9 状态素材才会自动解锁，其余显示为灰色不可选。
-- 当前已制作 5 个模型的完整 9 状态桌宠素材（见下表）。
+- 当前已制作 8 个模型的完整 9 状态桌宠素材（见下表）。
 - `v0.5.0` 扩展基础：资源型宠物 ZIP 清单、路径/大小/文件类型校验、独立安装目录、启用/禁用/卸载和设置界面管理；扩展不会加载 DLL 或执行脚本。
 - 设置窗口按“账户与接口”“桌宠与交互”“扩展”“高级与迁移”分栏，底部保存操作固定显示；控件名称和既有保存逻辑保持兼容。
 - 扩展规范位于 `docs/extension-spec/v1/`，打包工具为 `tools/package-pet-extension.ps1`；功能扩展规范位于 `docs/extension-spec/feature-v1/`，在线目录格式由 `catalog.schema.json` 约束。扩展与主程序通过稳定的九状态 PNG 合同解耦；插件作者仍可自由选择 UI 工具包、主题、Logo、语言和窗口布局。
@@ -54,9 +54,9 @@
 1. 使用本地 `v0.5.0` 测试包对资源扩展安装、启用、禁用和卸载进行运行时手工验收，确认当前形象回退和菜单刷新都正常。
 2. 用真实客户端/CLI 接入 `tools/balancepet-usage.ps1` 或带计数的 `BalancePet.Task.v1` 事件，验证 Usage Analytics 插件显示真实 Token 事件。
 3. 逐个把素材目录中的 13 个待制作角色制作成资源扩展；每次只处理一个模型，并根据角色特征调整动作提示词。
-4. 将插件库功能随下一次主程序次版本（建议 `v0.8.0`）重新打包，补充真实 Windows 设置窗口截图并进行手工安装/更新验收。
+4. 对已发布的主程序和插件继续进行用户侧安装/更新验收，并按反馈修订后续补丁版本。
 5. 完成下一轮修复或素材后，重新运行检查、打包，并在本文件追加版本记录。
-6. 只有在用户确认后，才创建 Git 提交、推送和 GitHub Release。
+6. 后续版本仍须在用户确认后再创建 Git 提交、推送和 GitHub Release。
 
 ## 版本记录
 
@@ -77,13 +77,15 @@
 | `v0.7.1` | 本地已打包，未发布 | 修复更新频率选择始终回到每日的问题；扩大 Hook/Usage.v1 对嵌套用量字段的兼容范围；改善插件侧边导航刷新后的定位和生命周期-only 提示。 |
 | `v0.7.6` | 本地已打包，未发布 | 扩大 Codex Hook、通用 Task.v1 和 Usage.v1 的用量字段兼容范围；统计插件采用无边框融合标题栏、深色滚动条并显示实时自动刷新倒计时。 |
 | `v0.7.8` | 已发布 | 停止钩子缺少 stdin 身份时回填最近开始事件的会话/回合 ID，确保 Codex 本地 Token 记录可以写入用量事件；同步更新 Usage Event v1、扩展宿主和功能扩展规范。 |
-| `v0.8.0` | 本地开发中，未打包 | 设置窗口增加在线插件库：静态目录、缓存回退、搜索、兼容性状态、仓库链接和经 SHA-256/manifest/ZIP 校验的安装；新增插件目录 JSON Schema 与发布文档。 |
+| `v0.8.0` | 已包含于 `v0.8.1` | 设置窗口增加在线插件库：静态目录、缓存回退、搜索、兼容性状态、仓库链接和经 SHA-256/manifest/ZIP 校验的安装；新增插件目录 JSON Schema 与发布文档。 |
+| `v0.8.1` | 已发布 | 集成 Claude、Kimi、Qwen 三组完整 9 状态形象；修复锁定互动时桌宠视觉缓冲区被边界裁切；补充主程序 Balance Usage v1 消费摘要并发布插件库目录更新。ZIP SHA-256：`74389ADA0720BB31ABBDEA9478F16C23D09CF9762ED1C2DCC659CBB97439F680`；安装器 SHA-256：`B1F0B68599D1D488F5BC70739F99DAD501F29E51887129B87BC4A98CD272A5D2`。 |
 | `Usage Analytics v0.2.2` | 本地已打包，未发布 | 增加 `update_url`，可由主程序按独立插件版本检查并安装更新；不改变用量事件协议。 |
 | `Usage Analytics v0.2.3` | 本地已打包，未发布 | 增加完整用量事件测试说明；未上报的计数不再写入为 0；刷新或调整窗口后侧边导航定位更可靠。 |
 | `Usage Analytics v0.2.4` | 本地已打包，未发布 | 统计窗口融合标题栏与滚动条样式，显示实时刷新倒计时，并扩展用量字段别名兼容。 |
 | `Usage Analytics v0.2.9` | 已发布 | 缓存命中率统一为 `Cache Read / Input`；趋势图增加 Input、Output、Cache Creation、Cache Read 和 Cache Hit Rate；用量窗口与任务栏使用 BalancePet ICO；左侧导航顺序与页面一致并随滚动自动高亮。ZIP SHA-256：`ee8de6360ecdefcbb11af2b5be8ac1f19441db1451e4ae79ca68d8fbe9d134a9`。 |
 | `Usage Analytics v0.2.10` | 已发布 | README 改为中英双语，补充数据口径、隐私、兼容性、构建和插件规范说明；不改变 Usage Event v1 字段含义。ZIP SHA-256：`c623f9f49a960e78c2a418a3325af12b3bbf6bba26142f3c417ead7fb182b105`。 |
 | `Usage Analytics v0.2.11` | 本地已打包，未发布 | 将“平均首 Token”改为“平均首 Token 延迟（TTFT）”；无真实 TTFT 上报时显示“暂无数据”，不从总耗时或输出速度推算。 |
+| `Usage Analytics v0.2.12` | 已发布 | 以主程序 Balance Usage v1 的本地消费摘要替代不可用的 TTFT 概览卡片；跟随账户和汇总变化更新，README 与发布说明保持中英双语并明确估算口径。ZIP SHA-256：`8D3BC8BAEEF0015D660AEE3722ABDECB85552A99B410135F8DD6CE37CF2AF22A`。 |
 
 ### 版本号规则
 
@@ -103,7 +105,7 @@ GitHub Release 的正文不是一句版本口号，而是面向用户的版本�
 4. `## 注意`：数据来源、权限、隐私、升级限制和用户需要知道的已知行为。
 5. `## 文件校验`：每个发布资产的准确文件名和 SHA-256。
 
-发布说明可以按项目需要增加章节，但不得省略文件校验和重要安全/兼容提示；旧版本的说明格式可作为模板。当前版本的可复用文案保存在 `release-notes-v0.7.8.md` 和 `release-notes-usage-analytics-v0.2.10.md`。
+发布说明可以按项目需要增加章节，但不得省略文件校验和重要安全/兼容提示；旧版本的说明格式可作为模板。当前版本的可复用文案保存在 `release-notes-v0.8.1.md` 和 `release-notes-usage-analytics-v0.2.12.md`。
 
 ## 桌宠命名规范
 
@@ -147,9 +149,9 @@ GitHub Release 的正文不是一句版本口号，而是面向用户的版本�
 | MiniMax | `MiniMax.webp` | `MiniMax 小海螺「绯音」` | `minimax` | 已完成 |
 | Gemini | `Gemini.webp` | `Gemini 小星猫「星璃」` | `gemini` | 已完成 |
 | Grok | `Grok.webp` | `Grok 小恶魔「烬斧」` | `grok` | 已完成 |
-| Claude | `Claude.webp` | `Claude 小书灵「丹笺」` | `claude` | 待制作 |
-| Kimi | `Kimi.webp` | `Kimi 小棱镜「虹谱」` | `kimi` | 待制作 |
-| Qwen | `Qwen.webp` | `Qwen 小折扇「绀华」` | `qwen` | 待制作 |
+| Claude | `Claude.webp` | `Claude 小书灵「丹笺」` | `claude` | 已完成 |
+| Kimi | `Kimi.webp` | `Kimi 小棱镜「虹谱」` | `kimi` | 已完成 |
+| Qwen | `Qwen.webp` | `Qwen 小折扇「绀华」` | `qwen` | 已完成 |
 | Ernie | `Ernie.jpg` | `Ernie 小病书灵「青绡」` | `ernie` | 待制作 |
 | GLM | `GLM.avif` | `GLM 小方灵「青棱」` | `glm` | 待制作 |
 | GPT Image 2 | `GPT Image2.jpg` | `GPT Image 2 小墨龙「玄珏」` | `gpt-image2` | 待制作 |
