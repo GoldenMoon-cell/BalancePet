@@ -57,6 +57,7 @@ argument for testing or portable setups. Only sanitized counters and timings are
 仪表盘会在事件文件变化时刷新，并至少每分钟自动刷新一次；标题栏显示实时倒计时，
 同时保留手动刷新按钮。只有客户端主动上报 Token、缓存和首 Token 延迟（TTFT）字段时，
 对应卡片才会显示数值；没有主程序余额记录时“今日消费”卡片会显示“暂无数据”。
+插件还会读取主程序提供的当前账户余额快照，在“总余额”卡片中显示所有已配置账户的合计（仅在币种一致时求和）。
 
 “今日消费”卡片读取主程序发布的脱敏
 `%LOCALAPPDATA%\\BalancePet\\balance-usage.v1.json`。它与主程序“用量统计”
@@ -72,6 +73,8 @@ The “Today spending” card reads the credential-free
 It uses the same local balance-change ledger as the core usage window: only decreases
 between successful balance observations count, so it is not a relay invoice or an exact
 per-request price. It shows “暂无数据 / No data” until a successful balance observation exists.
+The total balance card reads the host's credential-free balance snapshot and sums accounts only
+when their currencies match; no provider token is included in the snapshot.
 
 Codex 的生命周期 Hook 并不保证所有客户端版本都提供提供方用量计数。
 这种情况下，请求次数和本地测得的耗时仍然有效，而 Token、模型和缓存字段会显示为未上报。
@@ -104,12 +107,12 @@ package provides `tools/balancepet-usage.ps1`.
 
 本插件实现已发布的 **BalancePet Feature Extension API v1**，需要 BalancePet `0.7.7`
 或更高版本才能读取 Codex Token 和缓存计数；旧核心仍可显示请求元数据，但不能填充这些计数。
-插件版本独立于主程序版本递增，当前插件版本为 `0.2.12`。
+插件版本独立于主程序版本递增，当前插件版本为 `0.3.0`。
 
 This package implements the shipped **BalancePet Feature Extension API v1** and requires
 BalancePet `0.7.7` or newer for Codex token and cache counters. Older cores can still show
 request metadata but cannot populate those counters. The extension version is independent from
-the core version; the current package version is `0.2.12`.
+the core version; the current package version is `0.3.0`.
 
 功能扩展规范只约束 manifest、独立进程启动、能力声明、Usage Event v1、本地数据目录、
 更新和安全校验；不要求统一插件的 UI 工具包、主题、Logo、字体、语言或窗口布局。

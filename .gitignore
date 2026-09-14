@@ -21,3 +21,4 @@ extensions/**/dist/
 /docs/qa/
 /docs/references/
 /tools/__pycache__/
+/WORK_STATUS.md

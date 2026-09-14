@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- Add a total balance card sourced from the host's credential-free Balance Usage v1 snapshot.
+- Sum configured account balances only when currencies match and keep the existing estimated-spending semantics.
+
 ## 0.2.12
 
 - Replace the unavailable TTFT overview card with today's spending from the

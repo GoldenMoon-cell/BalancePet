@@ -34,8 +34,10 @@ public sealed class BalanceUsageSnapshotStore
 
     public void Publish(IEnumerable<ProfileSource> profiles, string? selectedAccountId)
     {
-        var entries = profiles
+        var profileValues = profiles
             .Where(profile => profile is not null && profile.Ledger is not null)
+            .ToArray();
+        var entries = profileValues
             .SelectMany(profile => profile.Ledger.GetRecentHistory(30).Select(day => new BalanceUsageEntry
             {
                 AccountId = Clean(profile.AccountId, 128),
@@ -49,13 +51,25 @@ public sealed class BalanceUsageSnapshotStore
             .OrderBy(entry => entry.AccountId, StringComparer.Ordinal)
             .ThenBy(entry => entry.Date, StringComparer.Ordinal)
             .ToArray();
+        var balances = profileValues
+            .Where(profile => profile.CurrentBalance.HasValue && double.IsFinite(profile.CurrentBalance.Value))
+            .Select(profile => new BalanceBalanceEntry
+            {
+                AccountId = Clean(profile.AccountId, 128),
+                Currency = CleanCurrency(profile.Currency),
+                Amount = Math.Clamp(profile.CurrentBalance!.Value, -10_000_000_000, 10_000_000_000)
+            })
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.AccountId) && !string.IsNullOrWhiteSpace(entry.Currency))
+            .OrderBy(entry => entry.AccountId, StringComparer.Ordinal)
+            .ToArray();
 
         var document = new BalanceUsageDocument
         {
             Schema = Schema,
             UpdatedAt = DateTimeOffset.Now,
             SelectedAccountId = Clean(selectedAccountId, 128),
-            Entries = entries
+            Entries = entries,
+            Balances = balances
         };
 
         lock (_gate)
@@ -73,7 +87,7 @@ public sealed class BalanceUsageSnapshotStore
         }
     }
 
-    public sealed record ProfileSource(string AccountId, UsageLedgerStore Ledger);
+    public sealed record ProfileSource(string AccountId, UsageLedgerStore Ledger, double? CurrentBalance = null, string Currency = "USD");
 
     private sealed class BalanceUsageDocument
     {
@@ -81,6 +95,7 @@ public sealed class BalanceUsageSnapshotStore
         [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; set; }
         [JsonPropertyName("selected_account_id")] public string SelectedAccountId { get; set; } = "";
         [JsonPropertyName("entries")] public BalanceUsageEntry[] Entries { get; set; } = Array.Empty<BalanceUsageEntry>();
+        [JsonPropertyName("balances")] public BalanceBalanceEntry[] Balances { get; set; } = Array.Empty<BalanceBalanceEntry>();
     }
 
     private sealed class BalanceUsageEntry
@@ -89,6 +104,13 @@ public sealed class BalanceUsageSnapshotStore
         [JsonPropertyName("date")] public string Date { get; set; } = "";
         [JsonPropertyName("currency")] public string Currency { get; set; } = "USD";
         [JsonPropertyName("usage")] public double Usage { get; set; }
+    }
+
+    private sealed class BalanceBalanceEntry
+    {
+        [JsonPropertyName("account_id")] public string AccountId { get; set; } = "";
+        [JsonPropertyName("currency")] public string Currency { get; set; } = "USD";
+        [JsonPropertyName("amount")] public double Amount { get; set; }
     }
 
     private static string Clean(string? value, int maxLength)

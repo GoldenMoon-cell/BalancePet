@@ -1,0 +1,29 @@
+# BalancePet v0.9.0
+
+## 新增
+
+- 扩充桌宠随机彩蛋：按形象、触摸部位、闲置状态和连续互动提供独立候选池，并避开最近使用的台词。
+- 启用“识别 AI 登录账户”后，只读监听 CC Switch 当前供应商；切换 CC Switch 账户时自动匹配并切换 BalancePet 本地账户。
+- Balance Usage v1 摘要增加当前账户余额快照，供可信功能扩展显示总余额。
+
+## 修复与改进
+
+- CC Switch 账户识别只在本机内存中计算令牌 SHA-256 指纹，不保存、不记录、不上传 API 令牌。
+- 保留原有 `BalancePet.Account.v1` 命名管道，CC Switch 与显式客户端上报可以同时使用。
+
+## 规范与兼容
+
+- 主程序版本：`v0.9.0`。
+- 功能扩展接口继续使用 `api_version: 1`；Balance Usage v1 的 `balances` 字段为可选扩展，旧插件可忽略。
+- 运行时依赖 Microsoft.Data.Sqlite，仅用于只读访问本机 CC Switch 数据库。
+
+## 注意
+
+- CC Switch 集成需要启用“识别 AI 登录账户”，并使用默认 `%USERPROFILE%\\.cc-switch\\cc-switch.db` 数据目录。
+- 若 CC Switch 账户未配置到 BalancePet，桌宠仍会提示在设置中添加；BalancePet 不读取网页登录 Cookie 或向外部服务发送凭据。
+- `WORK_STATUS.md` 是本地工作记录，不随本版本提交或发布。
+
+## 文件校验
+
+- `BalancePet-0.9.0-win-x64.zip` SHA-256：`9bb2bff0da4a37ad95f3b28676d438e4435ff32213cecf80eb96b90eb012818f`
+- `BalancePet-0.9.0-Setup.exe` SHA-256：`64543153ad275adecb30e76319fad6e709e817135f4b19b87706306c03c30d08`

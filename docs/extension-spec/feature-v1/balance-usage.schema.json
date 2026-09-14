@@ -23,6 +23,20 @@
           "usage": { "type": "number", "minimum": 0 }
         }
       }
+    },
+    "balances": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["account_id", "currency", "amount"],
+        "properties": {
+          "account_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "currency": { "type": "string", "minLength": 1, "maxLength": 12 },
+          "amount": { "type": "number", "minimum": -10000000000, "maximum": 10000000000 }
+        }
+      }
     }
   }
 }

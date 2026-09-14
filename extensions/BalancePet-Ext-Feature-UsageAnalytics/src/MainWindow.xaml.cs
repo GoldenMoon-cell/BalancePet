@@ -215,6 +215,14 @@ public partial class MainWindow : Window
         TodayUsageHint.Text = _lastBalanceUsage.HasData
             ? "主程序余额变化记录"
             : "主程序尚无余额记录";
+        TotalBalance.Text = _lastBalanceUsage.HasBalanceData
+            ? UsageFormatting.Currency(_lastBalanceUsage.TotalBalance, _lastBalanceUsage.BalanceCurrency)
+            : "暂无数据";
+        TotalBalanceHint.Text = _lastBalanceUsage.HasBalanceData
+            ? _lastBalanceUsage.BalanceAccountCount > 1
+                ? $"同币种账户合计 · {_lastBalanceUsage.BalanceAccountCount:N0} 个账户"
+                : "当前账户余额快照"
+            : "主程序尚无余额快照";
         Throughput.Text = UsageFormatting.Rate(report.AllTime.OutputPerSecond);
         AverageDuration.Text = UsageFormatting.Milliseconds(report.AllTime.AverageDurationMs);
         var providers = events.Select(value => value.Provider).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Count();
