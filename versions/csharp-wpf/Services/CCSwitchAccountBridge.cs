@@ -8,14 +8,14 @@ using Microsoft.Data.Sqlite;
 namespace BalancePet.Wpf.Services;
 
 /// <summary>
-/// Observes CC Switch's active provider rows and emits the same metadata-only
-/// account activity used by the explicit BalancePet.Account.v1 bridge. The
-/// database is opened read-only; credential values are hashed in memory and
-/// never persisted, logged, or sent over the network.
+/// Observes CC Switch's active provider rows and emits metadata-only account
+/// activity. The database is opened read-only; credential values are hashed in
+/// memory and never persisted, logged, or sent over the network.
 /// </summary>
 public sealed class CCSwitchAccountBridge : IDisposable
 {
     private const int MaxRows = 16;
+    private const string TargetAppType = "codex";
     private readonly string _databasePath;
     private readonly object _gate = new();
     private FileSystemWatcher? _watcher;
@@ -40,7 +40,7 @@ public sealed class CCSwitchAccountBridge : IDisposable
         try
         {
             Directory.CreateDirectory(directory);
-            _watcher = new FileSystemWatcher(directory, Path.GetFileName(_databasePath))
+            _watcher = new FileSystemWatcher(directory, $"{Path.GetFileName(_databasePath)}*")
             {
                 NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
                 IncludeSubdirectories = false,
@@ -119,7 +119,11 @@ public sealed class CCSwitchAccountBridge : IDisposable
             using var connection = new SqliteConnection(builder.ToString());
             connection.Open();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT app_type, name, settings_config, category, provider_type FROM providers WHERE is_current = 1 LIMIT $limit";
+            // CC Switch keeps one current provider per client. BalancePet is
+            // tracking the Codex account that is actually used by this app;
+            // Claude/Gemini current rows must not be reported as Codex login.
+            command.CommandText = "SELECT app_type, name, settings_config, category, provider_type FROM providers WHERE is_current = 1 AND lower(app_type) = $appType LIMIT $limit";
+            command.Parameters.AddWithValue("$appType", TargetAppType);
             command.Parameters.AddWithValue("$limit", MaxRows);
             using var reader = command.ExecuteReader();
             var activities = new List<AiAccountActivity>();
@@ -138,7 +142,7 @@ public sealed class CCSwitchAccountBridge : IDisposable
                     provider,
                     type,
                     name,
-                    "CC Switch",
+                    $"CC Switch/{appType}",
                     details.Endpoint,
                     details.TokenFingerprint,
                     null,

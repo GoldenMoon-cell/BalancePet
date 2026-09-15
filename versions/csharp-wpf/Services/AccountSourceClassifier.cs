@@ -2,7 +2,7 @@ namespace BalancePet.Wpf.Services;
 
 /// <summary>
 /// Classifies login metadata without reading client credential stores.
-/// Explicit client metadata remains useful when no endpoint is available.
+/// CC Switch metadata may omit an endpoint for official account sessions.
 /// When an endpoint is present, only known first-party hosts are treated as
 /// official so a relay cannot be presented as an official API by mistake.
 /// </summary>

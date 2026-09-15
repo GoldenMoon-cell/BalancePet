@@ -1,6 +1,6 @@
 # BalancePet C# WPF
 
-Current version: `v0.9.0`; recent release: `v0.9.0`.
+Current version: `v0.9.1`; recent release: `v0.9.1`.
 
 Native Windows implementation of BalancePet, built with C# WPF.
 
@@ -18,8 +18,6 @@ The current build includes a transparent pet window, independent settings dialog
 
 For AI client compatibility, the same task bridge also listens on `BalancePet.Task.v1`. Clients without a Codex CLI can call the bundled `tools/balancepet-task.ps1` with `start` and `stop`, passing a stable task ID and provider name. The bundled Hook installer supports Gemini CLI, Qwen Code, and Claude Code. Only lifecycle metadata is accepted; prompts, replies, credentials, and network requests are never forwarded to BalancePet. For Codex CLI tasks, the main process also reads only the allow-listed `token_usage_record` counters from the local rollout files, matching the current session and turn. It writes those counters into the existing sanitized usage event; conversation lines are never stored or forwarded.
 
-Login status integration listens on the current user's `BalancePet.Account.v1` named pipe. Clients may call `tools\balancepet-account.ps1` with `login` or `logout`, account type (`official`, `official-api`, `relay-api`, or `third-party`), provider, endpoint, optional account label, optional reported balance, and an optional SHA-256 token fingerprint. Plaintext tokens, cookies, prompts, and replies are never accepted. Known first-party API hosts are classified locally. A matching local monitor is selected automatically; unmatched relay APIs are shown as third-party and prompt the user to add them manually in settings.
-
-Windows does not expose a universal login-status API for AI clients. A client adapter or hook must report login changes through the script or named pipe; BalancePet does not inspect browser cookies, client authentication files, or process memory. Official API providers also do not share a standard balance endpoint, so the reporting client may include a known balance while matched relay accounts use their existing BalancePet monitor configuration.
+Login status integration reads only the current `app_type=codex` provider row from `%USERPROFILE%\.cc-switch\cc-switch.db` in read-only mode. When CC Switch changes the Codex account, BalancePet matches it by an in-memory SHA-256 token fingerprint or a unique endpoint and selects the corresponding local monitor. Plaintext tokens, cookies, prompts, and replies are never accepted or stored; unmatched relay APIs show their CC Switch account name and endpoint.
 
 Planned next: richer interactions and sprite/rig support. The current procedural state layer already covers idle, loading, success, low balance, error, click, Codex working/done, and inactive states while remaining compatible with the existing PNG assets.

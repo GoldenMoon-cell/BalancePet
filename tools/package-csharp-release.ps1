@@ -50,7 +50,6 @@ Copy-Item (Join-Path $root "plugin-catalog.json") $stage
 New-Item -ItemType Directory -Path (Join-Path $stage "tools") -Force | Out-Null
 Copy-Item (Join-Path $root "tools\balancepet-task.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\balancepet-task.cmd") (Join-Path $stage "tools")
-Copy-Item (Join-Path $root "tools\balancepet-account.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\balancepet-client-hook.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\balancepet-usage.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\install-balancepet-client-hooks.ps1") (Join-Path $stage "tools")

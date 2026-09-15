@@ -43,7 +43,6 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _bubbleTimer;
     private readonly DispatcherTimer _floatTimer;
     private readonly CodexTaskBridge _codexTaskBridge = new();
-    private readonly AccountStatusBridge _accountStatusBridge = new();
     private readonly CCSwitchAccountBridge _ccSwitchAccountBridge = new();
     private readonly UsageEventBridge _usageEventBridge = new();
     private readonly BalanceUsageSnapshotStore _balanceUsageSnapshotStore = new();
@@ -67,6 +66,7 @@ public partial class MainWindow : Window
     private Forms.ToolStripMenuItem? _trayMiniMaxStyleItem;
     private Forms.ToolStripMenuItem? _trayGeminiStyleItem;
     private Forms.ToolStripMenuItem? _trayGrokStyleItem;
+    private Forms.ToolStripMenuItem? _trayMoreStyleMenuItem;
     private readonly Dictionary<string, Forms.ToolStripMenuItem> _trayStyleItems = new(StringComparer.OrdinalIgnoreCase);
     private Forms.ToolStripMenuItem? _trayMonitorMenu;
     private Forms.ToolStripMenuItem? _trayShowItem;
@@ -237,7 +237,6 @@ public partial class MainWindow : Window
         _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _floatTimer.Tick += (_, _) => AnimatePet();
         _codexTaskBridge.ActivityReceived += OnCodexTaskActivityReceived;
-        _accountStatusBridge.ActivityReceived += OnAccountStatusReceived;
         _ccSwitchAccountBridge.ActivityReceived += OnAccountStatusReceived;
         _stateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _stateTimer.Tick += (_, _) => RestoreSteadyVisualState();
@@ -276,7 +275,6 @@ public partial class MainWindow : Window
             _updateTimer.Stop();
             _extensionUpdateTimer.Stop();
             _codexTaskBridge.Dispose();
-            _accountStatusBridge.Dispose();
             _ccSwitchAccountBridge.Dispose();
             _usageEventBridge.Dispose();
             _featureExtensions.Dispose();
@@ -324,7 +322,6 @@ public partial class MainWindow : Window
         ResetInactiveTimer();
         ConfigureSounds();
         _codexTaskBridge.Stop();
-        _accountStatusBridge.Stop();
         _ccSwitchAccountBridge.Stop();
         _usageEventBridge.Stop();
         _activeCodexTurns.Clear();
@@ -336,8 +333,7 @@ public partial class MainWindow : Window
         _codexStartBalances.Clear();
         _codexShownPet = false;
         if (_settings.CodexTaskIntegration) _codexTaskBridge.Start();
-        if (_settings.AccountStatusIntegration) _accountStatusBridge.Start();
-        if (_settings.AccountStatusIntegration) _ccSwitchAccountBridge.Start();
+        if (_settings.CCSwitchIntegration) _ccSwitchAccountBridge.Start();
         _usageEventBridge.Start();
         SetupTray();
         UpdateTrayMonitorMenu();
@@ -1022,7 +1018,7 @@ public partial class MainWindow : Window
     private void UpdatePetStyleMenuChecks()
     {
         var style = NormalizePetStyle(_settings.PetStyle);
-        foreach (var item in ContextStyleMenuItem.Items.OfType<MenuItem>())
+        foreach (var item in EnumerateStyleMenuItems(ContextStyleMenuItem))
         {
             if (item.Tag is string id)
                 item.IsChecked = string.Equals(PetStyleCatalog.NormalizeId(id), style, StringComparison.OrdinalIgnoreCase);
@@ -1039,7 +1035,7 @@ public partial class MainWindow : Window
     private void UpdatePetStyleAvailability()
     {
         RefreshExtensionStyleMenus();
-        foreach (var item in ContextStyleMenuItem.Items.OfType<MenuItem>())
+        foreach (var item in EnumerateStyleMenuItems(ContextStyleMenuItem))
         {
             if (item.Tag is string id)
             {
@@ -1056,17 +1052,35 @@ public partial class MainWindow : Window
         }
     }
 
+    private static IEnumerable<MenuItem> EnumerateStyleMenuItems(ItemsControl parent)
+    {
+        foreach (var item in parent.Items.OfType<MenuItem>())
+        {
+            if (item.Tag is string) yield return item;
+            foreach (var nested in EnumerateStyleMenuItems(item)) yield return nested;
+        }
+    }
+
+    private static void RemoveUnavailableExtensionStyleItems(ItemsControl parent, IReadOnlySet<string> builtInIds, IReadOnlySet<string> availableIds)
+    {
+        foreach (var item in parent.Items.OfType<MenuItem>().ToArray())
+        {
+            if (item.Tag is string id && !builtInIds.Contains(id) && !availableIds.Contains(id))
+            {
+                parent.Items.Remove(item);
+                continue;
+            }
+            RemoveUnavailableExtensionStyleItems(item, builtInIds, availableIds);
+        }
+    }
+
     private void RefreshExtensionStyleMenus()
     {
         var extensionStyles = PetStyleCatalog.GetAvailableExtensionStyles();
         var availableExtensionIds = extensionStyles.Select(definition => definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var builtInIds = PetStyleCatalog.All.Select(definition => definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in ContextStyleMenuItem.Items.OfType<MenuItem>().ToArray())
-        {
-            if (item.Tag is string id && !builtInIds.Contains(id) && !availableExtensionIds.Contains(id))
-                ContextStyleMenuItem.Items.Remove(item);
-        }
-        var contextIds = ContextStyleMenuItem.Items.OfType<MenuItem>()
+        RemoveUnavailableExtensionStyleItems(ContextStyleMenuItem, builtInIds, availableExtensionIds);
+        var contextIds = EnumerateStyleMenuItems(ContextStyleMenuItem)
             .Select(item => item.Tag?.ToString())
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -1075,13 +1089,13 @@ public partial class MainWindow : Window
             if (!contextIds.Add(definition.Id)) continue;
             var item = new MenuItem { Header = PetStyleDisplayName(definition.Id), Tag = definition.Id, IsCheckable = true };
             item.Click += OnPetStyleClick;
-            ContextStyleMenuItem.Items.Add(item);
+            MoreStyleMenuItem.Items.Add(item);
         }
 
-        if (_trayStyleMenuItem is null) return;
+        if (_trayStyleMenuItem is null || _trayMoreStyleMenuItem is null) return;
         foreach (var item in _trayStyleItems.Where(pair => !builtInIds.Contains(pair.Key) && !availableExtensionIds.Contains(pair.Key)).ToArray())
         {
-            _trayStyleMenuItem.DropDownItems.Remove(item.Value);
+            _trayMoreStyleMenuItem.DropDownItems.Remove(item.Value);
             _trayStyleItems.Remove(item.Key);
         }
         foreach (var definition in extensionStyles)
@@ -1090,7 +1104,7 @@ public partial class MainWindow : Window
             var item = new Forms.ToolStripMenuItem(PetStyleDisplayName(definition.Id)) { Tag = definition.Id };
             item.Click += (_, _) => ChangePetStyle(definition.Id);
             _trayStyleItems[definition.Id] = item;
-            _trayStyleMenuItem.DropDownItems.Add(item);
+            _trayMoreStyleMenuItem.DropDownItems.Add(item);
         }
     }
 
@@ -1180,12 +1194,14 @@ public partial class MainWindow : Window
         MiniMaxStyleMenuItem.Header = PetStyleDisplayName("minimax");
         GeminiStyleMenuItem.Header = PetStyleDisplayName("gemini");
         GrokStyleMenuItem.Header = PetStyleDisplayName("grok");
-        foreach (var item in ContextStyleMenuItem.Items.OfType<MenuItem>())
+        foreach (var item in EnumerateStyleMenuItems(ContextStyleMenuItem))
             if (item.Tag is string id) item.Header = PetStyleDisplayName(id);
+        MoreStyleMenuItem.Header = AppLocalization.Text(_settings.Language, "更多形象", "More appearances");
         if (_trayShowItem is not null) _trayShowItem.Text = AppLocalization.Text(_settings.Language, "显示桌宠", "Show pet");
         if (_trayRefreshItem is not null) _trayRefreshItem.Text = AppLocalization.Text(_settings.Language, "立即刷新", "Refresh now");
         if (_traySettingsItem is not null) _traySettingsItem.Text = AppLocalization.Text(_settings.Language, "配置接口", "Configure API");
         if (_trayStyleMenuItem is not null) _trayStyleMenuItem.Text = AppLocalization.Text(_settings.Language, "切换形象", "Change appearance");
+        if (_trayMoreStyleMenuItem is not null) _trayMoreStyleMenuItem.Text = AppLocalization.Text(_settings.Language, "更多形象", "More appearances");
         if (_trayMonitorMenu is not null) _trayMonitorMenu.Text = AppLocalization.Text(_settings.Language, "当前账户", "Current account");
         if (_trayUpdateItem is not null) _trayUpdateItem.Text = AppLocalization.Text(_settings.Language, "检查更新", "Check for updates");
         if (_trayUsageItem is not null) _trayUsageItem.Text = AppLocalization.Text(_settings.Language, "用量统计", "Usage");
@@ -1319,6 +1335,7 @@ public partial class MainWindow : Window
         _trayMiniMaxStyleItem.Click += (_, _) => ChangePetStyle("minimax");
         _trayGeminiStyleItem.Click += (_, _) => ChangePetStyle("gemini");
         _trayGrokStyleItem.Click += (_, _) => ChangePetStyle("grok");
+        _trayMoreStyleMenuItem = new Forms.ToolStripMenuItem();
         _trayStyleItems.Clear();
         _trayStyleItems["deepseek"] = _trayDeepSeekStyleItem;
         _trayStyleItems["chatgpt"] = _trayChatGptStyleItem;
@@ -1338,7 +1355,9 @@ public partial class MainWindow : Window
         styleMenu.DropDownItems.Add(_trayGeminiStyleItem);
         styleMenu.DropDownItems.Add(_trayGrokStyleItem);
         styleMenu.DropDownItems.Add(new Forms.ToolStripSeparator());
-        foreach (var item in _trayStyleItems.Values) styleMenu.DropDownItems.Add(item);
+        styleMenu.DropDownItems.Add(_trayMoreStyleMenuItem);
+        foreach (var item in _trayStyleItems.Values.Where(item => item.Tag?.ToString() is not ("deepseek" or "chatgpt" or "minimax" or "gemini" or "grok")))
+            _trayMoreStyleMenuItem.DropDownItems.Add(item);
         menu.Items.Add(styleMenu);
         _trayMonitorMenu = new Forms.ToolStripMenuItem();
         menu.Items.Add(_trayMonitorMenu);
@@ -1683,6 +1702,7 @@ public partial class MainWindow : Window
         _trayUsageItem = null;
         _trayExitItem = null;
         _trayStyleMenuItem = null;
+        _trayMoreStyleMenuItem = null;
         _trayMonitorItems.Clear();
         _trayImage?.Dispose();
         _trayImage = null;
@@ -2149,18 +2169,12 @@ public partial class MainWindow : Window
 
     private void HandleAccountStatus(AiAccountActivity activity)
     {
-        if (_closing || !_settings.AccountStatusIntegration) return;
+        if (_closing || !_settings.CCSwitchIntegration) return;
         var key = $"{activity.State}|{activity.Provider}|{activity.AccountType}|{activity.AccountLabel}|{activity.Endpoint}|{activity.TokenFingerprint}";
         var now = DateTimeOffset.UtcNow;
         if (string.Equals(key, _lastAccountStatusKey, StringComparison.Ordinal) && now - _lastAccountStatusAt < TimeSpan.FromSeconds(2)) return;
         _lastAccountStatusKey = key;
         _lastAccountStatusAt = now;
-
-        if (activity.State == "logout")
-        {
-            ShowBubble($"{activity.Provider} 已退出", "登录状态已更新", "重新登录后会再次提示");
-            return;
-        }
 
         var label = string.IsNullOrWhiteSpace(activity.AccountLabel) ? "" : $" · {activity.AccountLabel}";
         var accountType = AccountSourceClassifier.ResolveAccountType(activity);
@@ -2196,7 +2210,9 @@ public partial class MainWindow : Window
         if (accountType is "relay-api" or "third-party")
         {
             const string reminder = "是否保存到 BalancePet？右键桌宠打开“配置接口”";
-            ShowBubble("第三方 API 已登录", "未匹配本地账户", reminder);
+            var endpoint = string.IsNullOrWhiteSpace(activity.Endpoint) ? "接口地址未提供" : activity.Endpoint;
+            var accountName = string.IsNullOrWhiteSpace(activity.AccountLabel) ? "中转站账户" : activity.AccountLabel;
+            ShowBubble($"{accountName} API 已登录", "未匹配本地账户", $"CC Switch · {endpoint}");
             ShowSystemNotification("未收录的第三方 API", reminder, Forms.ToolTipIcon.Info);
         }
         else
