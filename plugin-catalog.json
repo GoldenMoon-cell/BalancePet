@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-14T00:00:00Z",
+  "updated_at": "2026-09-17T15:37:16Z",
   "plugins": [
     {
       "id": "balancepet.ext.feature.usage-analytics",
@@ -18,6 +18,23 @@
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics",
       "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/tag/v0.3.0",
       "categories": ["统计", "工具"]
+    },
+    {
+      "id": "balancepet.theme.mica",
+      "type": "theme",
+      "name": "BalancePet 云母",
+      "name_en": "BalancePet Mica",
+      "description": "面向 Windows 11 云母、云母 Alt 与 Windows 10 亚克力效果的系统主题。",
+      "description_en": "A system theme for Windows 11 Mica and Mica Alt with Windows 10 Acrylic fallback.",
+      "author": "GoldenMoon-cell",
+      "version": "1.0.0",
+      "min_core_version": "1.0.0",
+      "update_url": "https://api.github.com/repos/GoldenMoon-cell/BalancePet-Ext-Theme-Mica/releases/latest",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Theme-Mica/releases/download/v1.0.0/balancepet.theme.mica-1.0.0.zip",
+      "sha256": "bb258b3972d8b73b0a585857e2c641f46922a2e04cb4f1fd066faabaf8eab335",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Theme-Mica",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Theme-Mica/releases/tag/v1.0.0",
+      "categories": ["主题", "外观"]
     }
   ]
 }
