@@ -41,12 +41,13 @@ public sealed class UpdateService(HttpClient http)
             if (release.TryGetProperty("draft", out var draft) && draft.GetBoolean()) continue;
             var tag = release.TryGetProperty("tag_name", out var tagValue) ? tagValue.GetString() : null;
             if (string.IsNullOrWhiteSpace(tag) || !IsNewer(tag, currentVersion)) continue;
-            if (!release.TryGetProperty("assets", out var assets)) continue;
+            var assets = await LoadCurrentAssetsAsync(release, cancellationToken);
+            if (assets.Count == 0) continue;
 
             var version = tag.TrimStart('v', 'V');
             UpdateAsset? archive = null;
             UpdateAsset? installer = null;
-            foreach (var asset in assets.EnumerateArray())
+            foreach (var asset in assets)
             {
                 var name = asset.TryGetProperty("name", out var nameValue) ? nameValue.GetString() : null;
                 var urlText = asset.TryGetProperty("browser_download_url", out var urlValue) ? urlValue.GetString() : null;
@@ -65,6 +66,29 @@ public sealed class UpdateService(HttpClient http)
         }
 
         return null;
+    }
+
+    private async Task<IReadOnlyList<JsonElement>> LoadCurrentAssetsAsync(JsonElement release, CancellationToken cancellationToken)
+    {
+        if (!release.TryGetProperty("assets_url", out var assetsUrlValue) ||
+            !Uri.TryCreate(assetsUrlValue.GetString(), UriKind.Absolute, out var assetsUri) ||
+            assetsUri.Scheme != Uri.UriSchemeHttps ||
+            !string.Equals(assetsUri.Host, "api.github.com", StringComparison.OrdinalIgnoreCase))
+            return Array.Empty<JsonElement>();
+
+        var builder = new UriBuilder(assetsUri);
+        builder.Query = "per_page=100";
+        using var request = new HttpRequestMessage(HttpMethod.Get, builder.Uri);
+        request.Headers.Accept.ParseAdd("application/vnd.github+json");
+        request.Headers.UserAgent.ParseAdd("BalancePet-Updater/1.0");
+        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"GitHub 更新资产读取失败：HTTP {(int)response.StatusCode} {response.ReasonPhrase}");
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        if (document.RootElement.ValueKind != JsonValueKind.Array) return Array.Empty<JsonElement>();
+        return document.RootElement.EnumerateArray().Select(asset => asset.Clone()).ToArray();
     }
 
     public async Task<string> DownloadAsync(UpdateAsset asset, CancellationToken cancellationToken = default)
