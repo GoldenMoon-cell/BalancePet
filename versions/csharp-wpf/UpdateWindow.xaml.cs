@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using BalancePet.Wpf.Services;
+using BalancePet.Wpf.Models;
 
 namespace BalancePet.Wpf;
 
@@ -10,9 +11,11 @@ public partial class UpdateWindow : Window
 {
     private static readonly Regex MarkdownLink = new(@"\[([^\]]+)\]\([^)]+\)", RegexOptions.CultureInvariant);
 
-    public UpdateWindow(UpdateRelease release, UpdateInstallPlan plan, string language)
+    public UpdateWindow(UpdateRelease release, UpdateInstallPlan plan, PetSettings settings)
     {
         InitializeComponent();
+        WindowThemeService.ApplyConfiguredTheme(this, settings);
+        var language = settings.Language;
         AppLocalization.Apply(this, language);
         VersionText.Text = release.TagName;
         ReleaseTitleText.Text = string.Equals(release.Name, release.TagName, StringComparison.OrdinalIgnoreCase)
@@ -58,29 +61,31 @@ public partial class UpdateWindow : Window
         foreach (var section in sections)
         {
             var block = new StackPanel { Margin = new Thickness(0, 0, 0, 20) };
-            block.Children.Add(new TextBlock
+            var heading = new TextBlock
             {
                 Text = section.Title,
                 FontSize = 16,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(38, 61, 120)),
                 Margin = new Thickness(0, 0, 0, 8)
-            });
+            };
+            heading.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+            block.Children.Add(heading);
 
             foreach (var line in section.Lines)
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
-                block.Children.Add(new TextBlock
+                var lineBlock = new TextBlock
                 {
                     Text = line,
                     TextWrapping = TextWrapping.WrapWithOverflow,
-                    Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(57, 70, 104)),
                     FontFamily = line.StartsWith("SHA-256:", StringComparison.OrdinalIgnoreCase) || line.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase)
                         ? new System.Windows.Media.FontFamily("Consolas")
                         : System.Windows.SystemFonts.MessageFontFamily,
                     FontSize = line.StartsWith("SHA-256:", StringComparison.OrdinalIgnoreCase) || line.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase) ? 12 : 14,
                     Margin = new Thickness(0, 0, 0, 7)
-                });
+                };
+                lineBlock.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+                block.Children.Add(lineBlock);
             }
             NotesPanel.Children.Add(block);
         }

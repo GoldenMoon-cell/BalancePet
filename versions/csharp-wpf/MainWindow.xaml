@@ -48,28 +48,20 @@
             <MenuItem x:Name="MiniMaxStyleMenuItem" Header="MiniMax 小海螺「绯音」" Tag="minimax" IsCheckable="True" Click="OnPetStyleClick"/>
             <MenuItem x:Name="GeminiStyleMenuItem" Header="Gemini 小星猫「星璃」" Tag="gemini" IsCheckable="True" Click="OnPetStyleClick"/>
             <MenuItem x:Name="GrokStyleMenuItem" Header="Grok 小恶魔「烬斧」" Tag="grok" IsCheckable="True" Click="OnPetStyleClick"/>
-            <MenuItem x:Name="MoreStyleMenuItem" Header="更多形象">
-              <MenuItem Header="Claude 小书灵「丹笺」" Tag="claude" IsCheckable="True" ToolTip="Claude 小书灵 / Little Book Spirit / 丹笺" Click="OnPetStyleClick"/>
-              <MenuItem Header="Kimi 小棱镜「虹谱」" Tag="kimi" IsCheckable="True" ToolTip="Kimi 小棱镜 / Little Prism / 虹谱" Click="OnPetStyleClick"/>
-              <MenuItem Header="Qwen 小折扇「绀华」" Tag="qwen" IsCheckable="True" ToolTip="Qwen 小折扇 / Folding Fan / 绀华" Click="OnPetStyleClick"/>
-              <Separator/>
-              <MenuItem Header="Ernie 小病书灵「青绡」" Tag="ernie" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-              <MenuItem Header="GLM 小方灵「青棱」" Tag="glm" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-              <MenuItem Header="GPT Image 2 小墨龙「玄珏」" Tag="gpt-image2" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-              <MenuItem Header="Llama 小羊驼「绒眠」" Tag="llama" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-              <MenuItem Header="MiMo 小兔码师「橙析」" Tag="mimo" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-              <MenuItem Header="Mistral 小猫骑士「麦霜」" Tag="mistral" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-              <MenuItem Header="OpenCode 小码灵「墨枢」" Tag="opencode" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-              <MenuItem Header="Perplexity 小探灯「青鉴」" Tag="perplexity" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-              <MenuItem Header="RWKV 小乌鸦「夜翎」" Tag="rwkv" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-              <MenuItem Header="Seedence 小星晶「澄芽」" Tag="seedence" IsCheckable="True" IsEnabled="False" ToolTip="素材尚未完成" Click="OnPetStyleClick"/>
-            </MenuItem>
+            <MenuItem Header="Claude 小书灵「丹笺」" Tag="claude" IsCheckable="True" ToolTip="Claude 小书灵 / Little Book Spirit / 丹笺" Click="OnPetStyleClick"/>
+            <MenuItem Header="Kimi 小棱镜「虹谱」" Tag="kimi" IsCheckable="True" ToolTip="Kimi 小棱镜 / Little Prism / 虹谱" Click="OnPetStyleClick"/>
+            <MenuItem Header="Qwen 小折扇「绀华」" Tag="qwen" IsCheckable="True" ToolTip="Qwen 小折扇 / Folding Fan / 绀华" Click="OnPetStyleClick"/>
+            <MenuItem Header="Ernie 小病书灵「青绡」" Tag="ernie" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem Header="GLM 小方灵「青棱」" Tag="glm" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem Header="GPT Image 2 小墨龙「玄珏」" Tag="gpt-image2" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem Header="Llama 小羊驼「绒眠」" Tag="llama" IsCheckable="True" Click="OnPetStyleClick"/>
           </MenuItem>
           <MenuItem x:Name="MonitorMenuItem" Header="当前账户"/>
           <Separator/>
-           <MenuItem x:Name="ContextSettingsMenuItem" Header="配置接口" Click="OnContextSettingsClick"/>
-           <MenuItem x:Name="ContextUpdateMenuItem" Header="检查更新" Click="OnContextUpdateClick"/>
-           <MenuItem x:Name="ContextUsageMenuItem" Header="用量统计" Click="OnContextUsageClick"/>
+           <MenuItem x:Name="ContextSettingsMenuItem" Header="设置面板" Click="OnContextSettingsClick"/>
+          <MenuItem x:Name="ContextUpdateMenuItem" Header="检查更新" Click="OnContextUpdateClick"/>
+          <MenuItem x:Name="ContextUsageMenuItem" Header="用量统计" Click="OnContextUsageClick"/>
+          <MenuItem x:Name="ContextNotificationMenuItem" Header="消息中心" Click="OnContextNotificationClick"/>
           <MenuItem x:Name="ContextHideMenuItem" Header="隐藏桌宠" Click="OnContextHideClick"/>
           <Separator/>
           <MenuItem x:Name="ContextExitMenuItem" Header="退出" Click="OnContextExitClick"/>

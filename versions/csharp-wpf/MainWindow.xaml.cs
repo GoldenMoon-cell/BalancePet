@@ -23,6 +23,10 @@ public partial class MainWindow : Window
 {
     private static readonly TimeSpan ManualRefreshCooldown = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan RefreshOperationTimeout = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan UsageBackfillWindow = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan UsageBackfillPoll = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ServerCostBackfillWindow = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan ServerCostBackfillPoll = TimeSpan.FromSeconds(5);
     private const int EdgeSnapDistance = 32;
     private const double BubbleTextMaxWidth = 252;
     // A stop can arrive just before the corresponding start when a client
@@ -34,17 +38,21 @@ public partial class MainWindow : Window
     private readonly DpapiTokenStore _tokenStore = new();
     private readonly UsageLedgerStore _usageStore = new();
     private readonly HttpClient _httpClient = CreateBalanceHttpClient();
+    private readonly NewApiUsageProvider _newApiUsageProvider;
     private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromMinutes(2) };
     private readonly UpdateService _updateService;
     private readonly ExtensionUpdateService _extensionUpdateService;
     private readonly ExtensionPackageCatalog _extensionLibrary = new();
     private readonly PetExtensionManager _petExtensions = new();
+    private readonly ThemeExtensionManager _themeExtensions = new();
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _bubbleTimer;
     private readonly DispatcherTimer _floatTimer;
     private readonly CodexTaskBridge _codexTaskBridge = new();
     private readonly CCSwitchAccountBridge _ccSwitchAccountBridge = new();
     private readonly UsageEventBridge _usageEventBridge = new();
+    private readonly NotificationEventStore _notificationEventStore = new();
+    private readonly NotificationStateStore _notificationStateStore = new();
     private readonly BalanceUsageSnapshotStore _balanceUsageSnapshotStore = new();
     private readonly FeatureExtensionManager _featureExtensions = new();
     private readonly DispatcherTimer _stateTimer;
@@ -56,6 +64,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _trayRecoveryTimer;
     private readonly DispatcherTimer _updateTimer;
     private readonly DispatcherTimer _extensionUpdateTimer;
+    private readonly CancellationTokenSource _usageCostSyncCancellation = new();
     private readonly Dictionary<string, MonitorRuntime> _monitorStates = new(StringComparer.OrdinalIgnoreCase);
     private readonly System.Windows.Media.MediaPlayer _pressSound = new();
     private readonly System.Windows.Media.MediaPlayer _releaseSound = new();
@@ -66,7 +75,6 @@ public partial class MainWindow : Window
     private Forms.ToolStripMenuItem? _trayMiniMaxStyleItem;
     private Forms.ToolStripMenuItem? _trayGeminiStyleItem;
     private Forms.ToolStripMenuItem? _trayGrokStyleItem;
-    private Forms.ToolStripMenuItem? _trayMoreStyleMenuItem;
     private readonly Dictionary<string, Forms.ToolStripMenuItem> _trayStyleItems = new(StringComparer.OrdinalIgnoreCase);
     private Forms.ToolStripMenuItem? _trayMonitorMenu;
     private Forms.ToolStripMenuItem? _trayShowItem;
@@ -74,6 +82,7 @@ public partial class MainWindow : Window
     private Forms.ToolStripMenuItem? _traySettingsItem;
     private Forms.ToolStripMenuItem? _trayUpdateItem;
     private Forms.ToolStripMenuItem? _trayUsageItem;
+    private Forms.ToolStripMenuItem? _trayNotificationItem;
     private Forms.ToolStripMenuItem? _trayExitItem;
     private Forms.ToolStripMenuItem? _trayStyleMenuItem;
     private readonly Dictionary<string, Forms.ToolStripMenuItem> _trayMonitorItems = new(StringComparer.OrdinalIgnoreCase);
@@ -107,6 +116,11 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, DateTimeOffset> _recentTaskStops = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _retiredTaskKeys = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Queue<string>> _easterEggHistory = new(StringComparer.Ordinal);
+    private AiAccountActivity? _currentAccountActivity;
+    private bool _currentAccountKnown;
+    private string _lastCompletedTaskSource = "AI 任务";
+    private EventWaitHandle? _usageRefreshRequest;
+    private CancellationTokenSource? _usageRefreshRequestCancellation;
     private DateTimeOffset _lastAccountStatusAt = DateTimeOffset.MinValue;
     private string _lastAccountStatusKey = "";
     private double _bubbleAnimationProgress;
@@ -125,6 +139,7 @@ public partial class MainWindow : Window
     private string? _activePetImagePath;
     private bool _lockedPressed;
     private bool _mousePressed;
+    private bool _clickUpperRegion;
     private string _lockedKind = "body";
     private System.Windows.Point _lockedStart;
     private double _interactionX;
@@ -191,6 +206,8 @@ public partial class MainWindow : Window
         public DateTimeOffset LastRefreshAttempt { get; set; } = DateTimeOffset.MinValue;
         public DateTimeOffset LastErrorNotification { get; set; } = DateTimeOffset.MinValue;
         public double? LastBalance { get; set; }
+        public double? LastSpent { get; set; }
+        public string LastSpentCurrency { get; set; } = "USD";
         public double TodayUsage { get; set; }
         public bool HasBalance { get; set; }
         public bool Refreshing { get; set; }
@@ -223,6 +240,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        _themeExtensions.EnsureBundledThemeInstalled();
         Background = System.Windows.Media.Brushes.Transparent;
         AllowsTransparency = true;
         WindowStyle = WindowStyle.None;
@@ -232,12 +250,14 @@ public partial class MainWindow : Window
         _refreshTimer.Tick += async (_, _) => await RefreshAsync(false);
         _updateService = new UpdateService(_updateHttpClient);
         _extensionUpdateService = new ExtensionUpdateService(_updateHttpClient);
+        _newApiUsageProvider = new NewApiUsageProvider(_httpClient);
         _bubbleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
         _bubbleTimer.Tick += (_, _) => HideBubble();
         _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _floatTimer.Tick += (_, _) => AnimatePet();
         _codexTaskBridge.ActivityReceived += OnCodexTaskActivityReceived;
         _ccSwitchAccountBridge.ActivityReceived += OnAccountStatusReceived;
+        _ccSwitchAccountBridge.StatusChanged += OnCCSwitchStatusChanged;
         _stateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _stateTimer.Tick += (_, _) => RestoreSteadyVisualState();
         _inactiveTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(15) };
@@ -263,30 +283,45 @@ public partial class MainWindow : Window
         };
         Loaded += async (_, _) =>
         {
-            LoadSettingsAndPosition();
+            StartUsageRefreshRequestListener();
+            var notificationCenter = _featureExtensions.GetLatest(FeatureExtensionManager.NotificationCenterId);
+            if (notificationCenter is { IsEnabled: true }
+                && notificationCenter.Manifest.Capabilities.Contains("notifications.present", StringComparer.Ordinal)
+                && _featureExtensions.TryLaunch(FeatureExtensionManager.NotificationCenterId, out _, background: true))
+            {
+                await NotificationPresentationBridge.WaitForExternalPresenterAsync(TimeSpan.FromMilliseconds(800));
+            }
+            LoadSettingsAndPosition(allowImmediateRefresh: true);
             if (ShowPostUpdateConfirmation()) return;
             await RefreshAsync(false);
+            _ = SyncRecentUsageCostsAsync();
         };
         Closing += (_, e) =>
         {
             if (!_closing) { e.Cancel = true; Hide(); return; }
             _refreshCancellation?.Cancel();
+            _usageCostSyncCancellation.Cancel();
             _trayRecoveryTimer.Stop();
             _updateTimer.Stop();
             _extensionUpdateTimer.Stop();
             _codexTaskBridge.Dispose();
             _ccSwitchAccountBridge.Dispose();
             _usageEventBridge.Dispose();
+            StopUsageRefreshRequestListener();
+            _notificationEventStore.Dispose();
             _featureExtensions.Dispose();
             UnregisterTaskbarCreatedHook();
             SavePosition(); DisposeTray(); _httpClient.Dispose(); _updateHttpClient.Dispose();
         };
     }
 
-    private void LoadSettingsAndPosition()
+    private void LoadSettingsAndPosition(bool allowImmediateRefresh = false)
     {
         _settings = _settingsStore.Load();
-        RebuildMonitorStates();
+        _currentAccountActivity = null;
+        _currentAccountKnown = !_settings.CCSwitchIntegration;
+        _lastCompletedTaskSource = "AI 任务";
+        RebuildMonitorStates(allowImmediateRefresh);
         // Release folders are versioned, so refresh the Run entry to this
         // executable whenever startup is enabled or an older entry remains.
         var startupRegistered = StartupManager.IsEnabled();
@@ -335,6 +370,7 @@ public partial class MainWindow : Window
         if (_settings.CodexTaskIntegration) _codexTaskBridge.Start();
         if (_settings.CCSwitchIntegration) _ccSwitchAccountBridge.Start();
         _usageEventBridge.Start();
+        PublishNotificationState();
         SetupTray();
         UpdateTrayMonitorMenu();
         UpdateContextMonitorMenu();
@@ -349,7 +385,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RebuildMonitorStates()
+    private void RebuildMonitorStates(bool allowImmediateRefresh = false)
     {
         _monitorStates.Clear();
         _settings.Monitors ??= new List<MonitorProfile>();
@@ -382,6 +418,10 @@ public partial class MainWindow : Window
             if (BalancePresetCatalog.UsesSiteUrl(profile.PresetId))
                 BalancePresetCatalog.Apply(profile, profile.PresetId, BalancePresetCatalog.ResolveSiteUrl(profile));
             var runtime = new MonitorRuntime(profile);
+            // A settings reload should wait for the configured interval before
+            // polling again. The first process load performs its explicit
+            // startup refresh below, so it is allowed to remain immediately due.
+            if (!allowImmediateRefresh) runtime.LastRefreshAttempt = DateTimeOffset.UtcNow;
             try { runtime.TokenFingerprint = FingerprintToken(_tokenStore.Unprotect(profile.TokenBlob)); }
             catch (Exception error) when (error is FormatException or System.Security.SecurityException or CryptographicException) { }
             if (runtime.CacheStore.TryLoad(out var cached))
@@ -417,15 +457,51 @@ public partial class MainWindow : Window
         if (!_refreshTimer.IsEnabled) _refreshTimer.Start();
     }
 
+    private void StartUsageRefreshRequestListener()
+    {
+        if (_usageRefreshRequestCancellation is not null) return;
+        _usageRefreshRequest = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\BalancePet.UsageAnalytics.Refresh.v1");
+        _usageRefreshRequestCancellation = new CancellationTokenSource();
+        var signal = _usageRefreshRequest;
+        var cancellation = _usageRefreshRequestCancellation.Token;
+        _ = Task.Run(() =>
+        {
+            while (!cancellation.IsCancellationRequested)
+            {
+                if (!signal.WaitOne(500)) continue;
+                if (cancellation.IsCancellationRequested) return;
+                Dispatcher.BeginInvoke(new Action(async () => await RefreshAsync(false)));
+            }
+        }, cancellation);
+    }
+
+    private void StopUsageRefreshRequestListener()
+    {
+        _usageRefreshRequestCancellation?.Cancel();
+        _usageRefreshRequest?.Set();
+        _usageRefreshRequestCancellation?.Dispose();
+        _usageRefreshRequestCancellation = null;
+        _usageRefreshRequest?.Dispose();
+        _usageRefreshRequest = null;
+    }
+
     private void SyncSelectedMonitorState()
     {
         var selected = SelectedMonitor;
-        if (selected is null) { _lastBalance = null; _hasBalance = false; _todayUsage = 0; return; }
+        if (selected is null)
+        {
+            _lastBalance = null;
+            _hasBalance = false;
+            _todayUsage = 0;
+            PublishNotificationState();
+            return;
+        }
         _settings.SelectedMonitorId = selected.Profile.Id;
         _lastBalance = selected.LastBalance;
         _hasBalance = selected.HasBalance;
         _todayUsage = selected.TodayUsage;
         _amountCurrency = string.IsNullOrWhiteSpace(selected.Profile.Currency) ? "USD" : selected.Profile.Currency;
+        PublishNotificationState();
     }
 
     private void PublishBalanceUsageSnapshot()
@@ -436,7 +512,38 @@ public partial class MainWindow : Window
             _settings.SelectedMonitorId);
     }
 
-    private async Task RefreshAsync(bool manual, bool selectedOnly = false, bool force = false)
+    private void PublishNotificationState()
+    {
+        var selected = SelectedMonitor;
+        var taskActive = _activeCodexTurns.Count > 0;
+        var taskProvider = taskActive ? CurrentTaskSourceLabel() : _lastCompletedTaskSource;
+        var account = _currentAccountActivity;
+        var loginMode = !_settings.CCSwitchIntegration
+            ? "未启用"
+            : account is null
+                ? ""
+                : AccountSourceClassifier.ResolveAccountType(account) is "official" or "official-api"
+                    ? AccountSourceClassifier.ResolveAccountType(account) == "official" ? "官方登录" : "官方 API"
+                    : "CC Switch";
+        var loginDetail = account is null
+            ? ""
+            : string.IsNullOrWhiteSpace(account.AccountLabel) ? "当前账户" : account.AccountLabel;
+        _notificationStateStore.Publish(
+            GetCurrentVersion(),
+            taskKnown: true,
+            taskActive,
+            taskProvider,
+            _activeCodexTurns.Count,
+            loginKnown: _currentAccountKnown,
+            loginMode,
+            loginDetail,
+            selected?.HasBalance == true ? selected.LastBalance : null,
+            selected?.Profile.Currency ?? _settings.Currency,
+            selected?.LastSpent,
+            selected?.LastSpentCurrency ?? selected?.Profile.Currency ?? _settings.Currency);
+    }
+
+    private async Task RefreshAsync(bool manual, bool selectedOnly = false, bool force = false, bool suppressResultBubble = false)
     {
         if (_closing) return;
         if (manual) ResetInactiveTimer();
@@ -485,7 +592,7 @@ public partial class MainWindow : Window
         }
         if (_refreshing)
         {
-            if (manual) ShowBubble("正在刷新", "--", "上一轮查询尚未完成");
+            if (manual) ShowRefreshBubble("正在刷新", "--", "上一轮查询尚未完成");
             return;
         }
         var now = DateTimeOffset.UtcNow;
@@ -499,7 +606,7 @@ public partial class MainWindow : Window
             if (manual)
             {
                 var remaining = Math.Max(1, Math.Ceiling((ManualRefreshCooldown - (now - _lastManualRefreshAttempt)).TotalSeconds));
-                ShowBubble("请稍候", $"{remaining:0} 秒", "手动刷新至少间隔 5 秒；自动刷新间隔可在设置中调整");
+                ShowRefreshBubble("请稍候", $"{remaining:0} 秒", "手动刷新至少间隔 5 秒；自动刷新间隔可在设置中调整");
             }
             return;
         }
@@ -514,9 +621,9 @@ public partial class MainWindow : Window
             {
                 SetStatus("正在查询");
                 if (_activeCodexTurns.Count == 0) SetVisualState(PetVisualState.Loading);
-                if (manual) ShowBubble("正在刷新", "--", due.Length == 1 ? $"正在联系 {due[0].Profile.Name}" : $"正在查询 {due.Length} 个账户");
+                if (manual) ShowRefreshBubble("正在刷新", "--", due.Length == 1 ? $"正在联系 {due[0].Profile.Name}" : $"正在查询 {due.Length} 个账户");
             }
-            await Task.WhenAll(due.Select(runtime => RefreshMonitorAsync(runtime, manual, refreshCancellation.Token)));
+            await Task.WhenAll(due.Select(runtime => RefreshMonitorAsync(runtime, manual, refreshCancellation.Token, suppressResultBubble)));
         }
         catch (OperationCanceledException) when (refreshCancellation.IsCancellationRequested)
         {
@@ -528,7 +635,7 @@ public partial class MainWindow : Window
             if (ReferenceEquals(_refreshCancellation, refreshCancellation)) _refreshCancellation = null;
             _refreshing = false;
             PublishBalanceUsageSnapshot();
-            ReconcileSelectedRefreshUi(manual, selectedRefreshStarted);
+            ReconcileSelectedRefreshUi(manual && !suppressResultBubble, selectedRefreshStarted);
         }
     }
 
@@ -560,7 +667,7 @@ public partial class MainWindow : Window
             if (manual)
             {
                 var currency = string.IsNullOrWhiteSpace(selected.Profile.Currency) ? "USD" : selected.Profile.Currency;
-                ShowBubble("账户余额", $"{selected.LastBalance.Value:0.00} {currency}", $"{selected.Profile.Name} · 刷新完成");
+                ShowRefreshBubble("账户余额", $"{selected.LastBalance.Value:0.00} {currency}", $"{selected.Profile.Name} · 刷新完成");
             }
         }
         else
@@ -574,10 +681,10 @@ public partial class MainWindow : Window
         SetStatus(title);
         if (!notify) return;
         if (_activeCodexTurns.Count == 0) RestoreSteadyVisualState();
-        ShowBubble(title, amount, detail);
+        ShowRefreshBubble(title, amount, detail);
     }
 
-    private async Task RefreshMonitorAsync(MonitorRuntime runtime, bool manual, CancellationToken cancellationToken)
+    private async Task RefreshMonitorAsync(MonitorRuntime runtime, bool manual, CancellationToken cancellationToken, bool suppressResultBubble = false)
     {
         var attemptAt = DateTimeOffset.UtcNow;
         runtime.LastRefreshAttempt = attemptAt;
@@ -595,7 +702,10 @@ public partial class MainWindow : Window
             runtime.LastBalance = snapshot.Amount;
             runtime.HasBalance = true;
             runtime.TodayUsage = observation.TodayUsage;
+            runtime.LastSpent = observation.Spent;
+            runtime.LastSpentCurrency = observation.Currency;
             runtime.LastError = null;
+            PublishNotificationState();
 
             if (!IsSelectedMonitor(runtime)) return;
             SyncSelectedMonitorState();
@@ -609,7 +719,8 @@ public partial class MainWindow : Window
             if (observation.Spent > 0.000001)
             {
                 SetVisualState(PetVisualState.Clicked, 1200);
-                ShowBubble("本次消耗", $"-{observation.Spent:0.00} {observation.Currency}", $"{runtime.Profile.Name} · 当前 {snapshot.Amount:0.00} {observation.Currency} · 今日已用 {observation.TodayUsage:0.00}");
+                if (!suppressResultBubble)
+                    ShowRefreshBubble("本次消耗", $"-{observation.Spent:0.00} {observation.Currency}", $"{runtime.Profile.Name} · 当前 {snapshot.Amount:0.00} {observation.Currency} · 今日已用 {observation.TodayUsage:0.00}");
             }
             else
             {
@@ -618,7 +729,7 @@ public partial class MainWindow : Window
                 SetVisualState(low ? PetVisualState.Low : PetVisualState.Success, temporaryMs);
                 if (low && (!wasLow || !hadBalance))
                     ShowSystemNotification($"{runtime.Profile.Name} 余额偏低", $"当前余额 {snapshot.Amount:0.00} {snapshot.Currency}", Forms.ToolTipIcon.Warning);
-                if (manual || !hadBalance) ShowBubble("账户余额", $"{snapshot.Amount:0.00} {snapshot.Currency}", $"{runtime.Profile.Name} · 更新于 {snapshot.UpdatedAt:HH:mm:ss} · 今日已用 {observation.TodayUsage:0.00}");
+                if (!suppressResultBubble && (manual || !hadBalance)) ShowRefreshBubble("账户余额", $"{snapshot.Amount:0.00} {snapshot.Currency}", $"{runtime.Profile.Name} · 更新于 {snapshot.UpdatedAt:HH:mm:ss} · 今日已用 {observation.TodayUsage:0.00}");
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -632,15 +743,16 @@ public partial class MainWindow : Window
                 if (_activeCodexTurns.Count == 0)
                 {
                     RestoreSteadyVisualState();
-                    if (manual) ShowBubble("刷新失败", "--", $"{runtime.Profile.Name} 请求超时或已取消，请稍后重试");
+                    if (manual) ShowRefreshBubble("刷新失败", "--", $"{runtime.Profile.Name} 请求超时或已取消，请稍后重试");
                 }
                 else if (_visualState != PetVisualState.CodexWorking)
                 {
                     SetVisualState(PetVisualState.CodexWorking);
-                    ShowBubble(
-                        $"{CurrentTaskSourceLabel()} 工作中",
-                        _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
-                        "任务完成或停止后会自动切换状态");
+                    if (!suppressResultBubble)
+                        ShowBubble(
+                            $"{CurrentTaskSourceLabel()} 工作中",
+                            _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
+                            "任务完成或停止后会自动切换状态");
                 }
             }
         }
@@ -655,10 +767,11 @@ public partial class MainWindow : Window
                 if (_visualState != PetVisualState.CodexWorking)
                 {
                     SetVisualState(PetVisualState.CodexWorking);
-                    ShowBubble(
-                        $"{CurrentTaskSourceLabel()} 工作中",
-                        _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
-                        "任务完成或停止后会自动切换状态");
+                    if (!suppressResultBubble)
+                        ShowBubble(
+                            $"{CurrentTaskSourceLabel()} 工作中",
+                            _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
+                            "任务完成或停止后会自动切换状态");
                 }
                 return;
             }
@@ -670,9 +783,10 @@ public partial class MainWindow : Window
                 runtime.HasBalance = true;
                 SyncSelectedMonitorState();
                 AnimateAmountTo(cached.Amount, cached.Currency);
-                ShowBubble("上次余额", $"{cached.Amount:0.00} {cached.Currency}", $"{runtime.Profile.Name} 网络波动，暂用缓存 · {detail}");
+                if (!suppressResultBubble)
+                    ShowRefreshBubble("上次余额", $"{cached.Amount:0.00} {cached.Currency}", $"{runtime.Profile.Name} 网络波动，暂用缓存 · {detail}");
             }
-            else ShowBubble("刷新失败", "--", $"{runtime.Profile.Name} · {detail}");
+            else if (!suppressResultBubble) ShowRefreshBubble("刷新失败", "--", $"{runtime.Profile.Name} · {detail}");
             if (DateTimeOffset.Now - runtime.LastErrorNotification > TimeSpan.FromMinutes(10))
             {
                 ShowSystemNotification($"{runtime.Profile.Name} 刷新失败", detail, Forms.ToolTipIcon.Error);
@@ -773,10 +887,14 @@ public partial class MainWindow : Window
             "claude" => new[] { new EasterEggLine("丹笺翻到下一页", "先歇会儿", "需要时再回来，我会记得上下文"), new EasterEggLine("书签轻轻晃动", "我在值班", "余额变化会替你留下标记"), new EasterEggLine("墨香还没散", "慢慢来", "不用一直盯着屏幕") },
             "kimi" => new[] { new EasterEggLine("虹谱在发光", "小憩一下", "回来后继续陪你看余额"), new EasterEggLine("棱镜折出彩虹", "我还醒着", "每一次刷新都不会错过"), new EasterEggLine("光谱安静排列", "先休息", "需要时点我一下就好") },
             "qwen" => new[] { new EasterEggLine("绀华收起折扇", "小憩一下", "回来后我还会继续守着余额"), new EasterEggLine("扇面写了新字", "稍后见", "有变化时我会提醒你"), new EasterEggLine("风从扇边经过", "慢慢来", "别让自己比余额更快见底") },
+            "ernie" => new[] { new EasterEggLine("青绡翻到下一页", "先歇会儿", "回来后我还会继续守着余额"), new EasterEggLine("蓝色书签轻轻晃动", "我在值班", "余额变化会替你留下一页记录"), new EasterEggLine("护理手册合上了", "慢慢来", "不用一直盯着屏幕") },
+            "glm" => new[] { new EasterEggLine("青棱抱着书打盹", "安静待机", "回来后再一起核对余额"), new EasterEggLine("方晶发饰闪了一下", "我还醒着", "下一次刷新不会错过"), new EasterEggLine("猫耳听见了风声", "嘘", "先让思路也休息一会儿") },
+            "gpt-image2" => new[] { new EasterEggLine("玄珏收起画笔", "稍后再画", "回来后继续陪你看余额"), new EasterEggLine("黑玉画板微微发亮", "灵感待机", "下一次状态变化我会告诉你"), new EasterEggLine("墨色龙角安静下来", "慢慢来", "好画面和好预算都值得等待") },
+            "llama" => new[] { new EasterEggLine("绒眠缩进软绒里", "小憩一下", "回来后我还会继续守着余额"), new EasterEggLine("无限发夹亮了一点", "我还在呢", "下一次刷新不会错过"), new EasterEggLine("白色耳朵轻轻垂下", "晚安片刻", "你也记得让眼睛休息一下") },
             _ => new[] { new EasterEggLine("澜汐在等你", "慢慢来", "需要时再喊我就好"), new EasterEggLine("耳鳍轻轻摆动", "我还醒着", "回来后我会继续守着余额"), new EasterEggLine("水面暂时平静", "小憩一下", "需要时敲一下桌面就好") }
         };
         var line = PickEasterEggLine($"inactive|{style}", lines);
-        ShowBubble(line.Label, line.Amount, line.Hint, TimeSpan.FromSeconds(4.2));
+        ShowEasterEggBubble(line.Label, line.Amount, line.Hint, TimeSpan.FromSeconds(4.2));
     }
 
     private void EnsurePetTransforms()
@@ -849,7 +967,9 @@ public partial class MainWindow : Window
         if (_settings.InteractionMode == "locked")
         {
             _lockedPressed = true; _lockedStart = PointToScreen(e.GetPosition(this));
-            var local = e.GetPosition(PetSurface); _lockedKind = local.Y < PetSurface.ActualHeight * .35 ? "hair" : local.Y < PetSurface.ActualHeight * .78 ? "mouth" : "body";
+            var local = e.GetPosition(PetSurface);
+            _clickUpperRegion = local.Y < PetSurface.ActualHeight * (2d / 3d);
+            _lockedKind = _clickUpperRegion ? "hair" : "body";
             _interactionTargetX = 0; _interactionTargetY = 0;
             PlaySound(_pressSound);
             PetSurface.CaptureMouse();
@@ -861,6 +981,8 @@ public partial class MainWindow : Window
             _mousePressed = false;
             return;
         }
+        var localPoint = e.GetPosition(PetSurface);
+        _clickUpperRegion = localPoint.Y < PetSurface.ActualHeight * (2d / 3d);
         _dragStart = new System.Windows.Point(cursor.X, cursor.Y); _windowStartX = rect.Left; _windowStartY = rect.Top; _dragging = true; _dragMoved = false; PetSurface.CaptureMouse();
         PlaySound(_pressSound);
     }
@@ -883,7 +1005,17 @@ public partial class MainWindow : Window
         _dragging = false; if (PetSurface.IsMouseCaptured) PetSurface.ReleaseMouseCapture();
         SnapToEdge();
         if (_settings.InteractionEffects) KickReleaseBounce();
-        PlaySound(_releaseSound); if (!_dragMoved) _ = RefreshAfterClickAsync(); else RestoreSteadyVisualState();
+        PlaySound(_releaseSound);
+        if (!_dragMoved)
+        {
+            if (_clickUpperRegion)
+            {
+                var preserveVisualState = ShowInteractionFeedback("hair");
+                if (_settings.InteractionEffects && !preserveVisualState) RestoreSteadyVisualState();
+            }
+            else _ = RefreshAfterClickAsync();
+        }
+        else RestoreSteadyVisualState();
     }
 
     private void OnPetLostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e)
@@ -903,8 +1035,8 @@ public partial class MainWindow : Window
 
     private async Task RefreshAfterClickAsync()
     {
-        if (_settings.InteractionEffects) await Task.Delay(420);
-        if (!_closing) await RefreshAsync(true, true);
+        if (_closing) return;
+        await RefreshAsync(true, true);
     }
 
     private void KickReleaseBounce()
@@ -933,6 +1065,7 @@ public partial class MainWindow : Window
     private void OnPetContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         ApplyLocalization();
+        RefreshFeatureExtensionMenuItems();
         BubbleMenuItem.Header = BubbleGroup.Visibility == Visibility.Visible
             ? AppLocalization.Text(_settings.Language, "隐藏气泡", "Hide bubble")
             : AppLocalization.Text(_settings.Language, "显示气泡", "Show bubble");
@@ -940,6 +1073,25 @@ public partial class MainWindow : Window
             ? AppLocalization.Text(_settings.Language, "切换为自由拖动", "Switch to free drag")
             : AppLocalization.Text(_settings.Language, "切换为锁定互动", "Switch to locked interaction");
         UpdatePetStyleMenuChecks();
+    }
+
+    private void RefreshFeatureExtensionMenuItems()
+    {
+        var notification = _featureExtensions.GetLatest(FeatureExtensionManager.NotificationCenterId);
+        ContextNotificationMenuItem.Visibility = notification is null ? Visibility.Collapsed : Visibility.Visible;
+        ContextNotificationMenuItem.IsEnabled = notification?.IsEnabled == true;
+        ContextNotificationMenuItem.Header = notification is { IsEnabled: false }
+            ? AppLocalization.Text(_settings.Language, "消息中心（插件未启用）", "Messages (extension disabled)")
+            : AppLocalization.Text(_settings.Language, "消息中心", "Messages");
+
+        if (_trayNotificationItem is not null)
+        {
+            _trayNotificationItem.Visible = notification is not null;
+            _trayNotificationItem.Enabled = notification?.IsEnabled == true;
+            _trayNotificationItem.Text = notification is { IsEnabled: false }
+                ? AppLocalization.Text(_settings.Language, "消息中心（插件未启用）", "Messages (extension disabled)")
+                : AppLocalization.Text(_settings.Language, "消息中心", "Messages");
+        }
     }
 
     private async void OnContextRefreshClick(object sender, RoutedEventArgs e) => await RefreshAsync(true, true);
@@ -957,10 +1109,10 @@ public partial class MainWindow : Window
             var selected = SelectedMonitor;
             var currency = selected?.Profile.Currency ?? _settings.Currency;
             var name = selected?.Profile.Name ?? "当前账户";
-            ShowBubble("账户余额", $"{_lastBalance:0.00} {currency}", $"{name} · 今日已用 {_todayUsage:0.00} {currency}");
+            ShowRefreshBubble("账户余额", $"{_lastBalance:0.00} {currency}", $"{name} · 今日已用 {_todayUsage:0.00} {currency}");
         }
         else
-            ShowBubble("还没查询", "--", "点击立即刷新获取余额");
+            ShowRefreshBubble("还没查询", "--", "点击立即刷新获取余额");
     }
 
     private void OnContextInteractionClick(object sender, RoutedEventArgs e)
@@ -1089,13 +1241,13 @@ public partial class MainWindow : Window
             if (!contextIds.Add(definition.Id)) continue;
             var item = new MenuItem { Header = PetStyleDisplayName(definition.Id), Tag = definition.Id, IsCheckable = true };
             item.Click += OnPetStyleClick;
-            MoreStyleMenuItem.Items.Add(item);
+            ContextStyleMenuItem.Items.Add(item);
         }
 
-        if (_trayStyleMenuItem is null || _trayMoreStyleMenuItem is null) return;
+        if (_trayStyleMenuItem is null) return;
         foreach (var item in _trayStyleItems.Where(pair => !builtInIds.Contains(pair.Key) && !availableExtensionIds.Contains(pair.Key)).ToArray())
         {
-            _trayMoreStyleMenuItem.DropDownItems.Remove(item.Value);
+            _trayStyleMenuItem.DropDownItems.Remove(item.Value);
             _trayStyleItems.Remove(item.Key);
         }
         foreach (var definition in extensionStyles)
@@ -1104,7 +1256,7 @@ public partial class MainWindow : Window
             var item = new Forms.ToolStripMenuItem(PetStyleDisplayName(definition.Id)) { Tag = definition.Id };
             item.Click += (_, _) => ChangePetStyle(definition.Id);
             _trayStyleItems[definition.Id] = item;
-            _trayMoreStyleMenuItem.DropDownItems.Add(item);
+            _trayStyleMenuItem.DropDownItems.Add(item);
         }
     }
 
@@ -1184,9 +1336,10 @@ public partial class MainWindow : Window
         ContextRefreshMenuItem.Header = AppLocalization.Text(_settings.Language, "立即刷新", "Refresh now");
         ContextStyleMenuItem.Header = AppLocalization.Text(_settings.Language, "切换形象", "Change appearance");
         MonitorMenuItem.Header = AppLocalization.Text(_settings.Language, "当前账户", "Current account");
-        ContextSettingsMenuItem.Header = AppLocalization.Text(_settings.Language, "配置接口", "Configure API");
+        ContextSettingsMenuItem.Header = AppLocalization.Text(_settings.Language, "设置面板", "Settings");
         ContextUpdateMenuItem.Header = AppLocalization.Text(_settings.Language, "检查更新", "Check for updates");
         ContextUsageMenuItem.Header = AppLocalization.Text(_settings.Language, "用量统计", "Usage");
+        ContextNotificationMenuItem.Header = AppLocalization.Text(_settings.Language, "消息中心", "Messages");
         ContextHideMenuItem.Header = AppLocalization.Text(_settings.Language, "隐藏桌宠", "Hide pet");
         ContextExitMenuItem.Header = AppLocalization.Text(_settings.Language, "退出", "Exit");
         DeepSeekStyleMenuItem.Header = PetStyleDisplayName("deepseek");
@@ -1196,15 +1349,14 @@ public partial class MainWindow : Window
         GrokStyleMenuItem.Header = PetStyleDisplayName("grok");
         foreach (var item in EnumerateStyleMenuItems(ContextStyleMenuItem))
             if (item.Tag is string id) item.Header = PetStyleDisplayName(id);
-        MoreStyleMenuItem.Header = AppLocalization.Text(_settings.Language, "更多形象", "More appearances");
         if (_trayShowItem is not null) _trayShowItem.Text = AppLocalization.Text(_settings.Language, "显示桌宠", "Show pet");
         if (_trayRefreshItem is not null) _trayRefreshItem.Text = AppLocalization.Text(_settings.Language, "立即刷新", "Refresh now");
-        if (_traySettingsItem is not null) _traySettingsItem.Text = AppLocalization.Text(_settings.Language, "配置接口", "Configure API");
+        if (_traySettingsItem is not null) _traySettingsItem.Text = AppLocalization.Text(_settings.Language, "设置面板", "Settings");
         if (_trayStyleMenuItem is not null) _trayStyleMenuItem.Text = AppLocalization.Text(_settings.Language, "切换形象", "Change appearance");
-        if (_trayMoreStyleMenuItem is not null) _trayMoreStyleMenuItem.Text = AppLocalization.Text(_settings.Language, "更多形象", "More appearances");
         if (_trayMonitorMenu is not null) _trayMonitorMenu.Text = AppLocalization.Text(_settings.Language, "当前账户", "Current account");
         if (_trayUpdateItem is not null) _trayUpdateItem.Text = AppLocalization.Text(_settings.Language, "检查更新", "Check for updates");
         if (_trayUsageItem is not null) _trayUsageItem.Text = AppLocalization.Text(_settings.Language, "用量统计", "Usage");
+        if (_trayNotificationItem is not null) _trayNotificationItem.Text = AppLocalization.Text(_settings.Language, "消息中心", "Messages");
         if (_trayExitItem is not null) _trayExitItem.Text = AppLocalization.Text(_settings.Language, "退出", "Exit");
         if (_trayDeepSeekStyleItem is not null) _trayDeepSeekStyleItem.Text = PetStyleDisplayName("deepseek");
         if (_trayChatGptStyleItem is not null) _trayChatGptStyleItem.Text = PetStyleDisplayName("chatgpt");
@@ -1221,6 +1373,8 @@ public partial class MainWindow : Window
     private async void OnContextUpdateClick(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync(true);
 
     private void OnContextUsageClick(object sender, RoutedEventArgs e) => Dispatcher.BeginInvoke(new Action(OpenUsageWindow));
+
+    private void OnContextNotificationClick(object sender, RoutedEventArgs e) => Dispatcher.BeginInvoke(new Action(OpenNotificationCenter));
 
     private void OnContextHideClick(object sender, RoutedEventArgs e) => Hide();
 
@@ -1244,14 +1398,15 @@ public partial class MainWindow : Window
         finally
         {
             if (!_closing && refreshTimerWasEnabled) ConfigureRefreshTimer();
+            RefreshFeatureExtensionMenuItems();
         }
     }
 
-    private async void OnSettingsAppliedFromDialog(object? sender, EventArgs e)
+    private void OnSettingsAppliedFromDialog(object? sender, EventArgs e)
     {
         LoadSettingsAndPosition();
         ConfigureSounds();
-        await RefreshAsync(true, true);
+        RefreshFeatureExtensionMenuItems();
     }
 
     private async Task StopActiveRefreshAsync()
@@ -1335,18 +1490,21 @@ public partial class MainWindow : Window
         _trayMiniMaxStyleItem.Click += (_, _) => ChangePetStyle("minimax");
         _trayGeminiStyleItem.Click += (_, _) => ChangePetStyle("gemini");
         _trayGrokStyleItem.Click += (_, _) => ChangePetStyle("grok");
-        _trayMoreStyleMenuItem = new Forms.ToolStripMenuItem();
         _trayStyleItems.Clear();
         _trayStyleItems["deepseek"] = _trayDeepSeekStyleItem;
         _trayStyleItems["chatgpt"] = _trayChatGptStyleItem;
         _trayStyleItems["minimax"] = _trayMiniMaxStyleItem;
         _trayStyleItems["gemini"] = _trayGeminiStyleItem;
         _trayStyleItems["grok"] = _trayGrokStyleItem;
-        foreach (var definition in PetStyleCatalog.All)
+        foreach (var definition in PetStyleCatalog.All.Where(definition => PetStyleCatalog.IsAvailable(definition.Id)))
         {
             if (definition.Id is "deepseek" or "chatgpt" or "minimax" or "gemini" or "grok") continue;
-            var item = new Forms.ToolStripMenuItem(PetStyleDisplayName(definition.Id)) { Tag = definition.Id };
-            item.Click += (_, _) => ChangePetStyle(definition.Id);
+            var item = new Forms.ToolStripMenuItem(PetStyleDisplayName(definition.Id))
+            {
+                Tag = definition.Id,
+                Enabled = PetStyleCatalog.IsAvailable(definition.Id)
+            };
+            if (item.Enabled) item.Click += (_, _) => ChangePetStyle(definition.Id);
             _trayStyleItems[definition.Id] = item;
         }
         styleMenu.DropDownItems.Add(_trayDeepSeekStyleItem);
@@ -1354,10 +1512,8 @@ public partial class MainWindow : Window
         styleMenu.DropDownItems.Add(_trayMiniMaxStyleItem);
         styleMenu.DropDownItems.Add(_trayGeminiStyleItem);
         styleMenu.DropDownItems.Add(_trayGrokStyleItem);
-        styleMenu.DropDownItems.Add(new Forms.ToolStripSeparator());
-        styleMenu.DropDownItems.Add(_trayMoreStyleMenuItem);
         foreach (var item in _trayStyleItems.Values.Where(item => item.Tag?.ToString() is not ("deepseek" or "chatgpt" or "minimax" or "gemini" or "grok")))
-            _trayMoreStyleMenuItem.DropDownItems.Add(item);
+            styleMenu.DropDownItems.Add(item);
         menu.Items.Add(styleMenu);
         _trayMonitorMenu = new Forms.ToolStripMenuItem();
         menu.Items.Add(_trayMonitorMenu);
@@ -1367,11 +1523,15 @@ public partial class MainWindow : Window
         _trayUsageItem = new Forms.ToolStripMenuItem();
         _trayUsageItem.Click += (_, _) => Dispatcher.BeginInvoke(new Action(OpenUsageWindow));
         menu.Items.Add(_trayUsageItem);
+        _trayNotificationItem = new Forms.ToolStripMenuItem();
+        _trayNotificationItem.Click += (_, _) => Dispatcher.BeginInvoke(new Action(OpenNotificationCenter));
+        menu.Items.Add(_trayNotificationItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         _trayExitItem = new Forms.ToolStripMenuItem();
         _trayExitItem.Click += (_, _) => { _closing = true; System.Windows.Application.Current.Shutdown(); };
         menu.Items.Add(_trayExitItem);
         _trayMenu = menu;
+        menu.Opening += (_, _) => RefreshFeatureExtensionMenuItems();
         // Assign the icon before making the shell icon visible. Some Explorer
         // versions do not repaint a NotifyIcon that started with Icon == null.
         _trayIcon = new Forms.NotifyIcon
@@ -1382,6 +1542,7 @@ public partial class MainWindow : Window
             Visible = true
         };
         ApplyLocalization();
+        RefreshFeatureExtensionMenuItems();
         UpdatePetStyleMenuChecks();
         _trayIcon.DoubleClick += (_, _) => { Show(); Activate(); };
         // Explorer may not have created the notification area yet during a
@@ -1404,17 +1565,17 @@ public partial class MainWindow : Window
             _settingsStore.Save(_settings);
             if (release is null)
             {
-                if (manual) ShowBubble("已是最新版本", current, "当前不需要更新");
+                if (manual) ShowNativeBubble("已是最新版本", current, "当前不需要更新");
                 return;
             }
 
             if (!UpdateInstaller.TryCreatePlan(release, AppContext.BaseDirectory, out var plan, out var planError) || plan is null)
                 throw new InvalidOperationException(planError);
 
-            var dialog = new UpdateWindow(release, plan, _settings.Language) { Owner = this };
+            var dialog = new UpdateWindow(release, plan, _settings) { Owner = this };
             if (dialog.ShowDialog() != true) return;
 
-            ShowBubble("正在更新", release.TagName, "下载并校验中");
+            ShowNativeBubble("正在更新", release.TagName, "下载并校验中");
             var payload = await _updateService.DownloadAsync(plan.Asset);
             if (plan.Method == UpdateInstallMethod.Installer)
             {
@@ -1424,7 +1585,7 @@ public partial class MainWindow : Window
                     throw new InvalidOperationException(installerError);
                 }
 
-                ShowBubble("安装器已启动", release.TagName, "请在安装器中确认管理员授权并完成更新");
+                ShowNativeBubble("安装器已启动", release.TagName, "请在安装器中确认管理员授权并完成更新");
                 return;
             }
 
@@ -1511,14 +1672,14 @@ public partial class MainWindow : Window
         }
         try
         {
-            var entries = _extensionLibrary.BuildEntries(_petExtensions.GetInstalled(), _featureExtensions.GetInstalled());
+            var entries = _extensionLibrary.BuildEntries(_petExtensions.GetInstalled(), _featureExtensions.GetInstalled(), _themeExtensions.GetInstalled());
             var result = await _extensionUpdateService.CheckAsync(entries);
             _settings.LastExtensionUpdateCheckUtc = DateTimeOffset.UtcNow;
             _settingsStore.Save(_settings);
             var updates = result.Releases.Values.Count(release => entries.Any(entry => entry.IsInstalled && string.Equals(entry.Id, release.Id, StringComparison.OrdinalIgnoreCase) && ExtensionCatalogEntry.CompareVersions(release.Version, entry.InstalledVersion) > 0));
             if (updates > 0)
             {
-                ShowBubble("发现扩展更新", $"{updates} 个扩展", "打开设置查看");
+                ShowNativeBubble("发现扩展更新", $"{updates} 个扩展", "打开设置查看");
                 ShowSystemNotification("发现扩展更新", $"有 {updates} 个扩展可以更新", Forms.ToolTipIcon.Info);
             }
         }
@@ -1548,7 +1709,7 @@ public partial class MainWindow : Window
             Show();
         }
         SetVisualState(PetVisualState.Success, 3600);
-        ShowBubble("更新完成", version, "BalancePet 已重新启动", TimeSpan.FromSeconds(6));
+        ShowNativeBubble("更新完成", version, "BalancePet 已重新启动", TimeSpan.FromSeconds(6));
         ShowSystemNotification("BalancePet 已更新", $"当前版本 {version}", Forms.ToolTipIcon.Info);
         if (_temporarilyShownForUpdate)
         {
@@ -1700,9 +1861,9 @@ public partial class MainWindow : Window
         _traySettingsItem = null;
         _trayUpdateItem = null;
         _trayUsageItem = null;
+        _trayNotificationItem = null;
         _trayExitItem = null;
         _trayStyleMenuItem = null;
-        _trayMoreStyleMenuItem = null;
         _trayMonitorItems.Clear();
         _trayImage?.Dispose();
         _trayImage = null;
@@ -1711,15 +1872,37 @@ public partial class MainWindow : Window
     private void OpenUsageWindow()
     {
         if (_featureExtensions.TryLaunch(FeatureExtensionManager.UsageAnalyticsId, out _)) return;
-        var dialog = new UsageWindow(SelectedMonitor?.UsageStore ?? _usageStore, _settings.Language) { Owner = this };
+        var dialog = new UsageWindow(SelectedMonitor?.UsageStore ?? _usageStore, _settings) { Owner = this };
         dialog.ShowDialog();
     }
 
-    private void ShowBubble(string label, string amount, string hint, TimeSpan? duration = null)
+    private void OpenNotificationCenter()
     {
-        if (!_settings.Bubble) return;
+        if (_featureExtensions.TryLaunch(FeatureExtensionManager.NotificationCenterId, out var error)) return;
+        ShowRefreshBubble("消息中心", "打开失败", error);
+    }
+
+    private void ShowEasterEggBubble(string label, string amount, string hint, TimeSpan? duration = null)
+        => ShowBubble(label, amount, hint, duration, allowExternalPresenter: false);
+
+    private void ShowRefreshBubble(string label, string amount, string hint, TimeSpan? duration = null)
+        => ShowBubble(label, amount, hint, duration, preferNativePresentation: true);
+
+    private void ShowNativeBubble(string label, string amount, string hint, TimeSpan? duration = null)
+        => ShowBubble(label, amount, hint, duration, preferNativePresentation: true);
+
+    private void ShowBubble(string label, string amount, string hint, TimeSpan? duration = null,
+        bool allowExternalPresenter = true, bool preferNativePresentation = false)
+    {
+        var isRefreshProgress = string.Equals(label, "正在刷新", StringComparison.OrdinalIgnoreCase);
+        var displayAmount = string.Equals(amount.Trim(), "--", StringComparison.Ordinal) ? "" : amount;
+        if (allowExternalPresenter && !isRefreshProgress) _notificationEventStore.Record(label, displayAmount, hint);
+        // Refresh state is already represented by the pet artwork and status
+        // dot. It is deliberately not a notification-center event or bubble.
+        if (isRefreshProgress) return;
+        if (!_settings.Bubble || (allowExternalPresenter && !preferNativePresentation && NotificationPresentationBridge.IsExternalPresenterActive())) return;
         label = AppLocalization.Translate(label, _settings.Language);
-        amount = AppLocalization.Translate(amount, _settings.Language);
+        amount = AppLocalization.Translate(displayAmount, _settings.Language);
         hint = AppLocalization.Translate(hint, _settings.Language);
         _pendingBubbleLabel = label;
         _pendingBubbleAmount = amount;
@@ -1857,6 +2040,30 @@ public partial class MainWindow : Window
                 new EasterEggLine("折扇开了一线", "找到啦", "我会继续看着余额"), new EasterEggLine("扇面落下一笔墨", "在呢", "完成后会显示本次消耗"),
                 new EasterEggLine("风来时再刷新", "慢慢来", "别把今日预算一下用完")
             },
+            "ernie" => new[]
+            {
+                new EasterEggLine("青绡在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("蓝色书签被碰响了", "轻一点", "点击角色可以刷新余额"),
+                new EasterEggLine("护理手册翻了一页", "找到啦", "我会继续看着余额"), new EasterEggLine("青色丝带绕了一圈", "在呢", "完成后会显示本次消耗"),
+                new EasterEggLine("今天也要照顾好预算", "收到", "别忘了给自己留一点余量")
+            },
+            "glm" => new[]
+            {
+                new EasterEggLine("青棱在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("猫耳听见你了", "轻一点", "点击角色可以刷新余额"),
+                new EasterEggLine("方晶发饰闪了一格", "找到啦", "我会继续看着余额"), new EasterEggLine("黑色小书翻开了", "在呢", "完成后会显示本次消耗"),
+                new EasterEggLine("模块已经对齐", "可以继续", "先确认余额，再开始下一项任务")
+            },
+            "gpt-image2" => new[]
+            {
+                new EasterEggLine("玄珏在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("墨色龙角被碰到了", "轻一点", "点击角色可以刷新余额"),
+                new EasterEggLine("画笔在画板上点了一下", "找到啦", "我会继续看着余额"), new EasterEggLine("黑玉边框亮了一圈", "在呢", "完成后会显示本次消耗"),
+                new EasterEggLine("灵感也要留白", "慢慢画", "预算够用，画面才有余地")
+            },
+            "llama" => new[]
+            {
+                new EasterEggLine("绒眠在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("白色耳朵抖了一下", "轻一点", "点击角色可以刷新余额"),
+                new EasterEggLine("无限发夹亮起来了", "找到啦", "我会继续看着余额"), new EasterEggLine("绒球轻轻碰在一起", "在呢", "完成后会显示本次消耗"),
+                new EasterEggLine("今天也软乎乎地稳住", "收到", "别让额度一下子跑光")
+            },
             _ => new[]
             {
                 new EasterEggLine("澜汐在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("耳鳍动了一下", "轻一点", "点击角色可以刷新余额"),
@@ -1865,7 +2072,7 @@ public partial class MainWindow : Window
             }
         };
         var line = PickEasterEggLine($"bubble|{style}", lines);
-        ShowBubble(line.Label, line.Amount, line.Hint, TimeSpan.FromSeconds(4.5));
+        ShowEasterEggBubble(line.Label, line.Amount, line.Hint, TimeSpan.FromSeconds(4.5));
     }
 
     private bool ShowInteractionFeedback(string kind)
@@ -1889,16 +2096,20 @@ public partial class MainWindow : Window
                 "claude" => new[] { new EasterEggLine("被发现了", "丹笺合上了书", "连续互动彩蛋"), new EasterEggLine("书签跳了出来", "四连击", "这一页专门写给你"), new EasterEggLine("丹笺轻敲书脊", "先暂停", "连续互动太快啦") },
                 "kimi" => new[] { new EasterEggLine("被发现了", "虹谱折出一束光", "连续互动彩蛋"), new EasterEggLine("棱镜连闪四次", "四连击", "彩虹也记住你了"), new EasterEggLine("光谱请求冷却", "等一下", "让颜色重新排列") },
                 "qwen" => new[] { new EasterEggLine("被发现了", "绀华轻摇折扇", "连续互动彩蛋"), new EasterEggLine("扇面写下四笔", "四连击", "这一笔送给你"), new EasterEggLine("绀华收扇提醒", "先停一下", "连续互动太快啦") },
+                "ernie" => new[] { new EasterEggLine("被发现了", "青绡从书后探出头", "连续互动彩蛋"), new EasterEggLine("书页连翻四次", "四连击", "这一页专门留给你"), new EasterEggLine("青绡按住书签", "先缓一缓", "护理助手也需要翻页时间") },
+                "glm" => new[] { new EasterEggLine("被发现了", "青棱的猫耳竖起来了", "连续互动彩蛋"), new EasterEggLine("方晶连续闪烁", "四连击", "这一组输入已经记住了"), new EasterEggLine("青棱合上小书", "稍等一下", "模块正在重新对齐") },
+                "gpt-image2" => new[] { new EasterEggLine("被发现了", "玄珏偷偷笑了一下", "连续互动彩蛋"), new EasterEggLine("画笔连点四下", "四连击", "这一笔就画给你"), new EasterEggLine("玄珏护住画板", "先留点白", "灵感也需要一点呼吸空间") },
+                "llama" => new[] { new EasterEggLine("被发现了", "绒眠的耳朵竖起来了", "连续互动彩蛋"), new EasterEggLine("绒球连晃四次", "四连击", "这份软乎乎送给你"), new EasterEggLine("绒眠缩进袖口", "让我缓缓", "连续互动太快啦") },
                 _ => new[] { new EasterEggLine("被发现了", "澜汐眨了眨眼", "连续互动彩蛋"), new EasterEggLine("水花连跳四次", "四连击", "这次真的抓到我啦"), new EasterEggLine("澜汐躲进水面", "缓一缓", "连续互动太快啦") }
             };
             var surpriseLine = PickEasterEggLine($"streak|{style}", surprise);
-            ShowBubble(surpriseLine.Label, surpriseLine.Amount, surpriseLine.Hint, TimeSpan.FromSeconds(4.2));
+            ShowEasterEggBubble(surpriseLine.Label, surpriseLine.Amount, surpriseLine.Hint, TimeSpan.FromSeconds(4.2));
             return _settings.InteractionEffects;
         }
 
         var lines = GetInteractionLines(kind);
         var line = PickEasterEggLine($"touch|{NormalizePetStyle(_settings.PetStyle)}|{kind}", lines);
-        ShowBubble(line.Label, line.Amount, line.Hint, TimeSpan.FromSeconds(3.8));
+        ShowEasterEggBubble(line.Label, line.Amount, line.Hint, TimeSpan.FromSeconds(3.8));
         return false;
     }
 
@@ -1972,6 +2183,46 @@ public partial class MainWindow : Window
                 "hair" => new[] { new EasterEggLine("扇骨被碰到", "有点痒", "绀华轻轻收了收折扇"), new EasterEggLine("不要拽扇面", "轻一点", "墨迹还没有干"), new EasterEggLine("流苏晃了一下", "记下啦", "这一笔先写在账上") },
                 "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "绀华有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("折扇遮住半张脸", "哎呀", "别让今日额度也害羞消失") },
                 _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("扇面翻过一页", "收到", "余额变化会及时告诉你"), new EasterEggLine("绀华点了点扇柄", "继续吧", "完成后会显示本次消耗") }
+            };
+        }
+
+        if (style == "ernie")
+        {
+            return kind switch
+            {
+                "hair" => new[] { new EasterEggLine("蓝色发饰被碰到", "有点痒", "青绡轻轻偏了偏头"), new EasterEggLine("不要拽书签", "轻一点", "长发会和丝带缠在一起"), new EasterEggLine("青色丝带晃了一圈", "记下啦", "这一页先替你留着") },
+                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "青绡有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("护理助手鼓起脸", "要听话", "再忙也要记得休息") },
+                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("手册翻过一页", "收到", "余额变化会及时告诉你"), new EasterEggLine("青绡握紧了书签", "继续吧", "完成后会显示本次消耗") }
+            };
+        }
+
+        if (style == "glm")
+        {
+            return kind switch
+            {
+                "hair" => new[] { new EasterEggLine("猫耳被碰到", "听见啦", "青棱的耳朵轻轻抖了一下"), new EasterEggLine("不要戳睡帽", "轻一点", "方晶挂饰会歪掉的"), new EasterEggLine("蓝色吊坠响了一声", "叮", "模块已经收到你的信号") },
+                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "青棱有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("猫耳助手抿起嘴", "哼", "再戳就把这一项记进小书") },
+                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("黑色小书亮了一下", "收到", "余额变化会及时告诉你"), new EasterEggLine("青棱对齐了方晶", "继续吧", "完成后会显示本次消耗") }
+            };
+        }
+
+        if (style == "gpt-image2")
+        {
+            return kind switch
+            {
+                "hair" => new[] { new EasterEggLine("龙角被碰到", "有点痒", "玄珏轻轻偏开了头"), new EasterEggLine("不要碰角尖", "轻一点", "金色耳饰会跟着晃"), new EasterEggLine("墨紫长发亮了一缕", "灵感来了", "这一点光先留给你") },
+                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "玄珏有点意外"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("小墨龙眯起眼睛", "看准了", "别把预算也涂出边界") },
+                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("画笔点亮了黑玉", "收到", "余额变化会及时告诉你"), new EasterEggLine("玄珏扶稳画板", "继续画吧", "完成后会显示本次消耗") }
+            };
+        }
+
+        if (style == "llama")
+        {
+            return kind switch
+            {
+                "hair" => new[] { new EasterEggLine("白色耳朵被碰到", "有点痒", "绒眠轻轻甩了甩耳朵"), new EasterEggLine("不要拽卷发", "轻一点", "无限发夹会掉下来的"), new EasterEggLine("绒毛蓬起来了", "软乎乎", "今天的好运也分你一点") },
+                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "绒眠有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("绒眠把脸藏进袖口", "哎呀", "别把额度也藏没了") },
+                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("胸前绒球晃了晃", "收到", "余额变化会及时告诉你"), new EasterEggLine("绒眠伸了个小懒腰", "继续吧", "完成后会显示本次消耗") }
             };
         }
 
@@ -2167,9 +2418,46 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(new Action(() => HandleAccountStatus(activity)));
     }
 
+    private void OnCCSwitchStatusChanged(object? sender, CCSwitchBridgeStatus status)
+    {
+        Dispatcher.BeginInvoke(new Action(() => HandleCCSwitchStatus(status)));
+    }
+
+    private void HandleCCSwitchStatus(CCSwitchBridgeStatus status)
+    {
+        if (_closing || !_settings.CCSwitchIntegration) return;
+        if (status.Kind != CCSwitchBridgeStatusKind.Connected)
+        {
+            _currentAccountActivity = null;
+            _currentAccountKnown = true;
+            PublishNotificationState();
+        }
+        switch (status.Kind)
+        {
+            case CCSwitchBridgeStatusKind.DatabaseMissing:
+                ShowBubble("CC Switch 未检测到", "尚未登录", "未找到 CC Switch 数据库，联动会继续等待");
+                break;
+            case CCSwitchBridgeStatusKind.DatabaseLocked:
+                ShowBubble("CC Switch 暂不可读", "数据库被占用", "程序会在稍后自动重试");
+                break;
+            case CCSwitchBridgeStatusKind.DatabaseCorrupt:
+                ShowBubble("CC Switch 数据异常", "数据库无法读取", "请检查 CC Switch 数据库后重试");
+                break;
+            case CCSwitchBridgeStatusKind.DatabaseUnreadable:
+                ShowBubble("CC Switch 暂不可读", "读取失败", "请检查文件权限，程序会继续监听");
+                break;
+            case CCSwitchBridgeStatusKind.NoCurrentCodexAccount:
+                ShowBubble("未检测到 Codex 当前账户", "等待切换", "请在 CC Switch 中启用一个 Codex 供应商");
+                break;
+        }
+    }
+
     private void HandleAccountStatus(AiAccountActivity activity)
     {
         if (_closing || !_settings.CCSwitchIntegration) return;
+        _currentAccountActivity = activity;
+        _currentAccountKnown = true;
+        PublishNotificationState();
         var key = $"{activity.State}|{activity.Provider}|{activity.AccountType}|{activity.AccountLabel}|{activity.Endpoint}|{activity.TokenFingerprint}";
         var now = DateTimeOffset.UtcNow;
         if (string.Equals(key, _lastAccountStatusKey, StringComparison.Ordinal) && now - _lastAccountStatusAt < TimeSpan.FromSeconds(2)) return;
@@ -2203,13 +2491,16 @@ public partial class MainWindow : Window
                 $"{local.Profile.Name} API 已登录",
                 balance,
                 $"已匹配本地账户 · {local.Profile.Name}");
-            _ = RefreshAsync(true, true, true);
+            // The bridge publishes the current account once when it starts.
+            // That snapshot accompanies the normal startup refresh and must
+            // not be treated as a second manual refresh.
+            if (!activity.IsInitialSnapshot) _ = RefreshAsync(true, true, true);
             return;
         }
 
         if (accountType is "relay-api" or "third-party")
         {
-            const string reminder = "是否保存到 BalancePet？右键桌宠打开“配置接口”";
+            const string reminder = "是否保存到 BalancePet？右键桌宠打开“设置面板”";
             var endpoint = string.IsNullOrWhiteSpace(activity.Endpoint) ? "接口地址未提供" : activity.Endpoint;
             var accountName = string.IsNullOrWhiteSpace(activity.AccountLabel) ? "中转站账户" : activity.AccountLabel;
             ShowBubble($"{accountName} API 已登录", "未匹配本地账户", $"CC Switch · {endpoint}");
@@ -2335,6 +2626,7 @@ public partial class MainWindow : Window
             $"{CurrentTaskSourceLabel()} 工作中",
             _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
             "任务完成或停止后会自动切换状态");
+        PublishNotificationState();
         return Task.CompletedTask;
     }
 
@@ -2363,7 +2655,9 @@ public partial class MainWindow : Window
             RememberUnmatchedStop(activity);
             return;
         }
-        await RecordUsageFromTaskAsync(activity, startedAt);
+        _lastCompletedTaskSource = completedSource;
+        PublishNotificationState();
+        await RecordUsageFromTaskAsync(activity, startedAt, completedProfileId);
         ResetInactiveTimer();
         if (_activeCodexTurns.Count > 0)
         {
@@ -2479,7 +2773,7 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private async Task RecordUsageFromTaskAsync(CodexTaskActivity activity, DateTimeOffset? startedAt)
+    private async Task RecordUsageFromTaskAsync(CodexTaskActivity activity, DateTimeOffset? startedAt, string completedProfileId)
     {
         var codexUsage = string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
             ? await CodexUsageReader.TryReadTurnAsync(activity.SessionId, activity.TurnId, startedAt)
@@ -2490,22 +2784,240 @@ public partial class MainWindow : Window
         var model = string.IsNullOrWhiteSpace(activity.Model) ? codexUsage?.Model : activity.Model;
         try
         {
-            await _usageEventBridge.RecordAsync(
+            var occurredAt = DateTimeOffset.Now;
+            var eventId = await _usageEventBridge.RecordAsync(
             activity.Provider,
             model,
             activity.InputTokens ?? codexUsage?.InputTokens,
             activity.OutputTokens ?? codexUsage?.OutputTokens,
             activity.CacheReadTokens ?? codexUsage?.CacheReadTokens,
             activity.CacheWriteTokens ?? codexUsage?.CacheWriteTokens,
+            activity.Cost,
+            activity.Currency,
             duration,
             activity.TimeToFirstTokenMs,
-            activity.ToolCalls,
-            activity.Steps,
-            activity.Success ?? true);
+                activity.ToolCalls,
+                activity.Steps,
+                activity.Success ?? true);
+            var profile = _monitorStates.TryGetValue(completedProfileId, out var completedRuntime)
+                ? completedRuntime.Profile
+                : FindMonitorProfile(activity.Provider);
+            var needsCodexBackfill = string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
+                && (codexUsage?.HasTokenData != true || string.IsNullOrWhiteSpace(model));
+            if (!string.IsNullOrWhiteSpace(eventId)
+                && activity.Cost is null
+                && profile is not null
+                && NewApiUsageProvider.Supports(profile)
+                && !needsCodexBackfill)
+            {
+                var target = new UsageEventSnapshot(
+                    eventId,
+                    occurredAt,
+                    activity.Provider,
+                    model ?? "",
+                    activity.InputTokens ?? codexUsage?.InputTokens,
+                    activity.OutputTokens ?? codexUsage?.OutputTokens,
+                    activity.CacheReadTokens ?? codexUsage?.CacheReadTokens,
+                    activity.CacheWriteTokens ?? codexUsage?.CacheWriteTokens,
+                    null,
+                    activity.Currency,
+                    duration,
+                    activity.TimeToFirstTokenMs,
+                    activity.ToolCalls,
+                    activity.Steps,
+                    activity.Success ?? true);
+                _ = BackfillServerCostAsync(target, profile);
+            }
+            if (!string.IsNullOrWhiteSpace(eventId) && needsCodexBackfill)
+            {
+                _ = BackfillCodexUsageAsync(eventId, occurredAt, activity, startedAt, profile);
+            }
         }
         catch (OperationCanceledException) { }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+    }
+
+    private async Task BackfillServerCostAsync(UsageEventSnapshot target, MonitorProfile profile)
+    {
+        if (_closing || _usageCostSyncCancellation.IsCancellationRequested || !NewApiUsageProvider.Supports(profile)) return;
+        try
+        {
+            var token = _tokenStore.Unprotect(profile.TokenBlob);
+            if (string.IsNullOrWhiteSpace(token)) return;
+            var deadline = DateTimeOffset.UtcNow + ServerCostBackfillWindow;
+            var firstAttempt = true;
+            while (!_closing && DateTimeOffset.UtcNow < deadline && !_usageCostSyncCancellation.IsCancellationRequested)
+            {
+                if (!firstAttempt) await Task.Delay(ServerCostBackfillPoll, _usageCostSyncCancellation.Token);
+                firstAttempt = false;
+                var records = await _newApiUsageProvider.FetchRecentAsync(profile, token, _usageCostSyncCancellation.Token);
+                if (!_newApiUsageProvider.TryTakeMatch(records, target, TimeSpan.FromMinutes(30), out var match) || match is null) continue;
+                await _usageEventBridge.UpdateAsync(
+                    target.EventId,
+                    target.OccurredAt,
+                    target.Provider,
+                    target.Model,
+                    target.InputTokens,
+                    target.OutputTokens,
+                    target.CacheReadTokens,
+                    target.CacheWriteTokens,
+                    match.Amount,
+                    match.Currency,
+                    target.DurationMs,
+                    target.TimeToFirstTokenMs,
+                    target.ToolCalls,
+                    target.Steps,
+                    target.Success,
+                    _usageCostSyncCancellation.Token);
+                return;
+            }
+        }
+        catch (OperationCanceledException) when (_usageCostSyncCancellation.IsCancellationRequested) { }
+        catch (FormatException) { }
+        catch (System.Security.SecurityException) { }
+        catch (CryptographicException) { }
+        catch (HttpRequestException) { }
+        catch (InvalidDataException) { }
+        catch (JsonException) { }
+        catch (ArgumentException) { }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task SyncRecentUsageCostsAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3), _usageCostSyncCancellation.Token);
+            if (_closing) return;
+            var pending = _usageEventBridge.ReadRecentEvents(500)
+                .Where(value => value.Cost is null
+                    && string.Equals(value.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
+                    && value.OccurredAt >= DateTimeOffset.Now - TimeSpan.FromDays(30))
+                .ToList();
+            if (pending.Count == 0) return;
+
+            foreach (var runtime in _monitorStates.Values.Where(value => value.Profile.Enabled && NewApiUsageProvider.Supports(value.Profile)))
+            {
+                if (_closing || _usageCostSyncCancellation.IsCancellationRequested || pending.Count == 0) return;
+                string token;
+                try { token = _tokenStore.Unprotect(runtime.Profile.TokenBlob); }
+                catch (FormatException) { continue; }
+                catch (System.Security.SecurityException) { continue; }
+                catch (CryptographicException) { continue; }
+                if (string.IsNullOrWhiteSpace(token)) continue;
+
+                IReadOnlyList<NewApiUsageRecord> records;
+                try
+                {
+                    records = await _newApiUsageProvider.FetchRecentAsync(runtime.Profile, token, _usageCostSyncCancellation.Token);
+                }
+                catch (HttpRequestException) { continue; }
+                catch (InvalidDataException) { continue; }
+                catch (JsonException) { continue; }
+                catch (ArgumentException) { continue; }
+                catch (TaskCanceledException) { continue; }
+
+                foreach (var target in pending.ToArray())
+                {
+                    if (!_newApiUsageProvider.TryTakeMatch(records, target, TimeSpan.FromMinutes(30), out var match) || match is null) continue;
+                    await _usageEventBridge.UpdateAsync(
+                        target.EventId,
+                        target.OccurredAt,
+                        target.Provider,
+                        target.Model,
+                        target.InputTokens,
+                        target.OutputTokens,
+                        target.CacheReadTokens,
+                        target.CacheWriteTokens,
+                        match.Amount,
+                        match.Currency,
+                        target.DurationMs,
+                        target.TimeToFirstTokenMs,
+                        target.ToolCalls,
+                        target.Steps,
+                        target.Success,
+                        _usageCostSyncCancellation.Token);
+                    pending.Remove(target);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (_usageCostSyncCancellation.IsCancellationRequested) { }
+        catch (IOException) { }
+        catch (ArgumentException) { }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task BackfillCodexUsageAsync(
+        string eventId,
+        DateTimeOffset occurredAt,
+        CodexTaskActivity activity,
+        DateTimeOffset? startedAt,
+        MonitorProfile? profile)
+    {
+        var deadline = DateTimeOffset.UtcNow + UsageBackfillWindow;
+        string? lastSignature = null;
+        try
+        {
+            while (!_closing && DateTimeOffset.UtcNow < deadline)
+            {
+                await Task.Delay(UsageBackfillPoll);
+                var usage = await CodexUsageReader.TryReadTurnAsync(activity.SessionId, activity.TurnId, startedAt);
+                if (usage?.HasTokenData != true && usage?.HasModel != true) continue;
+                var signature = string.Join('|', usage.Model, usage.InputTokens, usage.OutputTokens, usage.CacheReadTokens, usage.CacheWriteTokens);
+                if (string.Equals(signature, lastSignature, StringComparison.Ordinal))
+                {
+                    if (usage.HasTokenData) return;
+                    continue;
+                }
+                lastSignature = signature;
+
+                await _usageEventBridge.UpdateAsync(
+                    eventId,
+                    occurredAt,
+                    activity.Provider,
+                    string.IsNullOrWhiteSpace(activity.Model) ? usage?.Model : activity.Model,
+                    activity.InputTokens ?? usage?.InputTokens,
+                    activity.OutputTokens ?? usage?.OutputTokens,
+                    activity.CacheReadTokens ?? usage?.CacheReadTokens,
+                    activity.CacheWriteTokens ?? usage?.CacheWriteTokens,
+                    activity.Cost,
+                    activity.Currency,
+                    activity.DurationMs,
+                    activity.TimeToFirstTokenMs,
+                    activity.ToolCalls,
+                    activity.Steps,
+                    activity.Success ?? true);
+                if (usage?.HasTokenData == true)
+                {
+                    if (profile is not null && activity.Cost is null && NewApiUsageProvider.Supports(profile))
+                    {
+                        var target = new UsageEventSnapshot(
+                            eventId,
+                            occurredAt,
+                            activity.Provider,
+                            string.IsNullOrWhiteSpace(activity.Model) ? usage.Model : activity.Model,
+                            activity.InputTokens ?? usage.InputTokens,
+                            activity.OutputTokens ?? usage.OutputTokens,
+                            activity.CacheReadTokens ?? usage.CacheReadTokens,
+                            activity.CacheWriteTokens ?? usage.CacheWriteTokens,
+                            null,
+                            activity.Currency,
+                            activity.DurationMs,
+                            activity.TimeToFirstTokenMs,
+                            activity.ToolCalls,
+                            activity.Steps,
+                            activity.Success ?? true);
+                        _ = BackfillServerCostAsync(target, profile);
+                    }
+                    return;
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        catch (ObjectDisposedException) { }
     }
 
     private void ReplaceActiveTaskForSession(CodexTaskActivity activity)

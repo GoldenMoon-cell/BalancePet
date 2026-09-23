@@ -93,9 +93,26 @@ The built-in checker looks for a non-draft release whose tag is `vX.Y.Z` (or
 
 `api_version` is the compatibility boundary for the host contract. A v1 host
 accepts only `api_version: 1`; an extension must not silently assume newer host
-behavior. `capabilities` is an explicit allow-list. In v1 the only supported
-capability is `usage.read`; unknown capabilities are rejected instead of being
+behavior. `capabilities` is an explicit allow-list. In v1 the supported
+capabilities are `usage.read`, `notifications.read`, and
+`notifications.present`; unknown capabilities are rejected instead of being
 granted implicitly. Future capabilities require a documented API revision.
+
+`notifications.read` grants read-only access to sanitized bubble summaries in
+`%LOCALAPPDATA%\\BalancePet\\notification-events.ndjson` and rotated
+`notification-events-*.ndjson` files. Each record contains only a category,
+title, amount text, detail text, timestamp, and event id; prompts, responses,
+provider credentials, and raw API payloads are never written.
+
+`notifications.present` declares that an enabled extension can replace the
+built-in bubble presentation. BalancePet starts such an extension in the
+background with `--background` before its initial refresh. Once ready, the
+extension keeps the named mutex
+`Local\\BalancePet.NotificationPresenter.v1` open; while that marker exists,
+the host continues recording sanitized notification events but suppresses its
+own bubble. The extension may listen for the named auto-reset event
+`Local\\BalancePet.NotificationCenter.ShowPanel.v1` to reveal its settings or
+history panel when the user explicitly opens it.
 
 The host may install multiple versions of the same extension ID side by side,
 but launches the highest installed semantic version when that ID is enabled.

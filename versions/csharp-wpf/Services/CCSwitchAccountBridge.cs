@@ -22,8 +22,11 @@ public sealed class CCSwitchAccountBridge : IDisposable
     private CancellationTokenSource? _refreshCancellation;
     private Task? _refreshTask;
     private string _lastSnapshot = "";
+    private bool _hasPublishedSnapshot;
+    private string _lastStatusKey = "";
 
     public event EventHandler<AiAccountActivity>? ActivityReceived;
+    public event EventHandler<CCSwitchBridgeStatus>? StatusChanged;
 
     public CCSwitchAccountBridge(string? databasePath = null)
     {
@@ -65,6 +68,9 @@ public sealed class CCSwitchAccountBridge : IDisposable
             _refreshCancellation?.Dispose();
             _refreshCancellation = null;
             _refreshTask = null;
+            _hasPublishedSnapshot = false;
+            _lastSnapshot = "";
+            _lastStatusKey = "";
         }
     }
 
@@ -88,7 +94,10 @@ public sealed class CCSwitchAccountBridge : IDisposable
         try
         {
             await Task.Delay(TimeSpan.FromMilliseconds(450), cancellationToken);
-            var activities = ReadCurrentActivities();
+            var result = ReadCurrentState();
+            PublishStatus(result.Status);
+            var activities = result.Activities;
+            bool isInitialSnapshot;
             var snapshot = string.Join("\n", activities
                 .OrderBy(activity => activity.Provider, StringComparer.Ordinal)
                 .ThenBy(activity => activity.AccountLabel, StringComparer.Ordinal)
@@ -97,16 +106,19 @@ public sealed class CCSwitchAccountBridge : IDisposable
             {
                 if (string.Equals(_lastSnapshot, snapshot, StringComparison.Ordinal)) return;
                 _lastSnapshot = snapshot;
+                isInitialSnapshot = !_hasPublishedSnapshot;
+                _hasPublishedSnapshot = true;
             }
             foreach (var activity in activities)
-                ActivityReceived?.Invoke(this, activity);
+                ActivityReceived?.Invoke(this, activity with { IsInitialSnapshot = isInitialSnapshot });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
 
-    private IReadOnlyList<AiAccountActivity> ReadCurrentActivities()
+    private ReadResult ReadCurrentState()
     {
-        if (!File.Exists(_databasePath)) return Array.Empty<AiAccountActivity>();
+        if (!File.Exists(_databasePath))
+            return new ReadResult(Array.Empty<AiAccountActivity>(), new CCSwitchBridgeStatus(CCSwitchBridgeStatusKind.DatabaseMissing, 0));
         try
         {
             var builder = new SqliteConnectionStringBuilder
@@ -148,11 +160,39 @@ public sealed class CCSwitchAccountBridge : IDisposable
                     null,
                     ""));
             }
-            return activities;
+            var statusKind = activities.Count == 0
+                ? CCSwitchBridgeStatusKind.NoCurrentCodexAccount
+                : CCSwitchBridgeStatusKind.Connected;
+            return new ReadResult(activities, new CCSwitchBridgeStatus(statusKind, activities.Count));
         }
-        catch (SqliteException) { return Array.Empty<AiAccountActivity>(); }
-        catch (IOException) { return Array.Empty<AiAccountActivity>(); }
-        catch (UnauthorizedAccessException) { return Array.Empty<AiAccountActivity>(); }
+        catch (SqliteException error)
+        {
+            var kind = error.SqliteErrorCode is 5 or 6
+                ? CCSwitchBridgeStatusKind.DatabaseLocked
+                : error.SqliteErrorCode == 11
+                    ? CCSwitchBridgeStatusKind.DatabaseCorrupt
+                    : CCSwitchBridgeStatusKind.DatabaseUnreadable;
+            return new ReadResult(Array.Empty<AiAccountActivity>(), new CCSwitchBridgeStatus(kind, 0));
+        }
+        catch (IOException)
+        {
+            return new ReadResult(Array.Empty<AiAccountActivity>(), new CCSwitchBridgeStatus(CCSwitchBridgeStatusKind.DatabaseUnreadable, 0));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new ReadResult(Array.Empty<AiAccountActivity>(), new CCSwitchBridgeStatus(CCSwitchBridgeStatusKind.DatabaseUnreadable, 0));
+        }
+    }
+
+    private void PublishStatus(CCSwitchBridgeStatus status)
+    {
+        var key = $"{status.Kind}|{status.CurrentAccountCount}";
+        lock (_gate)
+        {
+            if (string.Equals(_lastStatusKey, key, StringComparison.Ordinal)) return;
+            _lastStatusKey = key;
+        }
+        StatusChanged?.Invoke(this, status);
     }
 
     private static string ReadText(SqliteDataReader reader, int ordinal)
@@ -261,4 +301,5 @@ public sealed class CCSwitchAccountBridge : IDisposable
     public void Dispose() => Stop();
 
     private sealed record ConfigDetails(string Endpoint, string TokenFingerprint);
+    private sealed record ReadResult(IReadOnlyList<AiAccountActivity> Activities, CCSwitchBridgeStatus Status);
 }

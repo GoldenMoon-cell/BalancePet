@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Startup="OnStartup">
   <Application.Resources>
+    <CornerRadius x:Key="WindowCornerRadius">10</CornerRadius>
     <SolidColorBrush x:Key="PageBrush" Color="#07111F"/>
     <SolidColorBrush x:Key="SidebarBrush" Color="#0D1A2D"/>
     <SolidColorBrush x:Key="PanelBrush" Color="#101F33"/>

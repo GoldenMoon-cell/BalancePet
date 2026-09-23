@@ -1,14 +1,17 @@
 using System.Linq;
 using System.Windows;
 using BalancePet.Wpf.Services;
+using BalancePet.Wpf.Models;
 
 namespace BalancePet.Wpf;
 
 public partial class UsageWindow : Window
 {
-    public UsageWindow(UsageLedgerStore store, string language)
+    public UsageWindow(UsageLedgerStore store, PetSettings settings)
     {
         InitializeComponent();
+        WindowThemeService.ApplyConfiguredTheme(this, settings);
+        var language = settings.Language;
         AppLocalization.Apply(this, language);
         var days = store.GetRecentHistory();
         HistoryList.ItemsSource = days;

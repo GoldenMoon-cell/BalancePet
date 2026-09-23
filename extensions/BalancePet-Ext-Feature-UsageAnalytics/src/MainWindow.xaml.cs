@@ -11,6 +11,7 @@ namespace BalancePet.UsageAnalytics;
 
 public partial class MainWindow : Window
 {
+    private static readonly TimeSpan AutoRefreshInterval = TimeSpan.FromSeconds(60);
     private readonly UsageEventStore _store;
     private readonly DispatcherTimer _refreshTimer;
     private readonly DispatcherTimer _clockTimer;
@@ -22,14 +23,14 @@ public partial class MainWindow : Window
     private UsageReport? _lastReport;
     private BalanceUsageSnapshot _lastBalanceUsage = BalanceUsageSnapshot.Read("");
     private IReadOnlyList<UsageEvent> _lastEvents = Array.Empty<UsageEvent>();
-    private DateTimeOffset _nextRefreshAt = DateTimeOffset.Now.AddSeconds(60);
+    private DateTimeOffset _nextRefreshAt = DateTimeOffset.Now.Add(AutoRefreshInterval);
 
     public MainWindow(string dataDirectory)
     {
         InitializeComponent();
         _store = new UsageEventStore(dataDirectory);
-        _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
-        _refreshTimer.Tick += (_, _) => Refresh();
+        _refreshTimer = new DispatcherTimer { Interval = AutoRefreshInterval };
+        _refreshTimer.Tick += (_, _) => { RequestCoreRefresh(); Refresh(); };
         _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _clockTimer.Tick += (_, _) => UpdateAutoRefreshStatus();
         _fileRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
@@ -50,8 +51,6 @@ public partial class MainWindow : Window
         Closed += (_, _) => StopAutoRefresh();
         Refresh();
     }
-
-    private void OnRefreshClick(object sender, RoutedEventArgs e) => Refresh();
 
     private void OnTitleBarMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -75,18 +74,17 @@ public partial class MainWindow : Window
 
     private void OnDashboardNavClick(object sender, RoutedEventArgs e)
     {
+        ContentScrollViewer.Visibility = Visibility.Visible;
+        HistoryScrollViewer.Visibility = Visibility.Collapsed;
         ContentScrollViewer.ScrollToTop();
         SetActiveNav(DashboardNav);
     }
 
     private void OnHistoryNavClick(object sender, RoutedEventArgs e)
     {
-        ScrollToPanel(RecentPanel, HistoryNav);
-    }
-
-    private void OnProviderNavClick(object sender, RoutedEventArgs e)
-    {
-        ScrollToPanel(ProviderPanel, ProviderNav);
+        ContentScrollViewer.Visibility = Visibility.Collapsed;
+        HistoryScrollViewer.Visibility = Visibility.Visible;
+        SetActiveNav(HistoryNav);
     }
 
     private void OnContentScrollChanged(object sender, ScrollChangedEventArgs e)
@@ -95,24 +93,11 @@ public partial class MainWindow : Window
         UpdateActiveNavigation();
     }
 
-    private void ScrollToPanel(FrameworkElement panel, Button active)
-    {
-        SetActiveNav(active);
-        // Defer until the current click has completed and the ScrollViewer has
-        // a realized layout. This keeps navigation reliable after a refresh or
-        // when the window was restored at a different size.
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            ContentScrollViewer.UpdateLayout();
-            panel.BringIntoView();
-        }), DispatcherPriority.Background);
-    }
-
     private void SetActiveNav(Button active)
     {
         if (ReferenceEquals(_activeNav, active)) return;
         _activeNav = active;
-        foreach (var button in new[] { DashboardNav, HistoryNav, ProviderNav })
+        foreach (var button in new[] { DashboardNav, HistoryNav })
         {
             button.Background = button == active ? new SolidColorBrush(Color.FromRgb(18, 49, 72)) : Brushes.Transparent;
             button.Foreground = button == active ? (Brush)FindResource("AccentBrush") : new SolidColorBrush(Color.FromRgb(185, 199, 219));
@@ -122,23 +107,8 @@ public partial class MainWindow : Window
 
     private void UpdateActiveNavigation()
     {
-        if (!IsLoaded || ContentScrollViewer is null) return;
-        try
-        {
-            var historyTop = RecentPanel.TranslatePoint(new Point(0, 0), ContentScrollViewer).Y;
-            var providerTop = ProviderPanel.TranslatePoint(new Point(0, 0), ContentScrollViewer).Y;
-            var active = historyTop <= 132
-                ? HistoryNav
-                : providerTop <= 132
-                    ? ProviderNav
-                    : DashboardNav;
-            SetActiveNav(active);
-        }
-        catch (InvalidOperationException)
-        {
-            // The content can be between measure passes while a refresh changes
-            // the provider/model rows. The next scroll or layout pass retries.
-        }
+        if (!IsLoaded) return;
+        SetActiveNav(ContentScrollViewer.Visibility == Visibility.Visible ? DashboardNav : HistoryNav);
     }
 
     private void StartAutoRefresh()
@@ -195,7 +165,7 @@ public partial class MainWindow : Window
 
     private void Refresh()
     {
-        _nextRefreshAt = DateTimeOffset.Now.AddSeconds(60);
+        _nextRefreshAt = DateTimeOffset.Now.Add(AutoRefreshInterval);
         var events = _store.ReadAll();
         _lastEvents = events;
         _lastReport = UsageReport.Build(events, DateTimeOffset.Now);
@@ -246,8 +216,8 @@ public partial class MainWindow : Window
         ModelItems.ItemsSource = modelValues.Select((value, index) => new ModelRow(value.Name, value.Events.Length, value.Tokens, modelBasis, Palette(index + 1))).ToArray();
         ModelEmpty.Visibility = modelValues.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        EventsList.ItemsSource = report.RecentEvents.Select(value => new EventRow(value)).ToArray();
-        RecentSummary.Text = report.RecentEvents.Count == 0 ? "暂无记录" : $"最近 {report.RecentEvents.Count:N0} 条";
+        EventsList.ItemsSource = events.Select(value => new EventRow(value)).ToArray();
+        RecentSummary.Text = events.Count == 0 ? "暂无记录" : $"共 {events.Count:N0} 条";
         var hasUsageDetails = events.Any(value =>
             value.InputTokens.HasValue || value.OutputTokens.HasValue || value.CacheReadTokens.HasValue ||
             value.CacheWriteTokens.HasValue || value.DurationMs.HasValue || value.TimeToFirstTokenMs.HasValue ||
@@ -266,7 +236,18 @@ public partial class MainWindow : Window
     {
         if (AutoRefreshStatus is null) return;
         var remaining = Math.Max(0, (int)Math.Ceiling((_nextRefreshAt - DateTimeOffset.Now).TotalSeconds));
-        AutoRefreshStatus.Text = $"自动刷新 · {remaining} 秒后 · {DateTime.Now:HH:mm:ss}";
+        AutoRefreshStatus.Text = $"自动同步 · {remaining} 秒后 · {DateTime.Now:HH:mm:ss}";
+    }
+
+    private static void RequestCoreRefresh()
+    {
+        try
+        {
+            using var signal = EventWaitHandle.OpenExisting(@"Local\BalancePet.UsageAnalytics.Refresh.v1");
+            signal.Set();
+        }
+        catch (WaitHandleCannotBeOpenedException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private void OnChartSizeChanged(object sender, SizeChangedEventArgs e) => DrawTrendChart();
@@ -496,8 +477,11 @@ public partial class MainWindow : Window
         public string OccurredAtText => _event.OccurredAt.ToLocalTime().ToString("MM-dd HH:mm:ss");
         public string Provider => _event.Provider;
         public string Model => string.IsNullOrWhiteSpace(_event.Model) ? "模型未上报" : _event.Model;
-        public string InputText => _event.InputTokens is null ? "—" : UsageFormatting.Tokens(_event.InputTokens.Value);
-        public string OutputText => _event.OutputTokens is null ? "—" : UsageFormatting.Tokens(_event.OutputTokens.Value);
+        public string InputText => _event.InputTokens is null ? "输入给模型 —" : $"输入给模型 {UsageFormatting.Tokens(_event.InputTokens.Value)}";
+        public string OutputText => _event.OutputTokens is null ? "模型输出 —" : $"模型输出 {UsageFormatting.Tokens(_event.OutputTokens.Value)}";
+        public string CacheReadText => _event.CacheReadTokens is null ? "缓存读取 —" : $"缓存读取 {UsageFormatting.Tokens(_event.CacheReadTokens.Value)}";
+        public string CacheWriteText => _event.CacheWriteTokens is null ? "缓存写入 —" : $"缓存写入 {UsageFormatting.Tokens(_event.CacheWriteTokens.Value)}";
+        public string CostText => _event.Cost is null ? "未上报" : $"{_event.Cost:0.########} {(_event.Currency.Length == 0 ? "USD" : _event.Currency)}";
         public string DurationText => _event.DurationMs is null ? "耗时 —" : $"耗时 {UsageFormatting.Milliseconds(_event.DurationMs)}";
         public string StatusText => _event.Success switch { true => "成功", false => "失败", _ => "未知" };
         public Brush StatusBrush => _event.Success switch { true => new SolidColorBrush(Color.FromRgb(45, 225, 194)), false => new SolidColorBrush(Color.FromRgb(255, 112, 134)), _ => (Brush)Application.Current.FindResource("MutedBrush") };

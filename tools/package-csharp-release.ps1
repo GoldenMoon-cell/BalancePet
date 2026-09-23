@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.8.1",
+    [string]$Version = "1.0.0-dev.39",
     [switch]$SkipInstaller,
     [string]$StagePath = ""
 )
@@ -17,6 +17,14 @@ $stage = if ([string]::IsNullOrWhiteSpace($StagePath)) {
 $zip = Join-Path $dist "BalancePet-$Version-win-x64.zip"
 $installerScript = Join-Path $root "installer\BalancePet.iss"
 $setup = Join-Path $dist "BalancePet-$Version-Setup.exe"
+
+if ($Version -notmatch '^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)') {
+    throw "Version must begin with major.minor.patch: $Version"
+}
+$versionCore = "$($Matches.major).$($Matches.minor).$($Matches.patch)"
+$revision = if ($Version -match '\.(?<revision>\d+)$') { [int]$Matches.revision } else { 0 }
+$assemblyVersion = "$versionCore.0"
+$fileVersion = "$versionCore.$revision"
 
 if (-not (Test-Path -LiteralPath $project)) {
     throw "C# project was not found: $project"
@@ -38,7 +46,11 @@ if (Test-Path -LiteralPath $setup) {
 
 # The installer and portable updater share one complete payload, so either path
 # works on a clean Windows installation without a separate .NET runtime setup.
-dotnet publish $project --configuration Release --runtime win-x64 --self-contained true --output $stage
+dotnet publish $project --configuration Release --runtime win-x64 --self-contained true --output $stage `
+    -p:Version=$Version `
+    -p:AssemblyVersion=$assemblyVersion `
+    -p:FileVersion=$fileVersion `
+    -p:InformationalVersion=$Version
 
 # Keep the license and attribution next to the executable so binary users see
 # the same terms as source users.

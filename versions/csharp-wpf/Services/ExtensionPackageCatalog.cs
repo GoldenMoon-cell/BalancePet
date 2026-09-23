@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
+using System.Windows;
 
 namespace BalancePet.Wpf.Services;
 
@@ -16,7 +17,7 @@ public sealed class ExtensionPackageDescriptor
     public string Version { get; }
     public string MinCoreVersion { get; }
     public string UpdateUrl { get; }
-    public string DisplayLabel => $"{(Type == "feature" ? "功能扩展" : "资源扩展")} · {Name}  v{Version}";
+    public string DisplayLabel => $"{Type switch { "feature" => "功能扩展", "theme" => "主题扩展", _ => "资源扩展" }} · {Name}  v{Version}";
 
     public ExtensionPackageDescriptor(string packagePath, string id, string type, string name, string nameEn, string version, string minCoreVersion, string updateUrl = "")
     {
@@ -36,21 +37,25 @@ public sealed class ExtensionCatalogEntry
     private readonly IReadOnlyList<ExtensionPackageDescriptor> _packages;
     private readonly IReadOnlyList<PetExtensionInfo> _pets;
     private readonly IReadOnlyList<FeatureExtensionInfo> _features;
+    private readonly IReadOnlyList<ThemeExtensionInfo> _themes;
     public ExtensionUpdateRelease? RemoteUpdate { get; set; }
     public ExtensionPackageDescriptor? Package => _packages.FirstOrDefault();
     public PetExtensionInfo? Pet => _pets.FirstOrDefault();
     public FeatureExtensionInfo? Feature => _features.FirstOrDefault();
+    public ThemeExtensionInfo? Theme => _themes.FirstOrDefault();
     public bool IsEnglish { get; set; }
-    public string Id => Package?.Id ?? Pet?.Manifest.Id ?? Feature?.Manifest.Id ?? "";
-    public string Type => Package?.Type ?? (Pet is not null ? "pet" : "feature");
-    public bool IsInstalled => Pet is not null || Feature is not null;
-    public bool IsEnabled => Pet?.IsEnabled == true || Feature?.IsEnabled == true;
+    public string Id => Package?.Id ?? Pet?.Manifest.Id ?? Feature?.Manifest.Id ?? Theme?.Manifest.Id ?? "";
+    public string Type => Package?.Type ?? (Pet is not null ? "pet" : Theme is not null ? "theme" : "feature");
+    public bool IsInstalled => Pet is not null || Feature is not null || Theme is not null;
+    public bool IsEnabled => Pet?.IsEnabled == true || Feature?.IsEnabled == true || Theme?.IsEnabled == true;
     public bool IsRunning => Feature?.IsRunning == true;
+    public bool IsBundledTheme => Theme is not null && string.Equals(Theme.Manifest.Id, ThemeExtensionManager.BundledThemeId, StringComparison.OrdinalIgnoreCase);
     public bool HasPackage => Package is not null;
-    public string InstalledVersion => Pet?.Manifest.Version ?? Feature?.Manifest.Version ?? "";
+    public string InstalledVersion => Pet?.Manifest.Version ?? Feature?.Manifest.Version ?? Theme?.Manifest.Version ?? "";
     public string UpdateUrl => _packages.Select(value => value.UpdateUrl)
         .Concat(Pet is null ? Array.Empty<string>() : new[] { Pet.Manifest.UpdateUrl })
         .Concat(Feature is null ? Array.Empty<string>() : new[] { Feature.Manifest.UpdateUrl })
+        .Concat(Theme is null ? Array.Empty<string>() : new[] { Theme.Manifest.UpdateUrl })
         .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
     public string AvailableVersion
     {
@@ -63,19 +68,28 @@ public sealed class ExtensionCatalogEntry
     }
     public bool HasUpdate => IsInstalled && CompareVersions(AvailableVersion, InstalledVersion) > 0;
     public bool HasRemoteUpdate => IsInstalled && RemoteUpdate is not null && CompareVersions(RemoteUpdate.Version, InstalledVersion) > 0;
-    public bool CanInstallOrUninstall => IsInstalled || Package is not null;
+    public bool CanInstallOrUninstall => IsInstalled ? !IsBundledTheme : Package is not null;
     public bool CanLaunch => Feature?.IsEnabled == true;
+    public Visibility ToggleVisibility => Type == "theme" ? Visibility.Collapsed : Visibility.Visible;
+    // Feature extensions are enabled and started as part of installation;
+    // opening their panel belongs to the app's own entry points, not a row
+    // level "Launch" action.
+    public Visibility LaunchVisibility => Visibility.Collapsed;
     public string InstallGlyph => IsInstalled ? "×" : "⇩";
     public string ToggleGlyph => !IsInstalled ? "—" : IsEnabled ? "◉" : "○";
     public string UpdateGlyph => "↻";
-    public string InstallActionText => IsEnglish ? (IsInstalled ? "Uninstall" : "Install") : (IsInstalled ? "卸载" : "安装");
+    public string InstallActionText => IsBundledTheme
+        ? (IsEnglish ? "Built in" : "内置")
+        : IsEnglish ? (IsInstalled ? "Uninstall" : "Install") : (IsInstalled ? "卸载" : "安装");
     public string ToggleActionText => !IsInstalled ? (IsEnglish ? "Enable" : "启用") : IsEnabled ? (IsEnglish ? "Disable" : "禁用") : (IsEnglish ? "Enable" : "启用");
     public string UpdateActionText => IsEnglish ? "Update" : "更新";
     public string LaunchActionText => IsEnglish ? "Launch" : "启动";
-    public string InstallTooltip => IsEnglish ? (IsInstalled ? "Uninstall" : "Install") : (IsInstalled ? "卸载" : "安装");
+    public string InstallTooltip => IsBundledTheme
+        ? (IsEnglish ? "Bundled fallback theme" : "内置回退主题")
+        : IsEnglish ? (IsInstalled ? "Uninstall" : "Install") : (IsInstalled ? "卸载" : "安装");
     public string ToggleTooltip => IsEnglish ? (IsEnabled ? "Disable" : "Enable") : (IsEnabled ? "禁用" : "启用");
     public string UpdateTooltip => IsEnglish ? $"Update to v{AvailableVersion}" : $"更新到 v{AvailableVersion}";
-    public string LaunchTooltip => IsEnglish ? "Launch" : "启动";
+    public string LaunchTooltip => IsEnglish ? "Started automatically" : "安装后自动运行";
     public string UpdateStatusText => HasUpdate
         ? IsEnglish ? $"Latest version: v{AvailableVersion}" : $"发现新版本：v{AvailableVersion}"
         : IsInstalled
@@ -85,11 +99,11 @@ public sealed class ExtensionCatalogEntry
     {
         get
         {
-            var name = Package?.Name ?? Pet?.Manifest.Name ?? Feature?.Manifest.Name ?? Id;
-            var kind = Type == "feature" ? "功能扩展" : "资源扩展";
+            var name = Package?.Name ?? Pet?.Manifest.Name ?? Feature?.Manifest.Name ?? Theme?.Manifest.Name ?? Id;
+            var kind = Type switch { "feature" => "功能扩展", "theme" => "主题扩展", _ => "资源扩展" };
             var version = IsInstalled ? $"已安装 v{InstalledVersion}" : "未安装";
             var latest = HasUpdate ? $" · 最新 v{AvailableVersion}" : !IsInstalled && Package is not null ? $" · 可安装 v{AvailableVersion}" : "";
-            var status = !IsInstalled ? "未安装" : IsRunning ? "运行中" : IsEnabled ? "已启用" : "已禁用";
+            var status = !IsInstalled ? "未安装" : Type == "theme" ? "可在外观中选择" : IsRunning ? "运行中" : IsEnabled ? "已启用" : "已禁用";
             return $"{kind} · {name}  {version}{latest}  [{status}]";
         }
     }
@@ -100,21 +114,22 @@ public sealed class ExtensionCatalogEntry
     {
         get
         {
-            var name = Package?.NameEn ?? Pet?.Manifest.NameEn ?? Feature?.Manifest.NameEn;
-            if (string.IsNullOrWhiteSpace(name)) name = Package?.Name ?? Pet?.Manifest.Name ?? Feature?.Manifest.Name ?? Id;
-            var kind = Type == "feature" ? "Feature extension" : "Resource extension";
+            var name = Package?.NameEn ?? Pet?.Manifest.NameEn ?? Feature?.Manifest.NameEn ?? Theme?.Manifest.NameEn;
+            if (string.IsNullOrWhiteSpace(name)) name = Package?.Name ?? Pet?.Manifest.Name ?? Feature?.Manifest.Name ?? Theme?.Manifest.Name ?? Id;
+            var kind = Type switch { "feature" => "Feature extension", "theme" => "Theme extension", _ => "Resource extension" };
             var version = IsInstalled ? $"Installed v{InstalledVersion}" : "Not installed";
             var latest = HasUpdate ? $" · Latest v{AvailableVersion}" : !IsInstalled && Package is not null ? $" · Available v{AvailableVersion}" : "";
-            var status = !IsInstalled ? "Not installed" : IsRunning ? "Running" : IsEnabled ? "Enabled" : "Disabled";
+            var status = !IsInstalled ? "Not installed" : Type == "theme" ? "Available in Appearance" : IsRunning ? "Running" : IsEnabled ? "Enabled" : "Disabled";
             return $"{kind} · {name}  {version}{latest}  [{status}]";
         }
     }
 
-    public ExtensionCatalogEntry(IEnumerable<ExtensionPackageDescriptor> packages, IEnumerable<PetExtensionInfo> pets, IEnumerable<FeatureExtensionInfo> features)
+    public ExtensionCatalogEntry(IEnumerable<ExtensionPackageDescriptor> packages, IEnumerable<PetExtensionInfo> pets, IEnumerable<FeatureExtensionInfo> features, IEnumerable<ThemeExtensionInfo>? themes = null)
     {
         _packages = packages.OrderByDescending(value => ParseVersion(value.Version)).ToArray();
         _pets = pets.OrderByDescending(value => ParseVersion(value.Manifest.Version)).ToArray();
         _features = features.OrderByDescending(value => ParseVersion(value.Manifest.Version)).ToArray();
+        _themes = (themes ?? Array.Empty<ThemeExtensionInfo>()).OrderByDescending(value => ParseVersion(value.Manifest.Version)).ToArray();
     }
 
     public static int CompareVersions(string left, string right) => ParseVersion(left).CompareTo(ParseVersion(right));
@@ -166,7 +181,9 @@ public sealed class ExtensionPackageCatalog
             {
                 var info = new FileInfo(path);
                 if (info.Length <= 0 || info.Length > MaxPackageBytes) continue;
-                if (TryReadDescriptor(path, out var descriptor) && descriptor is not null) result.Add(descriptor);
+                if (TryReadDescriptor(path, out var descriptor) && descriptor is not null &&
+                    !descriptor.Id.Equals(ThemeExtensionManager.RetiredLiquidGlassThemeId, StringComparison.OrdinalIgnoreCase))
+                    result.Add(descriptor);
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
@@ -185,19 +202,23 @@ public sealed class ExtensionPackageCatalog
 
     public IReadOnlyList<ExtensionCatalogEntry> BuildEntries(
         IEnumerable<PetExtensionInfo> pets,
-        IEnumerable<FeatureExtensionInfo> features)
+        IEnumerable<FeatureExtensionInfo> features,
+        IEnumerable<ThemeExtensionInfo>? themes = null)
     {
         var petValues = pets.ToArray();
         var featureValues = features.ToArray();
+        var themeValues = (themes ?? Array.Empty<ThemeExtensionInfo>()).ToArray();
         var packages = Scan();
         return packages
             .Concat(petValues.Select(info => new ExtensionPackageDescriptor("", info.Manifest.Id, "pet", info.Manifest.Name, info.Manifest.NameEn, info.Manifest.Version, info.Manifest.MinCoreVersion, info.Manifest.UpdateUrl)))
             .Concat(featureValues.Select(info => new ExtensionPackageDescriptor("", info.Manifest.Id, "feature", info.Manifest.Name, info.Manifest.NameEn, info.Manifest.Version, info.Manifest.MinCoreVersion, info.Manifest.UpdateUrl)))
+            .Concat(themeValues.Select(info => new ExtensionPackageDescriptor("", info.Manifest.Id, "theme", info.Manifest.Name, info.Manifest.NameEn, info.Manifest.Version, info.Manifest.MinCoreVersion, info.Manifest.UpdateUrl)))
             .GroupBy(value => $"{value.Type}:{value.Id}", StringComparer.OrdinalIgnoreCase)
             .Select(group => new ExtensionCatalogEntry(
                 group.Where(value => !string.IsNullOrWhiteSpace(value.PackagePath)),
                 petValues.Where(info => group.First().Type == "pet" && string.Equals(info.Manifest.Id, group.First().Id, StringComparison.OrdinalIgnoreCase)),
-                featureValues.Where(info => group.First().Type == "feature" && string.Equals(info.Manifest.Id, group.First().Id, StringComparison.OrdinalIgnoreCase))))
+                featureValues.Where(info => group.First().Type == "feature" && string.Equals(info.Manifest.Id, group.First().Id, StringComparison.OrdinalIgnoreCase)),
+                themeValues.Where(info => group.First().Type == "theme" && string.Equals(info.Manifest.Id, group.First().Id, StringComparison.OrdinalIgnoreCase))))
             .OrderBy(entry => entry.Type, StringComparer.OrdinalIgnoreCase)
             .ThenBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -248,7 +269,7 @@ public sealed class ExtensionPackageCatalog
         var version = ReadString(root, "version");
         var minCore = ReadString(root, "min_core_version");
         var updateUrl = ReadString(root, "update_url");
-        if (string.IsNullOrWhiteSpace(id) || type is not ("pet" or "feature") || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(version)) return false;
+        if (string.IsNullOrWhiteSpace(id) || type is not ("pet" or "feature" or "theme") || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(version)) return false;
         descriptor = new ExtensionPackageDescriptor(path, id, type, name, nameEn, version, minCore, updateUrl);
         return true;
     }

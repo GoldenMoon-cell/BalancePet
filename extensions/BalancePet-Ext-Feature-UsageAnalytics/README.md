@@ -22,17 +22,15 @@ The cache metric follows the relay-console convention: `Cache Hit Rate = Cache R
 
 ## 页面与导航 / Dashboard and navigation
 
-左侧导航包含三个视图：
+左侧导航包含两个视图：
 
 - **仪表盘**：概览卡片、提供方拆分、模型分布和 Token 趋势。
 - **使用记录**：最近请求、耗时、模型以及已上报的 Token 数据。
-- **提供方与模型**：按提供方和模型查看请求、成功率和 Token 汇总。
 
-The sidebar contains three views:
+The sidebar contains two views:
 
 - **仪表盘 / Dashboard**: overview cards, provider split, model distribution, and token trend.
 - **使用记录 / Recent usage**: recent requests, duration, model, and reported token data.
-- **提供方与模型 / Providers & models**: request, success-rate, and token summaries by provider/model.
 
 如果主程序只记录了任务生命周期事件，状态栏会明确显示这一点，不会把 Token 为 0
 误解为解析失败。If the host has only recorded task-lifecycle events, the status bar says so
@@ -54,8 +52,8 @@ The extension never receives or reads API tokens, prompts, replies, cookies, or 
 websites. It reads only the local Usage Event v1 files and accepts an optional `--data-dir`
 argument for testing or portable setups. Only sanitized counters and timings are used.
 
-仪表盘会在事件文件变化时刷新，并至少每分钟自动刷新一次；标题栏显示实时倒计时，
-同时保留手动刷新按钮。只有客户端主动上报 Token、缓存和首 Token 延迟（TTFT）字段时，
+仪表盘会在事件文件变化时刷新，并每 60 秒进行一次兜底同步；标题栏显示实时倒计时。主程序收到同步信号后也遵守自身的最短刷新间隔。
+插件还会通过本地无凭据信号唤醒主程序的到期刷新调度，但不会接触余额 API 凭据。只有客户端主动上报 Token、缓存和首 Token 延迟（TTFT）字段时，
 对应卡片才会显示数值；没有主程序余额记录时“今日消费”卡片会显示“暂无数据”。
 插件还会读取主程序提供的当前账户余额快照，在“总余额”卡片中显示所有已配置账户的合计（仅在币种一致时求和）。
 
@@ -64,8 +62,11 @@ argument for testing or portable setups. Only sanitized counters and timings are
 窗口使用同一份本地余额变化账本：仅统计两次成功余额查询之间的余额下降，
 不代表中转站账单或每次请求的精确价格。没有成功余额记录时显示“暂无数据”。
 
-The dashboard refreshes when event files change and at least once per minute as a fallback.
-The header shows a live countdown and provides manual refresh. Token and cache cards
+对于 New API 兼容的中转站，主程序会在同一站点提供只读日志接口时，将服务器返回的
+`quota` 按站点公开的额度换算规则回写到对应请求；其他中转站、接口拒绝日志查询或无法可靠匹配的记录仍显示“未上报”，不会按公开模型价格猜测。
+
+The dashboard refreshes when event files change and every 60 seconds as a fallback.
+The header shows a live countdown and signals the host's due-refresh scheduler without receiving credentials. Token and cache cards
 are populated only when the client reports those counters; the “Today spending” card
 is populated from the host's balance-usage summary.
 The “Today spending” card reads the credential-free
@@ -107,12 +108,12 @@ package provides `tools/balancepet-usage.ps1`.
 
 本插件实现已发布的 **BalancePet Feature Extension API v1**，需要 BalancePet `0.7.7`
 或更高版本才能读取 Codex Token 和缓存计数；旧核心仍可显示请求元数据，但不能填充这些计数。
-插件版本独立于主程序版本递增，当前插件版本为 `0.3.0`。
+插件版本独立于主程序版本递增，当前插件版本为 `0.3.3`。
 
 This package implements the shipped **BalancePet Feature Extension API v1** and requires
 BalancePet `0.7.7` or newer for Codex token and cache counters. Older cores can still show
 request metadata but cannot populate those counters. The extension version is independent from
-the core version; the current package version is `0.3.0`.
+the core version; the current package version is `0.3.3`.
 
 功能扩展规范只约束 manifest、独立进程启动、能力声明、Usage Event v1、本地数据目录、
 更新和安全校验；不要求统一插件的 UI 工具包、主题、Logo、字体、语言或窗口布局。

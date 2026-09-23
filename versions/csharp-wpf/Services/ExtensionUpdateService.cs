@@ -191,7 +191,7 @@ public sealed class ExtensionUpdateService(HttpClient http)
     }
 
     private static bool IsValidCachedRelease(ExtensionUpdateRelease value)
-        => !string.IsNullOrWhiteSpace(value.Id) && value.Type is "pet" or "feature" &&
+        => !string.IsNullOrWhiteSpace(value.Id) && value.Type is "pet" or "feature" or "theme" &&
            ParseVersion(value.Version) > new Version(0, 0, 0) &&
            Uri.TryCreate(value.DownloadUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
 

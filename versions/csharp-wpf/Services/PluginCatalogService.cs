@@ -146,7 +146,7 @@ public sealed class PluginCatalogService
 
     private static bool Validate(PluginCatalogRecord item)
     {
-        if (item.Type is not ("feature" or "pet")) return false;
+        if (item.Type is not ("feature" or "pet" or "theme")) return false;
         if (string.IsNullOrWhiteSpace(item.Id) || item.Id.Length is < 2 or > 96) return false;
         if (!item.Id.All(ch => (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch is '.' or '-')) return false;
         if (item.Type == "feature" && !item.Id.StartsWith("balancepet.ext.", StringComparison.Ordinal)) return false;

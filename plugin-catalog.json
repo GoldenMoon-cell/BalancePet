@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-17T15:37:16Z",
+  "updated_at": "2026-09-23T05:57:50Z",
   "plugins": [
     {
       "id": "balancepet.ext.feature.usage-analytics",
@@ -10,14 +10,30 @@
       "description": "本地 Token、缓存和请求耗时统计仪表盘。",
       "description_en": "A local dashboard for token, cache, and request-duration metrics.",
       "author": "GoldenMoon-cell",
-      "version": "0.3.0",
+      "version": "0.3.3",
       "min_core_version": "0.7.7",
       "update_url": "https://api.github.com/repos/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/latest",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/download/v0.3.0/balancepet.ext.feature.usage-analytics-0.3.0-win-x64.zip",
-      "sha256": "a16e6940b53de426c726c39f243c8ece7f91038f37ed429c9d9ef221353a72da",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/download/v0.3.3/balancepet.ext.feature.usage-analytics-0.3.3-win-x64.zip",
+      "sha256": "27784533e9b400f37c9d7acd2f048dd8a05255781af4f19ae1c95389ce4ae737",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/tag/v0.3.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/tag/v0.3.3",
       "categories": ["统计", "工具"]
+    },
+    {
+      "id": "balancepet.ext.feature.notification-center",
+      "type": "feature",
+      "name": "消息中心",
+      "name_en": "Notification Center",
+      "description": "桌宠余额、任务状态、账户切换及系统通知的本地消息中心。",
+      "description_en": "A local notification center for pet balance, task state, account changes, and system events.",
+      "author": "GoldenMoon-cell",
+      "version": "0.5.15",
+      "min_core_version": "1.0.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet/releases/download/v1.0.0-dev.39/balancepet.ext.feature.notification-center-0.5.15-win-x64.zip",
+      "sha256": "27eacc7554d30e8a5fa9fc252b0aaaf9b0bbbe833c079449cdde07f3836f88dd",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v1.0.0-dev.39",
+      "categories": ["消息", "效率"]
     },
     {
       "id": "balancepet.theme.mica",

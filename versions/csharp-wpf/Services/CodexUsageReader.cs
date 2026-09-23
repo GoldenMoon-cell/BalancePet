@@ -32,7 +32,7 @@ public static class CodexUsageReader
         for (var attempt = 0; attempt < Attempts; attempt++)
         {
             result = await ReadTurnAsync(sessionId, turnId, startedAt, cancellationToken);
-            if (result?.HasData == true || attempt == Attempts - 1) return result;
+            if (result?.HasTokenData == true || attempt == Attempts - 1) return result;
             await Task.Delay(RetryDelay, cancellationToken);
         }
 
@@ -126,7 +126,7 @@ public static class CodexUsageReader
 
             var recordSession = ReadString(payload, "session_id") ?? ReadString(payload, "thread_id");
             if (!string.IsNullOrWhiteSpace(recordSession) && !string.Equals(recordSession, sessionId, StringComparison.Ordinal)) return;
-            var recordTurn = ReadString(payload, "turn_id") ?? "";
+            var recordTurn = ReadString(payload, "turn_id") ?? ReadString(payload, "root_turn_id") ?? "";
             var occurredAt = ReadDate(root, "timestamp");
             if (!accumulator.Matches(recordTurn, occurredAt)) return;
 
@@ -309,4 +309,6 @@ public sealed record CodexUsageCounters(
     string Model)
 {
     public bool HasData => InputTokens.HasValue || OutputTokens.HasValue || CacheReadTokens.HasValue || CacheWriteTokens.HasValue;
+    public bool HasTokenData => HasData;
+    public bool HasModel => !string.IsNullOrWhiteSpace(Model);
 }

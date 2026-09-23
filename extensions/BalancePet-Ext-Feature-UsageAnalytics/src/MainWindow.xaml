@@ -7,7 +7,7 @@
         WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResizeWithGrip"
         Background="{StaticResource PageBrush}" SnapsToDevicePixels="True" UseLayoutRounding="True">
   <shell:WindowChrome.WindowChrome>
-    <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
+    <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" CornerRadius="{DynamicResource WindowCornerRadius}" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
   </shell:WindowChrome.WindowChrome>
   <Grid>
     <Grid.ColumnDefinitions>
@@ -55,13 +55,6 @@
               <TextBlock Text="仪表盘" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
-          <Button x:Name="ProviderNav" Style="{StaticResource NavButton}" Click="OnProviderNavClick">
-            <StackPanel Orientation="Horizontal">
-              <Path Data="{StaticResource ProviderIconGeometry}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                    StrokeThickness="1.4" Width="14" Height="14" Stretch="Uniform" Margin="1,0,13,0"/>
-              <TextBlock Text="提供方与模型" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
           <Button x:Name="HistoryNav" Style="{StaticResource NavButton}" Click="OnHistoryNavClick">
             <StackPanel Orientation="Horizontal">
               <Path Data="{StaticResource HistoryIconGeometry}" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
@@ -98,20 +91,12 @@
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
             <Border Background="#123148" BorderBrush="#1E4A5B" BorderThickness="1" CornerRadius="16"
-                    Padding="12,7" Margin="0,0,9,0">
+                    Padding="12,7">
               <StackPanel Orientation="Horizontal">
                 <Ellipse Width="7" Height="7" Fill="{StaticResource AccentBrush}" Margin="0,0,7,0" VerticalAlignment="Center"/>
-                <TextBlock x:Name="AutoRefreshStatus" Text="自动刷新 · 60 秒" Foreground="{StaticResource AccentBrush}" FontSize="11"/>
+          <TextBlock x:Name="AutoRefreshStatus" Text="自动同步 · 60 秒后" Foreground="{StaticResource AccentBrush}" FontSize="11"/>
               </StackPanel>
             </Border>
-            <Button x:Name="RefreshButton" Style="{StaticResource PrimaryButton}" Click="OnRefreshClick"
-                    ToolTip="立即刷新" Padding="12,8">
-              <StackPanel Orientation="Horizontal">
-                <Path Data="{StaticResource RefreshIconGeometry}" Stroke="{StaticResource PageBrush}"
-                      StrokeThickness="1.4" Width="14" Height="14" Stretch="Uniform" Margin="0,0,7,0"/>
-                <TextBlock Text="刷新" Foreground="{StaticResource PageBrush}"/>
-              </StackPanel>
-            </Button>
           </StackPanel>
         </Grid>
         <Grid Margin="0,0,0,12">
@@ -293,43 +278,60 @@
             </StackPanel>
           </Border>
         </Grid>
-        <Border x:Name="RecentPanel" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
-                BorderThickness="1" CornerRadius="10" Padding="17,15">
-          <StackPanel>
-            <Grid Margin="0,0,0,8">
-              <TextBlock Text="最近使用" FontSize="17" FontWeight="SemiBold"/>
-              <TextBlock x:Name="RecentSummary" Grid.Column="1" HorizontalAlignment="Right"
-                         Foreground="{StaticResource MutedBrush}" FontSize="12"/>
-            </Grid>
-            <ListView x:Name="EventsList" MaxHeight="300" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-              <ListView.ItemTemplate>
-                <DataTemplate>
-                  <Grid MinWidth="700">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="130"/><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.7*"/>
-                      <ColumnDefinition Width="88"/><ColumnDefinition Width="88"/><ColumnDefinition Width="76"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel>
-                      <TextBlock Text="{Binding OccurredAtText}" FontSize="12"/>
-                      <TextBlock Text="{Binding DurationText}" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,3,0,0"/>
-                    </StackPanel>
-                    <TextBlock Grid.Column="1" Text="{Binding Provider}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="2" Text="{Binding Model}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Grid.Column="3" Text="{Binding InputText}" Foreground="{StaticResource BlueBrush}" VerticalAlignment="Center" TextAlignment="Right"/>
-                    <TextBlock Grid.Column="4" Text="{Binding OutputText}" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" TextAlignment="Right"/>
-                    <TextBlock Grid.Column="5" Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" VerticalAlignment="Center" TextAlignment="Right"/>
-                  </Grid>
-                </DataTemplate>
-              </ListView.ItemTemplate>
-            </ListView>
-          </StackPanel>
-        </Border>
         <DockPanel Margin="0,13,0,0">
           <TextBlock x:Name="StatusText" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"
                      FontSize="11" VerticalAlignment="Center"/>
           <Button x:Name="OpenDataButton" DockPanel.Dock="Right" Content="打开数据目录"
                   Click="OnOpenDataClick" Padding="12,7"/>
         </DockPanel>
+      </StackPanel>
+    </ScrollViewer>
+    <ScrollViewer x:Name="HistoryScrollViewer" Grid.Column="1" Margin="0,48,0,0"
+                  Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="28,26,30,30">
+        <Grid Margin="0,0,0,20">
+          <StackPanel>
+            <TextBlock Text="使用记录" FontSize="28" FontWeight="Bold"/>
+            <TextBlock Text="逐条查看请求的模型、Token 去向与已上报消耗额度" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,0"/>
+          </StackPanel>
+          <TextBlock x:Name="RecentSummary" HorizontalAlignment="Right" VerticalAlignment="Bottom" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+        </Grid>
+        <Border x:Name="RecentPanel" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
+                BorderThickness="1" CornerRadius="10" Padding="12">
+          <ListView x:Name="EventsList" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListView.ItemTemplate>
+              <DataTemplate>
+                <Grid MinWidth="700">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="142"/><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="2.4*"/><ColumnDefinition Width="112"/></Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock Text="{Binding OccurredAtText}" FontSize="12" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding DurationText}" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,0"/>
+                    <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="10" Margin="0,3,0,0"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Margin="0,0,14,0">
+                    <TextBlock Text="{Binding Provider}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding Model}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,0" TextTrimming="CharacterEllipsis"/>
+                  </StackPanel>
+                  <Grid Grid.Column="2" Margin="0,0,14,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Text="{Binding InputText}" Foreground="{StaticResource BlueBrush}" FontSize="11"/>
+                      <TextBlock Text="{Binding CacheReadText}" Foreground="#15C7D7" FontSize="11" Margin="0,5,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                      <TextBlock Text="{Binding OutputText}" Foreground="{StaticResource AccentBrush}" FontSize="11"/>
+                      <TextBlock Text="{Binding CacheWriteText}" Foreground="{StaticResource OrangeBrush}" FontSize="11" Margin="0,5,0,0"/>
+                    </StackPanel>
+                  </Grid>
+                  <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                    <TextBlock Text="消耗额度" Foreground="{StaticResource MutedBrush}" FontSize="10" TextAlignment="Right"/>
+                    <TextBlock Text="{Binding CostText}" Foreground="{StaticResource PurpleBrush}" FontWeight="SemiBold" Margin="0,4,0,0" TextAlignment="Right"/>
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListView.ItemTemplate>
+          </ListView>
+        </Border>
       </StackPanel>
     </ScrollViewer>
   </Grid>

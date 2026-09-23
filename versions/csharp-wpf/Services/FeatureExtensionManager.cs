@@ -47,6 +47,7 @@ public sealed class FeatureExtensionManager : IDisposable
 {
     public const int CurrentApiVersion = 1;
     public const string UsageAnalyticsId = "balancepet.ext.feature.usage-analytics";
+    public const string NotificationCenterId = "balancepet.ext.feature.notification-center";
     private const long MaxPackageBytes = 500L * 1024 * 1024;
     private const long MaxEntryBytes = 100L * 1024 * 1024;
     private const int MaxEntryCount = 4096;
@@ -153,6 +154,10 @@ public sealed class FeatureExtensionManager : IDisposable
             var idDirectory = Path.Combine(RootDirectory, manifest.Id);
             var destinationRoot = Path.Combine(idDirectory, manifest.Version);
             Directory.CreateDirectory(idDirectory);
+            // Installing a package is an explicit user action; feature
+            // extensions start enabled. A previous disabled marker must not
+            // silently carry over to a newly installed version.
+            TryDeleteFile(Path.Combine(idDirectory, ".disabled"));
             if (Directory.Exists(destinationRoot)) Directory.Delete(destinationRoot, true);
             Directory.Move(stagingRoot, destinationRoot);
             return new FeatureExtensionInfo(manifest, destinationRoot, !File.Exists(Path.Combine(idDirectory, ".disabled")));
@@ -192,7 +197,7 @@ public sealed class FeatureExtensionManager : IDisposable
         return true;
     }
 
-    public bool TryLaunch(string id, out string error)
+    public bool TryLaunch(string id, out string error, bool background = false)
     {
         error = "";
         var extension = GetLatest(id);
@@ -204,7 +209,8 @@ public sealed class FeatureExtensionManager : IDisposable
 
         if (_processes.TryGetValue(id, out var existing) && !existing.HasExited)
         {
-            ActivateWhenReady(existing);
+            if (!background && string.Equals(id, NotificationCenterId, StringComparison.OrdinalIgnoreCase) && TryShowNotificationCenterPanel()) return true;
+            if (!background) ActivateWhenReady(existing);
             return true;
         }
 
@@ -214,7 +220,8 @@ public sealed class FeatureExtensionManager : IDisposable
         if (existingProcess is not null)
         {
             _processes[id] = existingProcess;
-            ActivateWhenReady(existingProcess);
+            if (!background && string.Equals(id, NotificationCenterId, StringComparison.OrdinalIgnoreCase) && TryShowNotificationCenterPanel()) return true;
+            if (!background) ActivateWhenReady(existingProcess);
             return true;
         }
 
@@ -227,7 +234,7 @@ public sealed class FeatureExtensionManager : IDisposable
                 WorkingDirectory = extension.DirectoryPath,
                 UseShellExecute = true,
                 WindowStyle = ProcessWindowStyle.Normal,
-                Arguments = $"--data-dir {QuoteArgument(dataDirectory)}"
+                Arguments = $"--data-dir {QuoteArgument(dataDirectory)}{(background ? " --background" : "")}"
             };
             var process = Process.Start(startInfo);
             if (process is null) { error = "无法启动功能扩展。"; return false; }
@@ -238,7 +245,27 @@ public sealed class FeatureExtensionManager : IDisposable
                 process.Dispose();
             };
             _processes[id] = process;
-            ActivateWhenReady(process);
+            if (!background)
+            {
+                ActivateWhenReady(process);
+                try
+                {
+                    process.Refresh();
+                    if (process.HasExited)
+                    {
+                        _processes.Remove(id);
+                        error = $"功能扩展启动失败（退出代码 {process.ExitCode}）。";
+                        process.Dispose();
+                        return false;
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    _processes.Remove(id);
+                    error = "功能扩展启动失败。";
+                    return false;
+                }
+            }
             return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
@@ -250,15 +277,41 @@ public sealed class FeatureExtensionManager : IDisposable
 
     public void Stop(string id)
     {
-        if (!_processes.Remove(id, out var process)) return;
-        try
+        if (!IsValidId(id)) return;
+
+        var processes = new Dictionary<int, Process>();
+        if (_processes.Remove(id, out var tracked))
         {
-            if (!process.HasExited) process.Kill(entireProcessTree: true);
-            process.WaitForExit(1500);
+            try { processes[tracked.Id] = tracked; }
+            catch (InvalidOperationException) { tracked.Dispose(); }
         }
-        catch (InvalidOperationException) { }
-        catch (System.ComponentModel.Win32Exception) { }
-        finally { process.Dispose(); }
+
+        // The host can be restarted while an extension stays open. In that
+        // case _processes is empty, but the old executable still owns its DLLs
+        // and prevents an upgrade/uninstall from replacing the files.
+        foreach (var discovered in FindRunningProcesses(id))
+        {
+            try
+            {
+                if (!processes.TryAdd(discovered.Id, discovered)) discovered.Dispose();
+            }
+            catch (InvalidOperationException) { discovered.Dispose(); }
+        }
+
+        foreach (var process in processes.Values)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                    process.WaitForExit(5000);
+                }
+            }
+            catch (InvalidOperationException) { }
+            catch (System.ComponentModel.Win32Exception) { }
+            finally { process.Dispose(); }
+        }
     }
 
     public void StopAll()
@@ -280,7 +333,7 @@ public sealed class FeatureExtensionManager : IDisposable
         if ((manifest.Name?.Length ?? 0) > 120 || (manifest.NameEn?.Length ?? 0) > 120) { error = "功能扩展 name/name_en 不能超过 120 个字符。"; return false; }
         if ((manifest.Entrypoint?.Length ?? 0) > 120) { error = "功能扩展 entrypoint 不能超过 120 个字符。"; return false; }
         if (!string.IsNullOrWhiteSpace(manifest.UpdateUrl) && !TryValidateGitHubReleaseUrl(manifest.UpdateUrl)) { error = "功能扩展 update_url 必须是 api.github.com 的 releases/latest 地址。"; return false; }
-        if (manifest.Capabilities is null || manifest.Capabilities.Count == 0 || manifest.Capabilities.Distinct(StringComparer.Ordinal).Count() != manifest.Capabilities.Count || manifest.Capabilities.Any(value => value != "usage.read")) { error = "当前只允许声明不重复的 usage.read 能力。"; return false; }
+        if (manifest.Capabilities is null || manifest.Capabilities.Count == 0 || manifest.Capabilities.Distinct(StringComparer.Ordinal).Count() != manifest.Capabilities.Count || manifest.Capabilities.Any(value => value is not ("usage.read" or "notifications.read" or "notifications.present"))) { error = "功能扩展声明了不受支持的能力。"; return false; }
         if (checkInstalledConflicts && GetInstalled().Any(info => string.Equals(info.Manifest.Id, manifest.Id, StringComparison.OrdinalIgnoreCase) && !string.Equals(info.Manifest.Version, manifest.Version, StringComparison.OrdinalIgnoreCase))) { /* side-by-side versions are allowed */ }
         error = "";
         return true;
@@ -329,6 +382,24 @@ public sealed class FeatureExtensionManager : IDisposable
     }
     private static string QuoteArgument(string value) => $"\"{value.Replace("\"", "\\\"")}\"";
 
+    private static void TryDeleteFile(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    private static bool TryShowNotificationCenterPanel()
+    {
+        try
+        {
+            using var signal = EventWaitHandle.OpenExisting(@"Local\BalancePet.NotificationCenter.ShowPanel.v1");
+            return signal.Set();
+        }
+        catch (WaitHandleCannotBeOpenedException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
+
     private static Process? FindRunningProcess(string executablePath)
     {
         var processName = Path.GetFileNameWithoutExtension(executablePath);
@@ -343,6 +414,49 @@ public sealed class FeatureExtensionManager : IDisposable
             catch (System.ComponentModel.Win32Exception) { process.Dispose(); }
         }
         return null;
+    }
+
+    private IReadOnlyList<Process> FindRunningProcesses(string id)
+    {
+        var result = new List<Process>();
+        var idDirectory = Path.GetFullPath(Path.Combine(RootDirectory, id));
+        if (!IsWithinRoot(idDirectory) || !Directory.Exists(idDirectory)) return result;
+
+        var executablePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var versionDirectory in Directory.EnumerateDirectories(idDirectory))
+        {
+            if (Path.GetFileName(versionDirectory).Equals(".staging", StringComparison.OrdinalIgnoreCase)) continue;
+            try
+            {
+                var manifestPath = Path.Combine(versionDirectory, "manifest.json");
+                if (!File.Exists(manifestPath)) continue;
+                var manifest = JsonSerializer.Deserialize<FeatureExtensionManifest>(File.ReadAllText(manifestPath), JsonOptions);
+                if (manifest is null || !string.Equals(manifest.Id, id, StringComparison.OrdinalIgnoreCase)
+                    || !IsValidManifest(manifest, out _, checkInstalledConflicts: false)) continue;
+                executablePaths.Add(GetSafePath(versionDirectory, manifest.Entrypoint));
+            }
+            catch (IOException) { }
+            catch (JsonException) { }
+            catch (InvalidDataException) { }
+            catch (InvalidOperationException) { }
+        }
+
+        foreach (var executablePath in executablePaths)
+        {
+            var processName = Path.GetFileNameWithoutExtension(executablePath);
+            foreach (var process in Process.GetProcessesByName(processName))
+            {
+                try
+                {
+                    var runningPath = Path.GetFullPath(process.MainModule?.FileName ?? "");
+                    if (string.Equals(runningPath, executablePath, StringComparison.OrdinalIgnoreCase)) result.Add(process);
+                    else process.Dispose();
+                }
+                catch (InvalidOperationException) { process.Dispose(); }
+                catch (System.ComponentModel.Win32Exception) { process.Dispose(); }
+            }
+        }
+        return result;
     }
 
     private static void ActivateWhenReady(Process process)

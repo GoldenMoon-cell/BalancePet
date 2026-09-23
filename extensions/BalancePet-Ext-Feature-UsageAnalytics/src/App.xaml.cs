@@ -7,6 +7,7 @@ public partial class App : Application
 {
     private void OnStartup(object sender, StartupEventArgs e)
     {
+        Resources["WindowCornerRadius"] = Environment.OSVersion.Version.Build >= 22000 ? new CornerRadius(10) : new CornerRadius(4);
         var dataDirectory = ReadArgument(e.Args, "--data-dir")
             ?? UsageEventStore.GetDefaultDirectory();
         var window = new MainWindow(dataDirectory);

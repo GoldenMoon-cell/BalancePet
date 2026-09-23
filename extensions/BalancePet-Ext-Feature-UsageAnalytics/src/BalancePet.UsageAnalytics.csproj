@@ -7,10 +7,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>BalancePet.UsageAnalytics</AssemblyName>
     <RootNamespace>BalancePet.UsageAnalytics</RootNamespace>
-    <Version>0.3.0</Version>
-    <AssemblyVersion>0.3.0.0</AssemblyVersion>
-    <FileVersion>0.3.0.0</FileVersion>
-    <InformationalVersion>0.3.0</InformationalVersion>
+    <Version>0.3.3</Version>
+    <AssemblyVersion>0.3.3.0</AssemblyVersion>
+    <FileVersion>0.3.3.0</FileVersion>
+    <InformationalVersion>0.3.3</InformationalVersion>
     <ApplicationIcon>assets\balance-pet.ico</ApplicationIcon>
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
     <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>

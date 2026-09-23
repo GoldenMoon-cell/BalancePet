@@ -12,6 +12,10 @@
 - `Claude 小书灵 / Claude Little Book Spirit / 丹笺`
 - `Kimi 小棱镜 / Kimi Little Prism / 虹谱`
 - `Qwen 小折扇 / Qwen Folding Fan / 绀华`
+- `Ernie 小病书灵 / Ernie Little Book Spirit / 青绡`
+- `GLM 小方灵 / GLM Little Square Spirit / 青棱`
+- `GPT Image 2 小墨龙 / GPT Image 2 Ink Dragon / 玄珏`
+- `Llama 小羊驼 / Llama Alpaca / 绒眠`
 
 这里的英文名和二字文化名是 BalancePet 的非官方角色称呼。
 
@@ -27,4 +31,4 @@ assets/pets/deepseek/codex-done.png
 assets/pets/deepseek/inactive.png
 ```
 
-ChatGPT 形象使用同样的文件名，将目录名换成 `chatgpt`；MiniMax、Gemini、Grok、Claude、Kimi 和 Qwen 分别使用 `minimax`、`gemini`、`grok`、`claude`、`kimi` 和 `qwen` 目录。图片必须是透明背景 PNG；建议所有状态使用相同的画布尺寸和角色锚点。未提供的状态会优先回退到该形象的 `idle.png`，再回退到 `assets/pet.png` 或 `assets/chatgpt-dragon.png`。
+其他形象使用同样的文件名，目录名分别为 `chatgpt`、`minimax`、`gemini`、`grok`、`claude`、`kimi`、`qwen`、`ernie`、`glm`、`gpt-image2` 和 `llama`。图片必须是透明背景 PNG；建议所有状态使用相同的画布尺寸和角色锚点。未提供的状态会优先回退到该形象的 `idle.png`，再回退到 `assets/pet.png` 或 `assets/chatgpt-dragon.png`。

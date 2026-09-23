@@ -2,7 +2,7 @@
 
 面向 Windows 的余额桌宠。项目当前只维护 C# WPF 版本：它会按设定间隔查询中转站提供的余额 API，并以可互动的桌宠显示状态和余额，不需要打开中转站网页。
 
-当前版本：`v0.9.1`；最近发布版本：`v0.9.1`。
+当前预发布版本：`v1.0.0-dev.39`；上一正式版：`v0.9.1`。
 
 ## 项目统计
 
@@ -27,19 +27,19 @@
 - 多账户监控：可在设置中新增多个 API/中转站账户，每个账户独立令牌、刷新间隔、缓存、用量和低余额阈值；桌宠聚合显示当前选中账户，托盘可快速切换。
 - 凭证保护：令牌由 Windows DPAPI 按当前用户加密保存，不以明文写入项目配置。
 - 桌宠交互：置顶显示、自由拖动、边缘吸附、锁定互动、点击刷新和状态气泡；可独立关闭互动动作或随机彩蛋。
-- 通知与统计：低余额提示、系统通知、每日用量和最近使用记录。
+- 通知与统计：低余额提示、系统通知、每日用量和最近使用记录；New API 兼容中转站可从只读 Token 日志同步服务器实际额度，其他接口仍按上游上报显示。
 - 配置迁移：可导入/导出不含令牌的设置文件，适合切换中转站或迁移到另一台电脑。
 - 更新管理：可选每次启动、每天、每周或仅手动检查 GitHub Release；更新前会下载并校验 SHA-256。可写安装目录直接替换 ZIP，受保护目录会改用管理员安装器。
 - 双语界面：安装器启动时可选择简体中文或 English；桌宠设置中也可随时切换应用语言。
-- 托盘驻留与开机启动：支持从托盘配置、刷新、查看统计和退出；右键菜单的“切换形象”可快速切换当前已完成的澜汐、霁珑、绯音、星璃、烬斧、丹笺、虹谱和绀华；可自动跟随 AI 客户端任务的开始和结束。
+- 托盘驻留与开机启动：支持从托盘配置、刷新、查看统计和退出；右键菜单的“切换形象”可快速切换当前已完成的澜汐、霁珑、绯音、星璃、烬斧、丹笺、虹谱、绀华、青绡、青棱、玄珏和绒眠；可自动跟随 AI 客户端任务的开始和结束。
 - CC Switch 登录状态识别：启用后只读监听当前用户的 CC Switch 数据库（`%USERPROFILE%\\.cc-switch\\cc-switch.db`）中 Codex 的当前供应商，避免把 Claude、Gemini 等其他客户端的当前行误认成 Codex 登录。切换 Codex 账户后按令牌指纹或唯一接口自动匹配本地 API 账户；未收录的第三方 API 会提示添加到本地。令牌只在本机内存中计算 SHA-256，不会写入或上传。
-- 状态素材：当前支持 DeepSeek 小鲸鱼「澜汐」、ChatGPT 小白龙「霁珑」、MiniMax 小海螺「绯音」、Gemini 小星猫「星璃」、Grok 小恶魔「烬斧」、Claude 小书灵「丹笺」、Kimi 小棱镜「虹谱」和 Qwen 小折扇「绀华」的待机、加载、成功、低余额、错误、点击、Codex 工作/完成和闲置状态图；其他已登记形象会在素材完整前保持禁用。
+- 状态素材：当前支持 DeepSeek 小鲸鱼「澜汐」、ChatGPT 小白龙「霁珑」、MiniMax 小海螺「绯音」、Gemini 小星猫「星璃」、Grok 小恶魔「烬斧」、Claude 小书灵「丹笺」、Kimi 小棱镜「虹谱」、Qwen 小折扇「绀华」、Ernie 小病书灵「青绡」、GLM 小方灵「青棱」、GPT Image 2 小墨龙「玄珏」和 Llama 小羊驼「绒眠」的九种状态图；其他已登记形象会在素材完整前保留在目录中，不出现在选择菜单。
 
 ## 扩展
 
-`v0.5.0` 开始提供资源型宠物扩展基础；`v0.6.0` 增加功能扩展的独立进程宿主和脱敏用量事件管道。打开“配置接口”窗口的“扩展”区域，程序会先显示在线插件库，再扫描主程序目录旁 `extension-library` 文件夹中的顶层 `.zip` 包。在线目录只负责发现插件；点击“安装”后，主程序才会下载、校验并通过正常安装流程。目录不可用时会显示最近一次有效缓存，仍可导入本地 ZIP。扩展条目右侧提供图标化的安装/卸载、启用/禁用、更新和启动操作；同一扩展的不同版本会合并为一个条目。扩展更新可单独选择每次启动、每天、每周或仅手动检查；更新地址由扩展 manifest 的 `update_url` 声明，下载后仍会经过正常的 ZIP 和 manifest 校验。卸载只删除 `%LOCALAPPDATA%\BalancePet\extensions` 中的运行副本，不删除扩展库里的 ZIP，因此之后可以重新安装。功能扩展不会被加载进主程序进程，只能通过声明的能力读取本机脱敏数据。插件库规范见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)。
+`v0.5.0` 开始提供资源型宠物扩展基础；`v0.6.0` 增加功能扩展的独立进程宿主和脱敏用量事件管道。当前插件库提供 Usage Analytics `v0.3.3`、Notification Center `v0.5.15` 和 Mica 主题 `v1.0.0`。打开“配置接口”窗口的“扩展”区域，程序会先显示在线插件库，再扫描主程序目录旁 `extension-library` 文件夹中的顶层 `.zip` 包。在线目录只负责发现插件；点击“安装”后，主程序才会下载、校验并通过正常安装流程。目录不可用时会显示最近一次有效缓存，仍可导入本地 ZIP。扩展条目右侧提供图标化的安装/卸载、启用/禁用、更新和启动操作；同一扩展的不同版本会合并为一个条目。扩展更新可单独选择每次启动、每天、每周或仅手动检查；更新地址由扩展 manifest 的 `update_url` 声明，下载后仍会经过正常的 ZIP 和 manifest 校验。卸载只删除 `%LOCALAPPDATA%\BalancePet\extensions` 中的运行副本，不删除扩展库里的 ZIP，因此之后可以重新安装。功能扩展不会被加载进主程序进程，只能通过声明的能力读取本机脱敏数据。插件库规范见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)。
 
-资源扩展包格式见 [docs/extension-spec/v1/README.md](docs/extension-spec/v1/README.md)，功能扩展协议见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)。可用 [tools/package-pet-extension.ps1](tools/package-pet-extension.ps1) 打包九状态宠物形象。用量统计插件位于 `extensions/BalancePet-Ext-Feature-UsageAnalytics/`，通过右键菜单“用量统计”启动；它会监听事件文件变化，并以不超过 60 秒的间隔自动刷新。任务完成事件可以自动记录请求次数和耗时；要统计真实 Token、缓存命中和首 Token 延迟（TTFT），客户端还需主动上报 Usage.v1 字段。主程序还会把基础窗口使用的本地余额变化账本导出为脱敏的 `balance-usage.v1.json`，供插件显示“今日消费”；这代表余额下降估算，不是中转站账单。主程序只接收计数和耗时等元数据，不接收提示词、回复或令牌。功能扩展协议只规定 manifest、`--data-dir`、Usage Event v1、Balance Usage v1、能力和生命周期；第三方扩展可以自由选择 UI 工具包、主题、Logo、窗口布局和交互方式。
+资源扩展包格式见 [docs/extension-spec/v1/README.md](docs/extension-spec/v1/README.md)，功能扩展协议见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)，声明式主题协议见 [docs/extension-spec/theme-v1/README.md](docs/extension-spec/theme-v1/README.md)。主题扩展只包含经过白名单校验的颜色、圆角和材质令牌，不加载任意 XAML 或代码；Windows 云母效果始终由主程序调用系统接口。可用 [tools/package-pet-extension.ps1](tools/package-pet-extension.ps1) 打包九状态宠物形象，用 [tools/package-theme-extension.ps1](tools/package-theme-extension.ps1) 打包主题。用量统计插件位于 `extensions/BalancePet-Ext-Feature-UsageAnalytics/`，通过右键菜单“用量统计”启动；它会监听事件文件变化，并以不超过 60 秒的间隔自动刷新。任务完成事件可以自动记录请求次数和耗时；要统计真实 Token、缓存命中和首 Token 延迟（TTFT），客户端还需主动上报 Usage.v1 字段。主程序还会把基础窗口使用的本地余额变化账本导出为脱敏的 `balance-usage.v1.json`，供插件显示“今日消费”；这代表余额下降估算，不是中转站账单。主程序只接收计数和耗时等元数据，不接收提示词、回复或令牌。功能扩展协议只规定 manifest、`--data-dir`、Usage Event v1、Balance Usage v1、能力和生命周期；第三方扩展可以自由选择 UI 工具包、主题、Logo、窗口布局和交互方式。
 
 ## 运行
 
@@ -58,7 +58,7 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 ## 配置接口
 
 - **监控账户**：设置窗口顶部可以新增、删除和启用多个账户；每个账户单独保存接口预设、令牌、刷新间隔和阈值。令牌仍按账户使用 Windows DPAPI 加密保存。
-- **接口预设**：“自动识别”会在同一站点依次尝试只读的 `/v1/usage` 和 `/api/usage/token`；也可直接选择对应协议。预设模式只需填写中转站根地址和 API Key，程序会补全接口、Bearer 认证与余额字段；New API 会读取公开状态中的额度比例和 USD/CNY/Token/自定义货币设置后再显示。
+- **接口预设**：“自动识别”会在同一站点依次尝试只读的 `/v1/usage` 和 `/api/usage/token`；也可直接选择对应协议。预设模式只需填写中转站根地址和 API Key，程序会补全接口、Bearer 认证与余额字段；New API 会读取公开状态中的额度比例和 USD/CNY/Token/自定义货币设置后再显示，并尝试从同站点的只读 `/api/log/token` 同步逐次消费。
 - **自定义接口**：选择“自定义接口”后，可继续手动配置完整 API 地址、认证方式、请求头和 JSON 路径，旧版账户会按此模式无损迁移。
 - **余额 API 地址**：中转站文档给出的余额查询 API 完整 URL，不是网站首页或聊天接口。
 - **认证方式**：支持 `Bearer Token`、完整 `Authorization`、`x-api-key` 和自定义 Header。

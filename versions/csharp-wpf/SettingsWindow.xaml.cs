@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -8,6 +9,7 @@ using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using BalancePet.Wpf.Models;
 using BalancePet.Wpf.Services;
 
@@ -23,6 +25,7 @@ public partial class SettingsWindow : Window
     private readonly PetSettings _settings;
     private readonly PetExtensionManager _extensions = new();
     private readonly FeatureExtensionManager _featureExtensions;
+    private readonly ThemeExtensionManager _themes = new();
     private readonly ExtensionPackageCatalog _extensionLibrary = new();
     private readonly HttpClient _extensionUpdateHttpClient = new() { Timeout = TimeSpan.FromSeconds(20) };
     private readonly ExtensionUpdateService _extensionUpdates;
@@ -36,16 +39,34 @@ public partial class SettingsWindow : Window
     private bool _suppressPresetChange;
     private bool _suppressSiteUrlChange;
     private bool _suppressLanguageChange;
+    private bool _suppressThemeChange;
+    private bool _trackChanges;
+    private bool _suppressChangeTracking;
+    private bool _hasUnsavedChanges;
+    private bool _allowCloseWithoutPrompt;
+    private string _selectedThemeMode = "system";
+    private string _selectedThemeBackdrop = "mica";
+    private string _selectedThemeId = ThemeExtensionManager.BundledThemeId;
 
     public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings, FeatureExtensionManager? featureExtensions = null)
     {
         InitializeComponent(); _store = store; _tokens = tokens; _settings = settings; _featureExtensions = featureExtensions ?? new FeatureExtensionManager();
+        _themes.EnsureBundledThemeInstalled();
         _extensionUpdates = new ExtensionUpdateService(_extensionUpdateHttpClient);
         _pluginCatalog = new PluginCatalogService(_extensionUpdateHttpClient);
         Closed += (_, _) => { _pluginCatalogCancellation.Cancel(); _pluginCatalogCancellation.Dispose(); _extensionUpdateHttpClient.Dispose(); };
+        Closing += OnWindowClosing;
         AddInstalledPetStyles();
         RefreshExtensionList();
         UpdatePetStyleAvailability();
+        RefreshThemeList(settings.ThemeId);
+        SelectByTag(ThemeModeBox, settings.ThemeMode);
+        SelectByTag(ThemeBackdropBox, settings.ThemeBackdrop);
+        _selectedThemeMode = SelectedTag(ThemeModeBox, "system");
+        _selectedThemeBackdrop = SelectedTag(ThemeBackdropBox, "mica");
+        _selectedThemeId = SelectedTag(ThemeBox, ThemeExtensionManager.BundledThemeId);
+        ThemeCompactBox.IsChecked = settings.ThemeCompact;
+        ApplySelectedTheme();
         _profiles = settings.Monitors is { Count: > 0 }
             ? settings.Monitors.Select(CloneProfile).ToList()
             : new List<MonitorProfile> { CreateProfileFromLegacy(settings) };
@@ -60,6 +81,8 @@ public partial class SettingsWindow : Window
         RefreshLanguageSelector(settings.Language, selectLanguage: false);
         SyncAllComboDisplays();
         UpdatePetStyleAvailability();
+        UpdateAccountSummary();
+        _trackChanges = true;
     }
 
     private void RefreshLanguageSelector(string language, bool selectLanguage)
@@ -129,11 +152,19 @@ public partial class SettingsWindow : Window
         return !string.IsNullOrWhiteSpace(value) ? value : fallback;
     }
 
-    private static void SyncComboDisplay(System.Windows.Controls.ComboBox? box)
+    private static void SyncComboDisplay(System.Windows.Controls.ComboBox? box, string? explicitText = null)
     {
-        if (box?.SelectedItem is not ComboBoxItem item) return;
-        var text = item.Content?.ToString() ?? string.Empty;
-        if (!string.Equals(box.Text, text, StringComparison.Ordinal)) box.Text = text;
+        if (box is null) return;
+        void Update()
+        {
+            box.ApplyTemplate();
+            if (box.Template.FindName("SelectionText", box) is TextBlock text)
+                text.Text = explicitText ?? (box.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? string.Empty;
+            box.InvalidateVisual();
+        }
+        Update();
+        box.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.DataBind, Update);
+        box.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, Update);
     }
 
     private void SyncAllComboDisplays()
@@ -147,11 +178,161 @@ public partial class SettingsWindow : Window
         SyncComboDisplay(UpdateCheckBox);
         SyncComboDisplay(ExtensionUpdateCheckBox);
         SyncComboDisplay(LanguageBox);
+        SyncComboDisplay(ThemeBox);
+        SyncComboDisplay(ThemeModeBox);
+        SyncComboDisplay(ThemeBackdropBox);
     }
+
+    private void RefreshThemeList(string? selectedId = null)
+    {
+        if (ThemeBox is null) return;
+        var requested = string.IsNullOrWhiteSpace(selectedId) ? SelectedTag(ThemeBox, _settings.ThemeId) : selectedId;
+        _suppressThemeChange = true;
+        try
+        {
+            ThemeBox.Items.Clear();
+            var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+            foreach (var theme in _themes.GetLatestEnabled())
+            {
+                ThemeBox.Items.Add(new ComboBoxItem
+                {
+                    Tag = theme.Manifest.Id,
+                    Content = AppLocalization.IsEnglish(language) && !string.IsNullOrWhiteSpace(theme.Manifest.NameEn)
+                        ? theme.Manifest.NameEn
+                        : theme.Manifest.Name
+                });
+            }
+            SelectByTag(ThemeBox, requested ?? ThemeExtensionManager.BundledThemeId);
+            if (ThemeBox.SelectedItem is null && ThemeBox.Items.Count > 0) ThemeBox.SelectedIndex = 0;
+            _selectedThemeId = SelectedTag(ThemeBox, requested ?? ThemeExtensionManager.BundledThemeId);
+        }
+        finally { _suppressThemeChange = false; }
+        UpdateThemeSummary();
+    }
+
+    private ThemeExtensionInfo? SelectedTheme()
+    {
+        var id = _selectedThemeId;
+        return _themes.GetLatestEnabled(id) ?? _themes.GetLatestEnabled(ThemeExtensionManager.BundledThemeId) ?? _themes.GetLatestEnabled().FirstOrDefault();
+    }
+
+    private void ApplySelectedTheme()
+    {
+        var theme = SelectedTheme();
+        if (theme is null) return;
+        var mode = _selectedThemeMode;
+        var compact = ThemeCompactBox?.IsChecked ?? _settings.ThemeCompact;
+        WindowThemeService.ApplyResources(this, theme, mode, compact);
+        if (IsInitialized)
+        {
+            var backdrop = _selectedThemeBackdrop;
+            WindowThemeService.ApplyBackdropOrFallback(this, backdrop, mode);
+        }
+        UpdateThemeSummary();
+    }
+
+    private void UpdateThemeSummary()
+    {
+        if (CurrentThemeNameText is null) return;
+        var theme = SelectedTheme();
+        if (theme is null)
+        {
+            CurrentThemeNameText.Text = AppLocalization.Text(_settings.Language, "没有可用主题", "No theme available");
+            CurrentThemeMetaText.Text = "";
+            return;
+        }
+        var english = AppLocalization.IsEnglish(LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language));
+        CurrentThemeNameText.Text = english && !string.IsNullOrWhiteSpace(theme.Manifest.NameEn) ? theme.Manifest.NameEn : theme.Manifest.Name;
+        var description = english ? theme.Manifest.DescriptionEn : theme.Manifest.Description;
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            description = theme.Theme.PreferredBackdrop is "mica-alt" or "acrylic"
+                ? AppLocalization.Text(english ? "en-US" : "zh-CN", "半透明玻璃层次、水青高光与高对比度控件。", "Translucent glass layers, aqua highlights, and high-contrast controls.")
+                : AppLocalization.Text(english ? "en-US" : "zh-CN", "系统云母底层、Fluent 控件与 BalancePet 青绿色强调色。", "System Mica, Fluent controls, and BalancePet's teal accent.");
+        }
+        CurrentThemeDescriptionText.Text = description;
+        CurrentThemeMetaText.Text = $"{AppLocalization.Text(english ? "en-US" : "zh-CN", "主题扩展", "Theme extension")} · v{theme.Manifest.Version} · {theme.Manifest.Author}";
+    }
+
+    private void OnWindowSourceInitialized(object sender, EventArgs e) => ApplySelectedTheme();
+
+    private void OnThemeSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressThemeChange || !_trackChanges) return;
+        var selectedItem = e.AddedItems.OfType<ComboBoxItem>().LastOrDefault();
+        if (!string.IsNullOrWhiteSpace(selectedItem?.Tag?.ToString())) _selectedThemeId = selectedItem.Tag.ToString()!;
+        SyncComboDisplay(ThemeBox, selectedItem?.Content?.ToString());
+        var theme = SelectedTheme();
+        if (theme is not null && ThemeBackdropBox is not null)
+        {
+            SelectByTag(ThemeBackdropBox, theme.Theme.PreferredBackdrop);
+            SyncComboDisplay(ThemeBackdropBox);
+        }
+        ApplySelectedTheme();
+        MarkSettingsDirty();
+    }
+
+    private void OnThemeOptionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.ComboBox box)
+        {
+            var selectedItem = e.AddedItems.OfType<ComboBoxItem>().LastOrDefault();
+            var selectedTag = selectedItem?.Tag?.ToString();
+            SyncComboDisplay(box, selectedItem?.Content?.ToString());
+            if (ReferenceEquals(box, ThemeModeBox) && !string.IsNullOrWhiteSpace(selectedTag)) _selectedThemeMode = selectedTag;
+            if (ReferenceEquals(box, ThemeBackdropBox) && !string.IsNullOrWhiteSpace(selectedTag)) _selectedThemeBackdrop = selectedTag;
+        }
+        if (!_trackChanges) return;
+        ApplySelectedTheme();
+        MarkSettingsDirty();
+    }
+
+    private void OnThemeCompactChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_trackChanges) return;
+        ApplySelectedTheme();
+        MarkSettingsDirty();
+    }
+
+    private void OnOpenThemeDirectory(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(_themes.RootDirectory);
+            Process.Start(new ProcessStartInfo("explorer.exe", _themes.RootDirectory) { UseShellExecute = true });
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException)
+        { ThemeMessageText.Text = error.Message; }
+    }
+
+    private void OnImportThemePackage(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "BalancePet 主题 (*.zip)|*.zip", Title = "导入 BalancePet 主题" };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            var selectedThemeId = SelectedTag(ThemeBox, _settings.ThemeId);
+            var installed = _themes.InstallThemePackage(dialog.FileName);
+            RefreshThemeList(selectedThemeId);
+            RefreshExtensionList();
+            ThemeMessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
+            ThemeMessageText.Text = AppLocalization.Text(_settings.Language, $"主题已安装：{installed.Manifest.Name}。可在“当前主题”中选择。", $"Theme installed: {installed.Manifest.NameEn}. Select it under Current theme.");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
+        {
+            ThemeMessageText.Foreground = ThemeBrush("DangerBrush", System.Windows.Media.Brushes.Firebrick);
+            ThemeMessageText.Text = error.Message;
+        }
+    }
+
+    private void OnMinimizeWindow(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void OnMaximizeRestoreWindow(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private void OnCloseWindow(object sender, RoutedEventArgs e) => Close();
 
     private void OnComboSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is System.Windows.Controls.ComboBox box) SyncComboDisplay(box);
+        MarkSettingsDirty();
     }
 
     private void OnComboDropDownClosed(object sender, EventArgs e)
@@ -183,7 +364,8 @@ public partial class SettingsWindow : Window
         if (ExtensionListBox is null) return;
         var pets = _extensions.GetInstalled();
         var features = _featureExtensions.GetInstalled();
-        var entries = _extensionLibrary.BuildEntries(pets, features).ToList();
+        var themes = _themes.GetInstalled();
+        var entries = _extensionLibrary.BuildEntries(pets, features, themes).ToList();
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         foreach (var entry in entries) entry.IsEnglish = AppLocalization.IsEnglish(language);
         ExtensionListBox.ItemsSource = null;
@@ -223,7 +405,19 @@ public partial class SettingsWindow : Window
                 packagePath = _extensionLibrary.Scan().First(value => string.Equals(value.Id, selected.Id, StringComparison.OrdinalIgnoreCase) && string.Equals(value.Version, selected.RemoteUpdate.Version, StringComparison.OrdinalIgnoreCase)).PackagePath;
             }
             if (string.IsNullOrWhiteSpace(packagePath)) return;
-            if (selected.Type == "feature") _featureExtensions.InstallFeaturePackage(packagePath); else _extensions.InstallPetPackage(packagePath);
+            if (selected.Type == "feature")
+            {
+                var installedFeature = _featureExtensions.InstallFeaturePackage(packagePath);
+                StartBackgroundFeatureIfNeeded(installedFeature);
+            }
+            else if (selected.Type == "theme")
+            {
+                var selectedThemeId = SelectedTag(ThemeBox, _settings.ThemeId);
+                var installedTheme = _themes.InstallThemePackage(packagePath);
+                RefreshThemeList(selectedThemeId);
+                if (string.Equals(selectedThemeId, installedTheme.Manifest.Id, StringComparison.OrdinalIgnoreCase)) ApplySelectedTheme();
+            }
+            else _extensions.InstallPetPackage(packagePath);
             RefreshExtensionList();
             ExtensionMessageText.Text = AppLocalization.Text(_settings.Language, "扩展已更新。", "Extension updated.");
         }
@@ -259,24 +453,38 @@ public partial class SettingsWindow : Window
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
-        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
-        AppLocalization.Apply(this, language);
-        RefreshLanguageSelector(language, selectLanguage: false);
-        SyncAllComboDisplays();
-        UpdatePresetUi(false);
-        UpdatePetStyleAvailability();
-        UpdateExtensionButtons();
-        RefreshExtensionActionLabels(language);
-        RefreshPluginCatalogLabels(language);
+        _suppressChangeTracking = true;
+        try
+        {
+            var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+            AppLocalization.Apply(this, language);
+            RefreshLanguageSelector(language, selectLanguage: false);
+            SyncAllComboDisplays();
+            UpdatePresetUi(false);
+            UpdatePetStyleAvailability();
+            UpdateExtensionButtons();
+            RefreshExtensionActionLabels(language);
+            RefreshPluginCatalogLabels(language);
+        }
+        finally
+        {
+            _suppressChangeTracking = false;
+            _hasUnsavedChanges = false;
+        }
         await LoadPluginCatalogAsync(manual: false);
     }
 
     private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!IsLoaded || sender is not System.Windows.Controls.TabControl tabs || tabs.SelectedItem is not TabItem selectedTab) return;
-        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
-        AppLocalization.Apply(selectedTab, language);
-        SyncAllComboDisplays();
+        _suppressChangeTracking = true;
+        try
+        {
+            var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+            AppLocalization.Apply(selectedTab, language);
+            SyncAllComboDisplays();
+        }
+        finally { _suppressChangeTracking = false; }
     }
 
     private void OnScanExtensionLibrary(object sender, RoutedEventArgs e)
@@ -286,7 +494,7 @@ public partial class SettingsWindow : Window
             _extensionLibrary.EnsureDirectory();
             RefreshExtensionList();
             var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
-            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            ExtensionMessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
             ExtensionMessageText.Text = AppLocalization.Text(language, "扩展库扫描完成。可使用每行右侧的图标操作。", "Extension library scanned. Use the icons on each row to manage extensions.");
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
@@ -301,6 +509,7 @@ public partial class SettingsWindow : Window
         ExtensionScanButton.ToolTip = AppLocalization.Text(language, "扫描扩展库", "Scan extension library");
         ExtensionOpenButton.ToolTip = AppLocalization.Text(language, "打开扩展库", "Open extension library");
         ExtensionImportButton.ToolTip = AppLocalization.Text(language, "导入 ZIP 到扩展库", "Import ZIP to extension library");
+        ExtensionCleanupButton.ToolTip = AppLocalization.Text(language, "清理旧版扩展资源", "Remove old extension versions");
         ExtensionCheckButton.ToolTip = AppLocalization.Text(language, "检查扩展更新", "Check extension updates");
     }
 
@@ -310,14 +519,14 @@ public partial class SettingsWindow : Window
     {
         if (PluginCatalogTitleText is null) return;
         ExtensionManagementTitleText.Text = AppLocalization.Text(language, "扩展管理", "Extension management");
-        ExtensionManagementHintText.Text = AppLocalization.Text(language, "在线插件库负责发现扩展，本地扩展区负责安装、启用、更新和启动。", "Discover extensions online; manage installation, enablement, updates, and launching locally.");
+        ExtensionManagementHintText.Text = AppLocalization.Text(language, "在线插件库负责发现扩展；功能扩展安装即启用，后台能力会自动运行。", "Discover extensions online; feature extensions enable on installation, and background capabilities start automatically.");
         PluginCatalogTitleText.Text = AppLocalization.Text(language, "在线插件库", "Online plugin catalog");
         PluginCatalogHintText.Text = AppLocalization.Text(language, "从 BalancePet 官方目录发现插件；下载后仍会执行本地安全校验。", "Discover plugins from the curated BalancePet catalog; every download is still verified locally.");
         PluginCatalogRefreshButton.Content = AppLocalization.Text(language, "刷新目录", "Refresh catalog");
         PluginCatalogRefreshButton.ToolTip = AppLocalization.Text(language, "刷新在线插件目录", "Refresh the online plugin catalog");
         PluginCatalogSearchBox.ToolTip = AppLocalization.Text(language, "搜索插件名称、作者或分类", "Search by plugin name, author, or category");
         LocalExtensionsTitleText.Text = AppLocalization.Text(language, "本地扩展", "Local extensions");
-        LocalExtensionsHintText.Text = AppLocalization.Text(language, "已下载到扩展库的 ZIP 会显示在这里；扫描到不代表已经安装。", "ZIPs downloaded to the local library appear here; scanning does not install them.");
+        LocalExtensionsHintText.Text = AppLocalization.Text(language, "可将扩展 ZIP 拖到此处直接安装；扩展库中的 ZIP 也会显示在这里。", "Drop an extension ZIP here to install it; ZIPs in the extension library also appear here.");
     }
 
     private async void OnRefreshPluginCatalog(object sender, RoutedEventArgs e)
@@ -371,7 +580,7 @@ public partial class SettingsWindow : Window
         if (PluginCatalogListBox is null) return;
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         var english = AppLocalization.IsEnglish(language);
-        var installed = _extensionLibrary.BuildEntries(_extensions.GetInstalled(), _featureExtensions.GetInstalled())
+        var installed = _extensionLibrary.BuildEntries(_extensions.GetInstalled(), _featureExtensions.GetInstalled(), _themes.GetInstalled())
             .GroupBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var query = PluginCatalogSearchBox?.Text?.Trim() ?? "";
@@ -412,12 +621,21 @@ public partial class SettingsWindow : Window
                 var package = _extensionLibrary.Scan().FirstOrDefault(value => string.Equals(value.Id, record.Id, StringComparison.OrdinalIgnoreCase) && string.Equals(value.Version, record.Version, StringComparison.OrdinalIgnoreCase));
                 if (package is null) throw new InvalidDataException("下载的插件清单与目录版本不一致。");
                 if (record.Type.Equals("feature", StringComparison.OrdinalIgnoreCase))
-                    _featureExtensions.InstallFeaturePackage(package.PackagePath);
+                {
+                    var installedFeature = _featureExtensions.InstallFeaturePackage(package.PackagePath);
+                    StartBackgroundFeatureIfNeeded(installedFeature);
+                }
                 else if (record.Type.Equals("pet", StringComparison.OrdinalIgnoreCase))
                 {
                     _extensions.InstallPetPackage(package.PackagePath);
                     AddInstalledPetStyles();
                     UpdatePetStyleAvailability();
+                }
+                else if (record.Type.Equals("theme", StringComparison.OrdinalIgnoreCase))
+                {
+                    var selectedThemeId = SelectedTag(ThemeBox, _settings.ThemeId);
+                    _themes.InstallThemePackage(package.PackagePath);
+                    RefreshThemeList(selectedThemeId);
                 }
                 else throw new InvalidDataException("无法识别插件类型。");
             }
@@ -427,7 +645,7 @@ public partial class SettingsWindow : Window
             }
             RefreshExtensionList();
             RebuildPluginCatalogItems();
-            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            ExtensionMessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
             var name = AppLocalization.IsEnglish(language) && !string.IsNullOrWhiteSpace(record.NameEn) ? record.NameEn : record.Name;
             ExtensionMessageText.Text = AppLocalization.Text(language, $"已从插件库安装：{name} v{record.Version}。", $"Installed from the plugin catalog: {name} v{record.Version}.");
         }
@@ -470,18 +688,83 @@ public partial class SettingsWindow : Window
             Title = "导入 BalancePet 扩展到扩展库"
         };
         if (dialog.ShowDialog(this) != true) return;
+        ImportAndInstallPackage(dialog.FileName);
+    }
+
+    private void OnExtensionDragOver(object sender, System.Windows.DragEventArgs e)
+        => e.Effects = e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop) ? System.Windows.DragDropEffects.Copy : System.Windows.DragDropEffects.None;
+
+    private void OnExtensionDrop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(System.Windows.DataFormats.FileDrop)) return;
+        var paths = e.Data.GetData(System.Windows.DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
+        var zip = paths.FirstOrDefault(path => string.Equals(Path.GetExtension(path), ".zip", StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrWhiteSpace(zip)) ImportAndInstallPackage(zip);
+    }
+
+    private void ImportAndInstallPackage(string sourcePath)
+    {
         try
         {
-            var path = _extensionLibrary.ImportPackage(dialog.FileName);
+            var path = _extensionLibrary.ImportPackage(sourcePath);
+            var package = _extensionLibrary.Scan().FirstOrDefault(value => string.Equals(value.PackagePath, path, StringComparison.OrdinalIgnoreCase));
+            if (package is null) throw new InvalidDataException("无法读取扩展包清单。");
+            if (package.Type.Equals("feature", StringComparison.OrdinalIgnoreCase))
+            {
+                var installed = _featureExtensions.InstallFeaturePackage(path);
+                StartBackgroundFeatureIfNeeded(installed);
+            }
+            else if (package.Type.Equals("pet", StringComparison.OrdinalIgnoreCase))
+            {
+                _extensions.InstallPetPackage(path);
+                AddInstalledPetStyles();
+                UpdatePetStyleAvailability();
+            }
+            else if (package.Type.Equals("theme", StringComparison.OrdinalIgnoreCase))
+            {
+                var selectedThemeId = SelectedTag(ThemeBox, _settings.ThemeId);
+                _themes.InstallThemePackage(path);
+                RefreshThemeList(selectedThemeId);
+            }
             RefreshExtensionList();
-            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            ExtensionMessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
             var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
-            ExtensionMessageText.Text = AppLocalization.Text(language, $"已放入扩展库：{Path.GetFileName(path)}。可使用对应行右侧的安装图标。", $"Added to extension library: {Path.GetFileName(path)}. Use the install icon on its row.");
+            var name = AppLocalization.IsEnglish(language) && !string.IsNullOrWhiteSpace(package.NameEn) ? package.NameEn : package.Name;
+            ExtensionMessageText.Text = AppLocalization.Text(language, $"已安装：{name} v{package.Version}。", $"Installed: {name} v{package.Version}.");
         }
         catch (Exception error) when (error is InvalidDataException or IOException or UnauthorizedAccessException or FileNotFoundException or NotSupportedException or JsonException)
+        { ShowExtensionError($"安装失败：{error.Message}", $"Installation failed: {error.Message}"); }
+    }
+
+    private void OnCleanupExtensionResources(object sender, RoutedEventArgs e)
+    {
+        var removed = 0;
+        var roots = new[] { _extensions.RootDirectory, _featureExtensions.RootDirectory, _themes.RootDirectory };
+        foreach (var root in roots.Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            ShowExtensionError($"导入失败：{error.Message}", $"Import failed: {error.Message}");
+            if (!Directory.Exists(root)) continue;
+            foreach (var idDirectory in Directory.EnumerateDirectories(root))
+            {
+                if (Path.GetFileName(idDirectory).Equals(".staging", StringComparison.OrdinalIgnoreCase)) continue;
+                var versions = Directory.EnumerateDirectories(idDirectory)
+                    .Where(path => !Path.GetFileName(path).Equals(".staging", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(path => ParseExtensionVersion(Path.GetFileName(path))).ToArray();
+                foreach (var old in versions.Skip(1))
+                {
+                    try { Directory.Delete(old, true); removed++; } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                }
+            }
         }
+        RefreshExtensionList();
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        ExtensionMessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
+        ExtensionMessageText.Text = AppLocalization.Text(language, $"旧版资源清理完成，删除 {removed} 个旧版本。", $"Removed {removed} old extension version(s).");
+    }
+
+    private static Version ParseExtensionVersion(string value)
+    {
+        var numeric = value.Split('-', '+')[0];
+        return Version.TryParse(numeric, out var version) ? version : new Version(0, 0, 0);
     }
 
     private void OnInstallSelectedExtension(object sender, RoutedEventArgs e)
@@ -490,16 +773,25 @@ public partial class SettingsWindow : Window
         try
         {
             if (selected.Package.Type.Equals("feature", StringComparison.OrdinalIgnoreCase))
-                _featureExtensions.InstallFeaturePackage(selected.Package.PackagePath);
+            {
+                var installedFeature = _featureExtensions.InstallFeaturePackage(selected.Package.PackagePath);
+                StartBackgroundFeatureIfNeeded(installedFeature);
+            }
             else if (selected.Package.Type.Equals("pet", StringComparison.OrdinalIgnoreCase))
             {
                 _extensions.InstallPetPackage(selected.Package.PackagePath);
                 AddInstalledPetStyles();
                 UpdatePetStyleAvailability();
             }
+            else if (selected.Package.Type.Equals("theme", StringComparison.OrdinalIgnoreCase))
+            {
+                var selectedThemeId = SelectedTag(ThemeBox, _settings.ThemeId);
+                _themes.InstallThemePackage(selected.Package.PackagePath);
+                RefreshThemeList(selectedThemeId);
+            }
             else throw new InvalidDataException("无法识别扩展类型。");
             RefreshExtensionList();
-            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            ExtensionMessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
             var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
             var packageName = AppLocalization.IsEnglish(language) && !string.IsNullOrWhiteSpace(selected.Package.NameEn)
                 ? selected.Package.NameEn
@@ -513,11 +805,18 @@ public partial class SettingsWindow : Window
     private void OnToggleExtension(object sender, RoutedEventArgs e)
     {
         if (GetExtensionEntry(sender) is not ExtensionCatalogEntry selected || !selected.IsInstalled) return;
+        if (selected.Theme is not null)
+        {
+            ShowExtensionError("主题安装后会自动出现在“外观 > 当前主题”中，无需单独启用。", "Installed themes appear under Appearance > Current theme and do not need to be enabled separately.");
+            return;
+        }
         var enabled = !selected.IsEnabled;
         var changed = selected.Pet is not null
             ? _extensions.SetEnabled(selected.Pet.Manifest.Id, enabled)
             : selected.Feature is not null && _featureExtensions.SetEnabled(selected.Feature.Manifest.Id, enabled);
         if (!changed) return;
+        if (enabled && selected.Feature is not null)
+            StartBackgroundFeatureIfNeeded(selected.Feature);
         if (selected.Pet is PetExtensionInfo petSelected && !enabled && string.Equals(SelectedTag(PetStyleBox, "deepseek"), petSelected.StyleId, StringComparison.OrdinalIgnoreCase))
             SelectByTag(PetStyleBox, "deepseek");
         if (selected.Pet is not null)
@@ -526,7 +825,7 @@ public partial class SettingsWindow : Window
             UpdatePetStyleAvailability();
         }
         RefreshExtensionList();
-        ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+        ExtensionMessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         ExtensionMessageText.Text = enabled
             ? AppLocalization.Text(language, "扩展已启用。", "Extension enabled.")
@@ -539,21 +838,32 @@ public partial class SettingsWindow : Window
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         if (_featureExtensions.TryLaunch(selected.Manifest.Id, out var error))
         {
-            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            ExtensionMessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
             ExtensionMessageText.Text = AppLocalization.Text(language, "功能扩展已启动。", "Feature extension launched.");
         }
         else
         {
-            ExtensionMessageText.Foreground = System.Windows.Media.Brushes.Firebrick;
+            ExtensionMessageText.Foreground = ThemeBrush("DangerBrush", System.Windows.Media.Brushes.Firebrick);
             ExtensionMessageText.Text = AppLocalization.Text(language, $"启动失败：{error}", $"Launch failed: {error}");
         }
         RefreshExtensionList();
     }
 
+    private void StartBackgroundFeatureIfNeeded(FeatureExtensionInfo feature)
+    {
+        if (feature.Manifest.Capabilities.Contains("notifications.present", StringComparer.Ordinal))
+            _featureExtensions.TryLaunch(feature.Manifest.Id, out _, background: true);
+    }
+
     private void OnUninstallExtension(object sender, RoutedEventArgs e)
     {
         if (GetExtensionEntry(sender) is not ExtensionCatalogEntry selected || !selected.IsInstalled) return;
-        var selectedName = selected.Pet?.Manifest.Name ?? selected.Feature?.Manifest.Name ?? selected.Id;
+        if (selected.Theme is not null && string.Equals(selected.Theme.Manifest.Id, ThemeExtensionManager.BundledThemeId, StringComparison.OrdinalIgnoreCase))
+        {
+            ShowExtensionError("内置云母主题是主题系统的安全回退，不能卸载。", "The bundled Mica theme is the theme system fallback and cannot be uninstalled.");
+            return;
+        }
+        var selectedName = selected.Pet?.Manifest.Name ?? selected.Feature?.Manifest.Name ?? selected.Theme?.Manifest.Name ?? selected.Id;
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         var answer = System.Windows.MessageBox.Show(this,
             AppLocalization.Text(language, $"确定卸载扩展“{selectedName}”吗？这只会删除它的扩展目录，不会影响主程序和其他扩展。", $"Uninstall extension \"{selectedName}\"? Only its extension directory will be removed; the main program and other extensions are unaffected."),
@@ -561,7 +871,9 @@ public partial class SettingsWindow : Window
         if (answer != MessageBoxResult.Yes) return;
         var removed = selected.Pet is not null
             ? _extensions.Uninstall(selected.Pet.Manifest.Id)
-            : selected.Feature is not null && _featureExtensions.Uninstall(selected.Feature.Manifest.Id);
+            : selected.Feature is not null
+                ? _featureExtensions.Uninstall(selected.Feature.Manifest.Id)
+                : selected.Theme is not null && _themes.Uninstall(selected.Theme.Manifest.Id);
         if (!removed) return;
         if (selected.Pet is PetExtensionInfo petSelected && string.Equals(SelectedTag(PetStyleBox, "deepseek"), petSelected.StyleId, StringComparison.OrdinalIgnoreCase))
             SelectByTag(PetStyleBox, "deepseek");
@@ -570,8 +882,19 @@ public partial class SettingsWindow : Window
             AddInstalledPetStyles();
             UpdatePetStyleAvailability();
         }
+        if (selected.Theme is not null)
+        {
+            var removedSelectedTheme = string.Equals(SelectedTag(ThemeBox, _settings.ThemeId), selected.Theme.Manifest.Id, StringComparison.OrdinalIgnoreCase);
+            _themes.EnsureBundledThemeInstalled();
+            RefreshThemeList(removedSelectedTheme ? ThemeExtensionManager.BundledThemeId : SelectedTag(ThemeBox, _settings.ThemeId));
+            if (removedSelectedTheme)
+            {
+                ApplySelectedTheme();
+                MarkSettingsDirty();
+            }
+        }
         RefreshExtensionList();
-        ExtensionMessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+        ExtensionMessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
         ExtensionMessageText.Text = AppLocalization.Text(language, "扩展已卸载；扩展库中的 ZIP 仍然保留。点击“扫描扩展库”可再次安装。", "Extension uninstalled; the ZIP in the library was kept. Scan the library to install it again.");
     }
 
@@ -580,7 +903,7 @@ public partial class SettingsWindow : Window
 
     private void ShowExtensionError(string chinese, string english)
     {
-        ExtensionMessageText.Foreground = System.Windows.Media.Brushes.Firebrick;
+        ExtensionMessageText.Foreground = ThemeBrush("DangerBrush", System.Windows.Media.Brushes.Firebrick);
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         ExtensionMessageText.Text = AppLocalization.Text(language, chinese, english);
     }
@@ -632,6 +955,7 @@ public partial class SettingsWindow : Window
         ProfileBox.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
         _suppressProfileChange = false;
         if (ProfileBox.SelectedItem is ComboBoxItem item) LoadProfile(item.Tag?.ToString() ?? "");
+        UpdateAccountSummary();
     }
 
     private void LoadProfile(string profileId)
@@ -662,6 +986,84 @@ public partial class SettingsWindow : Window
         TokenBox.Clear();
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
         UpdatePresetUi(true);
+        UpdateAccountSummary();
+    }
+
+    private void UpdateAccountSummary()
+    {
+        if (AccountSummaryNameText is null || AccountSummaryHintText is null || AccountSummaryStatusText is null) return;
+        var profile = CurrentProfile;
+        if (profile is null) return;
+
+        AccountSummaryNameText.Text = string.IsNullOrWhiteSpace(profile.Name) ? "监控账户" : profile.Name;
+        AccountSummaryStatusText.Text = profile.Enabled ? "已启用" : "已停用";
+        AccountSummaryStatusText.Foreground = profile.Enabled
+            ? ThemeBrush("AccentBrush", System.Windows.Media.Brushes.DarkSlateBlue)
+            : ThemeBrush("MutedBrush", System.Windows.Media.Brushes.Gray);
+
+        var address = BalancePresetCatalog.UsesSiteUrl(profile.PresetId) ? profile.SiteUrl : profile.Endpoint;
+        var endpointHint = Uri.TryCreate(address, UriKind.Absolute, out var endpoint) && !string.IsNullOrWhiteSpace(endpoint.Host)
+            ? endpoint.Host
+            : "余额接口尚未配置";
+        var integrationEnabled = AccountStatusBox is null ? _settings.CCSwitchIntegration : AccountStatusBox.IsChecked == true;
+        var integrationHint = integrationEnabled ? "CC Switch 联动已开启" : "CC Switch 联动已关闭";
+        AccountSummaryHintText.Text = $"{endpointHint} · {integrationHint}";
+    }
+
+    private void OnMonitorEnabledChanged(object sender, RoutedEventArgs e)
+    {
+        MarkSettingsDirty();
+        UpdateAccountSummary();
+    }
+
+    private void OnAccountStatusChanged(object sender, RoutedEventArgs e)
+    {
+        MarkSettingsDirty();
+        UpdateAccountSummary();
+    }
+
+    private void MarkSettingsDirty()
+    {
+        if (_trackChanges && !_suppressChangeTracking) _hasUnsavedChanges = true;
+    }
+
+    private void OnSettingTextChanged(object sender, TextChangedEventArgs e) => MarkSettingsDirty();
+
+    private void OnSettingPasswordChanged(object sender, RoutedEventArgs e) => MarkSettingsDirty();
+
+    private void OnSettingValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) => MarkSettingsDirty();
+
+    private void OnSettingToggleChanged(object sender, RoutedEventArgs e) => MarkSettingsDirty();
+
+    private void OnWindowClosing(object? sender, CancelEventArgs e)
+    {
+        if (_allowCloseWithoutPrompt || !_hasUnsavedChanges) return;
+        e.Cancel = true;
+        ShowUnsavedChangesOverlay();
+    }
+
+    private void ShowUnsavedChangesOverlay()
+    {
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        UnsavedDialogTitleText.Text = AppLocalization.Text(language, "未保存的设置", "Unsaved settings");
+        UnsavedDialogMessageText.Text = AppLocalization.Text(language, "设置尚未保存，确定放弃更改并关闭吗？", "Settings have not been saved. Discard changes and close?");
+        UnsavedKeepEditingButton.Content = AppLocalization.Text(language, "继续编辑", "Keep editing");
+        UnsavedDiscardButton.Content = AppLocalization.Text(language, "放弃更改", "Discard changes");
+        UnsavedOverlay.Visibility = Visibility.Visible;
+        UnsavedKeepEditingButton.Focus();
+    }
+
+    private void OnKeepEditingClick(object sender, RoutedEventArgs e)
+    {
+        UnsavedOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void OnDiscardChangesClick(object sender, RoutedEventArgs e)
+    {
+        _hasUnsavedChanges = false;
+        _allowCloseWithoutPrompt = true;
+        UnsavedOverlay.Visibility = Visibility.Collapsed;
+        Close();
     }
 
     private void SaveCurrentProfileFields()
@@ -700,13 +1102,16 @@ public partial class SettingsWindow : Window
     private void OnProfileNameChanged(object sender, TextChangedEventArgs e)
     {
         if (_suppressProfileChange || ProfileBox is null || ProfileBox.SelectedItem is not ComboBoxItem item) return;
+        MarkSettingsDirty();
         item.Content = string.IsNullOrWhiteSpace(ProfileNameBox.Text) ? "监控账户" : ProfileNameBox.Text.Trim();
+        UpdateAccountSummary();
     }
 
     private void OnRefreshModeChanged(object sender, SelectionChangedEventArgs e)
     {
         SyncComboDisplay(RefreshBox);
         if (_suppressRefreshChange) return;
+        MarkSettingsDirty();
         UpdateRefreshModeVisibility();
     }
 
@@ -714,6 +1119,7 @@ public partial class SettingsWindow : Window
     {
         SyncComboDisplay(PresetBox);
         if (_suppressPresetChange || PresetBox is null || SiteUrlBox is null) return;
+        MarkSettingsDirty();
         var presetId = SelectedTag(PresetBox, BalancePresetCatalog.Custom);
         if (BalancePresetCatalog.UsesSiteUrl(presetId) && string.IsNullOrWhiteSpace(SiteUrlBox.Text))
         {
@@ -727,6 +1133,7 @@ public partial class SettingsWindow : Window
     private void OnSiteUrlChanged(object sender, TextChangedEventArgs e)
     {
         if (_suppressSiteUrlChange || PresetBox is null) return;
+        MarkSettingsDirty();
         UpdatePresetPreview();
     }
 
@@ -798,11 +1205,14 @@ public partial class SettingsWindow : Window
         SyncComboDisplay(ProfileBox);
         if (_suppressProfileChange || ProfileBox.SelectedItem is not ComboBoxItem item) return;
         SaveCurrentProfileFields();
-        LoadProfile(item.Tag?.ToString() ?? "");
+        _suppressChangeTracking = true;
+        try { LoadProfile(item.Tag?.ToString() ?? ""); }
+        finally { _suppressChangeTracking = false; }
     }
 
     private void OnAddProfile(object sender, RoutedEventArgs e)
     {
+        MarkSettingsDirty();
         SaveCurrentProfileFields();
         var profile = new MonitorProfile { Id = Guid.NewGuid().ToString("N"), Name = $"监控账户 {_profiles.Count + 1}", PresetId = BalancePresetCatalog.Auto, Endpoint = "", Enabled = true };
         _profiles.Add(profile);
@@ -813,6 +1223,7 @@ public partial class SettingsWindow : Window
     private void OnDeleteProfile(object sender, RoutedEventArgs e)
     {
         if (_profiles.Count <= 1) { MessageText.Text = "至少保留一个监控账户。"; return; }
+        MarkSettingsDirty();
         var profile = CurrentProfile;
         if (profile is null) return;
         var index = _profiles.IndexOf(profile);
@@ -829,24 +1240,33 @@ public partial class SettingsWindow : Window
             var imported = JsonSerializer.Deserialize<PetSettings>(File.ReadAllText(dialog.FileName), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (imported is null) throw new InvalidDataException("设置文件为空或格式不正确。");
             SaveCurrentProfileFields();
+            MarkSettingsDirty();
             _profiles.Clear();
             if (imported.Monitors is { Count: > 0 }) _profiles.AddRange(imported.Monitors.Select(CloneProfile));
             else _profiles.Add(CreateProfileFromLegacy(imported));
             RefreshProfileList(imported.SelectedMonitorId);
             SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode); SelectByTag(UpdateCheckBox, imported.UpdateCheckMode); SelectByTag(ExtensionUpdateCheckBox, imported.ExtensionUpdateCheckMode);
             SelectByTag(LanguageBox, imported.Language);
+            RefreshThemeList(imported.ThemeId);
+            SelectByTag(ThemeModeBox, imported.ThemeMode);
+            SelectByTag(ThemeBackdropBox, imported.ThemeBackdrop);
+            _selectedThemeMode = SelectedTag(ThemeModeBox, "system");
+            _selectedThemeBackdrop = SelectedTag(ThemeBackdropBox, "mica");
+            _selectedThemeId = SelectedTag(ThemeBox, ThemeExtensionManager.BundledThemeId);
+            ThemeCompactBox.IsChecked = imported.ThemeCompact;
+            ApplySelectedTheme();
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
             SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; EasterEggsBox.IsChecked = imported.RandomEasterEggs; AccountStatusBox.IsChecked = imported.CCSwitchIntegration; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
             AppLocalization.Apply(this, imported.Language);
             RefreshLanguageSelector(imported.Language, selectLanguage: false);
             TokenBox.Clear();
-            MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            MessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
             MessageText.Text = "设置已导入。令牌不会从文件导入，请在各监控账户中重新填写令牌。";
         }
         catch (Exception error)
         {
-            MessageText.Foreground = System.Windows.Media.Brushes.Firebrick;
+            MessageText.Foreground = ThemeBrush("DangerBrush", System.Windows.Media.Brushes.Firebrick);
             MessageText.Text = $"导入失败：{error.Message}";
         }
     }
@@ -863,6 +1283,10 @@ public partial class SettingsWindow : Window
             {
                 endpoint = selected.Endpoint,
                 language = SelectedTag(LanguageBox, "zh-CN"),
+                theme_id = SelectedTag(ThemeBox, ThemeExtensionManager.BundledThemeId),
+                theme_mode = _selectedThemeMode,
+                theme_backdrop = _selectedThemeBackdrop,
+                theme_compact = ThemeCompactBox.IsChecked == true,
                 auth_mode = selected.AuthMode,
                 header_name = selected.HeaderName,
                 balance_path = selected.BalancePath,
@@ -904,12 +1328,12 @@ public partial class SettingsWindow : Window
             };
             var options = new JsonSerializerOptions { WriteIndented = true };
             File.WriteAllText(dialog.FileName, JsonSerializer.Serialize(export, options));
-            MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+            MessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
             MessageText.Text = "设置已导出。文件中不包含访问令牌。";
         }
         catch (Exception error)
         {
-            MessageText.Foreground = System.Windows.Media.Brushes.Firebrick;
+            MessageText.Foreground = ThemeBrush("DangerBrush", System.Windows.Media.Brushes.Firebrick);
             MessageText.Text = $"导出失败：{error.Message}";
         }
     }
@@ -962,8 +1386,16 @@ public partial class SettingsWindow : Window
             if (!PetStyleCatalog.IsAvailable(selectedPetStyle)) selectedPetStyle = "deepseek";
             var updated = new PetSettings
             {
+                // Preserve the current schema so SettingsStore does not treat
+                // this newly assembled snapshot as a legacy file and reset the
+                // theme settings during normalization.
+                SettingsSchemaVersion = _settings.SettingsSchemaVersion,
                 Endpoint = selected.Endpoint,
                 Language = SelectedTag(LanguageBox, "zh-CN"),
+                ThemeId = _selectedThemeId,
+                ThemeMode = _selectedThemeMode,
+                ThemeBackdrop = _selectedThemeBackdrop,
+                ThemeCompact = ThemeCompactBox.IsChecked == true,
                 AuthMode = selected.AuthMode,
                 HeaderName = selected.HeaderName,
                 TokenBlob = selected.TokenBlob,
@@ -1016,7 +1448,12 @@ public partial class SettingsWindow : Window
                 hookChanged = true;
             }
             _store.Save(updated);
+            _hasUnsavedChanges = false;
             _settings.Language = updated.Language;
+            _settings.ThemeId = updated.ThemeId;
+            _settings.ThemeMode = updated.ThemeMode;
+            _settings.ThemeBackdrop = updated.ThemeBackdrop;
+            _settings.ThemeCompact = updated.ThemeCompact;
             _settings.UpdateCheckMode = updated.UpdateCheckMode;
             _settings.ExtensionUpdateCheckMode = updated.ExtensionUpdateCheckMode;
             _settings.LastUpdateCheckUtc = updated.LastUpdateCheckUtc;
@@ -1028,15 +1465,15 @@ public partial class SettingsWindow : Window
             UpdateExtensionButtons();
             if (!StartupManager.SetEnabled(startupEnabled))
             {
-                MessageText.Foreground = System.Windows.Media.Brushes.DarkOrange;
+                MessageText.Foreground = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
                 MessageText.Text = "设置已保存，但开机启动项写入失败，请检查 Windows 权限。";
                 return;
             }
             if (!testConnection)
             {
-                MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+                MessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
                 var language = SelectedTag(LanguageBox, _settings.Language);
-                MessageText.Text = AppLocalization.Text(language, "设置已保存。", "Settings saved.");
+                MessageText.Text = AppLocalization.Text(language, "设置已生效。", "Settings applied.");
                 if (closeAfterSave) CompleteAndClose();
                 else NotifySettingsApplied();
                 return;
@@ -1047,7 +1484,7 @@ public partial class SettingsWindow : Window
             }
             if (string.IsNullOrWhiteSpace(selectedToken))
             {
-                MessageText.Foreground = System.Windows.Media.Brushes.DarkOrange;
+                MessageText.Foreground = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
                 MessageText.Text = "设置已保存；当前账户未填写访问令牌，已跳过余额 API 测试。";
                 CompleteAndClose();
                 return;
@@ -1057,7 +1494,7 @@ public partial class SettingsWindow : Window
             {
                 using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
                 var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(selected, selectedToken);
-                MessageText.Foreground = System.Windows.Media.Brushes.SeaGreen;
+                MessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
                 var resolved = selected.PresetId == BalancePresetCatalog.Auto && !string.IsNullOrWhiteSpace(snapshot.ResolvedPresetId)
                     ? $"；已识别为 {BalancePresetCatalog.DisplayName(snapshot.ResolvedPresetId, updated.Language)}"
                     : "";
@@ -1066,7 +1503,7 @@ public partial class SettingsWindow : Window
             }
             catch (Exception error)
             {
-                MessageText.Foreground = System.Windows.Media.Brushes.DarkOrange;
+                MessageText.Foreground = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
                 var message = $"设置已保存，但余额 API 测试失败：{error.Message}";
                 MessageText.Text = message;
                 System.Windows.MessageBox.Show(this, message, "BalancePet", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -1082,6 +1519,7 @@ public partial class SettingsWindow : Window
     private void OnAuthModeChanged(object sender, SelectionChangedEventArgs e)
     {
         SyncComboDisplay(AuthModeBox);
+        if (!_suppressChangeTracking) MarkSettingsDirty();
         if (HeaderBox is null || AuthModeBox is null) return;
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         var custom = SelectedTag(AuthModeBox, "bearer") == "custom";
@@ -1102,10 +1540,14 @@ public partial class SettingsWindow : Window
     private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressLanguageChange) return;
+        MarkSettingsDirty();
         SyncComboDisplay(LanguageBox);
         var language = SelectedTag(LanguageBox, "zh-CN");
         AppLocalization.Apply(this, language);
         RefreshLanguageSelector(language, selectLanguage: false);
+        RefreshThemeList(SelectedTag(ThemeBox, _settings.ThemeId));
+        ApplySelectedTheme();
+        UpdateThemeSummary();
         SyncAllComboDisplays();
         UpdatePetStyleAvailability();
         UpdatePresetUi(false);
@@ -1116,9 +1558,13 @@ public partial class SettingsWindow : Window
     }
     private void CompleteAndClose()
     {
+        _allowCloseWithoutPrompt = true;
         NotifySettingsApplied();
         Close();
     }
+
+    private System.Windows.Media.Brush ThemeBrush(string resourceKey, System.Windows.Media.Brush fallback)
+        => TryFindResource(resourceKey) as System.Windows.Media.Brush ?? fallback;
 
     private void NotifySettingsApplied()
     {
@@ -1126,5 +1572,9 @@ public partial class SettingsWindow : Window
         SettingsAppliedChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void OnCancel(object sender, RoutedEventArgs e) => Close();
+    private void OnCancel(object sender, RoutedEventArgs e)
+    {
+        _allowCloseWithoutPrompt = true;
+        Close();
+    }
 }

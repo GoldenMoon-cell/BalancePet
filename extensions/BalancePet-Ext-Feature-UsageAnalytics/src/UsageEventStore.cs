@@ -18,14 +18,16 @@ public sealed class UsageEventStore
     public IReadOnlyList<UsageEvent> ReadAll()
     {
         if (!Directory.Exists(_directory)) return Array.Empty<UsageEvent>();
-        var result = new List<UsageEvent>();
-        var eventIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var eventsById = new Dictionary<string, UsageEvent>(StringComparer.OrdinalIgnoreCase);
         IEnumerable<string> files;
         try
         {
             files = Directory.EnumerateFiles(_directory, "usage-events*.ndjson", SearchOption.TopDirectoryOnly)
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Select(path => new { Path = path, LastWrite = File.GetLastWriteTimeUtc(path) })
+                .OrderByDescending(value => value.LastWrite)
                 .Take(32)
+                .OrderBy(value => value.LastWrite)
+                .Select(value => value.Path)
                 .ToArray();
         }
         catch (IOException) { return Array.Empty<UsageEvent>(); }
@@ -36,19 +38,19 @@ public sealed class UsageEventStore
             try
             {
                 using var reader = new StreamReader(path);
-                while (result.Count < MaxEvents)
+                while (eventsById.Count < MaxEvents)
                 {
                     var line = reader.ReadLine();
                     if (line is null) break;
                     if (line.Length == 0 || line.Length > MaxLineLength) continue;
-                    if (UsageEvent.TryParse(line, out var parsed) && parsed is not null && eventIds.Add(parsed.EventId))
-                        result.Add(parsed);
+                    if (UsageEvent.TryParse(line, out var parsed) && parsed is not null)
+                        eventsById[parsed.EventId] = parsed;
                 }
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
-        return result.OrderByDescending(value => value.OccurredAt).ToArray();
+        return eventsById.Values.OrderByDescending(value => value.OccurredAt).ToArray();
     }
 
     public static string GetDefaultDirectory() => Path.Combine(

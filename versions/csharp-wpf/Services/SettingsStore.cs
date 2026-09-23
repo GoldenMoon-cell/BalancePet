@@ -6,6 +6,7 @@ namespace BalancePet.Wpf.Services;
 
 public sealed class SettingsStore
 {
+    private const int CurrentSchemaVersion = 3;
     private readonly string _path;
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
 
@@ -26,28 +27,60 @@ public sealed class SettingsStore
             if (File.Exists(_path))
             {
                 var settings = JsonSerializer.Deserialize<PetSettings>(File.ReadAllText(_path), Options) ?? new PetSettings();
-                NormalizeUpdateModes(settings);
-                EnsureMonitorProfiles(settings);
+                Normalize(settings);
                 return settings;
             }
         }
         catch (JsonException) { }
         catch (IOException) { }
         var defaults = new PetSettings();
-        NormalizeUpdateModes(defaults);
-        EnsureMonitorProfiles(defaults);
+        Normalize(defaults);
         return defaults;
     }
 
     public void Save(PetSettings settings)
     {
-        NormalizeUpdateModes(settings);
-        EnsureMonitorProfiles(settings);
+        Normalize(settings);
         var directory = System.IO.Path.GetDirectoryName(_path);
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
         var temporary = _path + ".tmp";
         File.WriteAllText(temporary, JsonSerializer.Serialize(settings, Options));
         File.Move(temporary, _path, true);
+    }
+
+    private static void Normalize(PetSettings settings)
+    {
+        Migrate(settings);
+        NormalizeUpdateModes(settings);
+        EnsureMonitorProfiles(settings);
+    }
+
+    private static void Migrate(PetSettings settings)
+    {
+        // Version 1 files predate an explicit schema marker. Their existing
+        // account_status_integration key is still mapped to CCSwitchIntegration
+        // by the model, so the migration only needs to establish the marker.
+        if (settings.SettingsSchemaVersion < 1)
+            settings.SettingsSchemaVersion = 1;
+
+        // Version 2 formalizes monitor profiles as the canonical account store.
+        // EnsureMonitorProfiles below performs the legacy single-account lift.
+        if (settings.SettingsSchemaVersion < 2)
+            settings.SettingsSchemaVersion = 2;
+
+        // Version 3 adds declarative UI theme selection. Existing installs
+        // receive the bundled Mica theme without changing pet-window behavior.
+        if (settings.SettingsSchemaVersion < 3)
+        {
+            settings.ThemeId = ThemeExtensionManager.BundledThemeId;
+            settings.ThemeMode = "system";
+            settings.ThemeBackdrop = "mica";
+            settings.SettingsSchemaVersion = 3;
+        }
+
+        // Never downgrade a file created by a newer build.
+        if (settings.SettingsSchemaVersion <= CurrentSchemaVersion)
+            settings.SettingsSchemaVersion = CurrentSchemaVersion;
     }
 
     private static void EnsureMonitorProfiles(PetSettings settings)
@@ -105,6 +138,11 @@ public sealed class SettingsStore
     {
         settings.UpdateCheckMode = NormalizeUpdateMode(settings.UpdateCheckMode);
         settings.ExtensionUpdateCheckMode = NormalizeUpdateMode(settings.ExtensionUpdateCheckMode);
+        settings.ThemeId = string.IsNullOrWhiteSpace(settings.ThemeId) ? ThemeExtensionManager.BundledThemeId : settings.ThemeId.Trim();
+        if (settings.ThemeId.Equals(ThemeExtensionManager.RetiredLiquidGlassThemeId, StringComparison.OrdinalIgnoreCase))
+            settings.ThemeId = ThemeExtensionManager.BundledThemeId;
+        settings.ThemeMode = settings.ThemeMode is "system" or "light" or "dark" ? settings.ThemeMode : "system";
+        settings.ThemeBackdrop = settings.ThemeBackdrop is "mica" or "mica-alt" or "acrylic" or "solid" ? settings.ThemeBackdrop : "mica";
     }
 
     private static string NormalizeUpdateMode(string? mode)

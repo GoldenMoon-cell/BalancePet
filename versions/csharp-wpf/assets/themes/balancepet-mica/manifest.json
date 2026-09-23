@@ -1,0 +1,14 @@
+{
+  "id": "balancepet.theme.mica",
+  "type": "theme",
+  "name": "BalancePet 云母",
+  "name_en": "BalancePet Mica",
+  "version": "1.0.0",
+  "api_version": 1,
+  "min_core_version": "1.0.0",
+  "theme_file": "theme.json",
+  "author": "GoldenMoon-cell",
+  "update_url": "https://api.github.com/repos/GoldenMoon-cell/BalancePet-Ext-Theme-Mica/releases/latest",
+  "description": "系统云母底层、Fluent 控件与 BalancePet 青绿色强调色。",
+  "description_en": "System Mica, Fluent controls, and BalancePet's teal accent."
+}

@@ -1,0 +1,11 @@
+{
+  "id": "balancepet.ext.feature.notification-center",
+  "type": "feature",
+  "name": "消息中心",
+  "name_en": "Notification Center",
+  "version": "0.5.15",
+  "api_version": 1,
+  "min_core_version": "1.0.0",
+  "entrypoint": "BalancePet.NotificationCenter.exe",
+  "capabilities": ["notifications.read", "notifications.present"]
+}

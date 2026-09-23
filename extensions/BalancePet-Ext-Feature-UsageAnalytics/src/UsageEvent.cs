@@ -17,6 +17,8 @@ public sealed class UsageEvent
     [JsonPropertyName("output_tokens")] public long? OutputTokens { get; set; }
     [JsonPropertyName("cache_read_tokens")] public long? CacheReadTokens { get; set; }
     [JsonPropertyName("cache_write_tokens")] public long? CacheWriteTokens { get; set; }
+    [JsonPropertyName("cost")] public double? Cost { get; set; }
+    [JsonPropertyName("currency")] public string Currency { get; set; } = "";
     [JsonPropertyName("duration_ms")] public long? DurationMs { get; set; }
     [JsonPropertyName("time_to_first_token_ms")] public long? TimeToFirstTokenMs { get; set; }
     [JsonPropertyName("tool_calls")] public int? ToolCalls { get; set; }
@@ -32,6 +34,8 @@ public sealed class UsageEvent
             && Provider.All(character => !char.IsControl(character))
             && NonNegative(InputTokens) && NonNegative(OutputTokens)
             && NonNegative(CacheReadTokens) && NonNegative(CacheWriteTokens)
+            && (Cost is null || double.IsFinite(Cost.Value) && Cost.Value >= 0 && Cost.Value <= 10_000_000_000)
+            && Currency.Length <= 12 && Currency.All(character => !char.IsControl(character))
             && NonNegative(DurationMs) && NonNegative(TimeToFirstTokenMs)
             && NonNegative(ToolCalls) && NonNegative(Steps)
             && (InputTokens is null || InputTokens <= 10_000_000_000)

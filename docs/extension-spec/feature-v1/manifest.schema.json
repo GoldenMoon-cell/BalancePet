@@ -20,6 +20,6 @@
       "maxLength": 500
     },
     "entrypoint": { "type": "string", "pattern": "^[^\\\\/:*?\"<>|]+$", "maxLength": 120 },
-    "capabilities": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "const": "usage.read" } }
+    "capabilities": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["usage.read", "notifications.read", "notifications.present"] } }
   }
 }

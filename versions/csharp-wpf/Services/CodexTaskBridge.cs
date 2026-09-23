@@ -13,6 +13,8 @@ public sealed record CodexTaskActivity(string State, string SessionId, string Tu
     public long? OutputTokens { get; init; }
     public long? CacheReadTokens { get; init; }
     public long? CacheWriteTokens { get; init; }
+    public double? Cost { get; init; }
+    public string Currency { get; init; } = "";
     public long? DurationMs { get; init; }
     public long? TimeToFirstTokenMs { get; init; }
     public long? ToolCalls { get; init; }
@@ -164,6 +166,8 @@ public sealed class CodexTaskBridge : IDisposable
             OutputTokens = activity.OutputTokens ?? started.OutputTokens,
             CacheReadTokens = activity.CacheReadTokens ?? started.CacheReadTokens,
             CacheWriteTokens = activity.CacheWriteTokens ?? started.CacheWriteTokens,
+            Cost = activity.Cost ?? started.Cost,
+            Currency = Prefer(activity.Currency, started.Currency),
             TimeToFirstTokenMs = activity.TimeToFirstTokenMs ?? started.TimeToFirstTokenMs,
             ToolCalls = activity.ToolCalls ?? started.ToolCalls,
             Steps = activity.Steps ?? started.Steps,
@@ -203,6 +207,8 @@ public sealed class CodexTaskBridge : IDisposable
             OutputTokens = ReadCounter(usage, "output_tokens", "outputTokens", "completion_tokens", "completionTokens", "output_token_count", "outputTokenCount", "candidates_token_count", "candidatesTokenCount", "completion_token_count", "completionTokenCount") ?? ReadCounter(root, "output_tokens", "outputTokens", "completion_tokens", "completionTokens", "output_token_count", "outputTokenCount", "candidates_token_count", "candidatesTokenCount", "completion_token_count", "completionTokenCount"),
             CacheReadTokens = ReadCounter(usage, "cache_read_tokens", "cacheReadTokens", "cached_tokens", "cachedTokens", "cache_read_input_tokens", "cacheReadInputTokens", "cache_hit_tokens", "cacheHitTokens") ?? ReadCounter(root, "cache_read_tokens", "cacheReadTokens", "cached_tokens", "cachedTokens", "cache_read_input_tokens", "cacheReadInputTokens", "cache_hit_tokens", "cacheHitTokens"),
             CacheWriteTokens = ReadCounter(usage, "cache_write_tokens", "cacheWriteTokens", "cache_creation_input_tokens", "cacheCreationInputTokens") ?? ReadCounter(root, "cache_write_tokens", "cacheWriteTokens", "cache_creation_input_tokens", "cacheCreationInputTokens"),
+            Cost = ReadAmount(usage, "cost", "amount", "usage_cost", "usageCost") ?? ReadAmount(root, "cost", "amount", "usage_cost", "usageCost"),
+            Currency = Clean(ReadString(usage, "currency", "cost_currency", "costCurrency") ?? ReadString(root, "currency", "cost_currency", "costCurrency"), 12).ToUpperInvariant(),
             DurationMs = ReadCounter(root, "duration_ms", "durationMs", "elapsed_ms", "elapsedMs") ?? ReadCounter(usage, "duration_ms", "durationMs"),
             TimeToFirstTokenMs = ReadCounter(usage, "time_to_first_token_ms", "timeToFirstTokenMs", "ttft_ms", "time_to_first_token", "timeToFirstToken") ?? ReadCounter(root, "time_to_first_token_ms", "timeToFirstTokenMs", "ttft_ms", "time_to_first_token", "timeToFirstToken"),
             ToolCalls = ReadCounter(root, "tool_calls", "toolCalls") ?? ReadCounter(usage, "tool_calls", "toolCalls"),
@@ -236,6 +242,17 @@ public sealed class CodexTaskBridge : IDisposable
             if (!root.TryGetProperty(name, out var value)) continue;
             if (value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var number)) return number is >= 0 and <= 10_000_000_000 ? number : null;
             if (value.ValueKind == JsonValueKind.String && long.TryParse(value.GetString(), out number)) return number is >= 0 and <= 10_000_000_000 ? number : null;
+        }
+        return null;
+    }
+
+    private static double? ReadAmount(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (!root.TryGetProperty(name, out var value)) continue;
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number)) return double.IsFinite(number) && number is >= 0 and <= 10_000_000_000 ? number : null;
+            if (value.ValueKind == JsonValueKind.String && double.TryParse(value.GetString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out number)) return double.IsFinite(number) && number is >= 0 and <= 10_000_000_000 ? number : null;
         }
         return null;
     }

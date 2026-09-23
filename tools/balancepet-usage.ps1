@@ -6,6 +6,8 @@ param(
     [long]$OutputTokens = -1,
     [long]$CacheReadTokens = -1,
     [long]$CacheWriteTokens = -1,
+    [double]$Cost = -1,
+    [string]$Currency = "",
     [long]$DurationMs = -1,
     [long]$TimeToFirstTokenMs = -1,
     [int]$ToolCalls = -1,
@@ -20,6 +22,8 @@ foreach ($value in @($InputTokens, $OutputTokens, $CacheReadTokens, $CacheWriteT
 }
 if ([string]::IsNullOrWhiteSpace($Provider) -or $Provider.Length -gt 64 -or $Provider -match "\p{C}") { throw "Provider is required and must be at most 64 characters." }
 if ($Model.Length -gt 160 -or $Model -match "\p{C}") { throw "Model contains unsupported characters or is too long." }
+if ($Cost -lt -1) { throw "Cost must be -1 (not supplied) or non-negative." }
+if ($Currency.Length -gt 12 -or $Currency -match "\p{C}") { throw "Currency contains unsupported characters or is too long." }
 
 $message = @{
     schema = "balancepet.usage.v1"
@@ -38,6 +42,8 @@ foreach ($entry in @{
 }.GetEnumerator()) {
     if ([long]$entry.Value -ge 0) { $message[$entry.Key] = [long]$entry.Value }
 }
+if ($Cost -ge 0) { $message.cost = $Cost }
+if (-not [string]::IsNullOrWhiteSpace($Currency)) { $message.currency = $Currency.Trim().ToUpperInvariant() }
 $message = $message | ConvertTo-Json -Compress
 
 $pipe = $null

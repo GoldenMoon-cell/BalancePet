@@ -3,7 +3,15 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="用量统计" Width="430" Height="430"
         WindowStartupLocation="CenterOwner" ResizeMode="CanMinimize"
-        Background="#F7F9FD">
+        Background="Transparent">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Themes/FluentControls.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Window.Resources>
+  <Grid Background="{DynamicResource WindowBackgroundBrush}">
   <Grid Margin="18">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
@@ -11,10 +19,10 @@
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
     <StackPanel Margin="0,0,0,12">
-      <TextBlock Text="最近用量" FontSize="24" FontWeight="Bold" Foreground="#263D78"/>
-      <TextBlock Text="本机保存的余额变化记录" Margin="0,4,0,0" Foreground="#7183AD"/>
+      <TextBlock Text="最近用量" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}"/>
+      <TextBlock Text="本机保存的余额变化记录" Margin="0,4,0,0" Foreground="{DynamicResource MutedBrush}"/>
     </StackPanel>
-    <ListView x:Name="HistoryList" Grid.Row="1" Background="White" BorderBrush="#D6DEEF" BorderThickness="1" Padding="6">
+    <ListView x:Name="HistoryList" Grid.Row="1" Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="6">
       <ListView.View>
         <GridView AllowsColumnReorder="False">
           <GridViewColumn Header="日期" DisplayMemberBinding="{Binding Date}" Width="120"/>
@@ -23,6 +31,7 @@
         </GridView>
       </ListView.View>
     </ListView>
-    <TextBlock x:Name="SummaryText" Grid.Row="2" Margin="0,12,0,0" Foreground="#526A9E" HorizontalAlignment="Right"/>
+    <TextBlock x:Name="SummaryText" Grid.Row="2" Margin="0,12,0,0" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Right"/>
+  </Grid>
   </Grid>
 </Window>

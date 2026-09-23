@@ -14,4 +14,5 @@ public sealed record AiAccountActivity(
     string Endpoint,
     string TokenFingerprint,
     double? ReportedBalance,
-    string Currency);
+    string Currency,
+    bool IsInitialSnapshot = false);
