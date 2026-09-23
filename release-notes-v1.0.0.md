@@ -24,5 +24,5 @@
 
 ## 文件校验
 
-- `BalancePet-1.0.0-win-x64.zip` SHA-256：`af84eea3cb1f18af15ab4ac6241dc05d0ddfbeaa537b24965d67cd3d2635ffb1`
-- `BalancePet-1.0.0-Setup.exe` SHA-256：`b24bcbece3c372473929f5195983a5fd1db794d56f8d3b44199428c0811d49e7`
+- `BalancePet-1.0.0-win-x64.zip` SHA-256：`c98db33e373f9869bc71581740a487973dcd4e18b6681b42949114dedcde5172`
+- `BalancePet-1.0.0-Setup.exe` SHA-256：`335cff3737afdb7cd01f9da4eebed741e0ba1e875886b61a404f33a7b22f139d`
