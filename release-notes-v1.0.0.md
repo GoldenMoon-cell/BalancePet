@@ -1,6 +1,6 @@
-# BalancePet v1.0.0-dev.39
+# BalancePet v1.0.0
 
-与上一正式版 [v0.9.1](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v0.9.1) 相比，本次预发布加入了独立扩展能力，并继续完善账户、用量和桌宠工作流。
+与上一正式版 [v0.9.1](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v0.9.1) 相比，`v1.0.0` 加入了完整的扩展体系，并继续完善账户、用量和桌宠工作流。
 
 ## 新增
 
@@ -22,10 +22,8 @@
 - Notification Center `v0.5.15`（随本次主程序 Release 提供）
 - BalancePet Mica `v1.0.0`
 
-本版本仍为预发布版。安装器、便携 ZIP 和扩展包的 SHA-256 校验值随 Release 资产一并提供。
-
 ## 文件校验
 
-- `BalancePet-1.0.0-dev.39-win-x64.zip` SHA-256：`7828bdc38884bf372e96477ce764ca7d6ff880d8f43bbf452cf03a413e1ebebb`
-- `BalancePet-1.0.0-dev.39-Setup.exe` SHA-256：`407206ac13c21735fc79508fcb0a77b123de8c2209245514256aaabc27f28d88`
+- `BalancePet-1.0.0-win-x64.zip` SHA-256：`af84eea3cb1f18af15ab4ac6241dc05d0ddfbeaa537b24965d67cd3d2635ffb1`
+- `BalancePet-1.0.0-Setup.exe` SHA-256：`b24bcbece3c372473929f5195983a5fd1db794d56f8d3b44199428c0811d49e7`
 - `balancepet.ext.feature.notification-center-0.5.15-win-x64.zip` SHA-256：`27eacc7554d30e8a5fa9fc252b0aaaf9b0bbbe833c079449cdde07f3836f88dd`

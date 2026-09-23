@@ -29,10 +29,10 @@
       "author": "GoldenMoon-cell",
       "version": "0.5.15",
       "min_core_version": "1.0.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet/releases/download/v1.0.0-dev.39/balancepet.ext.feature.notification-center-0.5.15-win-x64.zip",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet/releases/download/v1.0.0/balancepet.ext.feature.notification-center-0.5.15-win-x64.zip",
       "sha256": "27eacc7554d30e8a5fa9fc252b0aaaf9b0bbbe833c079449cdde07f3836f88dd",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v1.0.0-dev.39",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v1.0.0",
       "categories": ["消息", "效率"]
     },
     {
