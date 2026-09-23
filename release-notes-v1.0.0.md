@@ -19,11 +19,10 @@
 ## 扩展版本
 
 - Usage Analytics `v0.3.3`
-- Notification Center `v0.5.15`（随本次主程序 Release 提供）
+- Notification Center `v0.5.15`（独立仓库与 Release 提供）
 - BalancePet Mica `v1.0.0`
 
 ## 文件校验
 
 - `BalancePet-1.0.0-win-x64.zip` SHA-256：`af84eea3cb1f18af15ab4ac6241dc05d0ddfbeaa537b24965d67cd3d2635ffb1`
 - `BalancePet-1.0.0-Setup.exe` SHA-256：`b24bcbece3c372473929f5195983a5fd1db794d56f8d3b44199428c0811d49e7`
-- `balancepet.ext.feature.notification-center-0.5.15-win-x64.zip` SHA-256：`27eacc7554d30e8a5fa9fc252b0aaaf9b0bbbe833c079449cdde07f3836f88dd`

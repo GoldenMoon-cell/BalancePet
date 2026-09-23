@@ -7,5 +7,6 @@
   "api_version": 1,
   "min_core_version": "1.0.0",
   "entrypoint": "BalancePet.NotificationCenter.exe",
+  "update_url": "https://api.github.com/repos/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases/latest",
   "capabilities": ["notifications.read", "notifications.present"]
 }
