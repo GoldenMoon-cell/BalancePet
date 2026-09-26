@@ -19,6 +19,7 @@ public sealed record CodexTaskActivity(string State, string SessionId, string Tu
     public long? TimeToFirstTokenMs { get; init; }
     public long? ToolCalls { get; init; }
     public long? Steps { get; init; }
+    public string ReasoningEffort { get; init; } = "";
     public bool? Success { get; init; }
 }
 
@@ -171,6 +172,7 @@ public sealed class CodexTaskBridge : IDisposable
             TimeToFirstTokenMs = activity.TimeToFirstTokenMs ?? started.TimeToFirstTokenMs,
             ToolCalls = activity.ToolCalls ?? started.ToolCalls,
             Steps = activity.Steps ?? started.Steps,
+            ReasoningEffort = Prefer(activity.ReasoningEffort, started.ReasoningEffort),
             Success = activity.Success ?? started.Success
         };
     }
@@ -213,6 +215,8 @@ public sealed class CodexTaskBridge : IDisposable
             TimeToFirstTokenMs = ReadCounter(usage, "time_to_first_token_ms", "timeToFirstTokenMs", "ttft_ms", "time_to_first_token", "timeToFirstToken") ?? ReadCounter(root, "time_to_first_token_ms", "timeToFirstTokenMs", "ttft_ms", "time_to_first_token", "timeToFirstToken"),
             ToolCalls = ReadCounter(root, "tool_calls", "toolCalls") ?? ReadCounter(usage, "tool_calls", "toolCalls"),
             Steps = ReadCounter(root, "steps") ?? ReadCounter(usage, "steps"),
+            ReasoningEffort = Clean(ReadString(root, "reasoning_effort", "reasoningEffort", "reasoning_level", "reasoningLevel", "thinking_level", "thinkingLevel", "effort")
+                ?? ReadString(usage, "reasoning_effort", "reasoningEffort", "reasoning_level", "reasoningLevel", "thinking_level", "thinkingLevel", "effort"), 32),
             Success = ReadBool(usage, "success") ?? ReadBool(root, "success")
         };
     }

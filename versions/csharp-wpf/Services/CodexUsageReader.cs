@@ -26,20 +26,30 @@ public static class CodexUsageReader
         DateTimeOffset? startedAt,
         CancellationToken cancellationToken = default)
     {
+        return (await TryReadTurnSnapshotAsync(sessionId, turnId, startedAt, cancellationToken))?.Counters;
+    }
+
+    public static async Task<CodexUsageSnapshot?> TryReadTurnSnapshotAsync(
+        string sessionId,
+        string turnId,
+        DateTimeOffset? startedAt,
+        CancellationToken cancellationToken = default)
+    {
         if (!IsSafeId(sessionId)) return null;
 
-        CodexUsageCounters? result = null;
+        CodexUsageSnapshot? result = null;
         for (var attempt = 0; attempt < Attempts; attempt++)
         {
             result = await ReadTurnAsync(sessionId, turnId, startedAt, cancellationToken);
-            if (result?.HasTokenData == true || attempt == Attempts - 1) return result;
+            if (result?.Counters?.HasTokenData == true || result?.Requests.Count > 0 || attempt == Attempts - 1)
+                return result;
             await Task.Delay(RetryDelay, cancellationToken);
         }
 
         return result;
     }
 
-    private static async Task<CodexUsageCounters?> ReadTurnAsync(
+    private static async Task<CodexUsageSnapshot?> ReadTurnAsync(
         string sessionId,
         string turnId,
         DateTimeOffset? startedAt,
@@ -55,7 +65,7 @@ public static class CodexUsageReader
             await ReadFileAsync(file, sessionId, accumulator, cancellationToken);
         }
 
-        return accumulator.ToCounters();
+        return accumulator.ToSnapshot();
     }
 
     private static IEnumerable<string> FindRolloutFiles(string sessionId)
@@ -135,11 +145,17 @@ public static class CodexUsageReader
             if (cumulative.HasValue && HasCounter(cumulative.Value))
             {
                 accumulator.AddCumulative(occurredAt, cumulative.Value);
-                return;
+                accumulator.AddReasoning(occurredAt, ReadString(payload, "reasoning_effort", "reasoning_level", "thinking_level", "effort")
+                    ?? ReadString(cumulative.Value, "reasoning_effort", "reasoning_level", "thinking_level", "effort"));
             }
 
             var usage = FindObject(payload, "usage");
-            if (usage.HasValue && HasCounter(usage.Value)) accumulator.AddIncremental(responseId, usage.Value);
+            if (usage.HasValue && HasCounter(usage.Value))
+            {
+                accumulator.AddIncremental(occurredAt, responseId, usage.Value);
+                accumulator.AddReasoning(occurredAt, ReadString(payload, "reasoning_effort", "reasoning_level", "thinking_level", "effort")
+                    ?? ReadString(usage.Value, "reasoning_effort", "reasoning_level", "thinking_level", "effort"));
+            }
         }
         catch (JsonException) { }
     }
@@ -161,6 +177,7 @@ public static class CodexUsageReader
             if (!accumulator.Matches(recordTurn, occurredAt)) return;
             var model = ReadString(payload, "model");
             if (!string.IsNullOrWhiteSpace(model)) accumulator.AddModel(occurredAt, model);
+            accumulator.AddReasoning(occurredAt, ReadString(payload, "reasoning_effort", "reasoning_level", "thinking_level", "effort"));
         }
         catch (JsonException) { }
     }
@@ -176,8 +193,13 @@ public static class CodexUsageReader
         => !string.IsNullOrWhiteSpace(value) && value.Length <= 128
             && value.All(character => char.IsLetterOrDigit(character) || character is '-' or '_' or '.' or ':');
 
-    private static string? ReadString(JsonElement root, string name)
-        => root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+    private static string? ReadString(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+            if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+                return value.GetString();
+        return null;
+    }
 
     private static bool TryGetString(JsonElement root, string name, out string value)
     {
@@ -219,10 +241,13 @@ public static class CodexUsageReader
         private readonly string _turnId;
         private readonly DateTimeOffset? _startedAt;
         private readonly HashSet<string> _responses = new(StringComparer.Ordinal);
+        private readonly List<CodexUsageRequest> _requests = new();
         private DateTimeOffset _latestCumulativeAt = DateTimeOffset.MinValue;
         private DateTimeOffset _latestModelAt = DateTimeOffset.MinValue;
+        private DateTimeOffset _latestReasoningAt = DateTimeOffset.MinValue;
         private JsonElement? _latestCumulative;
         private string _model = "";
+        private string _reasoningEffort = "";
         private long _input;
         private long _output;
         private long _cacheRead;
@@ -260,36 +285,88 @@ public static class CodexUsageReader
             _model = model.Length <= 160 ? model : model[..160];
         }
 
-        public void AddIncremental(string responseId, JsonElement value)
+        public void AddReasoning(DateTimeOffset? occurredAt, string? reasoningEffort)
         {
-            if (!string.IsNullOrWhiteSpace(responseId) && !_responses.Add(responseId)) return;
-            Add(ref _input, ref _hasInput, ReadCounter(value, "input_tokens"));
-            Add(ref _output, ref _hasOutput, ReadCounter(value, "output_tokens"));
-            Add(ref _cacheRead, ref _hasCacheRead, ReadCounter(value, "cached_input_tokens", "cache_read_tokens") ?? ReadCounter(value, "input_tokens_details.cached_tokens"));
-            Add(ref _cacheWrite, ref _hasCacheWrite, ReadCounter(value, "cache_write_input_tokens", "cache_write_tokens"));
+            if (string.IsNullOrWhiteSpace(reasoningEffort)) return;
+            if (occurredAt.HasValue && occurredAt.Value < _latestReasoningAt) return;
+            _latestReasoningAt = occurredAt ?? _latestReasoningAt;
+            var cleaned = reasoningEffort.Trim();
+            _reasoningEffort = cleaned.Length <= 32 ? cleaned : cleaned[..32];
         }
 
-        public CodexUsageCounters? ToCounters()
+        public void AddIncremental(DateTimeOffset? occurredAt, string responseId, JsonElement value)
         {
+            var dedupeKey = !string.IsNullOrWhiteSpace(responseId)
+                ? responseId
+                : string.Join('|', occurredAt?.UtcTicks, ReadCounter(value, "input_tokens"), ReadCounter(value, "output_tokens"), _requests.Count);
+            if (!_responses.Add(dedupeKey)) return;
+            var input = ReadCounter(value, "input_tokens");
+            var output = ReadCounter(value, "output_tokens");
+            var cacheRead = ReadCounter(value, "cached_input_tokens", "cache_read_tokens") ?? ReadCounter(value, "input_tokens_details.cached_tokens");
+            var cacheWrite = ReadCounter(value, "cache_write_input_tokens", "cache_write_tokens");
+            Add(ref _input, ref _hasInput, input);
+            Add(ref _output, ref _hasOutput, output);
+            Add(ref _cacheRead, ref _hasCacheRead, cacheRead);
+            Add(ref _cacheWrite, ref _hasCacheWrite, cacheWrite);
+            _requests.Add(new CodexUsageRequest(
+                string.IsNullOrWhiteSpace(_turnId) ? "" : _turnId,
+                responseId,
+                occurredAt ?? _startedAt ?? DateTimeOffset.Now,
+                _model,
+                _reasoningEffort,
+                input,
+                output,
+                cacheRead,
+                cacheWrite));
+        }
+
+        public CodexUsageSnapshot ToSnapshot()
+        {
+            CodexUsageCounters? counters;
             if (_latestCumulative.HasValue)
             {
                 var value = _latestCumulative.Value;
-                return new CodexUsageCounters(
+                counters = new CodexUsageCounters(
                     ReadCounter(value, "input_tokens"),
                     ReadCounter(value, "output_tokens"),
                     ReadCounter(value, "cached_input_tokens", "cache_read_tokens") ?? ReadCounter(value, "input_tokens_details.cached_tokens"),
                     ReadCounter(value, "cache_write_input_tokens", "cache_write_tokens"),
-                    _model);
+                    _model,
+                    _reasoningEffort);
             }
 
-            return _hasInput || _hasOutput || _hasCacheRead || _hasCacheWrite
+            else
+            {
+                counters = _hasInput || _hasOutput || _hasCacheRead || _hasCacheWrite
                 ? new CodexUsageCounters(
                     _hasInput ? _input : null,
                     _hasOutput ? _output : null,
                     _hasCacheRead ? _cacheRead : null,
                     _hasCacheWrite ? _cacheWrite : null,
-                    _model)
+                    _model,
+                    _reasoningEffort)
                 : null;
+            }
+
+            var requests = _requests.Count > 0
+                ? _requests.Select(request => request with
+                {
+                    Model = string.IsNullOrWhiteSpace(request.Model) ? _model : request.Model,
+                    ReasoningEffort = string.IsNullOrWhiteSpace(request.ReasoningEffort) ? _reasoningEffort : request.ReasoningEffort
+                }).ToArray()
+                : counters?.HasTokenData == true
+                    ? new[] { new CodexUsageRequest(
+                        string.IsNullOrWhiteSpace(_turnId) ? "" : _turnId,
+                        "",
+                        _latestCumulativeAt != DateTimeOffset.MinValue ? _latestCumulativeAt : _startedAt ?? DateTimeOffset.Now,
+                        _model,
+                        _reasoningEffort,
+                        counters.InputTokens,
+                        counters.OutputTokens,
+                        counters.CacheReadTokens,
+                        counters.CacheWriteTokens) }
+                    : Array.Empty<CodexUsageRequest>();
+            return new CodexUsageSnapshot(counters, requests);
         }
 
         private static void Add(ref long total, ref bool hasValue, long? value)
@@ -306,9 +383,25 @@ public sealed record CodexUsageCounters(
     long? OutputTokens,
     long? CacheReadTokens,
     long? CacheWriteTokens,
-    string Model)
+    string Model,
+    string ReasoningEffort = "")
 {
     public bool HasData => InputTokens.HasValue || OutputTokens.HasValue || CacheReadTokens.HasValue || CacheWriteTokens.HasValue;
     public bool HasTokenData => HasData;
     public bool HasModel => !string.IsNullOrWhiteSpace(Model);
 }
+
+public sealed record CodexUsageSnapshot(
+    CodexUsageCounters? Counters,
+    IReadOnlyList<CodexUsageRequest> Requests);
+
+public sealed record CodexUsageRequest(
+    string TurnId,
+    string ResponseId,
+    DateTimeOffset OccurredAt,
+    string Model,
+    string ReasoningEffort,
+    long? InputTokens,
+    long? OutputTokens,
+    long? CacheReadTokens,
+    long? CacheWriteTokens);

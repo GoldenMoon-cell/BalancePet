@@ -10,6 +10,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using BalancePet.Wpf.Models;
 using BalancePet.Wpf.Services;
 
@@ -44,9 +46,14 @@ public partial class SettingsWindow : Window
     private bool _suppressChangeTracking;
     private bool _hasUnsavedChanges;
     private bool _allowCloseWithoutPrompt;
+    private bool _navigationCollapsed;
+    private int _navigationTransitionId;
     private string _selectedThemeMode = "system";
     private string _selectedThemeBackdrop = "mica";
     private string _selectedThemeId = ThemeExtensionManager.BundledThemeId;
+    private const double ExpandedNavigationWidth = 178;
+    private const double CollapsedNavigationWidth = 58;
+    private static readonly TimeSpan NavigationAnimationDuration = TimeSpan.FromMilliseconds(220);
 
     public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings, FeatureExtensionManager? featureExtensions = null)
     {
@@ -75,14 +82,136 @@ public partial class SettingsWindow : Window
         _suppressLanguageChange = true;
         SelectByTag(LanguageBox, settings.Language);
         _suppressLanguageChange = false;
-        ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; AccountStatusBox.IsChecked = settings.CCSwitchIntegration; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
+        ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; NavigationAnimationsBox.IsChecked = settings.NavigationAnimations; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; AccountStatusBox.IsChecked = settings.CCSwitchIntegration; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
         AppLocalization.Apply(this, settings.Language);
         RefreshLanguageSelector(settings.Language, selectLanguage: false);
         SyncAllComboDisplays();
         UpdatePetStyleAvailability();
         UpdateAccountSummary();
+        ApplyNavigationState();
         _trackChanges = true;
+    }
+
+    private void OnToggleNavigation(object sender, RoutedEventArgs e)
+    {
+        _navigationCollapsed = !_navigationCollapsed;
+        ApplyNavigationState(animate: NavigationAnimationsBox.IsChecked == true);
+    }
+
+    private void ApplyNavigationState(bool animate = false)
+    {
+        if (SettingsTabs is null || NavigationToggleButton is null) return;
+        var textBlocks = new[]
+        {
+            AccountNavigationText, PetNavigationText, ExtensionNavigationText,
+            AppearanceNavigationText, AdvancedNavigationText
+        };
+        var transitionId = ++_navigationTransitionId;
+
+        if (!animate || !IsLoaded)
+        {
+            StopNavigationAnimationsAtCurrentValues(textBlocks);
+            SettingsTabs.Tag = _navigationCollapsed ? "collapsed" : "expanded";
+            SetNavigationLabels(textBlocks, visible: !_navigationCollapsed, opacity: _navigationCollapsed ? 0 : 1);
+            SetNavigationSidebarWidth(_navigationCollapsed ? CollapsedNavigationWidth : ExpandedNavigationWidth, animate: false);
+        }
+        else if (_navigationCollapsed)
+        {
+            StopNavigationAnimationsAtCurrentValues(textBlocks);
+            AnimateNavigationLabels(textBlocks, visible: false, (_, _) =>
+            {
+                if (transitionId != _navigationTransitionId || !_navigationCollapsed) return;
+                SetNavigationLabels(textBlocks, visible: false, opacity: 0);
+                SettingsTabs.Tag = "collapsed";
+                SetNavigationSidebarWidth(CollapsedNavigationWidth, animate: true);
+            });
+        }
+        else
+        {
+            StopNavigationAnimationsAtCurrentValues(textBlocks);
+            SetNavigationLabels(textBlocks, visible: false, opacity: 0);
+            SettingsTabs.Tag = "collapsed";
+            SetNavigationSidebarWidth(ExpandedNavigationWidth, animate: true, (_, _) =>
+            {
+                if (transitionId != _navigationTransitionId || _navigationCollapsed) return;
+                SettingsTabs.Tag = "expanded";
+                SetNavigationLabels(textBlocks, visible: true, opacity: 0);
+                AnimateNavigationLabels(textBlocks, visible: true, completed: null);
+            });
+        }
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        var tooltip = _navigationCollapsed
+            ? AppLocalization.Text(language, "展开导航栏", "Expand navigation pane")
+            : AppLocalization.Text(language, "折叠导航栏", "Collapse navigation pane");
+        NavigationToggleButton.ToolTip = tooltip;
+        System.Windows.Automation.AutomationProperties.SetName(NavigationToggleButton, tooltip);
+    }
+
+    private static void SetNavigationLabels(IReadOnlyList<TextBlock> textBlocks, bool visible, double opacity)
+    {
+        foreach (var text in textBlocks)
+        {
+            text.BeginAnimation(UIElement.OpacityProperty, null);
+            text.Opacity = opacity;
+            text.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private static void AnimateNavigationLabels(IReadOnlyList<TextBlock> textBlocks, bool visible, EventHandler? completed)
+    {
+        for (var index = 0; index < textBlocks.Count; index++)
+        {
+            var text = textBlocks[index];
+            if (visible) text.Visibility = Visibility.Visible;
+            var animation = new DoubleAnimation
+            {
+                To = visible ? 1 : 0,
+                Duration = new Duration(TimeSpan.FromMilliseconds(150)),
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseInOut }
+            };
+            if (index == 0 && completed is not null) animation.Completed += completed;
+            text.BeginAnimation(UIElement.OpacityProperty, animation);
+        }
+    }
+
+    private void StopNavigationAnimationsAtCurrentValues(IReadOnlyList<TextBlock> textBlocks)
+    {
+        var sidebarWidth = NavigationSidebar.ActualWidth;
+        if (sidebarWidth > 0)
+        {
+            NavigationSidebar.BeginAnimation(FrameworkElement.WidthProperty, null);
+            NavigationSidebar.Width = sidebarWidth;
+        }
+
+        foreach (var text in textBlocks)
+        {
+            var opacity = text.Opacity;
+            text.BeginAnimation(UIElement.OpacityProperty, null);
+            text.Opacity = opacity;
+        }
+    }
+
+    private void SetNavigationSidebarWidth(double targetWidth, bool animate, EventHandler? completed = null)
+    {
+        if (NavigationSidebar is null) return;
+        if (!animate)
+        {
+            NavigationSidebar.BeginAnimation(FrameworkElement.WidthProperty, null);
+            NavigationSidebar.Width = targetWidth;
+            return;
+        }
+
+        var from = NavigationSidebar.ActualWidth > 0 ? NavigationSidebar.ActualWidth : NavigationSidebar.Width;
+        var animation = new DoubleAnimation
+        {
+            From = from,
+            To = targetWidth,
+            Duration = new Duration(NavigationAnimationDuration),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
+        };
+        if (completed is not null) animation.Completed += completed;
+        NavigationSidebar.BeginAnimation(FrameworkElement.WidthProperty, animation);
     }
 
     private void RefreshLanguageSelector(string language, bool selectLanguage)
@@ -738,7 +867,7 @@ public partial class SettingsWindow : Window
 
     private void OnCleanupExtensionResources(object sender, RoutedEventArgs e)
     {
-        var removed = 0;
+        var removed = _extensionLibrary.CleanupOldPackages();
         var roots = new[] { _extensions.RootDirectory, _featureExtensions.RootDirectory, _themes.RootDirectory };
         foreach (var root in roots.Distinct(StringComparer.OrdinalIgnoreCase))
         {
@@ -1033,7 +1162,12 @@ public partial class SettingsWindow : Window
 
     private void OnSettingValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) => MarkSettingsDirty();
 
-    private void OnSettingToggleChanged(object sender, RoutedEventArgs e) => MarkSettingsDirty();
+    private void OnSettingToggleChanged(object sender, RoutedEventArgs e)
+    {
+        MarkSettingsDirty();
+        if (ReferenceEquals(sender, NavigationAnimationsBox) && NavigationAnimationsBox.IsChecked != true && IsLoaded)
+            ApplyNavigationState();
+    }
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
@@ -1256,7 +1390,7 @@ public partial class SettingsWindow : Window
             ThemeCompactBox.IsChecked = imported.ThemeCompact;
             ApplySelectedTheme();
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
-            SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; EasterEggsBox.IsChecked = imported.RandomEasterEggs; AccountStatusBox.IsChecked = imported.CCSwitchIntegration; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
+            SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; NavigationAnimationsBox.IsChecked = imported.NavigationAnimations; EasterEggsBox.IsChecked = imported.RandomEasterEggs; AccountStatusBox.IsChecked = imported.CCSwitchIntegration; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
             AppLocalization.Apply(this, imported.Language);
             RefreshLanguageSelector(imported.Language, selectLanguage: false);
@@ -1303,6 +1437,7 @@ public partial class SettingsWindow : Window
                 volume = VolumeSlider.Value,
                 bubble = BubbleBox.IsChecked == true,
                 interaction_effects = InteractionEffectsBox.IsChecked == true,
+                navigation_animations = NavigationAnimationsBox.IsChecked == true,
                 random_easter_eggs = EasterEggsBox.IsChecked == true,
                 codex_task_integration = FollowCodexBox.IsChecked == true,
                 account_status_integration = AccountStatusBox.IsChecked == true,
@@ -1415,6 +1550,7 @@ public partial class SettingsWindow : Window
                 Sound = SoundBox.IsChecked == true,
                 Bubble = BubbleBox.IsChecked == true,
                 InteractionEffects = InteractionEffectsBox.IsChecked == true,
+                NavigationAnimations = NavigationAnimationsBox.IsChecked == true,
                 RandomEasterEggs = EasterEggsBox.IsChecked == true,
                 CodexTaskIntegration = FollowCodexBox.IsChecked == true,
                 CCSwitchIntegration = AccountStatusBox.IsChecked == true,
@@ -1454,6 +1590,7 @@ public partial class SettingsWindow : Window
             _settings.ThemeMode = updated.ThemeMode;
             _settings.ThemeBackdrop = updated.ThemeBackdrop;
             _settings.ThemeCompact = updated.ThemeCompact;
+            _settings.NavigationAnimations = updated.NavigationAnimations;
             _settings.UpdateCheckMode = updated.UpdateCheckMode;
             _settings.ExtensionUpdateCheckMode = updated.ExtensionUpdateCheckMode;
             _settings.LastUpdateCheckUtc = updated.LastUpdateCheckUtc;
@@ -1555,6 +1692,7 @@ public partial class SettingsWindow : Window
         RefreshExtensionActionLabels(language);
         RefreshPluginCatalogLabels(language);
         RebuildPluginCatalogItems();
+        ApplyNavigationState();
     }
     private void CompleteAndClose()
     {

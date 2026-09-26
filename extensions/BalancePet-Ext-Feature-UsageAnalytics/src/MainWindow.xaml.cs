@@ -18,11 +18,14 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _fileRefreshTimer;
     private FileSystemWatcher? _watcher;
     private FileSystemWatcher? _balanceWatcher;
+    private FileSystemWatcher? _serverUsageWatcher;
     private bool _fileRefreshPending;
     private Button? _activeNav;
     private UsageReport? _lastReport;
     private BalanceUsageSnapshot _lastBalanceUsage = BalanceUsageSnapshot.Read("");
+    private ServerUsageSummarySnapshot _lastServerUsage = ServerUsageSummarySnapshot.Read("");
     private IReadOnlyList<UsageEvent> _lastEvents = Array.Empty<UsageEvent>();
+    private TrendRange _trendRange = TrendRange.Last7Days;
     private DateTimeOffset _nextRefreshAt = DateTimeOffset.Now.Add(AutoRefreshInterval);
 
     public MainWindow(string dataDirectory)
@@ -87,6 +90,14 @@ public partial class MainWindow : Window
         SetActiveNav(HistoryNav);
     }
 
+    private void OnTrendRangeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TrendRangeSelector?.SelectedItem is not ComboBoxItem item
+            || !Enum.TryParse(item.Tag?.ToString(), ignoreCase: true, out TrendRange range)) return;
+        _trendRange = range;
+        DrawTrendChart();
+    }
+
     private void OnContentScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         if (e.VerticalChange == 0 && e.ExtentHeightChange == 0) return;
@@ -136,6 +147,16 @@ public partial class MainWindow : Window
             _balanceWatcher.Changed += OnDataFileChanged;
             _balanceWatcher.Created += OnDataFileChanged;
             _balanceWatcher.Renamed += OnDataFileRenamed;
+
+            _serverUsageWatcher = new FileSystemWatcher(_store.DirectoryPath, ServerUsageSummarySnapshot.FileName)
+            {
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                IncludeSubdirectories = false,
+                EnableRaisingEvents = true
+            };
+            _serverUsageWatcher.Changed += OnDataFileChanged;
+            _serverUsageWatcher.Created += OnDataFileChanged;
+            _serverUsageWatcher.Renamed += OnDataFileRenamed;
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
@@ -150,6 +171,8 @@ public partial class MainWindow : Window
         _watcher = null;
         _balanceWatcher?.Dispose();
         _balanceWatcher = null;
+        _serverUsageWatcher?.Dispose();
+        _serverUsageWatcher = null;
     }
 
     private void OnDataFileChanged(object sender, FileSystemEventArgs e) => QueueFileRefresh();
@@ -170,6 +193,7 @@ public partial class MainWindow : Window
         _lastEvents = events;
         _lastReport = UsageReport.Build(events, DateTimeOffset.Now);
         _lastBalanceUsage = BalanceUsageSnapshot.Read(_store.DirectoryPath, DateTimeOffset.Now);
+        _lastServerUsage = ServerUsageSummarySnapshot.Read(_store.DirectoryPath, DateTimeOffset.Now);
         var report = _lastReport;
         TwentyFourHourTokens.Text = report.TwentyFourHours.HasTokenData ? UsageFormatting.Tokens(report.TwentyFourHours.TotalTokens) : "未上报";
         AllTimeTokens.Text = report.AllTime.HasTokenData ? UsageFormatting.Tokens(report.AllTime.TotalTokens) : "未上报";
@@ -185,6 +209,12 @@ public partial class MainWindow : Window
         TodayUsageHint.Text = _lastBalanceUsage.HasData
             ? "主程序余额变化记录"
             : "主程序尚无余额记录";
+        ServerUsageSummary.Text = _lastServerUsage.HasData
+            ? UsageFormatting.Currency(_lastServerUsage.TodayAmount, _lastServerUsage.Currency)
+            : "暂无数据";
+        ServerUsageSummaryHint.Text = _lastServerUsage.HasData
+            ? $"/v1/usage 按日汇总 · {_lastServerUsage.Date}"
+            : "当前站点尚无汇总额度";
         TotalBalance.Text = _lastBalanceUsage.HasBalanceData
             ? UsageFormatting.Currency(_lastBalanceUsage.TotalBalance, _lastBalanceUsage.BalanceCurrency)
             : "暂无数据";
@@ -258,15 +288,15 @@ public partial class MainWindow : Window
         TrendChart.Children.Clear();
         var events = _lastEvents;
         var now = DateTimeOffset.Now;
-        var points = Enumerable.Range(0, 7).Select(offset =>
+        var buckets = CreateTrendBuckets(_trendRange, events, now);
+        var points = buckets.Select(bucket =>
         {
-            var date = now.Date.AddDays(-6 + offset);
-            var end = date.AddDays(1);
-            var values = events.Where(value => value.OccurredAt.LocalDateTime >= date && value.OccurredAt.LocalDateTime < end).ToArray();
+            var values = events.Where(value => value.OccurredAt.LocalDateTime >= bucket.Start && value.OccurredAt.LocalDateTime < bucket.End).ToArray();
             var input = values.Sum(value => value.InputTokens ?? 0);
             var cacheRead = values.Sum(value => value.CacheReadTokens ?? 0);
             return new TrendPoint(
-                date,
+                bucket.Start,
+                bucket.Label,
                 Math.Max(0, input - cacheRead),
                 values.Sum(value => value.OutputTokens ?? 0),
                 values.Sum(value => value.CacheWriteTokens ?? 0),
@@ -290,6 +320,66 @@ public partial class MainWindow : Window
         DrawTokenSeries(points, value => value.CacheCreationTokens, (Brush)FindResource("OrangeBrush"), maxTokens, plotLeft, plotRight, plotTop, plotBottom);
         DrawTokenSeries(points, value => value.CacheReadTokens, new SolidColorBrush(Color.FromRgb(21, 199, 215)), maxTokens, plotLeft, plotRight, plotTop, plotBottom);
         DrawRateSeries(points, (Brush)FindResource("PurpleBrush"), plotLeft, plotRight, plotTop, plotBottom);
+    }
+
+    private static IReadOnlyList<TrendBucket> CreateTrendBuckets(TrendRange range, IReadOnlyList<UsageEvent> events, DateTimeOffset now)
+    {
+        var localNow = now.LocalDateTime;
+        switch (range)
+        {
+            case TrendRange.Last24Hours:
+            {
+                var end = new DateTime(localNow.Year, localNow.Month, localNow.Day, localNow.Hour, 0, 0);
+                var start = end.AddHours(-23);
+                return Enumerable.Range(0, 24).Select(index =>
+                {
+                    var bucketStart = start.AddHours(index);
+                    return new TrendBucket(bucketStart, bucketStart.AddHours(1), bucketStart.ToString("HH:mm"));
+                }).ToArray();
+            }
+            case TrendRange.Last30Days:
+            {
+                var end = localNow.Date;
+                var start = end.AddDays(-29);
+                return Enumerable.Range(0, 30).Select(index =>
+                {
+                    var bucketStart = start.AddDays(index);
+                    return new TrendBucket(bucketStart, bucketStart.AddDays(1), bucketStart.ToString("MM-dd"));
+                }).ToArray();
+            }
+            case TrendRange.Last90Days:
+            {
+                var end = localNow.Date.AddDays(1);
+                var start = end.AddDays(-91);
+                return Enumerable.Range(0, 13).Select(index =>
+                {
+                    var bucketStart = start.AddDays(index * 7);
+                    return new TrendBucket(bucketStart, bucketStart.AddDays(7), bucketStart.ToString("MM-dd"));
+                }).ToArray();
+            }
+            case TrendRange.AllTime:
+            {
+                var first = events.Count == 0 ? localNow.Date.AddMonths(-11) : events.Min(value => value.OccurredAt.LocalDateTime).Date;
+                var start = new DateTime(first.Year, first.Month, 1);
+                var end = new DateTime(localNow.Year, localNow.Month, 1).AddMonths(1);
+                var count = Math.Max(1, (end.Year - start.Year) * 12 + end.Month - start.Month);
+                return Enumerable.Range(0, count).Select(index =>
+                {
+                    var bucketStart = start.AddMonths(index);
+                    return new TrendBucket(bucketStart, bucketStart.AddMonths(1), bucketStart.ToString("yyyy-MM"));
+                }).ToArray();
+            }
+            default:
+            {
+                var end = localNow.Date;
+                var start = end.AddDays(-6);
+                return Enumerable.Range(0, 7).Select(index =>
+                {
+                    var bucketStart = start.AddDays(index);
+                    return new TrendBucket(bucketStart, bucketStart.AddDays(1), bucketStart.ToString("MM-dd"));
+                }).ToArray();
+            }
+        }
     }
 
     private void DrawGridLines(double plotLeft, double plotRight, double plotTop, double plotBottom, long maxTokens)
@@ -317,11 +407,15 @@ public partial class MainWindow : Window
 
     private void DrawDateLabels(IReadOnlyList<TrendPoint> points, double plotLeft, double plotRight, double plotBottom)
     {
+        if (points.Count == 0) return;
         var width = plotRight - plotLeft;
-        for (var index = 0; index < points.Count; index++)
+        var step = Math.Max(1, (int)Math.Ceiling(points.Count / 7d));
+        var indexes = Enumerable.Range(0, points.Count).Where(index => index % step == 0).ToList();
+        if (!indexes.Contains(points.Count - 1)) indexes.Add(points.Count - 1);
+        foreach (var index in indexes.Distinct())
         {
             var x = plotLeft + width * index / Math.Max(1, points.Count - 1);
-            AddChartLabel(points[index].Date.ToString("MM-dd"), x - 16, plotBottom + 8, (Brush)FindResource("MutedBrush"), 10, 36);
+            AddChartLabel(points[index].Label, x - 22, plotBottom + 8, (Brush)FindResource("MutedBrush"), 10, 48);
         }
     }
 
@@ -429,6 +523,7 @@ public partial class MainWindow : Window
 
     private sealed record TrendPoint(
         DateTime Date,
+        string Label,
         long InputTokens,
         long OutputTokens,
         long CacheCreationTokens,
@@ -438,6 +533,17 @@ public partial class MainWindow : Window
     {
         public long MaxTokenSeries => Math.Max(Math.Max(InputTokens, OutputTokens), Math.Max(CacheCreationTokens, CacheReadTokens));
         public bool HasTokenData => MaxTokenSeries > 0;
+    }
+
+    private sealed record TrendBucket(DateTime Start, DateTime End, string Label);
+
+    private enum TrendRange
+    {
+        Last24Hours,
+        Last7Days,
+        Last30Days,
+        Last90Days,
+        AllTime
     }
 
     private sealed class ProviderRow
@@ -473,17 +579,44 @@ public partial class MainWindow : Window
     private sealed class EventRow
     {
         private readonly UsageEvent _event;
-        public EventRow(UsageEvent value) => _event = value;
+        public EventRow(UsageEvent value)
+        {
+            _event = value;
+            Details = value.Details.Select(detail => new DetailRow(detail)).ToArray();
+        }
         public string OccurredAtText => _event.OccurredAt.ToLocalTime().ToString("MM-dd HH:mm:ss");
         public string Provider => _event.Provider;
         public string Model => string.IsNullOrWhiteSpace(_event.Model) ? "模型未上报" : _event.Model;
+        public string ReasoningText
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(_event.ReasoningEffort)) return $"思考强度 {_event.ReasoningEffort}";
+                var values = _event.Details.Select(detail => detail.ReasoningEffort)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                return values.Length switch { 1 => $"思考强度 {values[0]}", > 1 => "思考强度 多种", _ => "思考强度 未上报" };
+            }
+        }
         public string InputText => _event.InputTokens is null ? "输入给模型 —" : $"输入给模型 {UsageFormatting.Tokens(_event.InputTokens.Value)}";
         public string OutputText => _event.OutputTokens is null ? "模型输出 —" : $"模型输出 {UsageFormatting.Tokens(_event.OutputTokens.Value)}";
         public string CacheReadText => _event.CacheReadTokens is null ? "缓存读取 —" : $"缓存读取 {UsageFormatting.Tokens(_event.CacheReadTokens.Value)}";
         public string CacheWriteText => _event.CacheWriteTokens is null ? "缓存写入 —" : $"缓存写入 {UsageFormatting.Tokens(_event.CacheWriteTokens.Value)}";
         public string CostText => _event.Cost is null ? "未上报" : $"{_event.Cost:0.########} {(_event.Currency.Length == 0 ? "USD" : _event.Currency)}";
         public string DurationText => _event.DurationMs is null ? "耗时 —" : $"耗时 {UsageFormatting.Milliseconds(_event.DurationMs)}";
+        public string DetailsCaption => Details.Count == 0 ? "查看中转站请求明细 · 暂无可关联记录" : $"查看本次任务的 {Details.Count} 次中转站请求";
+        public IReadOnlyList<DetailRow> Details { get; }
         public string StatusText => _event.Success switch { true => "成功", false => "失败", _ => "未知" };
         public Brush StatusBrush => _event.Success switch { true => new SolidColorBrush(Color.FromRgb(45, 225, 194)), false => new SolidColorBrush(Color.FromRgb(255, 112, 134)), _ => (Brush)Application.Current.FindResource("MutedBrush") };
+
+        public sealed class DetailRow(UsageEventDetail value)
+        {
+            public string TimeText => value.OccurredAt.ToLocalTime().ToString("HH:mm:ss");
+            public string ModelEffortText => string.IsNullOrWhiteSpace(value.ReasoningEffort) ? value.Model : $"{value.Model} · {value.ReasoningEffort}";
+            public string InputText => value.InputTokens is null ? "输入 —" : $"输入 {UsageFormatting.Tokens(value.InputTokens.Value)}";
+            public string OutputText => value.OutputTokens is null ? "输出 —" : $"输出 {UsageFormatting.Tokens(value.OutputTokens.Value)}";
+            public string CacheText => value.CacheReadTokens is null ? "缓存 —" : $"缓存 {UsageFormatting.Tokens(value.CacheReadTokens.Value)}";
+            public string CostText => value.Cost is null ? "费用未上报" : $"{value.Cost:0.########} {(value.Currency.Length == 0 ? "USD" : value.Currency)}";
+        }
     }
 }

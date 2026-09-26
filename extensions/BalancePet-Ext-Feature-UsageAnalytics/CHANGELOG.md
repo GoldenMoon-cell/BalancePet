@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.3.9
+
+- Increase the usage-event line limit so tasks with many per-request details remain readable.
+- Keep the task summary and expandable request details compatible with the new main-program usage pipeline.
+
+## 0.3.8
+
+- Display the reasoning effort captured by the host for Codex tasks and matched relay requests.
+
+## 0.3.7
+
+- Avoid reparsing unchanged usage-event files on every refresh; only changed or newly rotated files are rescanned.
+- Keep the existing report totals and event de-duplication behavior while reducing repeated disk I/O.
+
+## 0.3.6
+
+- Add selectable Token trend ranges: 24 hours, 7 days, 30 days, 90 days, and all time.
+- Switch the chart bucket size to hour, day, week, or month for readable labels at each range.
+
+## 0.3.5
+
+- Show relay-reported reasoning intensity under each task model.
+- Expand a task row to inspect its matched relay request details while keeping one summary row per task.
+- Display the summed relay cost for tasks whose individual requests can be reconciled safely.
+
+## 0.3.4
+
+- Add the server-reported daily `/v1/usage` cost summary to the dashboard without attributing aggregate charges to individual requests.
+- Keep the extension credential-free; the main application publishes only a sanitized local summary snapshot.
+
 ## 0.3.3
 
 - 左侧导航移除“提供方与模型”入口；提供方与模型统计仍保留在仪表盘右侧内容中。
@@ -120,3 +150,6 @@
 - Shows 5-hour, 24-hour, 7-day, and all-time token totals.
 - Shows cache hit rate, request count, success rate, average first-token time,
   output throughput, and recent request metadata.
+# 0.3.9
+
+- 提高明细事件行的读取上限，支持主程序保存更多逐次 API 请求记录。

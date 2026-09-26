@@ -25,7 +25,7 @@ public partial class MainWindow : Window
     private static readonly TimeSpan RefreshOperationTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan UsageBackfillWindow = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan UsageBackfillPoll = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan ServerCostBackfillWindow = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan ServerCostBackfillWindow = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan ServerCostBackfillPoll = TimeSpan.FromSeconds(5);
     private const int EdgeSnapDistance = 32;
     private const double BubbleTextMaxWidth = 252;
@@ -39,6 +39,7 @@ public partial class MainWindow : Window
     private readonly UsageLedgerStore _usageStore = new();
     private readonly HttpClient _httpClient = CreateBalanceHttpClient();
     private readonly NewApiUsageProvider _newApiUsageProvider;
+    private readonly ServerUsageSummaryProvider _serverUsageSummaryProvider;
     private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromMinutes(2) };
     private readonly UpdateService _updateService;
     private readonly ExtensionUpdateService _extensionUpdateService;
@@ -54,6 +55,7 @@ public partial class MainWindow : Window
     private readonly NotificationEventStore _notificationEventStore = new();
     private readonly NotificationStateStore _notificationStateStore = new();
     private readonly BalanceUsageSnapshotStore _balanceUsageSnapshotStore = new();
+    private readonly ServerUsageSummaryStore _serverUsageSummaryStore = new();
     private readonly FeatureExtensionManager _featureExtensions = new();
     private readonly DispatcherTimer _stateTimer;
     private readonly DispatcherTimer _inactiveTimer;
@@ -251,6 +253,7 @@ public partial class MainWindow : Window
         _updateService = new UpdateService(_updateHttpClient);
         _extensionUpdateService = new ExtensionUpdateService(_updateHttpClient);
         _newApiUsageProvider = new NewApiUsageProvider(_httpClient);
+        _serverUsageSummaryProvider = new ServerUsageSummaryProvider(_httpClient);
         _bubbleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
         _bubbleTimer.Tick += (_, _) => HideBubble();
         _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
@@ -510,6 +513,7 @@ public partial class MainWindow : Window
             _monitorStates.Values.Select(runtime =>
                 new BalanceUsageSnapshotStore.ProfileSource(runtime.Profile.Id, runtime.UsageStore, runtime.LastBalance, runtime.Profile.Currency)),
             _settings.SelectedMonitorId);
+        _serverUsageSummaryStore.SetSelectedAccount(_settings.SelectedMonitorId);
     }
 
     private void PublishNotificationState()
@@ -706,6 +710,9 @@ public partial class MainWindow : Window
             runtime.LastSpentCurrency = observation.Currency;
             runtime.LastError = null;
             PublishNotificationState();
+
+            if (string.Equals(snapshot.ResolvedPresetId, BalancePresetCatalog.V1Usage, StringComparison.OrdinalIgnoreCase))
+                _ = RefreshServerUsageSummaryAsync(runtime.Profile, token);
 
             if (!IsSelectedMonitor(runtime)) return;
             SyncSelectedMonitorState();
@@ -1031,6 +1038,19 @@ public partial class MainWindow : Window
             KickReleaseBounce();
             RestoreSteadyVisualState();
         }
+    }
+
+    private async Task RefreshServerUsageSummaryAsync(MonitorProfile profile, string token)
+    {
+        try
+        {
+            var summary = await _serverUsageSummaryProvider.FetchAsync(profile, token);
+            if (summary is not null)
+                _serverUsageSummaryStore.Publish(summary, _settings.SelectedMonitorId);
+        }
+        catch (HttpRequestException) { }
+        catch (JsonException) { }
+        catch (InvalidOperationException) { }
     }
 
     private async Task RefreshAfterClickAsync()
@@ -2775,13 +2795,29 @@ public partial class MainWindow : Window
 
     private async Task RecordUsageFromTaskAsync(CodexTaskActivity activity, DateTimeOffset? startedAt, string completedProfileId)
     {
-        var codexUsage = string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
-            ? await CodexUsageReader.TryReadTurnAsync(activity.SessionId, activity.TurnId, startedAt)
+        var codexSnapshot = string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
+            ? await CodexUsageReader.TryReadTurnSnapshotAsync(activity.SessionId, activity.TurnId, startedAt)
             : null;
+        var codexUsage = codexSnapshot?.Counters;
         var duration = activity.DurationMs;
         if (duration is null && startedAt.HasValue)
             duration = Math.Max(0, (long)(DateTimeOffset.UtcNow - startedAt.Value).TotalMilliseconds);
         var model = string.IsNullOrWhiteSpace(activity.Model) ? codexUsage?.Model : activity.Model;
+        var reasoningEffort = string.IsNullOrWhiteSpace(activity.ReasoningEffort)
+            ? codexUsage?.ReasoningEffort ?? ""
+            : activity.ReasoningEffort;
+        var localDetails = codexSnapshot?.Requests
+            .Where(request => request.InputTokens.HasValue || request.OutputTokens.HasValue || request.CacheReadTokens.HasValue)
+            .Select(request => new UsageEventDetailSnapshot(
+                request.OccurredAt,
+                string.IsNullOrWhiteSpace(request.Model) ? model ?? "" : request.Model,
+                string.IsNullOrWhiteSpace(request.ReasoningEffort) ? reasoningEffort : request.ReasoningEffort,
+                request.InputTokens,
+                request.OutputTokens,
+                request.CacheReadTokens,
+                null,
+                ""))
+            .ToArray() ?? Array.Empty<UsageEventDetailSnapshot>();
         try
         {
             var occurredAt = DateTimeOffset.Now;
@@ -2795,10 +2831,12 @@ public partial class MainWindow : Window
             activity.Cost,
             activity.Currency,
             duration,
-            activity.TimeToFirstTokenMs,
+                activity.TimeToFirstTokenMs,
                 activity.ToolCalls,
                 activity.Steps,
-                activity.Success ?? true);
+                activity.Success ?? true,
+                reasoningEffort: reasoningEffort,
+                details: localDetails);
             var profile = _monitorStates.TryGetValue(completedProfileId, out var completedRuntime)
                 ? completedRuntime.Profile
                 : FindMonitorProfile(activity.Provider);
@@ -2825,8 +2863,9 @@ public partial class MainWindow : Window
                     activity.TimeToFirstTokenMs,
                     activity.ToolCalls,
                     activity.Steps,
-                    activity.Success ?? true);
-                _ = BackfillServerCostAsync(target, profile);
+                    activity.Success ?? true,
+                    reasoningEffort);
+                _ = BackfillServerCostAsync(target, profile, startedAt);
             }
             if (!string.IsNullOrWhiteSpace(eventId) && needsCodexBackfill)
             {
@@ -2838,7 +2877,7 @@ public partial class MainWindow : Window
         catch (UnauthorizedAccessException) { }
     }
 
-    private async Task BackfillServerCostAsync(UsageEventSnapshot target, MonitorProfile profile)
+    private async Task BackfillServerCostAsync(UsageEventSnapshot target, MonitorProfile profile, DateTimeOffset? startedAt = null)
     {
         if (_closing || _usageCostSyncCancellation.IsCancellationRequested || !NewApiUsageProvider.Supports(profile)) return;
         try
@@ -2852,7 +2891,43 @@ public partial class MainWindow : Window
                 if (!firstAttempt) await Task.Delay(ServerCostBackfillPoll, _usageCostSyncCancellation.Token);
                 firstAttempt = false;
                 var records = await _newApiUsageProvider.FetchRecentAsync(profile, token, _usageCostSyncCancellation.Token);
-                if (!_newApiUsageProvider.TryTakeMatch(records, target, TimeSpan.FromMinutes(30), out var match) || match is null) continue;
+                IReadOnlyList<NewApiUsageRecord> matches;
+                if (target.Details is { Count: > 0 } localDetails
+                    && _newApiUsageProvider.TryTakeDetailMatches(records, localDetails, out var detailMatches))
+                {
+                    matches = detailMatches;
+                }
+                else if (startedAt.HasValue)
+                {
+                    if (!_newApiUsageProvider.TryTakeTaskMatches(records, target, startedAt, out matches))
+                    {
+                        if (!_newApiUsageProvider.TryTakeMatch(records, target, TimeSpan.FromMinutes(30), out var singleMatch) || singleMatch is null) continue;
+                        matches = new[] { singleMatch };
+                    }
+                }
+                else
+                {
+                    if (!_newApiUsageProvider.TryTakeMatch(records, target, TimeSpan.FromMinutes(30), out var singleMatch) || singleMatch is null) continue;
+                    matches = new[] { singleMatch };
+                }
+                var totalAmount = matches.Sum(match => match.Amount);
+                var currency = matches.Select(match => match.Currency).Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1
+                    ? matches[0].Currency
+                    : "";
+                var serverDetails = matches.Select(match => new UsageEventDetailSnapshot(
+                    match.OccurredAt,
+                    match.Model,
+                    match.ReasoningEffort,
+                    match.InputTokens,
+                    match.OutputTokens,
+                    match.CacheReadTokens,
+                    match.Amount,
+                    match.Currency)).ToArray();
+                var details = MergeUsageDetails(target.Details, serverDetails);
+                var reasoningEffort = matches.Select(match => match.ReasoningEffort)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
                 await _usageEventBridge.UpdateAsync(
                     target.EventId,
                     target.OccurredAt,
@@ -2862,14 +2937,16 @@ public partial class MainWindow : Window
                     target.OutputTokens,
                     target.CacheReadTokens,
                     target.CacheWriteTokens,
-                    match.Amount,
-                    match.Currency,
+                    totalAmount,
+                    currency,
                     target.DurationMs,
                     target.TimeToFirstTokenMs,
                     target.ToolCalls,
                     target.Steps,
                     target.Success,
-                    _usageCostSyncCancellation.Token);
+                    _usageCostSyncCancellation.Token,
+                    reasoningEffort.Length == 1 ? reasoningEffort[0] : reasoningEffort.Length > 1 ? "多种" : "",
+                        details);
                 return;
             }
         }
@@ -2883,6 +2960,58 @@ public partial class MainWindow : Window
         catch (ArgumentException) { }
         catch (TaskCanceledException) { }
     }
+
+    private static IReadOnlyList<UsageEventDetailSnapshot> MergeUsageDetails(
+        IReadOnlyList<UsageEventDetailSnapshot>? local,
+        IReadOnlyList<UsageEventDetailSnapshot> server)
+    {
+        if (local is null || local.Count == 0) return server;
+        if (server.Count == 0) return local;
+
+        var matchedLocal = new HashSet<int>();
+        foreach (var remote in server)
+        {
+            var best = -1;
+            var bestScore = double.MaxValue;
+            for (var index = 0; index < local.Count; index++)
+            {
+                if (matchedLocal.Contains(index)) continue;
+                var candidate = local[index];
+                var score = Math.Abs((candidate.OccurredAt - remote.OccurredAt).TotalSeconds);
+                if (!string.IsNullOrWhiteSpace(candidate.Model)
+                    && !string.IsNullOrWhiteSpace(remote.Model)
+                    && !string.Equals(candidate.Model, remote.Model, StringComparison.OrdinalIgnoreCase)) score += 300;
+                if (candidate.OutputTokens.HasValue && remote.OutputTokens.HasValue)
+                    score += Math.Abs(candidate.OutputTokens.Value - remote.OutputTokens.Value) > 32 ? 180 : 0;
+                if (score < bestScore) { bestScore = score; best = index; }
+            }
+            if (best >= 0 && bestScore <= 600) matchedLocal.Add(best);
+        }
+
+        var result = new List<UsageEventDetailSnapshot>(server.Count + local.Count);
+        result.AddRange(server);
+        for (var index = 0; index < local.Count; index++)
+            if (!matchedLocal.Contains(index)) result.Add(local[index]);
+        return result.Take(192).ToArray();
+    }
+
+    private static IReadOnlyList<UsageEventDetailSnapshot> ToUsageDetails(
+        IReadOnlyList<CodexUsageRequest>? requests,
+        string? fallbackModel,
+        string? fallbackReasoning)
+        => requests?.Where(request => request.InputTokens.HasValue || request.OutputTokens.HasValue || request.CacheReadTokens.HasValue)
+            .Select(request => new UsageEventDetailSnapshot(
+                request.OccurredAt,
+                string.IsNullOrWhiteSpace(request.Model) ? fallbackModel ?? "" : request.Model,
+                string.IsNullOrWhiteSpace(request.ReasoningEffort) ? fallbackReasoning ?? "" : request.ReasoningEffort,
+                request.InputTokens,
+                request.OutputTokens,
+                request.CacheReadTokens,
+                null,
+                ""))
+            .Take(192)
+            .ToArray()
+            ?? Array.Empty<UsageEventDetailSnapshot>();
 
     private async Task SyncRecentUsageCostsAsync()
     {
@@ -2920,7 +3049,31 @@ public partial class MainWindow : Window
 
                 foreach (var target in pending.ToArray())
                 {
-                    if (!_newApiUsageProvider.TryTakeMatch(records, target, TimeSpan.FromMinutes(30), out var match) || match is null) continue;
+                    IReadOnlyList<NewApiUsageRecord> matches;
+                    var inferredStart = target.DurationMs is > 0
+                        ? target.OccurredAt - TimeSpan.FromMilliseconds(target.DurationMs.Value)
+                        : (DateTimeOffset?)null;
+                    if (target.Details is { Count: > 0 } localDetails
+                        && _newApiUsageProvider.TryTakeDetailMatches(records, localDetails, out var detailMatches))
+                    {
+                        matches = detailMatches;
+                    }
+                    else if (inferredStart.HasValue && _newApiUsageProvider.TryTakeTaskMatches(records, target, inferredStart, out var taskMatches))
+                    {
+                        matches = taskMatches;
+                    }
+                    else
+                    {
+                        if (!_newApiUsageProvider.TryTakeMatch(records, target, TimeSpan.FromMinutes(30), out var match) || match is null) continue;
+                        matches = new[] { match };
+                    }
+                    var totalAmount = matches.Sum(value => value.Amount);
+                    var currency = matches.Select(value => value.Currency).Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1
+                        ? matches[0].Currency
+                        : "";
+                    var serverDetails = matches.Select(value => new UsageEventDetailSnapshot(value.OccurredAt, value.Model, value.ReasoningEffort, value.InputTokens, value.OutputTokens, value.CacheReadTokens, value.Amount, value.Currency)).ToArray();
+                    var detailRows = MergeUsageDetails(target.Details, serverDetails);
+                    var effort = matches.Select(value => value.ReasoningEffort).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
                     await _usageEventBridge.UpdateAsync(
                         target.EventId,
                         target.OccurredAt,
@@ -2930,14 +3083,16 @@ public partial class MainWindow : Window
                         target.OutputTokens,
                         target.CacheReadTokens,
                         target.CacheWriteTokens,
-                        match.Amount,
-                        match.Currency,
+                        totalAmount,
+                        currency,
                         target.DurationMs,
                         target.TimeToFirstTokenMs,
                         target.ToolCalls,
                         target.Steps,
                         target.Success,
-                        _usageCostSyncCancellation.Token);
+                        _usageCostSyncCancellation.Token,
+                        effort.Length == 1 ? effort[0] : effort.Length > 1 ? "多种" : "",
+                        detailRows);
                     pending.Remove(target);
                 }
             }
@@ -2962,9 +3117,10 @@ public partial class MainWindow : Window
             while (!_closing && DateTimeOffset.UtcNow < deadline)
             {
                 await Task.Delay(UsageBackfillPoll);
-                var usage = await CodexUsageReader.TryReadTurnAsync(activity.SessionId, activity.TurnId, startedAt);
-                if (usage?.HasTokenData != true && usage?.HasModel != true) continue;
-                var signature = string.Join('|', usage.Model, usage.InputTokens, usage.OutputTokens, usage.CacheReadTokens, usage.CacheWriteTokens);
+                var snapshot = await CodexUsageReader.TryReadTurnSnapshotAsync(activity.SessionId, activity.TurnId, startedAt);
+                var usage = snapshot?.Counters;
+                if (usage?.HasTokenData != true && usage?.HasModel != true && string.IsNullOrWhiteSpace(usage?.ReasoningEffort)) continue;
+                var signature = string.Join('|', usage.Model, usage.ReasoningEffort, usage.InputTokens, usage.OutputTokens, usage.CacheReadTokens, usage.CacheWriteTokens, snapshot?.Requests.Count);
                 if (string.Equals(signature, lastSignature, StringComparison.Ordinal))
                 {
                     if (usage.HasTokenData) return;
@@ -2987,7 +3143,9 @@ public partial class MainWindow : Window
                     activity.TimeToFirstTokenMs,
                     activity.ToolCalls,
                     activity.Steps,
-                    activity.Success ?? true);
+                    activity.Success ?? true,
+                    reasoningEffort: string.IsNullOrWhiteSpace(activity.ReasoningEffort) ? usage?.ReasoningEffort : activity.ReasoningEffort,
+                    details: ToUsageDetails(snapshot?.Requests, string.IsNullOrWhiteSpace(activity.Model) ? usage?.Model : activity.Model, string.IsNullOrWhiteSpace(activity.ReasoningEffort) ? usage?.ReasoningEffort : activity.ReasoningEffort));
                 if (usage?.HasTokenData == true)
                 {
                     if (profile is not null && activity.Cost is null && NewApiUsageProvider.Supports(profile))
@@ -3007,8 +3165,10 @@ public partial class MainWindow : Window
                             activity.TimeToFirstTokenMs,
                             activity.ToolCalls,
                             activity.Steps,
-                            activity.Success ?? true);
-                        _ = BackfillServerCostAsync(target, profile);
+                            activity.Success ?? true,
+                            string.IsNullOrWhiteSpace(activity.ReasoningEffort) ? usage.ReasoningEffort : activity.ReasoningEffort,
+                            ToUsageDetails(snapshot?.Requests, string.IsNullOrWhiteSpace(activity.Model) ? usage.Model : activity.Model, string.IsNullOrWhiteSpace(activity.ReasoningEffort) ? usage.ReasoningEffort : activity.ReasoningEffort));
+                        _ = BackfillServerCostAsync(target, profile, startedAt);
                     }
                     return;
                 }

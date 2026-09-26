@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using BalancePet.Wpf.Models;
 
@@ -11,15 +12,39 @@ namespace BalancePet.Wpf.Services;
 /// The API key is sent only to the configured relay host and is never included
 /// in exceptions, logs, or persisted usage data.
 /// </summary>
-public sealed class NewApiUsageProvider(HttpClient http)
+public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory = null)
 {
     private const int MaxLogItems = 5000;
     private const long MaxResponseBytes = 8L * 1024 * 1024;
     private static readonly TimeSpan PricingCacheLifetime = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan RecentLogCacheLifetime = TimeSpan.FromSeconds(4);
     private readonly object _pricingGate = new();
     private readonly Dictionary<string, PricingCacheEntry> _pricing = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _recentGate = new();
+    private readonly Dictionary<string, RecentLogCacheEntry> _recentLogs = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim _recentFetchGate = new(1, 1);
     private readonly object _matchedGate = new();
     private readonly HashSet<string> _matchedLogKeys = new(StringComparer.Ordinal);
+    private readonly string _persistentCachePath = Path.Combine(
+        dataDirectory ?? UsageEventBridge.GetDefaultDirectory(), "relay-usage-cache.v1.json");
+    private readonly object _persistentCacheGate = new();
+    private readonly Dictionary<string, PersistentCacheEntry> _persistentCache = new(StringComparer.OrdinalIgnoreCase);
+    private bool _persistentCacheLoaded;
+
+    public string CachePath => _persistentCachePath;
+
+    public void ClearCache()
+    {
+        lock (_persistentCacheGate)
+        {
+            _persistentCache.Clear();
+            _persistentCacheLoaded = true;
+            try { if (File.Exists(_persistentCachePath)) File.Delete(_persistentCachePath); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        lock (_recentGate) _recentLogs.Clear();
+    }
 
     public async Task<IReadOnlyList<NewApiUsageRecord>> FetchRecentAsync(
         MonitorProfile profile,
@@ -30,13 +55,130 @@ public sealed class NewApiUsageProvider(HttpClient http)
 
         var site = BalancePresetCatalog.ResolveSiteUrl(profile);
         if (string.IsNullOrWhiteSpace(site)) return Array.Empty<NewApiUsageRecord>();
-        var pricing = await GetPricingAsync(site, cancellationToken);
-        if (pricing is null) return Array.Empty<NewApiUsageRecord>();
+        var cacheKey = $"{profile.Id}|{site.TrimEnd('/')}";
+        var persistent = GetPersistentRecords(cacheKey);
+        lock (_recentGate)
+        {
+            if (_recentLogs.TryGetValue(cacheKey, out var cached)
+                && DateTimeOffset.UtcNow - cached.FetchedAt < RecentLogCacheLifetime)
+                return cached.Records;
+        }
 
-        var endpoint = $"{site.TrimEnd('/')}/api/log/token?key={Uri.EscapeDataString(StripBearer(token))}";
-        using var document = await GetJsonAsync(endpoint, cancellationToken);
-        var records = ParseRecords(document.RootElement, pricing);
-        return records.Count > MaxLogItems ? records.Take(MaxLogItems).ToArray() : records;
+        await _recentFetchGate.WaitAsync(cancellationToken);
+        try
+        {
+            lock (_recentGate)
+            {
+                if (_recentLogs.TryGetValue(cacheKey, out var cached)
+                    && DateTimeOffset.UtcNow - cached.FetchedAt < RecentLogCacheLifetime)
+                    return cached.Records;
+            }
+
+            var pricing = await GetPricingAsync(site, cancellationToken);
+            if (pricing is null)
+            {
+                lock (_recentGate) _recentLogs[cacheKey] = new RecentLogCacheEntry(DateTimeOffset.UtcNow, persistent);
+                return persistent;
+            }
+
+            // New API deployments in the wild use both authentication forms:
+            // the documented read-only `key` query and bearer middleware. Send
+            // both so older compatible relays and newer relays behave alike;
+            // the token is never logged or persisted by BalancePet.
+            var endpoint = $"{site.TrimEnd('/')}/api/log/token?key={Uri.EscapeDataString(StripBearer(token))}";
+            using var document = await GetJsonAsync(endpoint, token, cancellationToken);
+            var records = ParseRecords(document.RootElement, pricing);
+            var result = MergePersistent(cacheKey, records);
+            lock (_recentGate) _recentLogs[cacheKey] = new RecentLogCacheEntry(DateTimeOffset.UtcNow, result);
+            return result;
+        }
+        catch (HttpRequestException) when (persistent.Count > 0)
+        {
+            lock (_recentGate) _recentLogs[cacheKey] = new RecentLogCacheEntry(DateTimeOffset.UtcNow, persistent);
+            return persistent;
+        }
+        catch (InvalidDataException) when (persistent.Count > 0)
+        {
+            lock (_recentGate) _recentLogs[cacheKey] = new RecentLogCacheEntry(DateTimeOffset.UtcNow, persistent);
+            return persistent;
+        }
+        catch (JsonException) when (persistent.Count > 0)
+        {
+            lock (_recentGate) _recentLogs[cacheKey] = new RecentLogCacheEntry(DateTimeOffset.UtcNow, persistent);
+            return persistent;
+        }
+        finally
+        {
+            _recentFetchGate.Release();
+        }
+    }
+
+    private IReadOnlyList<NewApiUsageRecord> GetPersistentRecords(string cacheKey)
+    {
+        lock (_persistentCacheGate)
+        {
+            EnsurePersistentCacheLoaded();
+            return _persistentCache.TryGetValue(cacheKey, out var entry)
+                ? entry.Records
+                : Array.Empty<NewApiUsageRecord>();
+        }
+    }
+
+    private IReadOnlyList<NewApiUsageRecord> MergePersistent(string cacheKey, IReadOnlyList<NewApiUsageRecord> fresh)
+    {
+        lock (_persistentCacheGate)
+        {
+            EnsurePersistentCacheLoaded();
+            var now = DateTimeOffset.UtcNow;
+            var merged = (_persistentCache.TryGetValue(cacheKey, out var old) ? old.Records : Array.Empty<NewApiUsageRecord>())
+                .Concat(fresh)
+                .Where(record => record.OccurredAt >= now - TimeSpan.FromDays(30))
+                .GroupBy(record => record.MatchKey, StringComparer.Ordinal)
+                .Select(group => group.OrderByDescending(record => record.OccurredAt).First())
+                .OrderByDescending(record => record.OccurredAt)
+                .Take(MaxLogItems)
+                .ToArray();
+            _persistentCache[cacheKey] = new PersistentCacheEntry(cacheKey, now, merged);
+            SavePersistentCache();
+            return merged;
+        }
+    }
+
+    private void EnsurePersistentCacheLoaded()
+    {
+        if (_persistentCacheLoaded) return;
+        _persistentCacheLoaded = true;
+        try
+        {
+            if (!File.Exists(_persistentCachePath)) return;
+            using var stream = File.OpenRead(_persistentCachePath);
+            var envelope = JsonSerializer.Deserialize<PersistentCacheEnvelope>(stream);
+            foreach (var entry in envelope?.Entries ?? Array.Empty<PersistentCacheEntry>())
+            {
+                if (string.IsNullOrWhiteSpace(entry.Key)) continue;
+                _persistentCache[entry.Key] = entry with
+                {
+                    Records = entry.Records.Where(record => record.OccurredAt >= DateTimeOffset.UtcNow - TimeSpan.FromDays(30)).Take(MaxLogItems).ToArray()
+                };
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        catch (JsonException) { }
+    }
+
+    private void SavePersistentCache()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_persistentCachePath)!);
+            var temp = _persistentCachePath + ".tmp";
+            using (var stream = File.Create(temp))
+                JsonSerializer.Serialize(stream, new PersistentCacheEnvelope(_persistentCache.Values.ToArray()));
+            File.Move(temp, _persistentCachePath, true);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     public bool TryTakeMatch(
@@ -67,6 +209,72 @@ public sealed class NewApiUsageProvider(HttpClient http)
         return true;
     }
 
+    public bool TryTakeDetailMatches(
+        IReadOnlyList<NewApiUsageRecord> records,
+        IReadOnlyList<UsageEventDetailSnapshot> details,
+        out IReadOnlyList<NewApiUsageRecord> matches)
+    {
+        var result = new List<NewApiUsageRecord>();
+        foreach (var detail in details.Where(value => value.OccurredAt != DateTimeOffset.MinValue))
+        {
+            var target = new UsageEventSnapshot(
+                "detail",
+                detail.OccurredAt,
+                "Codex",
+                detail.Model,
+                detail.InputTokens,
+                detail.OutputTokens,
+                detail.CacheReadTokens,
+                null,
+                null,
+                detail.Currency,
+                null,
+                null,
+                null,
+                null,
+                true,
+                detail.ReasoningEffort);
+            if (TryTakeMatch(records, target, TimeSpan.FromMinutes(30), out var match) && match is not null)
+                result.Add(match);
+        }
+
+        matches = result;
+        return result.Count > 0;
+    }
+
+    public bool TryTakeTaskMatches(IReadOnlyList<NewApiUsageRecord> records, UsageEventSnapshot target, DateTimeOffset? startedAt, out IReadOnlyList<NewApiUsageRecord> matches)
+    {
+        matches = Array.Empty<NewApiUsageRecord>();
+        if (!startedAt.HasValue || startedAt.Value >= target.OccurredAt || !target.OutputTokens.HasValue) return false;
+        var candidates = records
+            .Where(record => record.OccurredAt >= startedAt.Value - TimeSpan.FromSeconds(10) && record.OccurredAt <= target.OccurredAt + TimeSpan.FromSeconds(10))
+            .Where(record => string.IsNullOrWhiteSpace(target.Model) || string.IsNullOrWhiteSpace(record.Model) || string.Equals(record.Model, target.Model, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(record => record.OccurredAt).ToArray();
+        if (candidates.Length == 0 && !string.IsNullOrWhiteSpace(target.Model))
+        {
+            // Some relays expose the upstream model name instead of the model
+            // requested by the client. Time and aggregate output are still
+            // strong match signals, so retry without the model filter.
+            candidates = records
+                .Where(record => record.OccurredAt >= startedAt.Value - TimeSpan.FromSeconds(10) && record.OccurredAt <= target.OccurredAt + TimeSpan.FromSeconds(10))
+                .OrderBy(record => record.OccurredAt).ToArray();
+        }
+        // A single Codex task can generate hundreds of relay requests.  The
+        // detail snapshot is capped separately when it is persisted, but the
+        // cost matcher must still be allowed to sum the complete task.
+        if (candidates.Length is 0 or > 1000) return false;
+        lock (_matchedGate)
+        {
+            candidates = candidates.Where(record => !_matchedLogKeys.Contains(record.MatchKey)).ToArray();
+            if (candidates.Length == 0 || candidates.Any(record => !record.OutputTokens.HasValue)) return false;
+            var totalOutput = candidates.Sum(record => record.OutputTokens!.Value);
+            if (Math.Abs(totalOutput - target.OutputTokens.Value) > Math.Max(64d, target.OutputTokens.Value * 0.03d)) return false;
+            foreach (var record in candidates) _matchedLogKeys.Add(record.MatchKey);
+            matches = candidates;
+            return matches.Count > 0;
+        }
+    }
+
     public static bool Supports(MonitorProfile profile)
     {
         var preset = BalancePresetCatalog.NormalizeId(profile.PresetId);
@@ -82,7 +290,7 @@ public sealed class NewApiUsageProvider(HttpClient http)
                 return cached.Pricing;
         }
 
-        using var document = await GetJsonAsync($"{key}/api/status", cancellationToken);
+        using var document = await GetJsonAsync($"{key}/api/status", null, cancellationToken);
         var root = document.RootElement;
         if (!TryReadNumber(root, out var quotaPerUnit, "data.quota_per_unit", "data.currency.quota_per_unit") || quotaPerUnit <= 0)
             return null;
@@ -116,11 +324,13 @@ public sealed class NewApiUsageProvider(HttpClient http)
         return pricing;
     }
 
-    private async Task<JsonDocument> GetJsonAsync(string endpoint, CancellationToken cancellationToken)
+    private async Task<JsonDocument> GetJsonAsync(string endpoint, string? bearerToken, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
         request.Headers.Accept.ParseAdd("application/json");
         request.Headers.UserAgent.ParseAdd("BalancePet-CSharp/1.0");
+        if (!string.IsNullOrWhiteSpace(bearerToken))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", StripBearer(bearerToken));
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}", null, response.StatusCode);
@@ -159,7 +369,8 @@ public sealed class NewApiUsageProvider(HttpClient http)
                 ReadLong(value, "cached_tokens", "cache_read_tokens", "cacheReadTokens"),
                 quota,
                 quota * pricing.Multiplier,
-                pricing.Currency));
+                pricing.Currency,
+                NormalizeReasoning(ReadString(value, "reasoning_effort", "reasoningEffort", "reasoning_level", "reasoningLevel", "thinking_level", "thinkingLevel", "effort"))));
         }
         return records;
     }
@@ -200,6 +411,12 @@ public sealed class NewApiUsageProvider(HttpClient http)
 
     private static string StripBearer(string value)
         => value.Trim().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? value.Trim()[7..].Trim() : value.Trim();
+
+    private static string NormalizeReasoning(string? value)
+    {
+        var cleaned = (value ?? "").Trim();
+        return cleaned.Length <= 32 ? cleaned : cleaned[..32];
+    }
 
     private static string ReadString(JsonElement root, params string[] names)
     {
@@ -276,6 +493,9 @@ public sealed class NewApiUsageProvider(HttpClient http)
         } : null;
 
     private sealed record PricingCacheEntry(QuotaPricing Pricing, DateTimeOffset UpdatedAt);
+    private sealed record RecentLogCacheEntry(DateTimeOffset FetchedAt, IReadOnlyList<NewApiUsageRecord> Records);
+    private sealed record PersistentCacheEnvelope(IReadOnlyList<PersistentCacheEntry> Entries);
+    private sealed record PersistentCacheEntry(string Key, DateTimeOffset FetchedAt, IReadOnlyList<NewApiUsageRecord> Records);
     private sealed record QuotaPricing(double Multiplier, string Currency);
 }
 
@@ -288,7 +508,8 @@ public sealed record NewApiUsageRecord(
     long? CacheReadTokens,
     double RawQuota,
     double Amount,
-    string Currency)
+    string Currency,
+    string ReasoningEffort = "")
 {
     public string MatchKey => string.Join('|', Id, OccurredAt.UtcTicks, Model, InputTokens, OutputTokens, RawQuota.ToString("R", CultureInfo.InvariantCulture));
 }

@@ -65,6 +65,10 @@ argument for testing or portable setups. Only sanitized counters and timings are
 对于 New API 兼容的中转站，主程序会在同一站点提供只读日志接口时，将服务器返回的
 `quota` 按站点公开的额度换算规则回写到对应请求；其他中转站、接口拒绝日志查询或无法可靠匹配的记录仍显示“未上报”，不会按公开模型价格猜测。
 
+对于只提供 OpenAI 兼容 `/v1/usage` 的站点，仪表盘会额外显示主程序读取的“站点汇总额度”。
+该值来自接口的 `daily_usage.actual_cost`（没有时回退到 `cost`），按日期汇总，不能代表某一条请求的精确费用；
+历史记录中的单条额度仍会显示“未上报”。
+
 The dashboard refreshes when event files change and every 60 seconds as a fallback.
 The header shows a live countdown and signals the host's due-refresh scheduler without receiving credentials. Token and cache cards
 are populated only when the client reports those counters; the “Today spending” card
@@ -76,6 +80,11 @@ between successful balance observations count, so it is not a relay invoice or a
 per-request price. It shows “暂无数据 / No data” until a successful balance observation exists.
 The total balance card reads the host's credential-free balance snapshot and sums accounts only
 when their currencies match; no provider token is included in the snapshot.
+
+For relays that expose only the OpenAI-compatible `/v1/usage` endpoint, the dashboard also shows
+a credential-free “server usage summary” read by the host from `daily_usage.actual_cost` (falling
+back to `cost`). It is a daily aggregate, not an exact per-request charge; individual history rows
+remain “unreported” when no request log is available.
 
 Codex 的生命周期 Hook 并不保证所有客户端版本都提供提供方用量计数。
 这种情况下，请求次数和本地测得的耗时仍然有效，而 Token、模型和缓存字段会显示为未上报。
@@ -108,12 +117,12 @@ package provides `tools/balancepet-usage.ps1`.
 
 本插件实现已发布的 **BalancePet Feature Extension API v1**，需要 BalancePet `0.7.7`
 或更高版本才能读取 Codex Token 和缓存计数；旧核心仍可显示请求元数据，但不能填充这些计数。
-插件版本独立于主程序版本递增，当前插件版本为 `0.3.3`。
+插件版本独立于主程序版本递增，当前插件版本为 `0.3.4`。
 
 This package implements the shipped **BalancePet Feature Extension API v1** and requires
 BalancePet `0.7.7` or newer for Codex token and cache counters. Older cores can still show
 request metadata but cannot populate those counters. The extension version is independent from
-the core version; the current package version is `0.3.3`.
+the core version; the current package version is `0.3.4`.
 
 功能扩展规范只约束 manifest、独立进程启动、能力声明、Usage Event v1、本地数据目录、
 更新和安全校验；不要求统一插件的 UI 工具包、主题、Logo、字体、语言或窗口布局。

@@ -15,6 +15,7 @@ public sealed class UsageEventBridge : IDisposable
 {
     public const string PipeName = "BalancePet.Usage.v1";
     private const int MaxMessageLength = 16_384;
+    private const int MaxStoredLineLength = 128 * 1024;
     private const long MaxFileBytes = 100L * 1024 * 1024;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private CancellationTokenSource? _cancellation;
@@ -44,7 +45,9 @@ public sealed class UsageEventBridge : IDisposable
         long? toolCalls = null,
         long? steps = null,
         bool? success = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? reasoningEffort = null,
+        IReadOnlyList<UsageEventDetailSnapshot>? details = null)
     {
         return RecordCoreAsync(
             Guid.NewGuid().ToString("N"),
@@ -62,6 +65,8 @@ public sealed class UsageEventBridge : IDisposable
             toolCalls,
             steps,
             success,
+            reasoningEffort,
+            details,
             cancellationToken);
     }
 
@@ -81,7 +86,9 @@ public sealed class UsageEventBridge : IDisposable
         long? toolCalls = null,
         long? steps = null,
         bool? success = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? reasoningEffort = null,
+        IReadOnlyList<UsageEventDetailSnapshot>? details = null)
     {
         return RecordCoreAsync(
             Clean(eventId, 80),
@@ -99,6 +106,8 @@ public sealed class UsageEventBridge : IDisposable
             toolCalls,
             steps,
             success,
+            reasoningEffort,
+            details,
             cancellationToken);
     }
 
@@ -118,6 +127,8 @@ public sealed class UsageEventBridge : IDisposable
         long? toolCalls,
         long? steps,
         bool? success,
+        string? reasoningEffort,
+        IReadOnlyList<UsageEventDetailSnapshot>? details,
         CancellationToken cancellationToken)
     {
         var sanitizedProvider = Clean(provider, 64);
@@ -140,7 +151,9 @@ public sealed class UsageEventBridge : IDisposable
             DurationMs = ClampCounter(durationMs),
             TimeToFirstTokenMs = ClampCounter(timeToFirstTokenMs),
             ToolCalls = ClampCounter(toolCalls),
-            Steps = ClampCounter(steps)
+            Steps = ClampCounter(steps),
+            ReasoningEffort = Clean(reasoningEffort, 32),
+            Details = details?.Take(192).Select(detail => detail.Sanitized()).ToArray() ?? Array.Empty<UsageEventDetailSnapshot>()
         }, cancellationToken);
     }
 
@@ -363,7 +376,7 @@ public sealed class UsageEventBridge : IDisposable
                 using var reader = new StreamReader(path);
                 while (events.Count < limit * 2 && reader.ReadLine() is { } line)
                 {
-                    if (line.Length == 0 || line.Length > MaxMessageLength) continue;
+                    if (line.Length == 0 || line.Length > MaxStoredLineLength) continue;
                     if (!TryReadSnapshot(line, out var snapshot) || snapshot is null) continue;
                     events[snapshot.EventId] = snapshot;
                 }
@@ -406,10 +419,33 @@ public sealed class UsageEventBridge : IDisposable
                 ReadCounter(root, "time_to_first_token_ms", "timeToFirstTokenMs", "ttft_ms", "timeToFirstToken"),
                 ReadCounter(root, "tool_calls", "toolCalls"),
                 ReadCounter(root, "steps"),
-                ReadBool(root, "success"));
+                ReadBool(root, "success"),
+                Clean(ReadString(root, "reasoning_effort", "reasoningEffort"), 32),
+                ReadDetails(root));
             return snapshot.OccurredAt != DateTimeOffset.MinValue;
         }
         catch (JsonException) { return false; }
+    }
+
+    private static IReadOnlyList<UsageEventDetailSnapshot> ReadDetails(JsonElement root)
+    {
+        if (!root.TryGetProperty("details", out var details) || details.ValueKind != JsonValueKind.Array)
+            return Array.Empty<UsageEventDetailSnapshot>();
+        var result = new List<UsageEventDetailSnapshot>();
+        foreach (var item in details.EnumerateArray().Take(192))
+        {
+            if (item.ValueKind != JsonValueKind.Object) continue;
+            result.Add(new UsageEventDetailSnapshot(
+                ReadDate(item, "occurred_at", "occurredAt") ?? DateTimeOffset.MinValue,
+                Clean(ReadString(item, "model"), 160),
+                Clean(ReadString(item, "reasoning_effort", "reasoningEffort"), 32),
+                ReadCounter(item, "input_tokens", "inputTokens"),
+                ReadCounter(item, "output_tokens", "outputTokens"),
+                ReadCounter(item, "cache_read_tokens", "cacheReadTokens"),
+                ReadAmount(item, "cost", "amount"),
+                Clean(ReadString(item, "currency"), 12).ToUpperInvariant()));
+        }
+        return result;
     }
 
     public void Dispose()
@@ -438,6 +474,8 @@ public sealed class UsageEventBridge : IDisposable
         public long? TimeToFirstTokenMs { get; set; }
         public long? ToolCalls { get; set; }
         public long? Steps { get; set; }
+        public string ReasoningEffort { get; set; } = "";
+        public IReadOnlyList<UsageEventDetailSnapshot> Details { get; set; } = Array.Empty<UsageEventDetailSnapshot>();
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -462,4 +500,30 @@ public sealed record UsageEventSnapshot(
     long? TimeToFirstTokenMs,
     long? ToolCalls,
     long? Steps,
-    bool? Success);
+    bool? Success,
+    string ReasoningEffort = "",
+    IReadOnlyList<UsageEventDetailSnapshot>? Details = null);
+
+public sealed record UsageEventDetailSnapshot(
+    DateTimeOffset OccurredAt,
+    string Model,
+    string ReasoningEffort,
+    long? InputTokens,
+    long? OutputTokens,
+    long? CacheReadTokens,
+    double? Cost,
+    string Currency)
+{
+    public UsageEventDetailSnapshot Sanitized() => this with
+    {
+        Model = Model.Length > 160 ? Model[..160] : Model,
+        ReasoningEffort = ReasoningEffort.Length > 32 ? ReasoningEffort[..32] : ReasoningEffort,
+        Currency = Currency.Length > 12 ? Currency[..12] : Currency,
+        InputTokens = Clamp(InputTokens),
+        OutputTokens = Clamp(OutputTokens),
+        CacheReadTokens = Clamp(CacheReadTokens),
+        Cost = Cost is { } cost && double.IsFinite(cost) && cost >= 0 && cost <= 10_000_000_000 ? cost : null
+    };
+
+    private static long? Clamp(long? value) => value is >= 0 and <= 10_000_000_000 ? value : null;
+}

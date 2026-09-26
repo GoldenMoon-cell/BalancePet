@@ -23,6 +23,8 @@ public sealed class UsageEvent
     [JsonPropertyName("time_to_first_token_ms")] public long? TimeToFirstTokenMs { get; set; }
     [JsonPropertyName("tool_calls")] public int? ToolCalls { get; set; }
     [JsonPropertyName("steps")] public int? Steps { get; set; }
+    [JsonPropertyName("reasoning_effort")] public string ReasoningEffort { get; set; } = "";
+    [JsonPropertyName("details")] public List<UsageEventDetail> Details { get; set; } = [];
 
     public bool IsValid()
     {
@@ -36,6 +38,8 @@ public sealed class UsageEvent
             && NonNegative(CacheReadTokens) && NonNegative(CacheWriteTokens)
             && (Cost is null || double.IsFinite(Cost.Value) && Cost.Value >= 0 && Cost.Value <= 10_000_000_000)
             && Currency.Length <= 12 && Currency.All(character => !char.IsControl(character))
+            && ReasoningEffort.Length <= 32 && ReasoningEffort.All(character => !char.IsControl(character))
+            && Details.Count <= 192 && Details.All(detail => detail.IsValid())
             && NonNegative(DurationMs) && NonNegative(TimeToFirstTokenMs)
             && NonNegative(ToolCalls) && NonNegative(Steps)
             && (InputTokens is null || InputTokens <= 10_000_000_000)
@@ -58,4 +62,27 @@ public sealed class UsageEvent
     private static bool NonNegative(long? value) => value is null or >= 0;
     private static bool NonNegative(int? value) => value is null or >= 0;
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
+}
+
+public sealed class UsageEventDetail
+{
+    [JsonPropertyName("occurred_at")] public DateTimeOffset OccurredAt { get; set; }
+    [JsonPropertyName("model")] public string Model { get; set; } = "";
+    [JsonPropertyName("reasoning_effort")] public string ReasoningEffort { get; set; } = "";
+    [JsonPropertyName("input_tokens")] public long? InputTokens { get; set; }
+    [JsonPropertyName("output_tokens")] public long? OutputTokens { get; set; }
+    [JsonPropertyName("cache_read_tokens")] public long? CacheReadTokens { get; set; }
+    [JsonPropertyName("cost")] public double? Cost { get; set; }
+    [JsonPropertyName("currency")] public string Currency { get; set; } = "";
+
+    public bool IsValid() => Model.Length <= 160 && Model.All(character => !char.IsControl(character))
+        && ReasoningEffort.Length <= 32 && ReasoningEffort.All(character => !char.IsControl(character))
+        && Currency.Length <= 12 && Currency.All(character => !char.IsControl(character))
+        && NonNegative(InputTokens) && NonNegative(OutputTokens) && NonNegative(CacheReadTokens)
+        && (Cost is null || double.IsFinite(Cost.Value) && Cost.Value >= 0 && Cost.Value <= 10_000_000_000)
+        && (InputTokens is null || InputTokens <= 10_000_000_000)
+        && (OutputTokens is null || OutputTokens <= 10_000_000_000)
+        && (CacheReadTokens is null || CacheReadTokens <= 10_000_000_000);
+
+    private static bool NonNegative(long? value) => value is null or >= 0;
 }

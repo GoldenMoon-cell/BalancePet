@@ -164,6 +164,45 @@ public sealed class ExtensionPackageCatalog
 
     public IReadOnlyList<ExtensionPackageDescriptor> Scan()
     {
+        return ScanAll()
+            .GroupBy(value => $"{value.Id}@{value.Version}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(value => value.Type, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(value => value.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenByDescending(value => value.Version, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public int CleanupOldPackages()
+    {
+        var all = ScanAll();
+        var removed = 0;
+        foreach (var group in all.GroupBy(value => $"{value.Type}:{value.Id}", StringComparer.OrdinalIgnoreCase))
+        {
+            var keepVersion = group.Max(value => ParseVersion(value.Version));
+            var candidates = group
+                .Where(value => ParseVersion(value.Version).CompareTo(keepVersion) == 0)
+                .OrderByDescending(value => IsCanonicalPackageName(value.PackageFileName, value.Version))
+                .ThenByDescending(value => File.GetLastWriteTimeUtc(value.PackagePath))
+                .ToArray();
+            var keep = candidates.FirstOrDefault();
+            foreach (var package in group)
+            {
+                if (ReferenceEquals(package, keep)) continue;
+                try
+                {
+                    File.Delete(package.PackagePath);
+                    removed++;
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
+        return removed;
+    }
+
+    private IReadOnlyList<ExtensionPackageDescriptor> ScanAll()
+    {
         try
         {
             EnsureDirectory();
@@ -191,13 +230,7 @@ public sealed class ExtensionPackageCatalog
             catch (JsonException) { }
             catch (NotSupportedException) { }
         }
-        return result
-            .GroupBy(value => $"{value.Id}@{value.Version}", StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
-            .OrderBy(value => value.Type, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(value => value.Name, StringComparer.OrdinalIgnoreCase)
-            .ThenByDescending(value => value.Version, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        return result;
     }
 
     public IReadOnlyList<ExtensionCatalogEntry> BuildEntries(
@@ -240,9 +273,29 @@ public sealed class ExtensionPackageCatalog
         if (string.IsNullOrWhiteSpace(safeName)) safeName = $"{descriptor.Id}-{descriptor.Version}.zip";
         var destination = Path.Combine(RootDirectory, safeName);
         if (File.Exists(destination) && !string.Equals(Path.GetFullPath(source), Path.GetFullPath(destination), StringComparison.OrdinalIgnoreCase))
-            destination = Path.Combine(RootDirectory, $"{descriptor.Id}-{descriptor.Version}-{Guid.NewGuid():N}.zip");
+        {
+            // Re-importing the same extension/version should replace the
+            // canonical package instead of creating an endless GUID-suffixed
+            // duplicate in the library.
+            if (!TryReadDescriptor(destination, out var existing)
+                || existing is null
+                || !string.Equals(existing.Id, descriptor.Id, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(existing.Type, descriptor.Type, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(existing.Version, descriptor.Version, StringComparison.OrdinalIgnoreCase))
+                destination = Path.Combine(RootDirectory, $"{descriptor.Id}-{descriptor.Version}-{Guid.NewGuid():N}.zip");
+        }
         File.Copy(source, destination, true);
         return destination;
+    }
+
+    private static bool IsCanonicalPackageName(string fileName, string version)
+        => fileName.Contains($"-{version}-win-x64.zip", StringComparison.OrdinalIgnoreCase)
+            || fileName.EndsWith($"-{version}.zip", StringComparison.OrdinalIgnoreCase);
+
+    private static Version ParseVersion(string value)
+    {
+        var numeric = value?.Split('-', '+')[0];
+        return Version.TryParse(numeric, out var version) ? version : new Version(0, 0, 0);
     }
 
     public void OpenFolder()

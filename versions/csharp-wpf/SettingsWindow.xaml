@@ -52,6 +52,37 @@
     <Style x:Key="CloseCaptionButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
       <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource DangerBrush}"/><Setter Property="Foreground" Value="White"/></Trigger></Style.Triggers>
     </Style>
+    <Style x:Key="NavigationToggleButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+      <Setter Property="Width" Value="40"/>
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="ToggleChrome" Background="{TemplateBinding Background}" CornerRadius="6">
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ToggleChrome" Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="ToggleChrome" Property="Opacity" Value="0.72"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="ToggleChrome" Property="Opacity" Value="0.38"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/></Trigger>
+      </Style.Triggers>
+    </Style>
     <Style x:Key="ExtensionActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="FontSize" Value="11"/>
       <Setter Property="Padding" Value="8,4"/>
@@ -71,28 +102,19 @@
         <Setter.Value>
           <ControlTemplate TargetType="TabControl">
             <Grid KeyboardNavigation.TabNavigation="Local" SnapsToDevicePixels="True">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="178"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-              <TabPanel Grid.Column="0" IsItemsHost="True" KeyboardNavigation.TabIndex="1" Panel.ZIndex="1"/>
-              <Border Grid.Column="1" Background="{TemplateBinding Background}" Padding="16,2,2,2">
-                <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent"
-                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
-              </Border>
+              <TabPanel IsItemsHost="True" KeyboardNavigation.TabIndex="1" Panel.ZIndex="1"/>
             </Grid>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
     </Style>
     <Style TargetType="TabItem">
-      <Setter Property="Width" Value="166"/>
+      <Setter Property="Width" Value="165"/>
       <Setter Property="Height" Value="40"/>
-      <Setter Property="Padding" Value="14,9"/>
-      <Setter Property="Margin" Value="0,2,10,2"/>
-      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-      <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+      <Setter Property="Padding" Value="14,9,14,9"/>
+      <Setter Property="Margin" Value="6,2,6,2"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
       <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
       <Setter Property="BorderThickness" Value="0"/>
@@ -100,14 +122,20 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="TabItem">
-            <Border x:Name="TabBorder" Background="Transparent" CornerRadius="{DynamicResource ThemeCornerRadius}" Padding="{TemplateBinding Padding}" Margin="{TemplateBinding Margin}">
-              <Grid>
-                <Border x:Name="SelectionIndicator" Width="3" Height="16" Margin="-9,0,0,0"
-                        HorizontalAlignment="Left" VerticalAlignment="Center" CornerRadius="2"
-                        Background="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
-                <ContentPresenter ContentSource="Header" Margin="2,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-              </Grid>
-            </Border>
+            <Grid>
+              <Border x:Name="CollapsedTabBackground" Width="43" Height="40"
+                      HorizontalAlignment="Left" VerticalAlignment="Center"
+                      CornerRadius="{DynamicResource ThemeCornerRadius}"
+                      Background="{DynamicResource SurfaceStrongBrush}" Visibility="Collapsed"/>
+              <Border x:Name="TabBorder" Background="Transparent" CornerRadius="{DynamicResource ThemeCornerRadius}" Padding="{TemplateBinding Padding}">
+                <Grid>
+                  <Border x:Name="SelectionIndicator" Width="3" Height="16" Margin="-9,0,0,0"
+                          HorizontalAlignment="Left" VerticalAlignment="Center" CornerRadius="2"
+                          Background="{DynamicResource AccentBrush}" Visibility="Collapsed"/>
+                  <ContentPresenter ContentSource="Header" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                </Grid>
+              </Border>
+            </Grid>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
                 <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource SurfaceBrush}"/>
@@ -120,7 +148,28 @@
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
                 <Setter TargetName="TabBorder" Property="Opacity" Value="0.5"/>
+                <Setter TargetName="CollapsedTabBackground" Property="Opacity" Value="0.5"/>
               </Trigger>
+              <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=TabControl}}" Value="collapsed">
+                <Setter TargetName="TabBorder" Property="Background" Value="Transparent"/>
+                <Setter TargetName="TabBorder" Property="CornerRadius" Value="0"/>
+              </DataTrigger>
+              <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                  <Condition Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=TabControl}}" Value="collapsed"/>
+                  <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True"/>
+                </MultiDataTrigger.Conditions>
+                <Setter TargetName="CollapsedTabBackground" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="CollapsedTabBackground" Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+              </MultiDataTrigger>
+              <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                  <Condition Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=TabControl}}" Value="collapsed"/>
+                  <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True"/>
+                </MultiDataTrigger.Conditions>
+                <Setter TargetName="CollapsedTabBackground" Property="Visibility" Value="Visible"/>
+                <Setter TargetName="CollapsedTabBackground" Property="Background" Value="{DynamicResource SurfaceStrongBrush}"/>
+              </MultiDataTrigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
         </Setter.Value>
@@ -157,14 +206,30 @@
     </Border>
 
     <Grid Grid.Row="1">
-      <Border Width="188" HorizontalAlignment="Left" Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0"/>
-      <Grid Margin="10,12,20,12">
-        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <TabControl Grid.Row="0" TabStripPlacement="Left" Padding="2"
+      <DockPanel x:Name="SettingsLayoutGrid" Margin="0,0,20,12" LastChildFill="True">
+        <Border x:Name="NavigationSidebar" DockPanel.Dock="Left" Width="178" ClipToBounds="True"
+                Background="{DynamicResource SidebarBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+          <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <Button x:Name="NavigationToggleButton" Grid.Row="0" Panel.ZIndex="5"
+            Style="{StaticResource NavigationToggleButton}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6,0,0,0" Padding="14,0,0,0" HorizontalContentAlignment="Left"
+            Click="OnToggleNavigation" ToolTip="折叠导航栏" AutomationProperties.Name="折叠导航栏">
+      <Path Data="M 0,2 L 12,2 M 0,6 L 12,6 M 0,10 L 12,10" Width="18" Height="18" Stretch="Uniform"
+            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+            StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+    </Button>
+    <TabControl x:Name="SettingsTabs" Grid.Row="1" Tag="expanded" TabStripPlacement="Left" Padding="2" Margin="0"
                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
                 SelectionChanged="OnTabSelectionChanged">
-      <TabItem Header="账户与接口">
+      <TabItem>
+        <TabItem.Header>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Path Grid.Column="0" Data="M 4,4 H20 V20 H4 Z M7,8 H17 M7,12 H17 M7,16 H14" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" StrokeThickness="1.35" StrokeLineJoin="Round" Width="18" Height="18" Stretch="Uniform"/>
+            <TextBlock Grid.Column="1" x:Name="AccountNavigationText" Text="账户与接口" VerticalAlignment="Center" Margin="10,0,0,0"/>
+          </Grid>
+        </TabItem.Header>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
           <StackPanel Margin="2">
             <TextBlock Text="监控账户" FontWeight="SemiBold" FontSize="15"/>
@@ -243,7 +308,14 @@
         </ScrollViewer>
       </TabItem>
 
-      <TabItem Header="桌宠与交互">
+      <TabItem>
+        <TabItem.Header>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Path Grid.Column="0" Data="M 3,5 H21 V16 H3 Z M8,20 H16 M12,16 V20" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" StrokeThickness="1.35" StrokeLineJoin="Round" Width="18" Height="18" Stretch="Uniform"/>
+            <TextBlock Grid.Column="1" x:Name="PetNavigationText" Text="桌宠与交互" VerticalAlignment="Center" Margin="10,0,0,0"/>
+          </Grid>
+        </TabItem.Header>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
           <StackPanel Margin="2">
             <TextBlock Text="外观与操作" FontWeight="SemiBold" FontSize="15"/>
@@ -280,6 +352,7 @@
               <CheckBox x:Name="SoundBox" Content="按压音效" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <CheckBox x:Name="BubbleBox" Content="对话气泡" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <CheckBox x:Name="InteractionEffectsBox" Content="互动动作" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
+              <CheckBox x:Name="NavigationAnimationsBox" Content="设置面板动效" ToolTip="关闭后，设置面板展开和折叠会立即切换，不播放过渡动画。" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <CheckBox x:Name="EasterEggsBox" Content="随机彩蛋" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <CheckBox x:Name="FollowCodexBox" Content="自动跟随 AI 任务" ToolTip="兼容 Codex Hook 和其他客户端调用；只传递开始、结束、客户端名和任务 ID，不读取提示词、回复或令牌" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <CheckBox x:Name="AccountStatusBox" Content="读取 CC Switch 当前账户" ToolTip="只读读取 CC Switch 当前供应商；令牌只在本机内存中计算指纹，不读取网页登录凭据或上传明文令牌" Checked="OnAccountStatusChanged" Unchecked="OnAccountStatusChanged" Margin="0,0,0,9"/>
@@ -290,7 +363,14 @@
         </ScrollViewer>
       </TabItem>
 
-      <TabItem Header="扩展">
+      <TabItem>
+        <TabItem.Header>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Path Grid.Column="0" Data="M 8,4 H12 V7 H15 C16.1,7 17,7.9 17,9 C17,10.1 16.1,11 15,11 H14 V14 H17 C18.1,14 19,14.9 19,16 C19,17.1 18.1,18 17,18 H13 V21 H9 V18 H6 C4.9,18 4,17.1 4,16 C4,14.9 4.9,14 6,14 H7 V11 H4 C2.9,11 2,10.1 2,9 C2,7.9 2.9,7 4,7 H8 Z" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" StrokeThickness="1.25" StrokeLineJoin="Round" Width="18" Height="18" Stretch="Uniform"/>
+            <TextBlock Grid.Column="1" x:Name="ExtensionNavigationText" Text="扩展" VerticalAlignment="Center" Margin="10,0,0,0"/>
+          </Grid>
+        </TabItem.Header>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
           <StackPanel Margin="2">
             <Grid Margin="0,0,0,8">
@@ -382,7 +462,14 @@
         </ScrollViewer>
       </TabItem>
 
-      <TabItem Header="外观">
+      <TabItem>
+        <TabItem.Header>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Path Grid.Column="0" Data="M12,3 V6 M12,18 V21 M3,12 H6 M18,12 H21 M5.6,5.6 L7.7,7.7 M16.3,16.3 L18.4,18.4 M18.4,5.6 L16.3,7.7 M7.7,16.3 L5.6,18.4 M12,8 A4,4 0 1 1 11.99,8" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" StrokeThickness="1.35" Width="18" Height="18" Stretch="Uniform"/>
+            <TextBlock Grid.Column="1" x:Name="AppearanceNavigationText" Text="外观" VerticalAlignment="Center" Margin="10,0,0,0"/>
+          </Grid>
+        </TabItem.Header>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
           <StackPanel Margin="4,0,2,16">
             <TextBlock Text="主题插件" Foreground="{DynamicResource AccentBrush}" FontSize="11" FontWeight="SemiBold"/>
@@ -454,7 +541,14 @@
         </ScrollViewer>
       </TabItem>
 
-      <TabItem Header="高级与迁移">
+      <TabItem>
+        <TabItem.Header>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Path Grid.Column="0" Data="M4,6 H20 M4,12 H20 M4,18 H20 M8,4 V8 M16,10 V14 M11,16 V20" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" StrokeThickness="1.35" Width="18" Height="18" Stretch="Uniform"/>
+            <TextBlock Grid.Column="1" x:Name="AdvancedNavigationText" Text="高级与迁移" VerticalAlignment="Center" Margin="10,0,0,0"/>
+          </Grid>
+        </TabItem.Header>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
           <StackPanel Margin="2">
             <TextBlock Text="应用偏好" FontWeight="SemiBold" FontSize="15"/>
@@ -476,26 +570,35 @@
         </ScrollViewer>
       </TabItem>
     </TabControl>
+          </Grid>
+        </Border>
 
-    <TextBlock x:Name="MessageText" Grid.Row="1" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" MinHeight="28" Margin="196,0,0,6"/>
+        <Grid x:Name="SettingsContentGrid">
+          <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Border Grid.Row="0" Background="{DynamicResource WindowBackgroundBrush}" Padding="16,2,2,2">
+      <ContentPresenter Content="{Binding SelectedContent, ElementName=SettingsTabs}"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+    </Border>
+    <TextBlock x:Name="MessageText" Grid.Row="1" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" MinHeight="28" Margin="0,0,0,6"/>
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
       <Button Content="取消" Click="OnCancel" Padding="18,7" Margin="0,0,8,0"/>
       <Button Content="确定" Click="OnOk" Padding="18,7" Margin="0,0,8,0" Style="{StaticResource PrimaryButton}"/>
       <Button Content="应用" Click="OnApply" Padding="18,7"/>
     </StackPanel>
 
-    <Grid x:Name="UnsavedOverlay" Grid.RowSpan="3" Visibility="Collapsed" Panel.ZIndex="20" Background="#660E1729">
-      <Border Width="380" MaxWidth="380" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource SurfaceStrongBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="20">
-        <StackPanel>
-          <TextBlock x:Name="UnsavedDialogTitleText" Text="未保存的设置" FontSize="16" FontWeight="SemiBold"/>
-          <TextBlock x:Name="UnsavedDialogMessageText" Text="设置尚未保存，确定放弃更改并关闭吗？" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,18"/>
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="UnsavedKeepEditingButton" Content="继续编辑" Click="OnKeepEditingClick" Padding="12,6" Margin="0,0,8,0"/>
-            <Button x:Name="UnsavedDiscardButton" Content="放弃更改" Click="OnDiscardChangesClick" Padding="12,6" Style="{StaticResource PrimaryButton}"/>
+        </Grid>
+      </DockPanel>
+      <Grid x:Name="UnsavedOverlay" Grid.Row="1" Margin="0,0,20,12" Visibility="Collapsed" Panel.ZIndex="20" Background="#660E1729">
+        <Border Width="380" MaxWidth="380" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource SurfaceStrongBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="20">
+          <StackPanel>
+            <TextBlock x:Name="UnsavedDialogTitleText" Text="未保存的设置" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock x:Name="UnsavedDialogMessageText" Text="设置尚未保存，确定放弃更改并关闭吗？" Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,18"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button x:Name="UnsavedKeepEditingButton" Content="继续编辑" Click="OnKeepEditingClick" Padding="12,6" Margin="0,0,8,0"/>
+              <Button x:Name="UnsavedDiscardButton" Content="放弃更改" Click="OnDiscardChangesClick" Padding="12,6" Style="{StaticResource PrimaryButton}"/>
+            </StackPanel>
           </StackPanel>
-        </StackPanel>
-      </Border>
-    </Grid>
+        </Border>
       </Grid>
     </Grid>
   </Grid>
