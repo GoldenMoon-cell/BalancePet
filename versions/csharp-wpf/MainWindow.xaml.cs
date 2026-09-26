@@ -654,7 +654,7 @@ public partial class MainWindow : Window
             if (_visualState == PetVisualState.Loading)
             {
                 SetVisualState(PetVisualState.CodexWorking);
-                ShowBubble(
+                ShowAiIntegrationBubble(
                     $"{CurrentTaskSourceLabel()} 工作中",
                     _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
                     "任务完成或停止后会自动切换状态");
@@ -756,7 +756,7 @@ public partial class MainWindow : Window
                 {
                     SetVisualState(PetVisualState.CodexWorking);
                     if (!suppressResultBubble)
-                        ShowBubble(
+                        ShowAiIntegrationBubble(
                             $"{CurrentTaskSourceLabel()} 工作中",
                             _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
                             "任务完成或停止后会自动切换状态");
@@ -775,7 +775,7 @@ public partial class MainWindow : Window
                 {
                     SetVisualState(PetVisualState.CodexWorking);
                     if (!suppressResultBubble)
-                        ShowBubble(
+                        ShowAiIntegrationBubble(
                             $"{CurrentTaskSourceLabel()} 工作中",
                             _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
                             "任务完成或停止后会自动切换状态");
@@ -1911,6 +1911,12 @@ public partial class MainWindow : Window
     private void ShowNativeBubble(string label, string amount, string hint, TimeSpan? duration = null)
         => ShowBubble(label, amount, hint, duration, preferNativePresentation: true);
 
+    // AI/CC Switch integration feedback belongs to the pet itself. Keep
+    // recording these events for Notification Center, but always present the
+    // immediate feedback through the built-in bubble next to the pet.
+    private void ShowAiIntegrationBubble(string label, string amount, string hint, TimeSpan? duration = null)
+        => ShowNativeBubble(label, amount, hint, duration);
+
     private void ShowBubble(string label, string amount, string hint, TimeSpan? duration = null,
         bool allowExternalPresenter = true, bool preferNativePresentation = false)
     {
@@ -2455,19 +2461,19 @@ public partial class MainWindow : Window
         switch (status.Kind)
         {
             case CCSwitchBridgeStatusKind.DatabaseMissing:
-                ShowBubble("CC Switch 未检测到", "尚未登录", "未找到 CC Switch 数据库，联动会继续等待");
+                ShowAiIntegrationBubble("CC Switch 未检测到", "尚未登录", "未找到 CC Switch 数据库，联动会继续等待");
                 break;
             case CCSwitchBridgeStatusKind.DatabaseLocked:
-                ShowBubble("CC Switch 暂不可读", "数据库被占用", "程序会在稍后自动重试");
+                ShowAiIntegrationBubble("CC Switch 暂不可读", "数据库被占用", "程序会在稍后自动重试");
                 break;
             case CCSwitchBridgeStatusKind.DatabaseCorrupt:
-                ShowBubble("CC Switch 数据异常", "数据库无法读取", "请检查 CC Switch 数据库后重试");
+                ShowAiIntegrationBubble("CC Switch 数据异常", "数据库无法读取", "请检查 CC Switch 数据库后重试");
                 break;
             case CCSwitchBridgeStatusKind.DatabaseUnreadable:
-                ShowBubble("CC Switch 暂不可读", "读取失败", "请检查文件权限，程序会继续监听");
+                ShowAiIntegrationBubble("CC Switch 暂不可读", "读取失败", "请检查文件权限，程序会继续监听");
                 break;
             case CCSwitchBridgeStatusKind.NoCurrentCodexAccount:
-                ShowBubble("未检测到 Codex 当前账户", "等待切换", "请在 CC Switch 中启用一个 Codex 供应商");
+                ShowAiIntegrationBubble("未检测到 Codex 当前账户", "等待切换", "请在 CC Switch 中启用一个 Codex 供应商");
                 break;
         }
     }
@@ -2488,7 +2494,7 @@ public partial class MainWindow : Window
         var accountType = AccountSourceClassifier.ResolveAccountType(activity);
         if (accountType == "official")
         {
-            ShowBubble($"{activity.Provider} 官方账户已登录", "登录成功", $"官方账户{label}");
+            ShowAiIntegrationBubble($"{activity.Provider} 官方账户已登录", "登录成功", $"官方账户{label}");
             return;
         }
         else if (accountType == "official-api")
@@ -2496,7 +2502,7 @@ public partial class MainWindow : Window
             var amount = activity.ReportedBalance.HasValue
                 ? FormatAccountBalance(activity.ReportedBalance.Value, activity.Currency)
                 : "余额未提供";
-            ShowBubble($"{activity.Provider} API 已登录", amount, $"官方 API{label}");
+            ShowAiIntegrationBubble($"{activity.Provider} API 已登录", amount, $"官方 API{label}");
             return;
         }
 
@@ -2507,7 +2513,7 @@ public partial class MainWindow : Window
             var balance = local.LastBalance.HasValue
                 ? FormatAccountBalance(local.LastBalance.Value, local.Profile.Currency)
                 : "余额待查询";
-            ShowBubble(
+            ShowAiIntegrationBubble(
                 $"{local.Profile.Name} API 已登录",
                 balance,
                 $"已匹配本地账户 · {local.Profile.Name}");
@@ -2523,12 +2529,12 @@ public partial class MainWindow : Window
             const string reminder = "是否保存到 BalancePet？右键桌宠打开“设置面板”";
             var endpoint = string.IsNullOrWhiteSpace(activity.Endpoint) ? "接口地址未提供" : activity.Endpoint;
             var accountName = string.IsNullOrWhiteSpace(activity.AccountLabel) ? "中转站账户" : activity.AccountLabel;
-            ShowBubble($"{accountName} API 已登录", "未匹配本地账户", $"CC Switch · {endpoint}");
+            ShowAiIntegrationBubble($"{accountName} API 已登录", "未匹配本地账户", $"CC Switch · {endpoint}");
             ShowSystemNotification("未收录的第三方 API", reminder, Forms.ToolTipIcon.Info);
         }
         else
         {
-            ShowBubble($"{activity.Provider} 账户已登录", "登录成功", $"来源未分类{label}");
+            ShowAiIntegrationBubble($"{activity.Provider} 账户已登录", "登录成功", $"来源未分类{label}");
         }
     }
 
@@ -2642,7 +2648,7 @@ public partial class MainWindow : Window
         if (!_activeCodexTurns.Contains(activity.Key)) return Task.CompletedTask;
         SetStatus("AI 工作中");
         SetVisualState(PetVisualState.CodexWorking);
-        ShowBubble(
+        ShowAiIntegrationBubble(
             $"{CurrentTaskSourceLabel()} 工作中",
             _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
             "任务完成或停止后会自动切换状态");
@@ -2682,7 +2688,7 @@ public partial class MainWindow : Window
         if (_activeCodexTurns.Count > 0)
         {
             SetVisualState(PetVisualState.CodexWorking);
-            ShowBubble($"{CurrentTaskSourceLabel()} 工作中", $"{_activeCodexTurns.Count} 个任务", "仍有任务正在处理");
+            ShowAiIntegrationBubble($"{CurrentTaskSourceLabel()} 工作中", $"{_activeCodexTurns.Count} 个任务", "仍有任务正在处理");
             return;
         }
 
@@ -2697,7 +2703,7 @@ public partial class MainWindow : Window
             .Sum();
         var spent = spentByCurrency;
         SetVisualState(PetVisualState.CodexDone, CodexDoneDurationMs);
-        ShowBubble($"{completedSource} 已停止", spent > 0 ? $"-{spent:0.00} {currency}" : "任务结束", spent > 0 ? $"当前余额 {_lastBalance:0.00} {currency}" : "已完成或手动停止");
+        ShowAiIntegrationBubble($"{completedSource} 已停止", spent > 0 ? $"-{spent:0.00} {currency}" : "任务结束", spent > 0 ? $"当前余额 {_lastBalance:0.00} {currency}" : "已完成或手动停止");
         ShowSystemNotification($"{completedSource} 任务已停止", spent > 0 ? $"本次消耗 {spent:0.00} {currency}" : "任务已完成或手动停止", Forms.ToolTipIcon.Info);
         _codexStartBalances.Clear();
         _ = RefreshAfterCodexCompletionAsync();
