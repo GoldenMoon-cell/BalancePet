@@ -30,6 +30,7 @@ public sealed class PetSettings
     [JsonPropertyName("bubble")] public bool Bubble { get; set; } = true;
     [JsonPropertyName("interaction_effects")] public bool InteractionEffects { get; set; } = true;
     [JsonPropertyName("navigation_animations")] public bool NavigationAnimations { get; set; } = true;
+    [JsonPropertyName("settings_navigation_collapsed")] public bool NavigationCollapsed { get; set; }
     [JsonPropertyName("random_easter_eggs")] public bool RandomEasterEggs { get; set; } = true;
     [JsonPropertyName("codex_task_integration")] public bool CodexTaskIntegration { get; set; }
     // Keep the JSON name so existing settings continue to work after the

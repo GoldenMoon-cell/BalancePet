@@ -86,6 +86,7 @@ public partial class SettingsWindow : Window
         SelectByTag(LanguageBox, settings.Language);
         _suppressLanguageChange = false;
         ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; NavigationAnimationsBox.IsChecked = settings.NavigationAnimations; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; AccountStatusBox.IsChecked = settings.CCSwitchIntegration; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
+        _navigationCollapsed = settings.NavigationCollapsed;
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
         AppLocalization.Apply(this, settings.Language);
         RefreshLanguageSelector(settings.Language, selectLanguage: false);
@@ -99,7 +100,19 @@ public partial class SettingsWindow : Window
     private void OnToggleNavigation(object sender, RoutedEventArgs e)
     {
         _navigationCollapsed = !_navigationCollapsed;
+        PersistNavigationPreference();
         ApplyNavigationState(animate: NavigationAnimationsBox.IsChecked == true);
+    }
+
+    private void PersistNavigationPreference()
+    {
+        _settings.NavigationCollapsed = _navigationCollapsed;
+        try
+        {
+            _store.Save(_settings);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private void ApplyNavigationState(bool animate = false)
@@ -1581,6 +1594,7 @@ public partial class SettingsWindow : Window
                 Bubble = BubbleBox.IsChecked == true,
                 InteractionEffects = InteractionEffectsBox.IsChecked == true,
                 NavigationAnimations = NavigationAnimationsBox.IsChecked == true,
+                NavigationCollapsed = _navigationCollapsed,
                 RandomEasterEggs = EasterEggsBox.IsChecked == true,
                 CodexTaskIntegration = FollowCodexBox.IsChecked == true,
                 CCSwitchIntegration = AccountStatusBox.IsChecked == true,
@@ -1621,6 +1635,7 @@ public partial class SettingsWindow : Window
             _settings.ThemeBackdrop = updated.ThemeBackdrop;
             _settings.ThemeCompact = updated.ThemeCompact;
             _settings.NavigationAnimations = updated.NavigationAnimations;
+            _settings.NavigationCollapsed = updated.NavigationCollapsed;
             _settings.UpdateCheckMode = updated.UpdateCheckMode;
             _settings.ExtensionUpdateCheckMode = updated.ExtensionUpdateCheckMode;
             _settings.LastUpdateCheckUtc = updated.LastUpdateCheckUtc;
