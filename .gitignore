@@ -22,3 +22,11 @@ extensions/**/dist/
 /docs/references/
 /tools/__pycache__/
 /WORK_STATUS.md
+
+# Local release staging and scratch files; never publish these to GitHub
+/.publish-*/
+/artifacts/
+/community-post-*.md
+/素材/
+/release-notes-*.md
+extensions/**/release-notes-*.md
