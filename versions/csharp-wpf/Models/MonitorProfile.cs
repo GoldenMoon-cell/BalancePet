@@ -12,6 +12,10 @@ public sealed class MonitorProfile
     [JsonPropertyName("preset_id")] public string PresetId { get; set; } = "custom";
     [JsonPropertyName("site_url")] public string SiteUrl { get; set; } = "";
     [JsonPropertyName("endpoint")] public string Endpoint { get; set; } = "";
+    // Optional read-only per-request usage endpoint. When set, the main
+    // process probes this endpoint directly with the configured token/session
+    // before falling back to the built-in New API endpoint list.
+    [JsonPropertyName("usage_detail_endpoint")] public string UsageDetailEndpoint { get; set; } = "";
     [JsonPropertyName("auth_mode")] public string AuthMode { get; set; } = "bearer";
     [JsonPropertyName("header_name")] public string HeaderName { get; set; } = "Authorization";
     [JsonPropertyName("token_blob")] public string TokenBlob { get; set; } = "";

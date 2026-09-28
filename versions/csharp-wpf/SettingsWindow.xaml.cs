@@ -1064,6 +1064,7 @@ public partial class SettingsWindow : Window
         PresetId = profile.PresetId,
         SiteUrl = profile.SiteUrl,
         Endpoint = profile.Endpoint,
+        UsageDetailEndpoint = profile.UsageDetailEndpoint,
         AuthMode = profile.AuthMode,
         HeaderName = profile.HeaderName,
         TokenBlob = profile.TokenBlob,
@@ -1105,6 +1106,7 @@ public partial class SettingsWindow : Window
         SiteUrlBox.Text = BalancePresetCatalog.UsesSiteUrl(profile.PresetId) ? BalancePresetCatalog.ResolveSiteUrl(profile) : "";
         _suppressSiteUrlChange = false;
         EndpointBox.Text = profile.Endpoint;
+        UsageDetailEndpointBox.Text = profile.UsageDetailEndpoint;
         HeaderBox.Text = profile.HeaderName;
         PathBox.Text = profile.BalancePath;
         CurrencyBox.Text = profile.Currency;
@@ -1237,6 +1239,7 @@ public partial class SettingsWindow : Window
             profile.HeaderName = HeaderBox.Text.Trim();
             profile.BalancePath = PathBox.Text.Trim();
         }
+        profile.UsageDetailEndpoint = UsageDetailEndpointBox.Text.Trim();
         profile.Currency = string.IsNullOrWhiteSpace(CurrencyBox.Text) ? "USD" : CurrencyBox.Text.Trim().ToUpperInvariant();
         var refreshTag = SelectedTag(RefreshBox, "off");
         profile.AutoRefreshEnabled = !string.Equals(refreshTag, "off", StringComparison.OrdinalIgnoreCase);
@@ -1475,9 +1478,10 @@ public partial class SettingsWindow : Window
                     id = profile.Id,
                     name = profile.Name,
                     preset_id = profile.PresetId,
-                    site_url = profile.SiteUrl,
-                    endpoint = profile.Endpoint,
-                    auth_mode = profile.AuthMode,
+                     site_url = profile.SiteUrl,
+                     endpoint = profile.Endpoint,
+                     usage_detail_endpoint = profile.UsageDetailEndpoint,
+                     auth_mode = profile.AuthMode,
                     header_name = profile.HeaderName,
                     balance_path = profile.BalancePath,
                     currency = profile.Currency,

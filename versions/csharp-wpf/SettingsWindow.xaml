@@ -273,6 +273,10 @@
             <TextBox x:Name="EndpointBox" TextChanged="OnSettingTextChanged" Margin="0,5,0,2"/>
             <TextBlock x:Name="EndpointHint" Text="填写中转站文档中的余额查询 URL，不是网站首页或聊天接口。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
+            <TextBlock Text="逐条费用 API 地址（可选）"/>
+            <TextBox x:Name="UsageDetailEndpointBox" TextChanged="OnSettingTextChanged" Margin="0,5,0,2"/>
+            <TextBlock Text="填写网页使用记录实际调用的只读明细接口路径或完整 URL，例如 /api/log/self?p=1&amp;page_size=500&amp;type=2；留空时自动探测。只允许访问当前中转站域名。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
             <TextBlock Text="认证方式"/>
             <ComboBox x:Name="AuthModeBox" SelectionChanged="OnAuthModeChanged" DropDownClosed="OnComboDropDownClosed" Margin="0,5,0,2">
               <ComboBoxItem Tag="bearer">Bearer Token（只填令牌）</ComboBoxItem>

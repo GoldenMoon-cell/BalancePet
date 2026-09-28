@@ -76,24 +76,35 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
                     return cached.Records;
             }
 
+            var session = string.IsNullOrWhiteSpace(sessionValue)
+                && SupportsWebSession(profile)
+                ? token
+                : sessionValue;
+            var pricing = await GetPricingAsync(site, cancellationToken);
+
+            // Prefer a site-specific detail endpoint when the user has
+            // supplied the private read-only URL used by the dashboard. This
+            // keeps the normal path entirely in the main process; the browser
+            // bridge remains only as a fallback for sites that require page
+            // JavaScript or a non-replayable request signature.
+            var records = await TryFetchConfiguredRecordsAsync(
+                site, profile.UsageDetailEndpoint, token, session, pricing, cancellationToken);
+            if (records.Count == 0)
+            {
             // Prefer a documented/token-authenticated detail API. Some relays
             // expose the New API log endpoint, while newer deployments expose
             // the same records under /api/usage. Probe read-only endpoints in
             // order and only fall back to the web session when none returns
             // usable per-request records.
-            var pricing = await GetPricingAsync(site, cancellationToken);
-            var records = await TryFetchTokenRecordsAsync(site, token, pricing, cancellationToken);
+            records = await TryFetchTokenRecordsAsync(site, token, pricing, cancellationToken);
             if (records.Count == 0)
             {
                 // Keep the legacy websee-session mode working for existing
                 // profiles, while new profiles can store a separate encrypted
                 // session value alongside their API token.
-                var session = string.IsNullOrWhiteSpace(sessionValue)
-                    && SupportsWebSession(profile)
-                    ? token
-                    : sessionValue;
                 if (!string.IsNullOrWhiteSpace(session))
                     records = await TryFetchSessionRecordsAsync(site, session, pricing, cancellationToken);
+            }
             }
 
             var result = MergePersistent(cacheKey, records);
@@ -121,6 +132,50 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
         }
     }
 
+    private async Task<IReadOnlyList<NewApiUsageRecord>> TryFetchConfiguredRecordsAsync(
+        string site,
+        string configuredEndpoint,
+        string token,
+        string? session,
+        QuotaPricing? pricing,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = ResolveConfiguredEndpoint(site, configuredEndpoint);
+        if (endpoint is null) return Array.Empty<NewApiUsageRecord>();
+
+        var credentials = new[]
+        {
+            (Bearer: (string?)null, Session: session),
+            (Bearer: string.IsNullOrWhiteSpace(token) ? null : token, Session: (string?)null)
+        };
+        foreach (var credential in credentials)
+        {
+            if (string.IsNullOrWhiteSpace(credential.Bearer) && string.IsNullOrWhiteSpace(credential.Session)) continue;
+            try
+            {
+                using var document = await GetJsonAsync(endpoint, credential.Bearer, credential.Session, cancellationToken);
+                var records = ParseRecords(document.RootElement, pricing);
+                if (records.Count > 0) return records;
+            }
+            catch (HttpRequestException) { }
+            catch (InvalidDataException) { }
+            catch (JsonException) { }
+        }
+        return Array.Empty<NewApiUsageRecord>();
+    }
+
+    private static string? ResolveConfiguredEndpoint(string site, string configuredEndpoint)
+    {
+        if (string.IsNullOrWhiteSpace(configuredEndpoint) || !Uri.TryCreate(site, UriKind.Absolute, out var siteUri)) return null;
+        var text = configuredEndpoint.Trim();
+        Uri endpoint;
+        if (Uri.TryCreate(text, UriKind.Absolute, out var absolute)) endpoint = absolute;
+        else if (Uri.TryCreate(siteUri, text.StartsWith('/') ? text : "/" + text, out var relative)) endpoint = relative;
+        else return null;
+        if (endpoint.Scheme != siteUri.Scheme || !string.Equals(endpoint.Host, siteUri.Host, StringComparison.OrdinalIgnoreCase)) return null;
+        return endpoint.ToString();
+    }
+
     /// <summary>
     /// Imports JSON responses collected by the browser bridge while the user
     /// was signed in to the relay dashboard. The raw responses are parsed in
@@ -137,6 +192,7 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
         if (string.IsNullOrWhiteSpace(site)) return 0;
         var pricing = await GetPricingAsync(site, cancellationToken);
         var parsed = new List<NewApiUsageRecord>();
+        string? discoveredEndpoint = null;
         foreach (var response in responses.Take(8))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -144,15 +200,38 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
             try
             {
                 using var document = JsonDocument.Parse(response.Body);
-                parsed.AddRange(ParseRecords(document.RootElement, pricing));
+                var responseRecords = ParseRecords(document.RootElement, pricing);
+                if (responseRecords.Count > 0 && discoveredEndpoint is null)
+                    discoveredEndpoint = SanitizeUsageEndpoint(response.Path);
+                parsed.AddRange(responseRecords);
             }
             catch (JsonException) { }
         }
         if (parsed.Count == 0) return 0;
+        if (string.IsNullOrWhiteSpace(profile.UsageDetailEndpoint) && !string.IsNullOrWhiteSpace(discoveredEndpoint))
+            profile.UsageDetailEndpoint = discoveredEndpoint;
         var cacheKey = $"{profile.Id}|{site.TrimEnd('/')}";
         var merged = MergePersistent(cacheKey, parsed);
         lock (_recentGate) _recentLogs[cacheKey] = new RecentLogCacheEntry(DateTimeOffset.UtcNow, merged);
         return parsed.Count;
+    }
+
+    private static string? SanitizeUsageEndpoint(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !path.StartsWith("/", StringComparison.Ordinal) || path.Length > 2048) return null;
+        var fragmentIndex = path.IndexOf('#');
+        if (fragmentIndex >= 0) path = path[..fragmentIndex];
+        var queryIndex = path.IndexOf('?');
+        if (queryIndex < 0) return path;
+        var basePath = path[..queryIndex];
+        var safeQuery = path[(queryIndex + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Where(part =>
+            {
+                var key = part.Split('=', 2)[0].Trim().ToLowerInvariant();
+                return key is not ("key" or "token" or "authorization" or "cookie" or "session" or "access_token");
+            })
+            .ToArray();
+        return safeQuery.Length == 0 ? basePath : $"{basePath}?{string.Join('&', safeQuery)}";
     }
 
     private IReadOnlyList<NewApiUsageRecord> GetPersistentRecords(string cacheKey)

@@ -3047,8 +3047,13 @@ public partial class MainWindow : Window
             // The settings dialog also imports the initial snapshot. This
             // handler is intentionally independent so later background bridge
             // uploads still work after the dialog has been closed.
-            await _newApiUsageProvider.ImportRawResponsesAsync(
+            var previousDetailEndpoint = profile.UsageDetailEndpoint;
+            var importedCount = await _newApiUsageProvider.ImportRawResponsesAsync(
                 profile, args.UsageResponses, _usageCostSyncCancellation.Token);
+            if (importedCount > 0 && !string.Equals(previousDetailEndpoint, profile.UsageDetailEndpoint, StringComparison.Ordinal))
+            {
+                try { _settingsStore.Save(_settings); } catch (IOException) { }
+            }
             _ = SyncRecentUsageCostsAsync();
         }
         catch (OperationCanceledException) when (_usageCostSyncCancellation.IsCancellationRequested) { }
