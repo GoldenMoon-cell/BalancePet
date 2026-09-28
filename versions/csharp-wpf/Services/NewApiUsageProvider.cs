@@ -49,9 +49,11 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
     public async Task<IReadOnlyList<NewApiUsageRecord>> FetchRecentAsync(
         MonitorProfile profile,
         string token,
+        string? sessionValue = null,
         CancellationToken cancellationToken = default)
     {
-        if (!Supports(profile) || string.IsNullOrWhiteSpace(token)) return Array.Empty<NewApiUsageRecord>();
+        if (!Supports(profile) || (string.IsNullOrWhiteSpace(token) && string.IsNullOrWhiteSpace(sessionValue)))
+            return Array.Empty<NewApiUsageRecord>();
 
         var site = BalancePresetCatalog.ResolveSiteUrl(profile);
         if (string.IsNullOrWhiteSpace(site)) return Array.Empty<NewApiUsageRecord>();
@@ -74,20 +76,26 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
                     return cached.Records;
             }
 
+            // Prefer a documented/token-authenticated detail API. Some relays
+            // expose the New API log endpoint, while newer deployments expose
+            // the same records under /api/usage. Probe read-only endpoints in
+            // order and only fall back to the web session when none returns
+            // usable per-request records.
             var pricing = await GetPricingAsync(site, cancellationToken);
-            if (pricing is null)
+            var records = await TryFetchTokenRecordsAsync(site, token, pricing, cancellationToken);
+            if (records.Count == 0)
             {
-                lock (_recentGate) _recentLogs[cacheKey] = new RecentLogCacheEntry(DateTimeOffset.UtcNow, persistent);
-                return persistent;
+                // Keep the legacy websee-session mode working for existing
+                // profiles, while new profiles can store a separate encrypted
+                // session value alongside their API token.
+                var session = string.IsNullOrWhiteSpace(sessionValue)
+                    && SupportsWebSession(profile)
+                    ? token
+                    : sessionValue;
+                if (!string.IsNullOrWhiteSpace(session))
+                    records = await TryFetchSessionRecordsAsync(site, session, pricing, cancellationToken);
             }
 
-            // New API deployments in the wild use both authentication forms:
-            // the documented read-only `key` query and bearer middleware. Send
-            // both so older compatible relays and newer relays behave alike;
-            // the token is never logged or persisted by BalancePet.
-            var endpoint = $"{site.TrimEnd('/')}/api/log/token?key={Uri.EscapeDataString(StripBearer(token))}";
-            using var document = await GetJsonAsync(endpoint, token, cancellationToken);
-            var records = ParseRecords(document.RootElement, pricing);
             var result = MergePersistent(cacheKey, records);
             lock (_recentGate) _recentLogs[cacheKey] = new RecentLogCacheEntry(DateTimeOffset.UtcNow, result);
             return result;
@@ -111,6 +119,40 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
         {
             _recentFetchGate.Release();
         }
+    }
+
+    /// <summary>
+    /// Imports JSON responses collected by the browser bridge while the user
+    /// was signed in to the relay dashboard. The raw responses are parsed in
+    /// memory and only normalized usage records are written to the local,
+    /// non-credential usage cache.
+    /// </summary>
+    public async Task<int> ImportRawResponsesAsync(
+        MonitorProfile profile,
+        IReadOnlyList<BrowserUsageResponse> responses,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Supports(profile) || responses.Count == 0) return 0;
+        var site = BalancePresetCatalog.ResolveSiteUrl(profile);
+        if (string.IsNullOrWhiteSpace(site)) return 0;
+        var pricing = await GetPricingAsync(site, cancellationToken);
+        var parsed = new List<NewApiUsageRecord>();
+        foreach (var response in responses.Take(8))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(response.Body) || response.Body.Length > 384 * 1024) continue;
+            try
+            {
+                using var document = JsonDocument.Parse(response.Body);
+                parsed.AddRange(ParseRecords(document.RootElement, pricing));
+            }
+            catch (JsonException) { }
+        }
+        if (parsed.Count == 0) return 0;
+        var cacheKey = $"{profile.Id}|{site.TrimEnd('/')}";
+        var merged = MergePersistent(cacheKey, parsed);
+        lock (_recentGate) _recentLogs[cacheKey] = new RecentLogCacheEntry(DateTimeOffset.UtcNow, merged);
+        return parsed.Count;
     }
 
     private IReadOnlyList<NewApiUsageRecord> GetPersistentRecords(string cacheKey)
@@ -281,6 +323,77 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
         return preset is BalancePresetCatalog.Auto or BalancePresetCatalog.NewApiToken;
     }
 
+    private static bool SupportsWebSession(MonitorProfile profile)
+        => string.Equals(profile.AuthMode, "websee-session", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(profile.AuthMode, "cookie", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(profile.HeaderName, "Cookie", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<IReadOnlyList<NewApiUsageRecord>> TryFetchTokenRecordsAsync(
+        string site,
+        string token,
+        QuotaPricing? pricing,
+        CancellationToken cancellationToken)
+    {
+        var key = StripBearer(token);
+        var endpoints = new[]
+        {
+            $"{site.TrimEnd('/')}/api/log/token?key={Uri.EscapeDataString(key)}",
+            $"{site.TrimEnd('/')}/api/usage?limit=500",
+            $"{site.TrimEnd('/')}/api/usage/log?limit=500",
+            $"{site.TrimEnd('/')}/api/usage/records?limit=500"
+        };
+        foreach (var endpoint in endpoints)
+        {
+            try
+            {
+                using var document = await GetJsonAsync(endpoint, token, null, cancellationToken);
+                var records = ParseRecords(document.RootElement, pricing);
+                if (records.Count > 0) return records;
+            }
+            catch (HttpRequestException) { }
+            catch (InvalidDataException) { }
+            catch (JsonException) { }
+        }
+        return Array.Empty<NewApiUsageRecord>();
+    }
+
+    private async Task<IReadOnlyList<NewApiUsageRecord>> TryFetchSessionRecordsAsync(
+        string site,
+        string sessionValue,
+        QuotaPricing? pricing,
+        CancellationToken cancellationToken)
+    {
+        var endpoints = new[]
+        {
+            // The signed-in dashboard uses the current-user log endpoint;
+            // unlike /api/log/token it does not require the API key in the
+            // query string.
+            $"{site.TrimEnd('/')}/api/log/self?p=1&page_size=500&type=2",
+            $"{site.TrimEnd('/')}/api/log/self?page_size=500&type=2",
+            // Browser-authenticated dashboards commonly expose the same
+            // token log without requiring the API key query parameter.
+            $"{site.TrimEnd('/')}/api/log/token",
+            $"{site.TrimEnd('/')}/api/log/token?limit=500",
+            $"{site.TrimEnd('/')}/api/usage?limit=500",
+            $"{site.TrimEnd('/')}/api/usage/log?limit=500",
+            $"{site.TrimEnd('/')}/api/usage/records?limit=500",
+            $"{site.TrimEnd('/')}/usage?format=json"
+        };
+        foreach (var endpoint in endpoints)
+        {
+            try
+            {
+                using var document = await GetJsonAsync(endpoint, null, sessionValue, cancellationToken);
+                var records = ParseRecords(document.RootElement, pricing);
+                if (records.Count > 0) return records;
+            }
+            catch (HttpRequestException) { }
+            catch (InvalidDataException) { }
+            catch (JsonException) { }
+        }
+        return Array.Empty<NewApiUsageRecord>();
+    }
+
     private async Task<QuotaPricing?> GetPricingAsync(string site, CancellationToken cancellationToken)
     {
         var key = site.TrimEnd('/');
@@ -290,7 +403,19 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
                 return cached.Pricing;
         }
 
-        using var document = await GetJsonAsync($"{key}/api/status", null, cancellationToken);
+        JsonDocument document;
+        try
+        {
+            document = await GetJsonAsync($"{key}/api/status", null, null, cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            // Per-record APIs may return a final currency/amount themselves;
+            // lack of the legacy pricing endpoint must not block those APIs.
+            return null;
+        }
+        using (document)
+        {
         var root = document.RootElement;
         if (!TryReadNumber(root, out var quotaPerUnit, "data.quota_per_unit", "data.currency.quota_per_unit") || quotaPerUnit <= 0)
             return null;
@@ -322,15 +447,44 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
         var pricing = new QuotaPricing(multiplier, currency);
         lock (_pricingGate) _pricing[key] = new PricingCacheEntry(pricing, DateTimeOffset.UtcNow);
         return pricing;
+        }
     }
 
-    private async Task<JsonDocument> GetJsonAsync(string endpoint, string? bearerToken, CancellationToken cancellationToken)
+    private async Task<JsonDocument> GetJsonAsync(
+        string endpoint,
+        string? bearerToken,
+        string? sessionValue,
+        CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
         request.Headers.Accept.ParseAdd("application/json");
         request.Headers.UserAgent.ParseAdd("BalancePet-CSharp/1.0");
         if (!string.IsNullOrWhiteSpace(bearerToken))
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", StripBearer(bearerToken));
+        if (!string.IsNullOrWhiteSpace(sessionValue))
+        {
+            var cookie = sessionValue.Trim();
+            var userHeader = "";
+            var userMarker = cookie.IndexOf("; New-Api-User:", StringComparison.OrdinalIgnoreCase);
+            if (userMarker >= 0)
+            {
+                userHeader = cookie[(userMarker + 15)..].Trim();
+                cookie = cookie[..userMarker].Trim();
+            }
+            if (cookie.StartsWith("Cookie:", StringComparison.OrdinalIgnoreCase)) cookie = cookie[7..].Trim();
+            if (cookie.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase))
+                request.Headers.TryAddWithoutValidation("Authorization", cookie[14..].Trim());
+            else if (cookie.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                request.Headers.TryAddWithoutValidation("Authorization", cookie);
+            else if (cookie.Contains('=', StringComparison.Ordinal))
+                request.Headers.TryAddWithoutValidation("Cookie", cookie);
+            else
+                request.Headers.TryAddWithoutValidation("Cookie", $"websee-session={cookie}");
+            if (!string.IsNullOrWhiteSpace(userHeader) && userHeader.All(char.IsDigit))
+                request.Headers.TryAddWithoutValidation("New-Api-User", userHeader);
+            request.Headers.Referrer = new Uri(new Uri(endpoint).GetLeftPart(UriPartial.Authority) + "/dashboard");
+            request.Headers.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9,en;q=0.8");
+        }
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}", null, response.StatusCode);
@@ -340,15 +494,12 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
         return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
     }
 
-    private static IReadOnlyList<NewApiUsageRecord> ParseRecords(JsonElement root, QuotaPricing pricing)
+    private static IReadOnlyList<NewApiUsageRecord> ParseRecords(JsonElement root, QuotaPricing? pricing)
     {
-        if (root.ValueKind != JsonValueKind.Object || ReadBoolean(root, "success") == false) return Array.Empty<NewApiUsageRecord>();
-        if (!root.TryGetProperty("data", out var data)) return Array.Empty<NewApiUsageRecord>();
-        var values = data.ValueKind == JsonValueKind.Array
-            ? data.EnumerateArray()
-            : data.ValueKind == JsonValueKind.Object && data.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array
-                ? items.EnumerateArray()
-                : Enumerable.Empty<JsonElement>();
+        if (root.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array)
+            || (root.ValueKind == JsonValueKind.Object && ReadBoolean(root, "success") == false))
+            return Array.Empty<NewApiUsageRecord>();
+        var values = EnumerateRecordValues(root);
 
         var records = new List<NewApiUsageRecord>();
         foreach (var value in values)
@@ -356,24 +507,64 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
             if (value.ValueKind != JsonValueKind.Object) continue;
             var type = ReadInt(value, "type");
             if (type.HasValue && type.Value != 2) continue;
-            if (!TryReadNumber(value, out var quota, "quota") || quota < 0 || !double.IsFinite(quota)) continue;
-            var createdAt = ReadTimestamp(value, "created_at", "createdAt", "timestamp");
+            var hasQuota = TryReadNumber(value, out var quota,
+                "quota", "raw_quota", "rawQuota", "used_quota", "usedQuota", "total_quota",
+                "usage.quota", "usage.raw_quota", "usage.used_quota");
+            var hasAmount = TryReadNumber(value, out var amount,
+                "cost", "amount", "fee", "price", "actual_cost", "actualCost", "spend",
+                "total_cost", "cost_usd", "price_usd", "amount_usd", "charge", "total_charge",
+                "usage.cost", "usage.amount", "usage.total_cost", "usage.charge");
+            if (!hasQuota && !hasAmount) continue;
+            if (hasQuota && (quota < 0 || !double.IsFinite(quota))) continue;
+            var createdAt = ReadTimestamp(value, "created_at", "createdAt", "timestamp", "created", "time", "request_time", "updated_at", "usage.created_at", "usage.timestamp");
             if (!createdAt.HasValue) continue;
-            var model = ReadString(value, "model_name", "modelName", "model").Trim();
+            var model = ReadString(value, "model_name", "modelName", "model", "usage.model", "usage.model_name").Trim();
+            var currency = ReadString(value, "currency", "currency_code", "unit", "currency_symbol").Trim();
+            var multiplier = pricing?.Multiplier ?? 1d;
+            var resolvedAmount = hasAmount ? amount : quota * multiplier;
+            var resolvedQuota = hasQuota ? quota : (multiplier > 0 ? amount / multiplier : amount);
+            if (!double.IsFinite(resolvedAmount) || resolvedAmount < 0) continue;
+            if (string.IsNullOrWhiteSpace(currency)) currency = pricing?.Currency ?? "USD";
             records.Add(new NewApiUsageRecord(
-                ReadString(value, "id", "request_id", "requestId").Trim(),
+                ReadString(value, "id", "request_id", "requestId", "request_id_hash", "usage.request_id").Trim(),
                 createdAt.Value,
                 model,
-                ReadLong(value, "prompt_tokens", "input_tokens", "inputTokens"),
-                ReadLong(value, "completion_tokens", "output_tokens", "outputTokens"),
-                ReadLong(value, "cached_tokens", "cache_read_tokens", "cacheReadTokens"),
-                quota,
-                quota * pricing.Multiplier,
-                pricing.Currency,
-                NormalizeReasoning(ReadString(value, "reasoning_effort", "reasoningEffort", "reasoning_level", "reasoningLevel", "thinking_level", "thinkingLevel", "effort"))));
+                ReadLong(value, "prompt_tokens", "input_tokens", "inputTokens", "usage.prompt_tokens", "usage.input_tokens"),
+                ReadLong(value, "completion_tokens", "output_tokens", "outputTokens", "usage.completion_tokens", "usage.output_tokens"),
+                ReadLong(value, "cached_tokens", "cache_read_tokens", "cacheReadTokens", "usage.cached_tokens", "usage.cache_read_tokens"),
+                resolvedQuota,
+                resolvedAmount,
+                currency,
+                NormalizeReasoning(ReadString(value, "reasoning_effort", "reasoningEffort", "reasoning_level", "reasoningLevel", "thinking_level", "thinkingLevel", "effort", "usage.reasoning_effort"))));
         }
         return records;
     }
+
+    private static IEnumerable<JsonElement> EnumerateRecordValues(JsonElement root)
+    {
+        var candidates = new[] { "data", "items", "records", "logs", "results", "rows", "list", "usage" };
+        foreach (var path in candidates)
+        {
+            if (!TryReadProperty(root, path, out var value)) continue;
+            if (value.ValueKind == JsonValueKind.Array) return value.EnumerateArray();
+            if (value.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var nested in new[] { "items", "records", "logs", "results", "data", "rows", "list" })
+                    if (value.TryGetProperty(nested, out var array) && array.ValueKind == JsonValueKind.Array)
+                        return array.EnumerateArray();
+                if (LooksLikeRecord(value)) return new[] { value };
+            }
+        }
+        return root.ValueKind == JsonValueKind.Array ? root.EnumerateArray() : Enumerable.Empty<JsonElement>();
+    }
+
+    private static bool LooksLikeRecord(JsonElement value)
+        => value.ValueKind == JsonValueKind.Object
+            && (value.TryGetProperty("created_at", out _)
+                || value.TryGetProperty("createdAt", out _)
+                || value.TryGetProperty("timestamp", out _)
+                || value.TryGetProperty("cost", out _)
+                || value.TryGetProperty("quota", out _));
 
     private static bool IsCandidate(NewApiUsageRecord record, UsageEventSnapshot target, TimeSpan tolerance)
     {

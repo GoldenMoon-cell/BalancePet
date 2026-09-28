@@ -287,6 +287,34 @@
             <TextBox x:Name="HeaderBox" TextChanged="OnSettingTextChanged" Margin="0,5,0,12"/>
             <TextBlock Text="访问令牌（留空保持现有令牌；无令牌时跳过测试）" TextWrapping="Wrap"/>
             <PasswordBox x:Name="TokenBox" PasswordChanged="OnSettingPasswordChanged" Margin="0,5,0,12"/>
+            <TextBlock Text="网页会话（可选，用于逐条费用明细）" TextWrapping="Wrap"/>
+            <PasswordBox x:Name="WebSessionBox" PasswordChanged="OnSettingPasswordChanged" Margin="0,5,0,2"/>
+            <TextBlock Text="优先尝试令牌明细接口；若站点没有该接口，再使用这里的 Cookie 或 websee-session 会话值。仅保存加密后的会话，不会上传。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,12">
+              <StackPanel>
+                <TextBlock Text="高级：从本机浏览器读取会话" FontWeight="SemiBold"/>
+                <TextBlock Text="推荐使用浏览器扩展连接；下方本地数据库读取仅作为旧版浏览器的备用方式。浏览器需要已经登录。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,8"/>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <ComboBox x:Name="BrowserSessionBrowserBox" Grid.Column="0" Margin="0,0,8,0" SelectionChanged="OnBrowserSessionBrowserChanged">
+                    <ComboBoxItem Tag="edge">Microsoft Edge</ComboBoxItem>
+                    <ComboBoxItem Tag="chrome">Google Chrome</ComboBoxItem>
+                  </ComboBox>
+                  <Button x:Name="ReadBrowserSessionButton" Grid.Column="1" Content="本地数据库读取（备用）" Click="OnReadBrowserSessionClick" Padding="12,5"/>
+                </Grid>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <Button Grid.Column="0" Content="通过浏览器扩展连接" Click="OnStartBrowserBridgeClick" Padding="12,5"/>
+                  <TextBlock Grid.Column="1" Text="配对码" VerticalAlignment="Center" Margin="10,0,5,0" Foreground="{DynamicResource MutedBrush}"/>
+                  <TextBlock x:Name="BrowserPairingCodeText" Grid.Column="2" Text="未连接" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </Grid>
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                  <Button x:Name="TestUsageSessionButton" Content="测试额度与明细" Click="OnTestUsageSessionClick" Padding="12,5"/>
+                  <TextBlock Text="保存后可验证余额接口和逐条费用明细" VerticalAlignment="Center" Margin="10,0,0,0" Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
+                </StackPanel>
+                <TextBlock x:Name="BrowserSessionStatusText" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,7,0,0"/>
+              </StackPanel>
+            </Border>
 
             <Grid>
               <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
@@ -411,7 +439,7 @@
                             <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource AccentBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"/>
                           </StackPanel>
                           <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                            <Button Content="{Binding ActionText}" ToolTip="{Binding InstallTooltip}" Click="OnInstallPluginCatalogItem" IsEnabled="{Binding CanInstall}" Style="{StaticResource CatalogActionButton}"/>
+                            <Button Content="{Binding ActionText}" ToolTip="{Binding InstallTooltip}" Click="OnInstallPluginCatalogItem" IsEnabled="{Binding CanInstall}" Visibility="{Binding ActionVisibility}" Style="{StaticResource CatalogActionButton}"/>
                             <Button Content="{Binding RepositoryText}" Click="OnOpenPluginCatalogRepository" ToolTip="{Binding RepositoryText}" Padding="4,3" Margin="0,5,0,0" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource AccentBrush}" FontSize="10"/>
                           </StackPanel>
                         </Grid>

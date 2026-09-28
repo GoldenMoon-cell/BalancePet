@@ -75,16 +75,21 @@ public sealed class JsonBalanceProvider(HttpClient http)
                 request.Headers.TryAddWithoutValidation(settings.HeaderName, token);
             else if (settings.AuthMode.Equals("authorization", StringComparison.OrdinalIgnoreCase))
                 request.Headers.TryAddWithoutValidation("Authorization", NormalizeAuthorization(token));
+            else if (settings.AuthMode.Equals("websee-session", StringComparison.OrdinalIgnoreCase))
+            {
+                var session = token.Trim();
+                if (session.StartsWith("Cookie:", StringComparison.OrdinalIgnoreCase)) session = session[7..].Trim();
+                request.Headers.TryAddWithoutValidation("Cookie", session.Contains('=', StringComparison.Ordinal)
+                    ? session
+                    : $"websee-session={session}");
+                var endpoint = new Uri(settings.Endpoint);
+                request.Headers.Referrer = new Uri(endpoint.GetLeftPart(UriPartial.Authority) + "/dashboard");
+                request.Headers.TryAddWithoutValidation("X-User-UI-Request", "1");
+                request.Headers.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9,en;q=0.8");
+            }
             else
             {
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", StripBearer(token));
-                if (settings.AuthMode.Equals("websee-session", StringComparison.OrdinalIgnoreCase))
-                {
-                    var endpoint = new Uri(settings.Endpoint);
-                    request.Headers.Referrer = new Uri(endpoint.GetLeftPart(UriPartial.Authority) + "/dashboard");
-                    request.Headers.TryAddWithoutValidation("X-User-UI-Request", "1");
-                    request.Headers.AcceptLanguage.ParseAdd("zh-CN,zh;q=0.9,en;q=0.8");
-                }
             }
         }
 

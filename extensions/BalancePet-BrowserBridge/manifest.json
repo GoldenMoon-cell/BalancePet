@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "BalancePet Browser Bridge",
+  "description": "将当前浏览器标签页的中转站会话安全传递给本机 BalancePet。",
+  "version": "1.0.0",
+  "permissions": ["activeTab", "alarms", "cookies", "permissions", "scripting", "storage", "tabs"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "host_permissions": ["http://127.0.0.1:28571/*"],
+  "content_scripts": [{
+    "matches": ["http://*/*", "https://*/*"],
+    "js": ["capture-main.js"],
+    "run_at": "document_start",
+    "world": "MAIN"
+  }],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "BalancePet 浏览器桥接",
+    "default_popup": "popup.html"
+  }
+}

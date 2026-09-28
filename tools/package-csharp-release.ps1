@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "1.2.0",
     [switch]$SkipInstaller,
     [string]$StagePath = ""
 )
@@ -59,6 +59,16 @@ Copy-Item (Join-Path $root "LICENSE") $stage
 Copy-Item (Join-Path $root "THIRD_PARTY_NOTICES.md") $stage
 Copy-Item (Join-Path $root "docs\UPGRADE.md") $stage
 Copy-Item (Join-Path $root "plugin-catalog.json") $stage
+# Include the optional browser bridge package in the portable/installer payload
+# when it has already been built. The main executable does not load the
+# extension automatically; this simply keeps the one-time setup package next
+# to the app for users who need browser-session based usage details.
+$browserBridgeZip = Get-ChildItem (Join-Path $root "extensions\BalancePet-BrowserBridge\dist") -Filter "balancepet.browser-bridge-*.zip" -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($null -ne $browserBridgeZip) {
+    $extensionStage = Join-Path $stage "extensions"
+    New-Item -ItemType Directory -Path $extensionStage -Force | Out-Null
+    Copy-Item $browserBridgeZip.FullName $extensionStage
+}
 New-Item -ItemType Directory -Path (Join-Path $stage "tools") -Force | Out-Null
 Copy-Item (Join-Path $root "tools\balancepet-task.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\balancepet-task.cmd") (Join-Path $stage "tools")

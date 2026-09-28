@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Text.Json;
 using Microsoft.Win32;
 using System.Windows;
@@ -25,6 +26,7 @@ public partial class SettingsWindow : Window
     private readonly SettingsStore _store;
     private readonly DpapiTokenStore _tokens;
     private readonly PetSettings _settings;
+    private readonly BrowserSessionBridgeServer? _browserSessionBridge;
     private readonly PetExtensionManager _extensions = new();
     private readonly FeatureExtensionManager _featureExtensions;
     private readonly ThemeExtensionManager _themes = new();
@@ -55,13 +57,14 @@ public partial class SettingsWindow : Window
     private const double CollapsedNavigationWidth = 58;
     private static readonly TimeSpan NavigationAnimationDuration = TimeSpan.FromMilliseconds(220);
 
-    public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings, FeatureExtensionManager? featureExtensions = null)
+    public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings, FeatureExtensionManager? featureExtensions = null, BrowserSessionBridgeServer? browserSessionBridge = null)
     {
-        InitializeComponent(); _store = store; _tokens = tokens; _settings = settings; _featureExtensions = featureExtensions ?? new FeatureExtensionManager();
+        InitializeComponent(); _store = store; _tokens = tokens; _settings = settings; _featureExtensions = featureExtensions ?? new FeatureExtensionManager(); _browserSessionBridge = browserSessionBridge;
+        if (_browserSessionBridge is not null) _browserSessionBridge.SessionReceived += OnBrowserSessionReceived;
         _themes.EnsureBundledThemeInstalled();
         _extensionUpdates = new ExtensionUpdateService(_extensionUpdateHttpClient);
         _pluginCatalog = new PluginCatalogService(_extensionUpdateHttpClient);
-        Closed += (_, _) => { _pluginCatalogCancellation.Cancel(); _pluginCatalogCancellation.Dispose(); _extensionUpdateHttpClient.Dispose(); };
+        Closed += (_, _) => { if (_browserSessionBridge is not null) _browserSessionBridge.SessionReceived -= OnBrowserSessionReceived; _pluginCatalogCancellation.Cancel(); _pluginCatalogCancellation.Dispose(); _extensionUpdateHttpClient.Dispose(); };
         Closing += OnWindowClosing;
         AddInstalledPetStyles();
         RefreshExtensionList();
@@ -1064,6 +1067,8 @@ public partial class SettingsWindow : Window
         AuthMode = profile.AuthMode,
         HeaderName = profile.HeaderName,
         TokenBlob = profile.TokenBlob,
+        WebSessionBlob = profile.WebSessionBlob,
+        BrowserSessionBrowser = profile.BrowserSessionBrowser,
         BalancePath = profile.BalancePath,
         Currency = profile.Currency,
         RefreshSeconds = profile.RefreshSeconds,
@@ -1113,6 +1118,20 @@ public partial class SettingsWindow : Window
         SelectByTag(AuthModeBox, profile.AuthMode);
         MonitorEnabledBox.IsChecked = profile.Enabled;
         TokenBox.Clear();
+        WebSessionBox.Clear();
+        SelectByTag(BrowserSessionBrowserBox, string.Equals(profile.BrowserSessionBrowser, "chrome", StringComparison.OrdinalIgnoreCase) ? "chrome" : "edge");
+        if (!string.IsNullOrWhiteSpace(profile.WebSessionBlob))
+        {
+            BrowserPairingCodeText.Text = "已保存";
+            BrowserSessionStatusText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
+            BrowserSessionStatusText.Text = "网页会话已加密保存。点击“应用”或“确定”后，刷新用量记录即可验证费用明细接口。";
+        }
+        else
+        {
+            BrowserPairingCodeText.Text = "未连接";
+            BrowserSessionStatusText.Foreground = ThemeBrush("MutedBrush", System.Windows.Media.Brushes.Gray);
+            BrowserSessionStatusText.Text = "";
+        }
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
         UpdatePresetUi(true);
         UpdateAccountSummary();
@@ -1231,6 +1250,13 @@ public partial class SettingsWindow : Window
         if (double.TryParse(ThresholdBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold)) profile.LowThreshold = threshold;
         profile.Enabled = MonitorEnabledBox.IsChecked == true;
         if (!string.IsNullOrWhiteSpace(TokenBox.Password)) profile.TokenBlob = _tokens.Protect(TokenBox.Password);
+        if (!string.IsNullOrWhiteSpace(WebSessionBox.Password)) profile.WebSessionBlob = _tokens.Protect(WebSessionBox.Password);
+        profile.BrowserSessionBrowser = SelectedTag(BrowserSessionBrowserBox, profile.BrowserSessionBrowser).Equals("chrome", StringComparison.OrdinalIgnoreCase) ? "chrome" : "edge";
+    }
+
+    private void OnBrowserSessionBrowserChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_suppressProfileChange && _trackChanges) MarkSettingsDirty();
     }
 
     private void OnProfileNameChanged(object sender, TextChangedEventArgs e)
@@ -1672,6 +1698,193 @@ public partial class SettingsWindow : Window
             "custom" => AppLocalization.Text(language, "令牌框填写 Header 值；上方 Header 名必须与中转站文档完全一致。", "Enter the header value; the header name above must exactly match the relay documentation."),
             _ => AppLocalization.Text(language, "请以中转站接口文档要求为准。", "Follow the requirements in the relay API documentation.")
         };
+    }
+
+    private async void OnReadBrowserSessionClick(object sender, RoutedEventArgs e)
+    {
+        var site = BalancePresetCatalog.UsesSiteUrl(SelectedTag(PresetBox, BalancePresetCatalog.Custom))
+            ? SiteUrlBox.Text
+            : EndpointBox.Text;
+        site = BalancePresetCatalog.NormalizeSiteUrl(site);
+        if (!Uri.TryCreate(site, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        {
+            BrowserSessionStatusText.Text = "请先填写有效的中转站地址。";
+            return;
+        }
+
+        var browser = SelectedTag(BrowserSessionBrowserBox, "edge");
+        ReadBrowserSessionButton.IsEnabled = false;
+        BrowserSessionStatusText.Text = $"正在读取 {uri.Host} 的本地浏览器会话……";
+        try
+        {
+            var result = await new BrowserSessionReader().ReadAsync(site, browser);
+            if (result.Success)
+            {
+                WebSessionBox.Password = result.CookieHeader;
+                BrowserSessionStatusText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
+                BrowserSessionStatusText.Text = $"{result.Message}（{result.CookieCount} 项，点击“应用”或“确定”后加密保存）";
+                MarkSettingsDirty();
+            }
+            else
+            {
+                BrowserSessionStatusText.Foreground = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
+                BrowserSessionStatusText.Text = result.Message;
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception error)
+        {
+            BrowserSessionStatusText.Foreground = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
+            BrowserSessionStatusText.Text = $"读取浏览器会话失败：{error.Message}";
+        }
+        finally
+        {
+            ReadBrowserSessionButton.IsEnabled = true;
+        }
+    }
+
+    private void OnStartBrowserBridgeClick(object sender, RoutedEventArgs e)
+    {
+        if (_browserSessionBridge is null)
+        {
+            BrowserSessionStatusText.Text = "当前主程序未启用浏览器桥接服务。";
+            return;
+        }
+        var profile = CurrentProfile;
+        var site = BalancePresetCatalog.UsesSiteUrl(SelectedTag(PresetBox, BalancePresetCatalog.Custom))
+            ? SiteUrlBox.Text
+            : EndpointBox.Text;
+        site = BalancePresetCatalog.NormalizeSiteUrl(site);
+        if (profile is null || !Uri.TryCreate(site, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        {
+            BrowserSessionStatusText.Text = "请先填写有效的中转站地址。";
+            return;
+        }
+        try
+        {
+            var pairing = _browserSessionBridge.StartPairing(profile.Id, site);
+            BrowserPairingCodeText.Text = pairing.Code;
+            BrowserSessionStatusText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
+            BrowserSessionStatusText.Text = $"请在浏览器扩展中输入配对码，当前站点：{pairing.SiteHost}。配对码初始 10 分钟有效；每次同步成功会自动续期。";
+        }
+        catch (SocketException)
+        {
+            BrowserSessionStatusText.Foreground = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
+            BrowserSessionStatusText.Text = "本机桥接端口被占用，请关闭其他 BalancePet 实例后重试。";
+        }
+        catch (Exception error)
+        {
+            BrowserSessionStatusText.Foreground = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
+            BrowserSessionStatusText.Text = $"启动浏览器桥接失败：{error.Message}";
+        }
+    }
+
+    private void OnBrowserSessionReceived(object? sender, BrowserSessionReceivedEventArgs args)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (!string.Equals(args.ProfileId, _currentProfileId, StringComparison.OrdinalIgnoreCase)) return;
+            var browserCredential = args.AuthorizationHeader;
+            if (!string.IsNullOrWhiteSpace(browserCredential) && !string.IsNullOrWhiteSpace(args.UserId))
+                browserCredential += $"; New-Api-User: {args.UserId}";
+            WebSessionBox.Password = !string.IsNullOrWhiteSpace(browserCredential)
+                ? browserCredential
+                : args.CookieHeader;
+            BrowserPairingCodeText.Text = "已连接";
+            BrowserSessionStatusText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
+            var authHint = string.IsNullOrWhiteSpace(args.AuthorizationHeader) ? "" : "、页面访问令牌";
+            BrowserSessionStatusText.Text = $"已通过浏览器扩展读取 {args.CookieCount} 项 Cookie、{args.StorageCount} 项网页会话{authHint}；正在解析 {args.UsageResponses.Count} 项用量响应。点击“应用”或“确定”后加密保存。";
+            MarkSettingsDirty();
+            _ = ImportBrowserUsageResponsesAsync(args.UsageResponses);
+        }));
+    }
+
+    private async Task ImportBrowserUsageResponsesAsync(IReadOnlyList<BrowserUsageResponse> responses)
+    {
+        if (responses.Count == 0) return;
+        try
+        {
+            var profile = CurrentProfile;
+            if (profile is null) return;
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            var count = await new NewApiUsageProvider(client).ImportRawResponsesAsync(profile, responses);
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (count > 0)
+                    BrowserSessionStatusText.Text = $"已通过浏览器扩展读取会话，并解析到 {count} 条费用明细；点击“应用”或“确定”保存会话。";
+                else
+                    BrowserSessionStatusText.Text = $"会话已读取 {responses.Count} 项页面响应，但仍未解析到费用字段。";
+            });
+        }
+        catch (Exception error)
+        {
+            await Dispatcher.InvokeAsync(() => BrowserSessionStatusText.Text = $"会话已读取，但用量明细解析失败：{error.Message}");
+        }
+    }
+
+    private async void OnTestUsageSessionClick(object sender, RoutedEventArgs e)
+    {
+        var profile = CurrentProfile;
+        if (profile is null)
+        {
+            BrowserSessionStatusText.Text = "请先选择一个监控账户。";
+            return;
+        }
+
+        SaveCurrentProfileFields();
+        string token;
+        string session;
+        try
+        {
+            token = _tokens.Unprotect(profile.TokenBlob);
+            session = !string.IsNullOrWhiteSpace(WebSessionBox.Password)
+                ? WebSessionBox.Password
+                : _tokens.Unprotect(profile.WebSessionBlob);
+        }
+        catch (Exception error)
+        {
+            BrowserSessionStatusText.Foreground = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
+            BrowserSessionStatusText.Text = $"会话解密失败：{error.Message}";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(token) && string.IsNullOrWhiteSpace(session))
+        {
+            BrowserSessionStatusText.Foreground = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
+            BrowserSessionStatusText.Text = "没有可测试的访问令牌或网页会话，请先完成配对并点击应用。";
+            return;
+        }
+
+        TestUsageSessionButton.IsEnabled = false;
+        BrowserSessionStatusText.Foreground = ThemeBrush("MutedBrush", System.Windows.Media.Brushes.Gray);
+        BrowserSessionStatusText.Text = "正在测试余额接口和逐条费用明细……";
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            var balanceText = "余额接口未测试";
+            if (!string.IsNullOrWhiteSpace(token))
+            {
+                var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(profile, token);
+                balanceText = $"余额 {snapshot.Amount:0.00} {snapshot.Currency}";
+            }
+
+            var records = NewApiUsageProvider.Supports(profile)
+                ? await new NewApiUsageProvider(client).FetchRecentAsync(profile, token, session)
+                : Array.Empty<NewApiUsageRecord>();
+            BrowserSessionStatusText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
+            BrowserSessionStatusText.Text = records.Count > 0
+                ? $"测试成功：{balanceText}；读取到 {records.Count} 条费用明细。"
+                : $"{balanceText}；会话已保存，但费用明细接口暂未返回可解析记录。";
+        }
+        catch (Exception error)
+        {
+            BrowserSessionStatusText.Foreground = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
+            BrowserSessionStatusText.Text = $"会话已保存，但接口测试失败：{error.Message}";
+        }
+        finally
+        {
+            TestUsageSessionButton.IsEnabled = true;
+        }
     }
 
     private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)

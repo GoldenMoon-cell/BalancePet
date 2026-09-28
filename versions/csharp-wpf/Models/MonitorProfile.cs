@@ -15,6 +15,11 @@ public sealed class MonitorProfile
     [JsonPropertyName("auth_mode")] public string AuthMode { get; set; } = "bearer";
     [JsonPropertyName("header_name")] public string HeaderName { get; set; } = "Authorization";
     [JsonPropertyName("token_blob")] public string TokenBlob { get; set; } = "";
+    // Optional read-only web session used only for per-request usage details
+    // when the relay does not expose those records through its API token.
+    [JsonPropertyName("web_session_blob")] public string WebSessionBlob { get; set; } = "";
+    // Browser used by the optional local database reader. The extension path is browser-agnostic.
+    [JsonPropertyName("browser_session_browser")] public string BrowserSessionBrowser { get; set; } = "edge";
     [JsonPropertyName("balance_path")] public string BalancePath { get; set; } = "balance";
     [JsonPropertyName("currency")] public string Currency { get; set; } = "USD";
     [JsonPropertyName("refresh_seconds")] public int RefreshSeconds { get; set; } = 60;

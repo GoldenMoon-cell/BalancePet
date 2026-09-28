@@ -37,13 +37,19 @@ public sealed class DpapiTokenStore
     {
         if (string.IsNullOrEmpty(encoded)) return "";
         var bytes = Convert.FromBase64String(encoded);
+        return Encoding.UTF8.GetString(UnprotectBytes(bytes));
+    }
+
+    public byte[] UnprotectBytes(byte[] bytes)
+    {
+        if (bytes is null || bytes.Length == 0) return Array.Empty<byte>();
         var input = new DataBlob { Size = bytes.Length, Data = Marshal.AllocHGlobal(bytes.Length) };
         Marshal.Copy(bytes, 0, input.Data, bytes.Length);
         try
         {
             var output = new DataBlob();
             if (!CryptUnprotectData(ref input, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, 0, ref output)) throw new SecurityException("DPAPI unprotect failed");
-            try { var clearBytes = new byte[output.Size]; Marshal.Copy(output.Data, clearBytes, 0, output.Size); return Encoding.UTF8.GetString(clearBytes); }
+            try { var clearBytes = new byte[output.Size]; Marshal.Copy(output.Data, clearBytes, 0, output.Size); return clearBytes; }
             finally { LocalFree(output.Data); }
         }
         finally { Marshal.FreeHGlobal(input.Data); }

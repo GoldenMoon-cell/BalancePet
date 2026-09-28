@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.10
+
+- Continue consuming the host-written per-request cost and reasoning details without reading provider credentials.
+- Refresh usage rows when the main program completes browser-session based cost reconciliation.
+
 ## 0.3.9
 
 - Increase the usage-event line limit so tasks with many per-request details remain readable.

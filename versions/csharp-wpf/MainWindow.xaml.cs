@@ -56,6 +56,7 @@ public partial class MainWindow : Window
     private readonly NotificationStateStore _notificationStateStore = new();
     private readonly BalanceUsageSnapshotStore _balanceUsageSnapshotStore = new();
     private readonly ServerUsageSummaryStore _serverUsageSummaryStore = new();
+    private readonly BrowserSessionBridgeServer _browserSessionBridge = new();
     private readonly FeatureExtensionManager _featureExtensions = new();
     private readonly DispatcherTimer _stateTimer;
     private readonly DispatcherTimer _inactiveTimer;
@@ -261,6 +262,7 @@ public partial class MainWindow : Window
         _codexTaskBridge.ActivityReceived += OnCodexTaskActivityReceived;
         _ccSwitchAccountBridge.ActivityReceived += OnAccountStatusReceived;
         _ccSwitchAccountBridge.StatusChanged += OnCCSwitchStatusChanged;
+        _browserSessionBridge.SessionReceived += OnBrowserSessionReceivedForUsage;
         _stateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _stateTimer.Tick += (_, _) => RestoreSteadyVisualState();
         _inactiveTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(15) };
@@ -312,6 +314,8 @@ public partial class MainWindow : Window
             _usageEventBridge.Dispose();
             StopUsageRefreshRequestListener();
             _notificationEventStore.Dispose();
+            _browserSessionBridge.SessionReceived -= OnBrowserSessionReceivedForUsage;
+            _browserSessionBridge.Dispose();
             _featureExtensions.Dispose();
             UnregisterTaskbarCreatedHook();
             SavePosition(); DisposeTray(); _httpClient.Dispose(); _updateHttpClient.Dispose();
@@ -1411,7 +1415,7 @@ public partial class MainWindow : Window
         await StopActiveRefreshAsync();
         try
         {
-            var dialog = new SettingsWindow(_settingsStore, _tokenStore, _settings, _featureExtensions) { Owner = this };
+            var dialog = new SettingsWindow(_settingsStore, _tokenStore, _settings, _featureExtensions, _browserSessionBridge) { Owner = this };
             dialog.SettingsAppliedChanged += OnSettingsAppliedFromDialog;
             dialog.ShowDialog();
         }
@@ -2606,6 +2610,15 @@ public partial class MainWindow : Window
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
+    private string TryUnprotectSecret(string? blob)
+    {
+        if (string.IsNullOrWhiteSpace(blob)) return "";
+        try { return _tokenStore.Unprotect(blob); }
+        catch (FormatException) { return ""; }
+        catch (System.Security.SecurityException) { return ""; }
+        catch (CryptographicException) { return ""; }
+    }
+
     private static string DisplayCurrency(string? currency) => string.IsNullOrWhiteSpace(currency) ? "" : currency.Trim().ToUpperInvariant();
 
     private static string FormatAccountBalance(double amount, string? currency)
@@ -2896,7 +2909,8 @@ public partial class MainWindow : Window
             {
                 if (!firstAttempt) await Task.Delay(ServerCostBackfillPoll, _usageCostSyncCancellation.Token);
                 firstAttempt = false;
-                var records = await _newApiUsageProvider.FetchRecentAsync(profile, token, _usageCostSyncCancellation.Token);
+                var session = TryUnprotectSecret(profile.WebSessionBlob);
+                var records = await _newApiUsageProvider.FetchRecentAsync(profile, token, session, _usageCostSyncCancellation.Token);
                 IReadOnlyList<NewApiUsageRecord> matches;
                 if (target.Details is { Count: > 0 } localDetails
                     && _newApiUsageProvider.TryTakeDetailMatches(records, localDetails, out var detailMatches))
@@ -3019,6 +3033,30 @@ public partial class MainWindow : Window
             .ToArray()
             ?? Array.Empty<UsageEventDetailSnapshot>();
 
+    private async void OnBrowserSessionReceivedForUsage(object? sender, BrowserSessionReceivedEventArgs args)
+    {
+        if (_closing || args.UsageResponses.Count == 0) return;
+        try
+        {
+            var profile = await Dispatcher.InvokeAsync(() =>
+                _monitorStates.Values
+                    .FirstOrDefault(value => string.Equals(value.Profile.Id, args.ProfileId, StringComparison.OrdinalIgnoreCase))
+                    ?.Profile);
+            if (profile is null || !NewApiUsageProvider.Supports(profile)) return;
+
+            // The settings dialog also imports the initial snapshot. This
+            // handler is intentionally independent so later background bridge
+            // uploads still work after the dialog has been closed.
+            await _newApiUsageProvider.ImportRawResponsesAsync(
+                profile, args.UsageResponses, _usageCostSyncCancellation.Token);
+            _ = SyncRecentUsageCostsAsync();
+        }
+        catch (OperationCanceledException) when (_usageCostSyncCancellation.IsCancellationRequested) { }
+        catch (HttpRequestException) { }
+        catch (InvalidDataException) { }
+        catch (JsonException) { }
+        catch (IOException) { }
+    }
     private async Task SyncRecentUsageCostsAsync()
     {
         try
@@ -3045,7 +3083,8 @@ public partial class MainWindow : Window
                 IReadOnlyList<NewApiUsageRecord> records;
                 try
                 {
-                    records = await _newApiUsageProvider.FetchRecentAsync(runtime.Profile, token, _usageCostSyncCancellation.Token);
+                    var session = TryUnprotectSecret(runtime.Profile.WebSessionBlob);
+                    records = await _newApiUsageProvider.FetchRecentAsync(runtime.Profile, token, session, _usageCostSyncCancellation.Token);
                 }
                 catch (HttpRequestException) { continue; }
                 catch (InvalidDataException) { continue; }

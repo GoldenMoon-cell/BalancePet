@@ -146,17 +146,21 @@ public sealed class PluginCatalogService
 
     private static bool Validate(PluginCatalogRecord item)
     {
-        if (item.Type is not ("feature" or "pet" or "theme")) return false;
+        if (item.Type is not ("feature" or "pet" or "theme" or "browser")) return false;
         if (string.IsNullOrWhiteSpace(item.Id) || item.Id.Length is < 2 or > 96) return false;
         if (!item.Id.All(ch => (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch is '.' or '-')) return false;
         if (item.Type == "feature" && !item.Id.StartsWith("balancepet.ext.", StringComparison.Ordinal)) return false;
+        if (item.Type == "browser" && !item.Id.StartsWith("balancepet.browser.", StringComparison.Ordinal)) return false;
         if (string.IsNullOrWhiteSpace(item.Name) || item.Name.Length > 120 || item.NameEn.Length > 120) return false;
         if (!IsVersion(item.Version) || (!string.IsNullOrWhiteSpace(item.MinCoreVersion) && !IsVersion(item.MinCoreVersion))) return false;
         if (!IsHttps(item.RepositoryUrl, "github.com") || !IsHttps(item.ReleaseUrl, "github.com")) return false;
-        if (!IsHttps(item.DownloadUrl, "github.com") || !item.DownloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) return false;
-        if (!IsGitHubReleaseAsset(item.DownloadUrl)) return false;
+        if (item.Type != "browser")
+        {
+            if (!IsHttps(item.DownloadUrl, "github.com") || !item.DownloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) return false;
+            if (!IsGitHubReleaseAsset(item.DownloadUrl)) return false;
+            if (item.Sha256.Length != 64 || !item.Sha256.All(IsHex)) return false;
+        }
         if (!string.IsNullOrWhiteSpace(item.UpdateUrl) && !IsGitHubLatestEndpoint(item.UpdateUrl)) return false;
-        if (item.Sha256.Length != 64 || !item.Sha256.All(IsHex)) return false;
         return true;
     }
 
@@ -208,25 +212,40 @@ public sealed class PluginCatalogItemView
     public bool IsCompatible { get; }
     public string InstalledVersion { get; }
     public bool IsBusy { get; set; }
+    public bool IsRepositoryOnly => Record.Type.Equals("browser", StringComparison.OrdinalIgnoreCase);
+    public System.Windows.Visibility ActionVisibility => IsRepositoryOnly ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
 
     public string Id => Record.Id;
     public string Name => IsEnglish && !string.IsNullOrWhiteSpace(Record.NameEn) ? Record.NameEn : Record.Name;
     public string Description => IsEnglish && !string.IsNullOrWhiteSpace(Record.DescriptionEn) ? Record.DescriptionEn : Record.Description;
+    public string TypeText => Record.Type switch
+    {
+        "browser" => IsEnglish ? "Browser extension" : "浏览器扩展",
+        "feature" => IsEnglish ? "Feature" : "功能扩展",
+        "theme" => IsEnglish ? "Theme" : "主题",
+        "pet" => IsEnglish ? "Pet" : "资源扩展",
+        _ => Record.Type
+    };
     public string MetaText => string.Join("  ·  ", new[]
     {
+        TypeText,
         string.IsNullOrWhiteSpace(Record.Author) ? "" : (IsEnglish ? $"By {Record.Author}" : $"作者：{Record.Author}"),
         IsEnglish ? $"v{Record.Version}" : $"v{Record.Version}",
         string.IsNullOrWhiteSpace(Record.MinCoreVersion) ? "" : (IsEnglish ? $"Core ≥ {Record.MinCoreVersion}" : $"核心 ≥ {Record.MinCoreVersion}"),
         Record.Categories.Count == 0 ? "" : string.Join(" / ", Record.Categories)
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
-    public string StatusText => !IsCompatible
+    public string StatusText => IsRepositoryOnly
+        ? (IsEnglish ? "Browser extension · open its repository to install" : "浏览器扩展 · 请打开仓库安装")
+        : !IsCompatible
         ? (IsEnglish ? "Requires a newer BalancePet core" : "需要更新的 BalancePet 核心")
         : HasUpdate
             ? (IsEnglish ? $"Installed v{InstalledVersion} · update available v{Record.Version}" : $"已安装 v{InstalledVersion} · 可更新到 v{Record.Version}")
             : IsInstalled
                 ? (IsEnglish ? $"Installed v{InstalledVersion} · up to date" : $"已安装 v{InstalledVersion} · 已是最新版本")
                 : (IsEnglish ? "Available from the curated plugin catalog" : "来自官方插件目录，可安全检查后安装");
-    public string ActionText => !IsCompatible
+    public string ActionText => IsRepositoryOnly
+        ? (IsEnglish ? "Repository only" : "仅打开仓库")
+        : !IsCompatible
         ? (IsEnglish ? "Incompatible" : "不兼容")
         : IsBusy
             ? (IsEnglish ? "Installing…" : "安装中…")
@@ -235,8 +254,10 @@ public sealed class PluginCatalogItemView
                 : IsInstalled
                     ? (IsEnglish ? "Installed" : "已安装")
                     : (IsEnglish ? "Install" : "安装");
-    public bool CanInstall => IsCompatible && !IsBusy && (!IsInstalled || HasUpdate);
-    public string InstallTooltip => CanInstall ? (IsEnglish ? "Download, verify, and install" : "下载、校验并安装") : StatusText;
+    public bool CanInstall => !IsRepositoryOnly && IsCompatible && !IsBusy && (!IsInstalled || HasUpdate);
+    public string InstallTooltip => IsRepositoryOnly
+        ? RepositoryText
+        : CanInstall ? (IsEnglish ? "Download, verify, and install" : "下载、校验并安装") : StatusText;
     public string RepositoryText => IsEnglish ? "Open repository" : "打开仓库";
 
     public PluginCatalogItemView(PluginCatalogRecord record, ExtensionCatalogEntry? installed, bool isEnglish)

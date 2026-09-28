@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-26T12:00:00Z",
+  "updated_at": "2026-09-28T12:00:00Z",
   "plugins": [
     {
       "id": "balancepet.ext.feature.usage-analytics",
@@ -10,13 +10,13 @@
       "description": "本地 Token、缓存和请求耗时统计仪表盘。",
       "description_en": "A local dashboard for token, cache, and request-duration metrics.",
       "author": "GoldenMoon-cell",
-      "version": "0.3.9",
+      "version": "0.3.10",
       "min_core_version": "0.7.7",
       "update_url": "https://api.github.com/repos/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/latest",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/download/v0.3.9/balancepet.ext.feature.usage-analytics-0.3.9-win-x64.zip",
-      "sha256": "4a97cee0a58f9d90cc9a348f9579e86ec110dc423fe69850d4a9a6327d82ae5c",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/download/v0.3.10/balancepet.ext.feature.usage-analytics-0.3.10-win-x64.zip",
+      "sha256": "2853c5cac722a42f7d6cc36cab2a04f26ca787d9f15479ae3d8773e135bba34b",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/tag/v0.3.9",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics/releases/tag/v0.3.10",
       "categories": ["统计", "工具"]
     },
     {
@@ -52,6 +52,23 @@
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Theme-Mica",
       "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Theme-Mica/releases/tag/v1.0.0",
       "categories": ["主题", "外观"]
+    },
+    {
+      "id": "balancepet.browser.bridge",
+      "type": "browser",
+      "name": "BalancePet 浏览器桥接",
+      "name_en": "BalancePet Browser Bridge",
+      "description": "通过浏览器扩展将已登录中转站的会话和用量响应同步给 BalancePet。",
+      "description_en": "A browser extension that syncs a logged-in relay session and usage responses to BalancePet.",
+      "author": "GoldenMoon-cell",
+      "version": "1.0.0",
+      "min_core_version": "1.2.0",
+      "update_url": "",
+      "download_url": "",
+      "sha256": "",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-BrowserBridge",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-BrowserBridge/releases/tag/v1.0.0",
+      "categories": ["浏览器", "会话", "工具"]
     }
   ]
 }

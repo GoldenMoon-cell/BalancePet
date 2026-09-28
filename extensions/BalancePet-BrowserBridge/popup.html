@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BalancePet 浏览器桥接</title>
+  <style>
+    :root { color-scheme: light; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+    body { width: 320px; margin: 0; padding: 18px; color: #1f2d32; background: #edf4f3; }
+    h1 { font-size: 17px; margin: 0 0 8px; }
+    p { font-size: 12px; line-height: 1.55; color: #5d6d70; margin: 0 0 12px; }
+    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; }
+    input { box-sizing: border-box; width: 100%; border: 1px solid #b8c8c6; border-radius: 7px; padding: 8px 9px; background: white; font-size: 15px; letter-spacing: 2px; }
+    button { width: 100%; margin-top: 12px; border: 0; border-radius: 7px; padding: 9px; color: white; background: #16877e; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    #status { min-height: 34px; margin-top: 10px; font-size: 12px; line-height: 1.5; color: #5d6d70; }
+    .ok { color: #087b66 !important; }
+    .error { color: #a55a1e !important; }
+  </style>
+</head>
+<body>
+  <h1>BalancePet 浏览器桥接</h1>
+  <p>先在 BalancePet 设置中生成配对码，再在当前已登录的中转站页面点击同步。Cookie 只发送到本机 BalancePet。</p>
+  <label for="code">BalancePet 配对码</label>
+  <input id="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="输入 6 位配对码">
+  <button id="sync">同步当前站点会话</button>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
