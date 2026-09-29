@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Windows.Input;
@@ -27,6 +28,7 @@ public partial class MainWindow : Window
     private IReadOnlyList<UsageEvent> _lastEvents = Array.Empty<UsageEvent>();
     private TrendRange _trendRange = TrendRange.Last7Days;
     private DateTimeOffset _nextRefreshAt = DateTimeOffset.Now.Add(AutoRefreshInterval);
+    private EventRow? _selectedEvent;
 
     public MainWindow(string dataDirectory)
     {
@@ -77,6 +79,7 @@ public partial class MainWindow : Window
 
     private void OnDashboardNavClick(object sender, RoutedEventArgs e)
     {
+        HideEventDetail(immediate: true);
         ContentScrollViewer.Visibility = Visibility.Visible;
         HistoryScrollViewer.Visibility = Visibility.Collapsed;
         ContentScrollViewer.ScrollToTop();
@@ -85,9 +88,165 @@ public partial class MainWindow : Window
 
     private void OnHistoryNavClick(object sender, RoutedEventArgs e)
     {
+        HideEventDetail(immediate: true);
         ContentScrollViewer.Visibility = Visibility.Collapsed;
         HistoryScrollViewer.Visibility = Visibility.Visible;
         SetActiveNav(HistoryNav);
+    }
+
+    private void OnEventCardClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: EventRow row })
+        {
+            e.Handled = true;
+            ShowEventDetail(row);
+        }
+    }
+
+    private void OnEventSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (EventsList.SelectedItem is EventRow row && !ReferenceEquals(_selectedEvent, row))
+            ShowEventDetail(row);
+    }
+
+    private void OnDetailBackClick(object sender, RoutedEventArgs e) => HideEventDetail();
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && HistoryDetailView.Visibility == Visibility.Visible)
+        {
+            e.Handled = true;
+            HideEventDetail();
+        }
+    }
+
+    private void ShowEventDetail(EventRow row)
+    {
+        _selectedEvent = row;
+        EventsList.SelectedItem = row;
+        HistoryDetailView.DataContext = row;
+        ContentScrollViewer.Visibility = Visibility.Collapsed;
+        HistoryScrollViewer.Visibility = Visibility.Collapsed;
+        HistoryDetailView.Visibility = Visibility.Visible;
+        HistoryDetailView.Opacity = 0;
+        HistoryDetailScale.ScaleX = 0.97;
+        HistoryDetailScale.ScaleY = 0.97;
+        DrawDetailCharts(row);
+
+        var duration = new Duration(TimeSpan.FromMilliseconds(230));
+        HistoryDetailView.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, duration) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+        HistoryDetailScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.97, 1, duration) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+        HistoryDetailScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.97, 1, duration) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+        Dispatcher.BeginInvoke(() => HistoryDetailScrollViewer.ScrollToTop(), DispatcherPriority.Background);
+    }
+
+    private void HideEventDetail(bool immediate = false)
+    {
+        if (HistoryDetailView.Visibility != Visibility.Visible && !immediate) return;
+        if (immediate)
+        {
+            HistoryDetailView.BeginAnimation(UIElement.OpacityProperty, null);
+            HistoryDetailView.Visibility = Visibility.Collapsed;
+            _selectedEvent = null;
+            return;
+        }
+
+        var duration = new Duration(TimeSpan.FromMilliseconds(180));
+        var fade = new DoubleAnimation(1, 0, duration) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
+        fade.Completed += (_, _) =>
+        {
+            HistoryDetailView.Visibility = Visibility.Collapsed;
+            HistoryScrollViewer.Visibility = Visibility.Visible;
+            HistoryDetailView.Opacity = 0;
+            _selectedEvent = null;
+            EventsList.SelectedItem = null;
+        };
+        HistoryDetailView.BeginAnimation(UIElement.OpacityProperty, fade);
+        HistoryDetailScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, 0.97, duration));
+        HistoryDetailScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, 0.97, duration));
+    }
+
+    private void OnDetailChartSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_selectedEvent is not null) DrawDetailCharts(_selectedEvent);
+    }
+
+    private void DrawDetailCharts(EventRow row)
+    {
+        DrawTokenComposition(row);
+        DrawCostTimeline(row);
+    }
+
+    private void DrawTokenComposition(EventRow row)
+    {
+        TokenCompositionChart.Children.Clear();
+        var values = new[]
+        {
+            (Name: "输入", Value: row.InputTokensValue, Brush: (Brush)FindResource("BlueBrush")),
+            (Name: "缓存读取", Value: row.CacheReadTokensValue, Brush: new SolidColorBrush(Color.FromRgb(21, 199, 215))),
+            (Name: "输出", Value: row.OutputTokensValue, Brush: (Brush)FindResource("AccentBrush")),
+            (Name: "缓存写入", Value: row.CacheWriteTokensValue, Brush: (Brush)FindResource("OrangeBrush"))
+        };
+        var max = values.Max(value => value.Value);
+        TokenChartEmpty.Visibility = max <= 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (max <= 0) return;
+
+        var width = Math.Max(180, TokenCompositionChart.ActualWidth);
+        var labelWidth = 58d;
+        var valueWidth = 64d;
+        var barWidth = Math.Max(40, width - labelWidth - valueWidth);
+        for (var index = 0; index < values.Length; index++)
+        {
+            var item = values[index];
+            var y = index * 17d;
+            AddChartText(TokenCompositionChart, item.Name, 0, y - 2, (Brush)FindResource("MutedBrush"), 10);
+            var track = new Border { Width = barWidth, Height = 7, Background = new SolidColorBrush(Color.FromRgb(32, 52, 76)), CornerRadius = new CornerRadius(4) };
+            Canvas.SetLeft(track, labelWidth); Canvas.SetTop(track, y + 1); TokenCompositionChart.Children.Add(track);
+            var fill = new Border { Width = Math.Max(item.Value > 0 ? 3 : 0, barWidth * item.Value / max), Height = 7, Background = item.Brush, CornerRadius = new CornerRadius(4) };
+            Canvas.SetLeft(fill, labelWidth); Canvas.SetTop(fill, y + 1); TokenCompositionChart.Children.Add(fill);
+            AddChartText(TokenCompositionChart, item.Value > 0 ? UsageFormatting.Tokens(item.Value) : "—", labelWidth + barWidth + 7, y - 2, (Brush)FindResource("TextBrush"), 10);
+        }
+    }
+
+    private void DrawCostTimeline(EventRow row)
+    {
+        CostTimelineChart.Children.Clear();
+        var values = row.Details.Where(detail => detail.CostValue.HasValue).ToArray();
+        CostChartEmpty.Visibility = values.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (values.Length == 0) return;
+
+        var width = Math.Max(220, CostTimelineChart.ActualWidth);
+        var height = Math.Max(54, CostTimelineChart.ActualHeight);
+        var max = Math.Max(0.000001, values.Max(value => value.CostValue!.Value));
+        var left = 8d;
+        var bottom = height - 16;
+        var plotWidth = Math.Max(80, width - 16);
+        var step = plotWidth / Math.Max(1, values.Length);
+        var barWidth = Math.Max(3, Math.Min(18, step * 0.58));
+        var baseline = new Border { Width = plotWidth, Height = 1, Background = (Brush)FindResource("PanelBorderStrongBrush") };
+        Canvas.SetLeft(baseline, left); Canvas.SetTop(baseline, bottom); CostTimelineChart.Children.Add(baseline);
+        for (var index = 0; index < values.Length; index++)
+        {
+            var value = values[index];
+            var barHeight = Math.Max(3, (height - 28) * value.CostValue!.Value / max);
+            var bar = new Border
+            {
+                Width = barWidth,
+                Height = barHeight,
+                Background = (Brush)FindResource("PurpleBrush"),
+                CornerRadius = new CornerRadius(3),
+                ToolTip = $"{value.TimeText} · {value.CostText}"
+            };
+            Canvas.SetLeft(bar, left + index * step + (step - barWidth) / 2); Canvas.SetTop(bar, bottom - barHeight); CostTimelineChart.Children.Add(bar);
+        }
+        AddChartText(CostTimelineChart, UsageFormatting.Currency(max, row.Currency), 8, 0, (Brush)FindResource("MutedBrush"), 10);
+        AddChartText(CostTimelineChart, values.Length == 1 ? "1 次请求" : $"{values.Length} 次请求", Math.Max(8, width - 62), bottom + 4, (Brush)FindResource("MutedBrush"), 10);
+    }
+
+    private static void AddChartText(Canvas canvas, string text, double left, double top, Brush brush, double fontSize)
+    {
+        var label = new TextBlock { Text = text, Foreground = brush, FontSize = fontSize, IsHitTestVisible = false };
+        Canvas.SetLeft(label, left); Canvas.SetTop(label, top); canvas.Children.Add(label);
     }
 
     private void OnTrendRangeChanged(object sender, SelectionChangedEventArgs e)
@@ -246,7 +405,19 @@ public partial class MainWindow : Window
         ModelItems.ItemsSource = modelValues.Select((value, index) => new ModelRow(value.Name, value.Events.Length, value.Tokens, modelBasis, Palette(index + 1))).ToArray();
         ModelEmpty.Visibility = modelValues.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        EventsList.ItemsSource = events.Select(value => new EventRow(value)).ToArray();
+        var eventRows = events.Select(value => new EventRow(value)).ToArray();
+        EventsList.ItemsSource = eventRows;
+        if (_selectedEvent is not null)
+        {
+            var refreshed = eventRows.FirstOrDefault(value => string.Equals(value.EventId, _selectedEvent.EventId, StringComparison.OrdinalIgnoreCase));
+            if (refreshed is null) HideEventDetail(immediate: true);
+            else
+            {
+                _selectedEvent = refreshed;
+                HistoryDetailView.DataContext = refreshed;
+                DrawDetailCharts(refreshed);
+            }
+        }
         RecentSummary.Text = events.Count == 0 ? "暂无记录" : $"共 {events.Count:N0} 条";
         var hasUsageDetails = events.Any(value =>
             value.InputTokens.HasValue || value.OutputTokens.HasValue || value.CacheReadTokens.HasValue ||
@@ -605,6 +776,12 @@ public partial class MainWindow : Window
         public string CostText => _event.Cost is null ? "未上报" : $"{_event.Cost:0.########} {(_event.Currency.Length == 0 ? "USD" : _event.Currency)}";
         public string DurationText => _event.DurationMs is null ? "耗时 —" : $"耗时 {UsageFormatting.Milliseconds(_event.DurationMs)}";
         public string DetailsCaption => Details.Count == 0 ? "查看中转站请求明细 · 暂无可关联记录" : $"查看本次任务的 {Details.Count} 次中转站请求";
+        public string Currency => string.IsNullOrWhiteSpace(_event.Currency) ? "USD" : _event.Currency;
+        public string EventId => _event.EventId;
+        public long InputTokensValue => _event.InputTokens ?? _event.Details.Sum(detail => detail.InputTokens ?? 0);
+        public long OutputTokensValue => _event.OutputTokens ?? _event.Details.Sum(detail => detail.OutputTokens ?? 0);
+        public long CacheReadTokensValue => _event.CacheReadTokens ?? _event.Details.Sum(detail => detail.CacheReadTokens ?? 0);
+        public long CacheWriteTokensValue => _event.CacheWriteTokens ?? 0;
         public IReadOnlyList<DetailRow> Details { get; }
         public string StatusText => _event.Success switch { true => "成功", false => "失败", _ => "未知" };
         public Brush StatusBrush => _event.Success switch { true => new SolidColorBrush(Color.FromRgb(45, 225, 194)), false => new SolidColorBrush(Color.FromRgb(255, 112, 134)), _ => (Brush)Application.Current.FindResource("MutedBrush") };
@@ -617,6 +794,7 @@ public partial class MainWindow : Window
             public string OutputText => value.OutputTokens is null ? "输出 —" : $"输出 {UsageFormatting.Tokens(value.OutputTokens.Value)}";
             public string CacheText => value.CacheReadTokens is null ? "缓存 —" : $"缓存 {UsageFormatting.Tokens(value.CacheReadTokens.Value)}";
             public string CostText => value.Cost is null ? "费用未上报" : $"{value.Cost:0.########} {(value.Currency.Length == 0 ? "USD" : value.Currency)}";
+            public double? CostValue => value.Cost;
         }
     }
 }

@@ -5,7 +5,8 @@
         Title="BalancePet 用量中心" Icon="assets/balance-pet.ico"
         Width="1120" Height="760" MinWidth="980" MinHeight="640"
         WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResizeWithGrip"
-        Background="{StaticResource PageBrush}" SnapsToDevicePixels="True" UseLayoutRounding="True">
+        Background="{StaticResource PageBrush}" SnapsToDevicePixels="True" UseLayoutRounding="True"
+        PreviewKeyDown="OnPreviewKeyDown">
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" CornerRadius="{DynamicResource WindowCornerRadius}" GlassFrameThickness="0" UseAeroCaptionButtons="False"/>
   </shell:WindowChrome.WindowChrome>
@@ -315,67 +316,136 @@
         </Grid>
         <Border x:Name="RecentPanel" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
                 BorderThickness="1" CornerRadius="10" Padding="12">
-          <ListView x:Name="EventsList" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListView x:Name="EventsList" SelectionChanged="OnEventSelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
             <ListView.ItemTemplate>
               <DataTemplate>
-                <Expander IsExpanded="False" Background="Transparent" BorderThickness="0">
-                  <Expander.Header>
-                    <Grid MinWidth="700" Margin="0,3">
-                      <Grid.ColumnDefinitions><ColumnDefinition Width="142"/><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="2.4*"/><ColumnDefinition Width="112"/></Grid.ColumnDefinitions>
+                <Border Padding="0" Margin="0" Background="Transparent"
+                        BorderBrush="Transparent" BorderThickness="0" CornerRadius="9"
+                        Cursor="Hand" MouseLeftButtonUp="OnEventCardClick">
+                  <Grid MinWidth="700">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="142"/><ColumnDefinition Width="1.5*"/><ColumnDefinition Width="2.4*"/><ColumnDefinition Width="112"/></Grid.ColumnDefinitions>
+                    <StackPanel>
+                      <TextBlock Text="{Binding OccurredAtText}" FontSize="12" FontWeight="SemiBold"/>
+                      <TextBlock Text="{Binding DurationText}" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,0"/>
+                      <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="10" Margin="0,3,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="0,0,14,0">
+                      <TextBlock Text="{Binding Provider}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding Model}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,0" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding ReasoningText}" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,3,0,0"/>
+                    </StackPanel>
+                    <Grid Grid.Column="2" Margin="0,0,14,0">
+                      <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
                       <StackPanel>
-                        <TextBlock Text="{Binding OccurredAtText}" FontSize="12" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding DurationText}" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,4,0,0"/>
-                        <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="10" Margin="0,3,0,0"/>
+                        <TextBlock Text="{Binding InputText}" Foreground="{StaticResource BlueBrush}" FontSize="11"/>
+                        <TextBlock Text="{Binding CacheReadText}" Foreground="#15C7D7" FontSize="11" Margin="0,5,0,0"/>
                       </StackPanel>
-                      <StackPanel Grid.Column="1" Margin="0,0,14,0">
-                        <TextBlock Text="{Binding Provider}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding Model}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,5,0,0" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding ReasoningText}" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,3,0,0"/>
-                      </StackPanel>
-                      <Grid Grid.Column="2" Margin="0,0,14,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                        <StackPanel>
-                          <TextBlock Text="{Binding InputText}" Foreground="{StaticResource BlueBrush}" FontSize="11"/>
-                          <TextBlock Text="{Binding CacheReadText}" Foreground="#15C7D7" FontSize="11" Margin="0,5,0,0"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="1">
-                          <TextBlock Text="{Binding OutputText}" Foreground="{StaticResource AccentBrush}" FontSize="11"/>
-                          <TextBlock Text="{Binding CacheWriteText}" Foreground="{StaticResource OrangeBrush}" FontSize="11" Margin="0,5,0,0"/>
-                        </StackPanel>
-                      </Grid>
-                      <StackPanel Grid.Column="3" VerticalAlignment="Center">
-                        <TextBlock Text="消耗额度" Foreground="{StaticResource MutedBrush}" FontSize="10" TextAlignment="Right"/>
-                        <TextBlock Text="{Binding CostText}" Foreground="{StaticResource PurpleBrush}" FontWeight="SemiBold" Margin="0,4,0,0" TextAlignment="Right"/>
+                      <StackPanel Grid.Column="1">
+                        <TextBlock Text="{Binding OutputText}" Foreground="{StaticResource AccentBrush}" FontSize="11"/>
+                        <TextBlock Text="{Binding CacheWriteText}" Foreground="{StaticResource OrangeBrush}" FontSize="11" Margin="0,5,0,0"/>
                       </StackPanel>
                     </Grid>
-                  </Expander.Header>
-                  <Border Background="#0B1626" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1,0,0,0" Padding="34,10,10,8" Margin="0,4,0,0">
-                    <StackPanel>
-                      <TextBlock Text="{Binding DetailsCaption}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,7"/>
-                      <ItemsControl ItemsSource="{Binding Details}">
-                        <ItemsControl.ItemTemplate>
-                          <DataTemplate>
-                            <Grid Margin="0,5">
-                              <Grid.ColumnDefinitions><ColumnDefinition Width="75"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
-                              <TextBlock Text="{Binding TimeText}" Foreground="{StaticResource MutedBrush}" FontSize="10" VerticalAlignment="Center"/>
-                              <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding ModelEffortText}" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                              </StackPanel>
-                              <TextBlock Grid.Column="2" Text="{Binding InputText}" Foreground="{StaticResource BlueBrush}" FontSize="10" VerticalAlignment="Center"/>
-                              <TextBlock Grid.Column="3" Text="{Binding OutputText}" Foreground="{StaticResource AccentBrush}" FontSize="10" VerticalAlignment="Center"/>
-                              <TextBlock Grid.Column="4" Text="{Binding CostText}" Foreground="{StaticResource PurpleBrush}" FontSize="10" TextAlignment="Right" VerticalAlignment="Center"/>
-                            </Grid>
-                          </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                      </ItemsControl>
+                    <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                      <TextBlock Text="消耗额度" Foreground="{StaticResource MutedBrush}" FontSize="10" TextAlignment="Right"/>
+                      <TextBlock Text="{Binding CostText}" Foreground="{StaticResource PurpleBrush}" FontWeight="SemiBold" Margin="0,4,0,0" TextAlignment="Right"/>
                     </StackPanel>
-                  </Border>
-                </Expander>
+                  </Grid>
+                </Border>
               </DataTemplate>
             </ListView.ItemTemplate>
           </ListView>
         </Border>
       </StackPanel>
     </ScrollViewer>
+    <Grid x:Name="HistoryDetailView" Grid.Column="1" Margin="0,48,0,0" Visibility="Collapsed" Opacity="0"
+          Background="{StaticResource PageBrush}">
+      <Grid.RenderTransform>
+        <ScaleTransform x:Name="HistoryDetailScale" ScaleX="0.97" ScaleY="0.97"/>
+      </Grid.RenderTransform>
+      <ScrollViewer x:Name="HistoryDetailScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="28,24,30,30">
+          <Button x:Name="DetailBackButton" Click="OnDetailBackClick" HorizontalAlignment="Left" Background="Transparent" BorderBrush="Transparent" Padding="0,4" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal">
+              <Path Data="M 10,2 L 4,8 L 10,14" Stroke="{StaticResource MutedBrush}" StrokeThickness="1.7" Stretch="None" Width="14" Height="16" Margin="0,0,7,0"/>
+              <TextBlock Text="返回使用记录" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Grid Margin="0,0,0,18">
+            <StackPanel>
+              <TextBlock Text="使用记录详情" FontSize="28" FontWeight="Bold"/>
+              <TextBlock Text="单次任务的 Token 构成、额度变化与中转请求" Foreground="{StaticResource MutedBrush}" FontSize="13" Margin="0,4,0,0"/>
+            </StackPanel>
+            <TextBlock Text="{Binding OccurredAtText}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Foreground="{StaticResource MutedBrush}" FontSize="12"/>
+          </Grid>
+          <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="17,15" Margin="0,0,0,12">
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="1.35*"/><ColumnDefinition Width="1.15*"/><ColumnDefinition Width="1.1*"/></Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="{Binding Provider}" FontSize="16" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding Model}" Foreground="{StaticResource MutedBrush}" Margin="0,5,0,0"/>
+                <TextBlock Text="{Binding ReasoningText}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0"/>
+              </StackPanel>
+              <StackPanel Grid.Column="1">
+                <TextBlock Text="任务状态" Foreground="{StaticResource MutedBrush}" FontSize="11"/>
+                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="18" FontWeight="SemiBold" Margin="0,5,0,0"/>
+                <TextBlock Text="{Binding DurationText}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2" HorizontalAlignment="Right">
+                <TextBlock Text="消耗额度" Foreground="{StaticResource MutedBrush}" FontSize="11" TextAlignment="Right"/>
+                <TextBlock Text="{Binding CostText}" Foreground="{StaticResource PurpleBrush}" FontSize="19" FontWeight="SemiBold" Margin="0,5,0,0" TextAlignment="Right"/>
+                <TextBlock Text="{Binding DetailsCaption}" Foreground="{StaticResource MutedBrush}" FontSize="10" Margin="0,3,0,0" TextAlignment="Right"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+          <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.9*"/></Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="15" Margin="0,0,6,0">
+              <StackPanel>
+                <TextBlock Text="Token 构成" FontSize="15" FontWeight="SemiBold"/>
+                <TextBlock Text="输入、缓存与输出的相对比例" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,8"/>
+                <Canvas x:Name="TokenCompositionChart" Height="74" SizeChanged="OnDetailChartSizeChanged"/>
+                <TextBlock x:Name="TokenChartEmpty" Text="暂无 Token 数据" Foreground="{StaticResource MutedBrush}" FontSize="11" HorizontalAlignment="Center" Visibility="Collapsed"/>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="15" Margin="6,0,0,0">
+              <StackPanel>
+                <TextBlock Text="额度时间线" FontSize="15" FontWeight="SemiBold"/>
+                <TextBlock Text="每次中转请求的费用变化" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,8"/>
+                <Canvas x:Name="CostTimelineChart" Height="74" SizeChanged="OnDetailChartSizeChanged"/>
+                <TextBlock x:Name="CostChartEmpty" Text="暂无逐条额度明细" Foreground="{StaticResource MutedBrush}" FontSize="11" HorizontalAlignment="Center" Visibility="Collapsed"/>
+              </StackPanel>
+            </Border>
+          </Grid>
+          <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="15">
+            <StackPanel>
+              <TextBlock Text="中转请求明细" FontSize="15" FontWeight="SemiBold"/>
+              <TextBlock Text="按时间查看本次任务的每次请求、Token 与费用" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,4,0,9"/>
+              <Grid Margin="0,0,0,5">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="78"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.1*"/></Grid.ColumnDefinitions>
+                <TextBlock Text="时间" Foreground="{StaticResource MutedBrush}" FontSize="10"/>
+                <TextBlock Grid.Column="1" Text="模型" Foreground="{StaticResource MutedBrush}" FontSize="10"/>
+                <TextBlock Grid.Column="2" Text="输入" Foreground="{StaticResource MutedBrush}" FontSize="10"/>
+                <TextBlock Grid.Column="3" Text="输出" Foreground="{StaticResource MutedBrush}" FontSize="10"/>
+                <TextBlock Grid.Column="4" Text="额度" Foreground="{StaticResource MutedBrush}" FontSize="10" TextAlignment="Right"/>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding Details}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Margin="0,5">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="78"/><ColumnDefinition Width="2*"/><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.1*"/><ColumnDefinition Width="1.1*"/></Grid.ColumnDefinitions>
+                      <TextBlock Text="{Binding TimeText}" Foreground="{StaticResource MutedBrush}" FontSize="10" VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="1" Text="{Binding ModelEffortText}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Grid.Column="2" Text="{Binding InputText}" Foreground="{StaticResource BlueBrush}" FontSize="10" VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="3" Text="{Binding OutputText}" Foreground="{StaticResource AccentBrush}" FontSize="10" VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="4" Text="{Binding CostText}" Foreground="{StaticResource PurpleBrush}" FontSize="10" TextAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
   </Grid>
 </Window>
