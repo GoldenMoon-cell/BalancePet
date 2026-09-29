@@ -330,6 +330,15 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
         return true;
     }
 
+    public void ReleaseMatches(IEnumerable<NewApiUsageRecord> records)
+    {
+        lock (_matchedGate)
+        {
+            foreach (var record in records)
+                _matchedLogKeys.Remove(record.MatchKey);
+        }
+    }
+
     public bool TryTakeDetailMatches(
         IReadOnlyList<NewApiUsageRecord> records,
         IReadOnlyList<UsageEventDetailSnapshot> details,

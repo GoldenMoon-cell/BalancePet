@@ -23,10 +23,11 @@ public partial class MainWindow : Window
 {
     private static readonly TimeSpan ManualRefreshCooldown = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan RefreshOperationTimeout = TimeSpan.FromSeconds(45);
-    private static readonly TimeSpan UsageBackfillWindow = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan UsageBackfillWindow = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan UsageBackfillPoll = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan ServerCostBackfillWindow = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan ServerCostBackfillWindow = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan ServerCostBackfillPoll = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan UsageCostSyncInterval = TimeSpan.FromSeconds(30);
     private const int EdgeSnapDistance = 32;
     private const double BubbleTextMaxWidth = 252;
     // A stop can arrive just before the corresponding start when a client
@@ -47,6 +48,7 @@ public partial class MainWindow : Window
     private readonly PetExtensionManager _petExtensions = new();
     private readonly ThemeExtensionManager _themeExtensions = new();
     private readonly DispatcherTimer _refreshTimer;
+    private readonly DispatcherTimer _usageCostSyncTimer;
     private readonly DispatcherTimer _bubbleTimer;
     private readonly DispatcherTimer _floatTimer;
     private readonly CodexTaskBridge _codexTaskBridge = new();
@@ -68,6 +70,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _updateTimer;
     private readonly DispatcherTimer _extensionUpdateTimer;
     private readonly CancellationTokenSource _usageCostSyncCancellation = new();
+    private int _usageCostSyncRunning;
     private readonly Dictionary<string, MonitorRuntime> _monitorStates = new(StringComparer.OrdinalIgnoreCase);
     private readonly System.Windows.Media.MediaPlayer _pressSound = new();
     private readonly System.Windows.Media.MediaPlayer _releaseSound = new();
@@ -117,6 +120,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, string> _activeTaskProfiles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _activeTaskStartedAt = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _recentTaskStops = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> _recordedTaskStops = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _retiredTaskKeys = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Queue<string>> _easterEggHistory = new(StringComparer.Ordinal);
     private AiAccountActivity? _currentAccountActivity;
@@ -251,6 +255,8 @@ public partial class MainWindow : Window
         // still enforcing the 30-second minimum for every endpoint.
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _refreshTimer.Tick += async (_, _) => await RefreshAsync(false);
+        _usageCostSyncTimer = new DispatcherTimer { Interval = UsageCostSyncInterval };
+        _usageCostSyncTimer.Tick += (_, _) => _ = SyncRecentUsageCostsAsync();
         _updateService = new UpdateService(_updateHttpClient);
         _extensionUpdateService = new ExtensionUpdateService(_updateHttpClient);
         _newApiUsageProvider = new NewApiUsageProvider(_httpClient);
@@ -297,6 +303,7 @@ public partial class MainWindow : Window
                 await NotificationPresentationBridge.WaitForExternalPresenterAsync(TimeSpan.FromMilliseconds(800));
             }
             LoadSettingsAndPosition(allowImmediateRefresh: true);
+            _usageCostSyncTimer.Start();
             if (ShowPostUpdateConfirmation()) return;
             await RefreshAsync(false);
             _ = SyncRecentUsageCostsAsync();
@@ -306,6 +313,7 @@ public partial class MainWindow : Window
             if (!_closing) { e.Cancel = true; Hide(); return; }
             _refreshCancellation?.Cancel();
             _usageCostSyncCancellation.Cancel();
+            _usageCostSyncTimer.Stop();
             _trayRecoveryTimer.Stop();
             _updateTimer.Stop();
             _extensionUpdateTimer.Stop();
@@ -371,6 +379,7 @@ public partial class MainWindow : Window
         _activeTaskProfiles.Clear();
         _activeTaskStartedAt.Clear();
         _recentTaskStops.Clear();
+        _recordedTaskStops.Clear();
         _retiredTaskKeys.Clear();
         _codexStartBalances.Clear();
         _codexShownPet = false;
@@ -2690,13 +2699,24 @@ public partial class MainWindow : Window
         if (!RemoveActiveCodexTurn(activity, out var completedSource, out var completedProfileId))
         {
             // Keep a very short marker for out-of-order start/stop messages.
-            // It expires quickly so a real later task is unaffected.
+            // It expires quickly so a real later task is unaffected. If the
+            // start was lost while the hook reconnected or the app restarted,
+            // still persist a completion carrying a usable Codex identity so
+            // the latest request is not silently missing from Usage Analytics.
             RememberUnmatchedStop(activity);
+            if (ShouldRecordUnmatchedStop(activity)
+                && TryMarkTaskStopRecorded(activity))
+            {
+                var fallbackProfileId = FindMonitorProfile(activity.Provider)?.Id ?? "";
+                await RecordUsageFromTaskAsync(activity, startedAt, fallbackProfileId);
+                _ = SyncRecentUsageCostsAsync();
+            }
             return;
         }
         _lastCompletedTaskSource = completedSource;
         PublishNotificationState();
         await RecordUsageFromTaskAsync(activity, startedAt, completedProfileId);
+        TryMarkTaskStopRecorded(activity);
         ResetInactiveTimer();
         if (_activeCodexTurns.Count > 0)
         {
@@ -2948,25 +2968,38 @@ public partial class MainWindow : Window
                     .Where(value => !string.IsNullOrWhiteSpace(value))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToArray();
-                await _usageEventBridge.UpdateAsync(
-                    target.EventId,
-                    target.OccurredAt,
-                    target.Provider,
-                    target.Model,
-                    target.InputTokens,
-                    target.OutputTokens,
-                    target.CacheReadTokens,
-                    target.CacheWriteTokens,
-                    totalAmount,
-                    currency,
-                    target.DurationMs,
-                    target.TimeToFirstTokenMs,
-                    target.ToolCalls,
-                    target.Steps,
-                    target.Success,
-                    _usageCostSyncCancellation.Token,
-                    reasoningEffort.Length == 1 ? reasoningEffort[0] : reasoningEffort.Length > 1 ? "多种" : "",
+                try
+                {
+                    await _usageEventBridge.UpdateAsync(
+                        target.EventId,
+                        target.OccurredAt,
+                        target.Provider,
+                        target.Model,
+                        target.InputTokens,
+                        target.OutputTokens,
+                        target.CacheReadTokens,
+                        target.CacheWriteTokens,
+                        totalAmount,
+                        currency,
+                        target.DurationMs,
+                        target.TimeToFirstTokenMs,
+                        target.ToolCalls,
+                        target.Steps,
+                        target.Success,
+                        _usageCostSyncCancellation.Token,
+                        reasoningEffort.Length == 1 ? reasoningEffort[0] : reasoningEffort.Length > 1 ? "多种" : "",
                         details);
+                }
+                catch (IOException)
+                {
+                    _newApiUsageProvider.ReleaseMatches(matches);
+                    continue;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    _newApiUsageProvider.ReleaseMatches(matches);
+                    continue;
+                }
                 return;
             }
         }
@@ -3064,6 +3097,7 @@ public partial class MainWindow : Window
     }
     private async Task SyncRecentUsageCostsAsync()
     {
+        if (Interlocked.Exchange(ref _usageCostSyncRunning, 1) != 0) return;
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(3), _usageCostSyncCancellation.Token);
@@ -3124,25 +3158,38 @@ public partial class MainWindow : Window
                     var serverDetails = matches.Select(value => new UsageEventDetailSnapshot(value.OccurredAt, value.Model, value.ReasoningEffort, value.InputTokens, value.OutputTokens, value.CacheReadTokens, value.Amount, value.Currency)).ToArray();
                     var detailRows = MergeUsageDetails(target.Details, serverDetails);
                     var effort = matches.Select(value => value.ReasoningEffort).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-                    await _usageEventBridge.UpdateAsync(
-                        target.EventId,
-                        target.OccurredAt,
-                        target.Provider,
-                        target.Model,
-                        target.InputTokens,
-                        target.OutputTokens,
-                        target.CacheReadTokens,
-                        target.CacheWriteTokens,
-                        totalAmount,
-                        currency,
-                        target.DurationMs,
-                        target.TimeToFirstTokenMs,
-                        target.ToolCalls,
-                        target.Steps,
-                        target.Success,
-                        _usageCostSyncCancellation.Token,
-                        effort.Length == 1 ? effort[0] : effort.Length > 1 ? "多种" : "",
-                        detailRows);
+                    try
+                    {
+                        await _usageEventBridge.UpdateAsync(
+                            target.EventId,
+                            target.OccurredAt,
+                            target.Provider,
+                            target.Model,
+                            target.InputTokens,
+                            target.OutputTokens,
+                            target.CacheReadTokens,
+                            target.CacheWriteTokens,
+                            totalAmount,
+                            currency,
+                            target.DurationMs,
+                            target.TimeToFirstTokenMs,
+                            target.ToolCalls,
+                            target.Steps,
+                            target.Success,
+                            _usageCostSyncCancellation.Token,
+                            effort.Length == 1 ? effort[0] : effort.Length > 1 ? "多种" : "",
+                            detailRows);
+                    }
+                    catch (IOException)
+                    {
+                        _newApiUsageProvider.ReleaseMatches(matches);
+                        continue;
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        _newApiUsageProvider.ReleaseMatches(matches);
+                        continue;
+                    }
                     pending.Remove(target);
                 }
             }
@@ -3151,6 +3198,10 @@ public partial class MainWindow : Window
         catch (IOException) { }
         catch (ArgumentException) { }
         catch (TaskCanceledException) { }
+        finally
+        {
+            Volatile.Write(ref _usageCostSyncRunning, 0);
+        }
     }
 
     private async Task BackfillCodexUsageAsync(
@@ -3263,6 +3314,14 @@ public partial class MainWindow : Window
         {
             _retiredTaskKeys.Remove(key);
         }
+
+        foreach (var key in _recordedTaskStops
+                     .Where(pair => pair.Value < retiredCutoff)
+                     .Select(pair => pair.Key)
+                     .ToArray())
+        {
+            _recordedTaskStops.Remove(key);
+        }
     }
 
     private void RememberUnmatchedStop(CodexTaskActivity activity)
@@ -3283,6 +3342,30 @@ public partial class MainWindow : Window
         }
 
         return matched;
+    }
+
+    private static bool ShouldRecordUnmatchedStop(CodexTaskActivity activity)
+        => string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
+            ? !string.IsNullOrWhiteSpace(activity.SessionId)
+                || !string.IsNullOrWhiteSpace(activity.TurnId)
+                || activity.InputTokens.HasValue
+                || activity.OutputTokens.HasValue
+                || activity.Cost.HasValue
+            : activity.InputTokens.HasValue
+                || activity.OutputTokens.HasValue
+                || activity.Cost.HasValue
+                || !string.IsNullOrWhiteSpace(activity.Model);
+
+    private bool TryMarkTaskStopRecorded(CodexTaskActivity activity)
+    {
+        var identity = string.Join('|', activity.Provider, activity.SessionId, activity.TurnId);
+        if (identity.Trim('|').Length == 0) return true;
+        var now = DateTimeOffset.UtcNow;
+        if (_recordedTaskStops.TryGetValue(identity, out var recordedAt)
+            && now - recordedAt < RetiredTaskWindow)
+            return false;
+        _recordedTaskStops[identity] = now;
+        return true;
     }
 
     private MonitorProfile? FindMonitorProfile(string? provider)
