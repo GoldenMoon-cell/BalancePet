@@ -1,5 +1,6 @@
 using System.IO;
 using System.IO.Pipes;
+using System.Globalization;
 using System.Text.Json;
 
 namespace BalancePet.Wpf.Services;
@@ -21,6 +22,7 @@ public sealed record CodexTaskActivity(string State, string SessionId, string Tu
     public long? Steps { get; init; }
     public string ReasoningEffort { get; init; } = "";
     public bool? Success { get; init; }
+    public DateTimeOffset? StartedAtUtc { get; init; }
 }
 
 public sealed class CodexTaskBridge : IDisposable
@@ -29,6 +31,12 @@ public sealed class CodexTaskBridge : IDisposable
     // use the provider-neutral pipe below or the bundled sender script.
     public const string PipeName = "BalancePet.CodexTask.v1";
     public const string GenericPipeName = "BalancePet.Task.v1";
+    public const string ActiveStateFileName = "codex-active-tasks.v1.json";
+    private static readonly TimeSpan ActiveStateLifetime = TimeSpan.FromHours(24);
+    private static readonly JsonSerializerOptions StateJsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     private CancellationTokenSource? _cancellation;
     private Task[] _listeners = Array.Empty<Task>();
@@ -46,6 +54,7 @@ public sealed class CodexTaskBridge : IDisposable
             ListenAsync(PipeName, "Codex", _cancellation.Token),
             ListenAsync(GenericPipeName, "其他客户端", _cancellation.Token)
         ];
+        _ = RecoverActiveStartsAsync(_cancellation.Token);
     }
 
     public void Stop()
@@ -87,6 +96,40 @@ public sealed class CodexTaskBridge : IDisposable
                 pipe?.Dispose();
             }
         }
+    }
+
+    private async Task RecoverActiveStartsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var path = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "BalancePet",
+                ActiveStateFileName);
+            if (!File.Exists(path)) return;
+
+            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var activities = JsonSerializer.Deserialize<List<CodexTaskActivity>>(json, StateJsonOptions);
+            if (activities is null) return;
+
+            var cutoff = DateTimeOffset.UtcNow - ActiveStateLifetime;
+            foreach (var activity in activities
+                         .Where(value => value.State == "start"
+                             && !string.IsNullOrWhiteSpace(value.SessionId)
+                             && !string.IsNullOrWhiteSpace(value.TurnId)
+                             && (!value.StartedAtUtc.HasValue || value.StartedAtUtc.Value >= cutoff))
+                         .GroupBy(value => value.Key, StringComparer.Ordinal)
+                         .Select(group => group.Last()))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                lock (_pendingLock) _pendingStarts[activity.Key] = activity;
+                ActivityReceived?.Invoke(this, activity);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        catch (JsonException) { }
     }
 
     private async Task ProcessClientAsync(NamedPipeServerStream pipe, string defaultProvider, CancellationToken cancellationToken)
@@ -173,7 +216,8 @@ public sealed class CodexTaskBridge : IDisposable
             ToolCalls = activity.ToolCalls ?? started.ToolCalls,
             Steps = activity.Steps ?? started.Steps,
             ReasoningEffort = Prefer(activity.ReasoningEffort, started.ReasoningEffort),
-            Success = activity.Success ?? started.Success
+            Success = activity.Success ?? started.Success,
+            StartedAtUtc = activity.StartedAtUtc ?? started.StartedAtUtc
         };
     }
 
@@ -217,8 +261,21 @@ public sealed class CodexTaskBridge : IDisposable
             Steps = ReadCounter(root, "steps") ?? ReadCounter(usage, "steps"),
             ReasoningEffort = Clean(ReadString(root, "reasoning_effort", "reasoningEffort", "reasoning_level", "reasoningLevel", "thinking_level", "thinkingLevel", "effort")
                 ?? ReadString(usage, "reasoning_effort", "reasoningEffort", "reasoning_level", "reasoningLevel", "thinking_level", "thinkingLevel", "effort"), 32),
-            Success = ReadBool(usage, "success") ?? ReadBool(root, "success")
+            Success = ReadBool(usage, "success") ?? ReadBool(root, "success"),
+            StartedAtUtc = ReadDateTime(root, "startedAtUtc", "started_at_utc", "startedAt", "started_at")
         };
+    }
+
+    private static DateTimeOffset? ReadDateTime(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (!root.TryGetProperty(name, out var value)) continue;
+            var text = value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+            if (DateTimeOffset.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+                return parsed.ToUniversalTime();
+        }
+        return null;
     }
 
     private static string NormalizeState(string state) => state.Trim().ToLowerInvariant() switch

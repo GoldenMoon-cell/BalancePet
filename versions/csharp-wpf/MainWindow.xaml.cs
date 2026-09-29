@@ -2649,7 +2649,7 @@ public partial class MainWindow : Window
         if (!_activeCodexTurns.Add(activity.Key)) return Task.CompletedTask;
         _activeTaskSources[activity.Key] = TaskSourceLabel(activity.Provider);
         _activeTaskProfiles[activity.Key] = FindMonitorProfile(activity.Provider)?.Id ?? "";
-        _activeTaskStartedAt[activity.Key] = DateTimeOffset.UtcNow;
+        _activeTaskStartedAt[activity.Key] = activity.StartedAtUtc ?? DateTimeOffset.UtcNow;
         ResetInactiveTimer();
         _codexHideTimer.Stop();
         if (!IsVisible)

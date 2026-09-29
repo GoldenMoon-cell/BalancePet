@@ -151,6 +151,42 @@ public static class CodexHookInstaller
             $sessionId = ''
             $turnId = ''
             $hookInput = $null
+            $activeStatePath = Join-Path $env:LOCALAPPDATA 'BalancePet\codex-active-tasks.v1.json'
+            $activeStateMutex = $null
+            $activeStateMutexHeld = $false
+            function Read-ActiveTaskState {
+                if (-not (Test-Path -LiteralPath $activeStatePath)) { return @() }
+                try {
+                    $items = Get-Content -LiteralPath $activeStatePath -Raw -ErrorAction Stop | ConvertFrom-Json
+                    if ($null -eq $items) { return @() }
+                    return @($items)
+                }
+                catch { return @() }
+            }
+            function Write-ActiveTaskState([object[]]$Items) {
+                try {
+                    $directory = Split-Path -Parent $activeStatePath
+                    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+                    $temporary = "$activeStatePath.$PID.tmp"
+                    [IO.File]::WriteAllText($temporary, (@($Items) | ConvertTo-Json -Depth 6))
+                    Move-Item -LiteralPath $temporary -Destination $activeStatePath -Force
+                }
+                catch { }
+            }
+            function Enter-ActiveTaskStateLock {
+                try {
+                    $activeStateMutex = [Threading.Mutex]::new($false, 'Local\BalancePet.CodexActiveTasks')
+                    $activeStateMutexHeld = $activeStateMutex.WaitOne(1200)
+                }
+                catch { $activeStateMutexHeld = $false }
+            }
+            function Exit-ActiveTaskStateLock {
+                try {
+                    if ($activeStateMutexHeld) { $activeStateMutex.ReleaseMutex() }
+                    if ($activeStateMutex) { $activeStateMutex.Dispose() }
+                }
+                catch { }
+            }
             # Read only a bounded prefix and do not wait forever when a client
             # is interrupted before it closes Hook stdin.
             $inputBuffer = New-Object char[] 65536
@@ -216,6 +252,45 @@ public static class CodexHookInstaller
             foreach ($field in $usageFields) {
                 $value = Get-UsageValue $field
                 if ($null -ne $value -and "$value" -ne '') { $messageObject | Add-Member -Force -NotePropertyName $field -NotePropertyValue $value }
+            }
+
+            # Persist only task identity and usage metadata locally. This lets
+            # BalancePet recover an in-progress start after it was launched
+            # midway through a Codex task; no prompt or credential is stored.
+            Enter-ActiveTaskStateLock
+            if ($activeStateMutexHeld) {
+                $activeTasks = Read-ActiveTaskState
+                $activeTasks = @($activeTasks | Where-Object {
+                    $started = $_.startedAtUtc
+                    [string]::IsNullOrWhiteSpace($started) -or ([DateTimeOffset]::TryParse($started, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$parsedDate) -and $parsedDate -ge [DateTimeOffset]::UtcNow.AddHours(-24))
+                })
+                if ($State -eq 'start') {
+                    $messageObject | Add-Member -Force -NotePropertyName startedAtUtc -NotePropertyValue ([DateTimeOffset]::UtcNow.ToString('O'))
+                    $activeTasks = @($activeTasks | Where-Object { $_.sessionId -ne $sessionId -or $_.turnId -ne $turnId })
+                    $activeTasks += $messageObject
+                }
+                else {
+                    $matched = @($activeTasks | Where-Object {
+                        ((-not [string]::IsNullOrWhiteSpace($turnId)) -and $_.turnId -eq $turnId) -or
+                        ((-not [string]::IsNullOrWhiteSpace($sessionId)) -and $_.sessionId -eq $sessionId)
+                    })
+                    if ($matched.Count -eq 0 -and $activeTasks.Count -eq 1) { $matched = @($activeTasks[0]) }
+                    if ($matched.Count -gt 0) {
+                        $saved = $matched[0]
+                        foreach ($field in @('sessionId','turnId','model','input_tokens','output_tokens','cache_read_tokens','cache_write_tokens','duration_ms','time_to_first_token_ms','tool_calls','steps','success','startedAtUtc')) {
+                            $current = $messageObject.$field
+                            $savedValue = $saved.$field
+                            if (($null -eq $current -or "$current" -eq '') -and $null -ne $savedValue -and "$savedValue" -ne '') {
+                                $messageObject | Add-Member -Force -NotePropertyName $field -NotePropertyValue $savedValue
+                            }
+                        }
+                        $messageObject.sessionId = if (-not [string]::IsNullOrWhiteSpace([string]$messageObject.sessionId)) { $messageObject.sessionId } else { $saved.sessionId }
+                        $messageObject.turnId = if (-not [string]::IsNullOrWhiteSpace([string]$messageObject.turnId)) { $messageObject.turnId } else { $saved.turnId }
+                        $activeTasks = @($activeTasks | Where-Object { $_ -notin $matched })
+                    }
+                }
+                Write-ActiveTaskState $activeTasks
+                Exit-ActiveTaskStateLock
             }
             $message = $messageObject | ConvertTo-Json -Compress
 

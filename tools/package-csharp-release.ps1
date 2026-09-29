@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "1.2.5",
+    [string]$Version = "1.2.6",
     [switch]$SkipInstaller,
     [string]$StagePath = ""
 )
