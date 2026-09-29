@@ -173,7 +173,42 @@ public sealed class NewApiUsageProvider(HttpClient http, string? dataDirectory =
         else if (Uri.TryCreate(siteUri, text.StartsWith('/') ? text : "/" + text, out var relative)) endpoint = relative;
         else return null;
         if (endpoint.Scheme != siteUri.Scheme || !string.Equals(endpoint.Host, siteUri.Host, StringComparison.OrdinalIgnoreCase)) return null;
-        return endpoint.ToString();
+        return RefreshUsageDateRange(endpoint);
+    }
+
+    private static string RefreshUsageDateRange(Uri endpoint)
+    {
+        var query = endpoint.Query.TrimStart('?');
+        if (string.IsNullOrWhiteSpace(query)) return endpoint.ToString();
+
+        var today = DateTimeOffset.Now.Date;
+        var startDate = today.AddDays(-30).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var endDate = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var changed = false;
+        var parts = query.Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part =>
+            {
+                var separator = part.IndexOf('=');
+                if (separator <= 0) return part;
+
+                var key = Uri.UnescapeDataString(part[..separator]).Trim().ToLowerInvariant();
+                var normalizedKey = key.Replace('-', '_');
+                var replacement = normalizedKey switch
+                {
+                    "start_date" or "startdate" => startDate,
+                    "end_date" or "enddate" => endDate,
+                    _ => null
+                };
+                if (replacement is null) return part;
+
+                changed = true;
+                return part[..(separator + 1)] + Uri.EscapeDataString(replacement);
+            })
+            .ToArray();
+
+        if (!changed) return endpoint.ToString();
+        var refreshed = new UriBuilder(endpoint) { Query = string.Join('&', parts) };
+        return refreshed.Uri.ToString();
     }
 
     /// <summary>
