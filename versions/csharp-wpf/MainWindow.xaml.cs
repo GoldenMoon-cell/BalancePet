@@ -2703,8 +2703,9 @@ public partial class MainWindow : Window
             // start was lost while the hook reconnected or the app restarted,
             // still persist a completion carrying a usable Codex identity so
             // the latest request is not silently missing from Usage Analytics.
-            RememberUnmatchedStop(activity);
-            if (ShouldRecordUnmatchedStop(activity)
+            var shouldRecord = ShouldRecordUnmatchedStop(activity);
+            if (shouldRecord) RememberUnmatchedStop(activity);
+            if (shouldRecord
                 && TryMarkTaskStopRecorded(activity))
             {
                 var fallbackProfileId = FindMonitorProfile(activity.Provider)?.Id ?? "";
@@ -3345,16 +3346,29 @@ public partial class MainWindow : Window
     }
 
     private static bool ShouldRecordUnmatchedStop(CodexTaskActivity activity)
-        => string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
-            ? !string.IsNullOrWhiteSpace(activity.SessionId)
-                || !string.IsNullOrWhiteSpace(activity.TurnId)
-                || activity.InputTokens.HasValue
-                || activity.OutputTokens.HasValue
-                || activity.Cost.HasValue
-            : activity.InputTokens.HasValue
-                || activity.OutputTokens.HasValue
-                || activity.Cost.HasValue
-                || !string.IsNullOrWhiteSpace(activity.Model);
+    {
+        var hasUsage = activity.InputTokens.HasValue
+            || activity.OutputTokens.HasValue
+            || activity.CacheReadTokens.HasValue
+            || activity.CacheWriteTokens.HasValue
+            || activity.Cost.HasValue
+            || activity.DurationMs.HasValue
+            || !string.IsNullOrWhiteSpace(activity.Model);
+        if (!string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase))
+            return hasUsage;
+
+        // A missing/placeholder session is how the hook represents a stop
+        // event that arrived without a usable task context. Persisting that
+        // event creates a row with every field shown as "—" and it can never
+        // be matched to a relay usage record. Only keep a Codex stop when it
+        // carries real usage data or both parts of a real task identity.
+        var hasRealSession = !string.IsNullOrWhiteSpace(activity.SessionId)
+            && !activity.SessionId.StartsWith("external:", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(activity.SessionId.Trim(), "hook", StringComparison.OrdinalIgnoreCase);
+        var hasRealTurn = !string.IsNullOrWhiteSpace(activity.TurnId)
+            && !string.Equals(activity.TurnId.Trim(), "hook", StringComparison.OrdinalIgnoreCase);
+        return hasUsage || (hasRealSession && hasRealTurn);
+    }
 
     private bool TryMarkTaskStopRecorded(CodexTaskActivity activity)
     {
