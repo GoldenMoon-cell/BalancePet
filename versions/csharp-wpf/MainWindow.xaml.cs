@@ -383,7 +383,14 @@ public partial class MainWindow : Window
         _retiredTaskKeys.Clear();
         _codexStartBalances.Clear();
         _codexShownPet = false;
-        if (_settings.CodexTaskIntegration) _codexTaskBridge.Start();
+        if (_settings.CodexTaskIntegration)
+        {
+            // Refresh the installed hook after upgrades so the persisted
+            // active-task state protocol is available without requiring the
+            // user to toggle the integration setting again.
+            CodexHookInstaller.TryInstall(out _);
+            _codexTaskBridge.Start();
+        }
         if (_settings.CCSwitchIntegration) _ccSwitchAccountBridge.Start();
         _usageEventBridge.Start();
         PublishNotificationState();
