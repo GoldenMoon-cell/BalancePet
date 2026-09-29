@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.11
+
+### New features
+
+- Replace inline expandable request rows with a full usage-record detail view opened by clicking the entire record card.
+- Add Token composition bars, a per-request cost timeline, and a linked request detail table with back/Esc navigation.
+
 ## 0.3.10
 
 - Continue consuming the host-written per-request cost and reasoning details without reading provider credentials.
