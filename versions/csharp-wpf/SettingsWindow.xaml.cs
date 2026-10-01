@@ -275,6 +275,7 @@ public partial class SettingsWindow : Window
                 ToolTip = $"{AppLocalization.Text(_settings.Language, "资源扩展：", "Resource extension: ")}{definition.Id}"
             });
         }
+        RefreshPetPreview();
     }
 
     private static void SelectByTag(System.Windows.Controls.ComboBox box, string tag)
@@ -479,6 +480,9 @@ public partial class SettingsWindow : Window
     private void OnComboSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is System.Windows.Controls.ComboBox box) SyncComboDisplay(box);
+        // Only the appearance selector changes what the preview should show; the
+        // others would each throw away and re-decode nine images for nothing.
+        if (ReferenceEquals(sender, PetStyleBox)) RefreshPetPreview();
         MarkSettingsDirty();
     }
 
@@ -504,6 +508,105 @@ public partial class SettingsWindow : Window
             item.IsEnabled = available;
             item.ToolTip = available ? null : AppLocalization.Text(language, "素材尚未完成", "Assets are not ready");
         }
+        RefreshPetPreview();
+    }
+
+    /// <summary>
+    /// The nine states every appearance provides, in the order the panel shows them.
+    /// </summary>
+    private static readonly (string State, string Chinese, string English)[] PetPreviewStates =
+    {
+        ("idle", "待机", "Idle"),
+        ("loading", "查询中", "Checking"),
+        ("success", "查询成功", "Success"),
+        ("low", "余额偏低", "Low balance"),
+        ("error", "查询失败", "Failed"),
+        ("clicked", "被点击", "Clicked"),
+        ("codex-working", "任务进行中", "Working"),
+        ("codex-done", "任务完成", "Done"),
+        ("inactive", "长时间无操作", "Away"),
+    };
+
+    /// <summary>
+    /// Redraws the nine-state preview of whichever appearance is selected.
+    /// </summary>
+    /// <remarks>
+    /// The images are read from disk rather than taken from a bundled table, because
+    /// the question the panel answers is "what would this installation draw". That
+    /// includes an appearance that arrived as a package, and it makes a state whose
+    /// artwork failed to arrive show up here instead of only in the pet window. A
+    /// state that publishes extra frames is labelled with the count, so the animation
+    /// contract is visible without having to wait for the pet to cycle.
+    /// </remarks>
+    private void RefreshPetPreview()
+    {
+        if (PetPreviewGrid is null) return;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        var style = SelectedTag(PetStyleBox, "deepseek");
+        PetPreviewGrid.Children.Clear();
+        foreach (var (state, chinese, english) in PetPreviewStates)
+        {
+            var frames = PetStyleCatalog.ResolveStateFrames(style, state);
+            var image = new System.Windows.Controls.Image
+            {
+                Width = 56,
+                Height = 56,
+                Stretch = Stretch.Uniform,
+                VerticalAlignment = VerticalAlignment.Center,
+                // Without this the thumbnails are resampled with the speed-oriented
+                // default and small artwork comes out noticeably rough.
+                SnapsToDevicePixels = true
+            };
+            RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
+            if (frames.Count == 0) image.Opacity = 0.2;
+            else image.Source = DecodePreviewFrame(frames[0]);
+
+            var text = new StackPanel { Margin = new Thickness(8, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+            text.Children.Add(new TextBlock
+            {
+                Text = AppLocalization.Text(language, chinese, english),
+                FontSize = 12,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            if (frames.Count > 1)
+            {
+                var framesText = new TextBlock
+                {
+                    Text = AppLocalization.Text(language, $"{frames.Count} 帧动画", $"{frames.Count} frames"),
+                    FontSize = 10
+                };
+                // A resource reference rather than a lookup: the palette is swapped
+                // when the theme or the system light/dark setting changes, and a
+                // resolved brush would keep the colour it had when this ran.
+                framesText.SetResourceReference(TextBlock.ForegroundProperty, "MutedBrush");
+                text.Children.Add(framesText);
+            }
+
+            var cell = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, Margin = new Thickness(2, 3, 2, 3) };
+            cell.Children.Add(image);
+            cell.Children.Add(text);
+            PetPreviewGrid.Children.Add(cell);
+        }
+    }
+
+    /// <summary>Decodes one preview thumbnail at roughly the size it is drawn.</summary>
+    private static System.Windows.Media.Imaging.BitmapImage? DecodePreviewFrame(string path)
+    {
+        try
+        {
+            var source = new System.Windows.Media.Imaging.BitmapImage();
+            source.BeginInit();
+            source.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            // 56 DIP is the drawn size; 128 keeps it sharp on a high-DPI display
+            // without decoding the 1024-pixel original nine times over.
+            source.DecodePixelWidth = 128;
+            source.UriSource = new Uri(path, UriKind.Absolute);
+            source.EndInit();
+            source.Freeze();
+            return source;
+        }
+        catch (IOException) { return null; }
+        catch (ArgumentException) { return null; }
     }
 
     /// <summary>

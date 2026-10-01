@@ -370,10 +370,24 @@
                   <ComboBoxItem Tag="glm">GLM 小方灵「青棱」</ComboBoxItem>
                   <ComboBoxItem Tag="gpt-image2">GPT Image 2 小墨龙「玄珏」</ComboBoxItem>
                   <ComboBoxItem Tag="llama">Llama 小羊驼「绒眠」</ComboBoxItem>
+                  <!-- The built-in fallback: plain by design, but it is the one shape
+                       that is always present, so it belongs in the list rather than
+                       being reachable only when everything else is missing. -->
+                  <ComboBoxItem Tag="_placeholder" ToolTip="内置占位形象 / Built-in placeholder：未安装其他形象时使用">内置占位形象</ComboBoxItem>
                 </ComboBox>
               </StackPanel>
               <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="交互模式"/><ComboBox x:Name="InteractionBox" SelectionChanged="OnComboSelectionChanged" DropDownClosed="OnComboDropDownClosed" Margin="0,5,0,12"><ComboBoxItem Tag="free">自由拖动</ComboBoxItem><ComboBoxItem Tag="locked">锁定互动</ComboBoxItem></ComboBox></StackPanel>
             </Grid>
+
+            <!-- Read from disk rather than from a table, so this shows what the pet
+                 window would actually draw: an appearance installed as a package
+                 appears here too, and a state that failed to arrive is visible here
+                 instead of only in the pet. -->
+            <TextBlock x:Name="PetPreviewTitleText" Text="状态预览" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,2"/>
+            <TextBlock x:Name="PetPreviewHintText" Text="当前形象在九种状态下的样子。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ThemeCornerRadius}" Padding="8" Margin="0,0,0,12">
+              <UniformGrid x:Name="PetPreviewGrid" Rows="3" Columns="3"/>
+            </Border>
 
             <Grid Margin="0,2,0,8">
               <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
