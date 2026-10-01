@@ -1,6 +1,6 @@
 # BalancePet C# WPF
 
-Current version: `v1.2.25`; recent release: `v1.2.24`.
+Current version: `v1.3.0`; recent release: `v1.2.2`.
 
 Native Windows implementation of BalancePet, built with C# WPF.
 
