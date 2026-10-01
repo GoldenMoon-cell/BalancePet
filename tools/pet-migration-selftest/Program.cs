@@ -1,5 +1,8 @@
 using System.IO;
 using System.IO.Compression;
+using System.Net;
+using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using BalancePet.Wpf.Services;
 
@@ -24,7 +27,7 @@ internal static class Program
 
     private static int _failures;
 
-    private static int Main()
+    private static async Task<int> Main()
     {
         // Deliberately not under %TEMP%. The workspace carries a low mandatory
         // label, so anything started from it inherits a low integrity token and is
@@ -127,6 +130,45 @@ internal static class Program
             Check("占位形象九张状态图齐全", RequiredStates.All(state => File.Exists(Path.Combine(placeholder, state))));
             var placeholderFrames = PetStyleCatalog.ResolveStateFrames(PetStyleCatalog.FallbackId, "idle", appRoot).Count;
             Check("占位形象自带 idle 动画", placeholderFrames > 1, $"实际 {placeholderFrames} 帧");
+
+            // --- 8. Update requests survive a dropped connection ---------------
+            // A drop during the TLS handshake looks exactly like a server that is
+            // briefly unreachable, and it used to end the check with an error dialog
+            // quoting the transport. These use a stub handler because what is being
+            // pinned is the retry policy, not GitHub.
+            var flakyAttempts = 0;
+            var flaky = new UpdateService(new HttpClient(new StubHandler(_ =>
+            {
+                if (++flakyAttempts < 2) throw new IOException("Received an unexpected EOF or 0 bytes from the transport stream.");
+                return Json("[]");
+            })));
+            await flaky.CheckAsync("1.0.0");
+            Check("断连一次后自动重试", flakyAttempts == 2, $"实际请求 {flakyAttempts} 次");
+
+            var deadAttempts = 0;
+            var dead = new UpdateService(new HttpClient(new StubHandler(_ =>
+            {
+                deadAttempts++;
+                throw new IOException("Received an unexpected EOF or 0 bytes from the transport stream.");
+            })));
+            var deadMessage = "";
+            try { await dead.CheckAsync("1.0.0"); }
+            catch (HttpRequestException error) { deadMessage = error.Message; }
+            Check("重试用尽后报可读原因", deadAttempts == 3 && deadMessage.StartsWith("网络连接中断", StringComparison.Ordinal),
+                $"请求 {deadAttempts} 次 / {deadMessage}");
+            Check("技术细节仍保留在括号里", deadMessage.Contains("unexpected EOF", StringComparison.Ordinal));
+
+            var notFoundAttempts = 0;
+            var missing = new UpdateService(new HttpClient(new StubHandler(_ =>
+            {
+                notFoundAttempts++;
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            })));
+            var notFoundMessage = "";
+            try { await missing.CheckAsync("1.0.0"); }
+            catch (HttpRequestException error) { notFoundMessage = error.Message; }
+            Check("HTTP 错误状态不重试", notFoundAttempts == 1, $"实际请求 {notFoundAttempts} 次");
+            Check("HTTP 错误保留状态码", notFoundMessage.Contains("404", StringComparison.Ordinal), notFoundMessage);
         }
         finally
         {
@@ -142,6 +184,20 @@ internal static class Program
         if (ok) { Console.WriteLine($"  PASS  {what}"); return; }
         _failures++;
         Console.WriteLine($"  FAIL  {what}{(detail.Length == 0 ? "" : $"  ({detail})")}");
+    }
+
+    /// <summary>A 200 response carrying a JSON body, as the update endpoints answer.</summary>
+    private static HttpResponseMessage Json(string body)
+        => new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+
+    /// <summary>
+    /// Answers every request with whatever the test asks for, including by throwing,
+    /// so the update request policy can be exercised without a network.
+    /// </summary>
+    private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(respond(request));
     }
 
     /// <summary>Copies a real appearance into a throwaway application directory.</summary>

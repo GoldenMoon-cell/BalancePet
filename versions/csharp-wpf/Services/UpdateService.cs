@@ -27,15 +27,7 @@ public sealed class UpdateService(HttpClient http)
 
     public async Task<UpdateRelease?> CheckAsync(string currentVersion, CancellationToken cancellationToken = default)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Get, ReleasesEndpoint);
-        request.Headers.Accept.ParseAdd("application/vnd.github+json");
-        request.Headers.UserAgent.ParseAdd("BalancePet-Updater/1.0");
-        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"GitHub 更新检查失败：HTTP {(int)response.StatusCode} {response.ReasonPhrase}");
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        using var document = await GetJsonAsync(new Uri(ReleasesEndpoint), "更新检查", cancellationToken);
         foreach (var release in document.RootElement.EnumerateArray())
         {
             if (release.TryGetProperty("draft", out var draft) && draft.GetBoolean()) continue;
@@ -78,17 +70,88 @@ public sealed class UpdateService(HttpClient http)
 
         var builder = new UriBuilder(assetsUri);
         builder.Query = "per_page=100";
-        using var request = new HttpRequestMessage(HttpMethod.Get, builder.Uri);
-        request.Headers.Accept.ParseAdd("application/vnd.github+json");
-        request.Headers.UserAgent.ParseAdd("BalancePet-Updater/1.0");
-        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"GitHub 更新资产读取失败：HTTP {(int)response.StatusCode} {response.ReasonPhrase}");
-
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        using var document = await GetJsonAsync(builder.Uri, "更新资产读取", cancellationToken);
         if (document.RootElement.ValueKind != JsonValueKind.Array) return Array.Empty<JsonElement>();
         return document.RootElement.EnumerateArray().Select(asset => asset.Clone()).ToArray();
+    }
+
+    /// <summary>
+    /// How many times a request is sent before its failure is reported.
+    /// </summary>
+    private const int RequestAttempts = 3;
+
+    /// <summary>
+    /// Sends a GET, parses the JSON body, and retries a connection that dropped.
+    /// </summary>
+    /// <remarks>
+    /// A dropped TLS connection arrives as an IOException, or as an
+    /// HttpRequestException carrying no status code, and at this level it looks
+    /// exactly like a server that is briefly unreachable. Both are the absence of an
+    /// answer rather than an answer, and that is the only case where sending the same
+    /// request again can change the outcome: an HTTP status is the server having
+    /// replied, and repeating the request gets the same reply.
+    ///
+    /// Without this a single dropped packet during the handshake ends the check, and
+    /// the user gets an error dialog about something they cannot act on. Asking again
+    /// costs nothing while the network is healthy.
+    /// </remarks>
+    private async Task<JsonDocument> GetJsonAsync(Uri endpoint, string what, CancellationToken cancellationToken)
+    {
+        try
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    // Rebuilt per attempt, because a request message cannot be sent twice.
+                    using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+                    request.Headers.Accept.ParseAdd("application/vnd.github+json");
+                    request.Headers.UserAgent.ParseAdd("BalancePet-Updater/1.0");
+                    using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                    if (!response.IsSuccessStatusCode)
+                        throw new HttpRequestException(
+                            $"GitHub {what}失败：HTTP {(int)response.StatusCode} {response.ReasonPhrase}",
+                            inner: null,
+                            statusCode: response.StatusCode);
+
+                    await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                    return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+                }
+                catch (Exception error) when (attempt < RequestAttempts && IsDroppedConnection(error, cancellationToken))
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), cancellationToken);
+                }
+            }
+        }
+        catch (Exception error) when (IsDroppedConnection(error, cancellationToken))
+        {
+            // Out of attempts and still no answer. The message deliberately does not
+            // name the operation: every caller already says which one failed, and
+            // repeating it turns the dialog into "检查更新失败：更新检查时…". The
+            // transport's own words are kept as a suffix, because they are what makes
+            // a report diagnosable when "网络问题" is not the real cause.
+            throw new HttpRequestException($"网络连接中断，请稍后重试。（{error.Message}）", error);
+        }
+    }
+
+    /// <summary>
+    /// Whether a failure is a connection that dropped rather than a reply.
+    /// </summary>
+    private static bool IsDroppedConnection(Exception error, CancellationToken cancellationToken)
+    {
+        // A cancellation is the user's own doing, and a malformed body is an answer
+        // that arrived; neither improves by asking again. A timeout is excluded for a
+        // different reason: the request timeout is measured in minutes, so retrying it
+        // would leave the user waiting for a second one before being told anything.
+        if (cancellationToken.IsCancellationRequested) return false;
+        return error switch
+        {
+            OperationCanceledException or JsonException => false,
+            HttpRequestException http => http.StatusCode is null,
+            IOException => true,
+            System.Net.Sockets.SocketException => true,
+            _ => false
+        };
     }
 
     public async Task<string> DownloadAsync(UpdateAsset asset, CancellationToken cancellationToken = default, IProgress<double>? progress = null)
