@@ -91,7 +91,7 @@ public sealed class UpdateService(HttpClient http)
         return document.RootElement.EnumerateArray().Select(asset => asset.Clone()).ToArray();
     }
 
-    public async Task<string> DownloadAsync(UpdateAsset asset, CancellationToken cancellationToken = default)
+    public async Task<string> DownloadAsync(UpdateAsset asset, CancellationToken cancellationToken = default, IProgress<double>? progress = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, asset.DownloadUri);
         request.Headers.Accept.ParseAdd("application/octet-stream");
@@ -108,7 +108,27 @@ public sealed class UpdateService(HttpClient http)
             await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
             await using (var output = File.Create(path))
             {
-                await input.CopyToAsync(output, cancellationToken);
+                // A manual copy loop rather than CopyToAsync: the update package is
+                // hundreds of megabytes, and with no running count the pet has
+                // nothing to show for the whole download.
+                var total = response.Content.Headers.ContentLength ?? -1;
+                var buffer = new byte[81920];
+                long copied = 0;
+                var lastPercent = -1;
+                int read;
+                while ((read = await input.ReadAsync(buffer, cancellationToken)) > 0)
+                {
+                    await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                    copied += read;
+                    if (progress is null || total <= 0) continue;
+                    var percent = (int)Math.Clamp(copied * 100 / total, 0, 100);
+                    // Whole percents only: every report is a UI update, and 80 KB
+                    // chunks would otherwise flood the dispatcher.
+                    if (percent == lastPercent) continue;
+                    lastPercent = percent;
+                    progress.Report(percent / 100d);
+                }
+                progress?.Report(1);
             }
 
             if (!string.IsNullOrWhiteSpace(asset.Digest) && asset.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))

@@ -1600,7 +1600,14 @@ public partial class MainWindow : Window
 
     private async Task CheckForUpdatesAsync(bool manual)
     {
-        if (_closing || _updateBusy) return;
+        if (_closing) return;
+        if (_updateBusy)
+        {
+            // Returning silently made the menu item look broken while an update was
+            // already running; say why instead.
+            if (manual) ShowNativeBubble("正在更新", "请稍候", "上一个更新流程尚未结束");
+            return;
+        }
         _updateBusy = true;
         try
         {
@@ -1620,8 +1627,12 @@ public partial class MainWindow : Window
             var dialog = new UpdateWindow(release, plan, _settings) { Owner = this };
             if (dialog.ShowDialog() != true) return;
 
-            ShowNativeBubble("正在更新", release.TagName, "下载并校验中");
-            var payload = await _updateService.DownloadAsync(plan.Asset);
+            ShowUpdateProgress(0, release.TagName);
+            // Progress<double> captures this thread's dispatcher, so the callback
+            // lands on the UI thread even though the download does not.
+            var downloadProgress = new Progress<double>(value => ShowUpdateProgress(value, release.TagName));
+            var payload = await _updateService.DownloadAsync(plan.Asset, default, downloadProgress);
+            ShowUpdateProgress(1, release.TagName);
             if (plan.Method == UpdateInstallMethod.Installer)
             {
                 if (!UpdateInstaller.TryLaunchInstaller(payload, AppContext.BaseDirectory, out var installerError))
@@ -1991,8 +2002,39 @@ public partial class MainWindow : Window
         _bubbleAnimationTimer.Start();
     }
 
+    /// <summary>
+    /// Shows update download progress on the pet. Unlike every other bubble this
+    /// one stays up and is refreshed repeatedly, so it deliberately never arms the
+    /// hide timer; the download path replaces or clears it when it finishes.
+    /// </summary>
+    private void ShowUpdateProgress(double value, string version)
+    {
+        if (!_settings.Bubble) return;
+        var progress = Math.Clamp(value, 0, 1);
+        SetBubbleText(
+            AppLocalization.Text(_settings.Language, "正在更新", "Updating"),
+            $"{progress * 100:0}%",
+            AppLocalization.Text(_settings.Language,
+                $"{version} · 下载中，完成后自动重启",
+                $"{version} · downloading, restarts when done"));
+        BubbleProgress.Value = progress;
+        BubbleProgress.Visibility = Visibility.Visible;
+        _bubbleTimer.Stop();
+        if (BubbleGroup.Visibility == Visibility.Visible) return;
+        BubbleContent.Opacity = 1;
+        BubbleGroup.Visibility = Visibility.Visible;
+        _bubbleAnimationProgress = 0;
+        _bubbleAnimationFrom = 0;
+        _bubbleAnimationTo = 1;
+        _bubbleOpening = true;
+        _bubbleAnimationTimer.Start();
+    }
+
     private void SetBubbleText(string label, string amount, string hint)
     {
+        // Every ordinary bubble hides the bar; only ShowUpdateProgress turns it
+        // back on after setting the text.
+        BubbleProgress.Visibility = Visibility.Collapsed;
         BubbleLabel.Text = label;
         BubbleLabel.MaxWidth = BubbleTextMaxWidth;
         BubbleLabel.TextWrapping = TextWrapping.Wrap;
