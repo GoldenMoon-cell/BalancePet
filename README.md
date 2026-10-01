@@ -69,7 +69,6 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 - **余额 JSON 路径**：例如 `{ "data": { "balance": 12.3 } }` 填写 `data.balance`。
 - **自动刷新间隔**：可选择关闭、30 秒、1/5/15/30 分钟、1 小时或自定义（最少 30 秒）；例如填写 `300` 表示每 5 分钟自动查询一次。关闭后不再运行后台轮询。桌宠手动刷新不受此设置影响，但两次手动刷新至少间隔 5 秒；AI 任务完成后的余额更新属于内部强制刷新。
 - **语言**：可选择“简体中文”或 “English”。保存后会应用到设置窗口、桌宠菜单、气泡提示、用量统计和更新窗口。
-- **读取 CC Switch 当前账户**：启用后只读监听 `%USERPROFILE%\\.cc-switch\\cc-switch.db` 中 `app_type=codex` 且标记为当前的供应商。切换 Codex 账户后，BalancePet 会按令牌 SHA-256 指纹或唯一接口匹配本地 API 账户；未匹配的中转站会显示 CC Switch 账户名和接口地址。BalancePet 不读取网站 Cookie、网页登录凭据或明文令牌。
 - **网络失败处理**：请求遇到超时、网络波动或 408/425/429/5xx 响应时会自动重试 2 次，仍失败则显示最近一次缓存余额（如有）。
 - **设置导入/导出**：设置窗口底部可导入或导出 JSON；导出文件不会包含访问令牌，换电脑后需重新填写令牌。
 
@@ -136,9 +135,9 @@ inactive.png
 - **无令牌保存**：余额 API 访问令牌可以暂时留空。保存设置时会跳过余额连接测试，但仍会保存 AI 任务联动等设置；之后配置令牌即可恢复余额查询。
 - 气泡提示会比余额状态提示更短，余额查询、低余额和错误提示不受上述开关影响。
 
-## CC Switch 账户联动
+## 自定义客户端接入
 
-BalancePet 不需要安装对应的 AI 客户端或 CLI。登录状态来自 CC Switch 当前用户数据库 `%USERPROFILE%\.cc-switch\cc-switch.db`：程序只读查询 `providers` 表中 `app_type=codex` 且标记为当前的供应商，切换 Codex 账户后重新读取并匹配本地监控账户。匹配优先使用令牌的 SHA-256 指纹，其次使用唯一接口地址；令牌只在本机内存中处理，不会写入、记录或发送到外部服务。
+BalancePet 不需要安装对应的 AI 客户端或 CLI。未在上面列出的自定义客户端，只要按下面的方式上报开始和结束，就会被“其他客户端”接管。
 
 开始任务：`powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\\tools\\balancepet-task.ps1" start <task-id> <provider>`
 
