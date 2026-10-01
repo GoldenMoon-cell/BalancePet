@@ -482,7 +482,13 @@ public partial class SettingsWindow : Window
         if (sender is System.Windows.Controls.ComboBox box) SyncComboDisplay(box);
         // Only the appearance selector changes what the preview should show; the
         // others would each throw away and re-decode nine images for nothing.
-        if (ReferenceEquals(sender, PetStyleBox)) RefreshPetPreview();
+        if (ReferenceEquals(sender, PetStyleBox))
+        {
+            // A refusal explains the appearance that was chosen a moment ago, so it
+            // stops being relevant as soon as a different one is.
+            PetStyleMessageText.Visibility = Visibility.Collapsed;
+            RefreshPetPreview();
+        }
         MarkSettingsDirty();
     }
 
@@ -609,6 +615,75 @@ public partial class SettingsWindow : Window
         catch (ArgumentException) { return null; }
     }
 
+    private void ShowPetStyleMessage(string chinese, string english)
+    {
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        PetStyleMessageText.Text = AppLocalization.Text(language, chinese, english);
+        PetStyleMessageText.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>
+    /// Removes the appearance that is currently chosen.
+    /// </summary>
+    /// <remarks>
+    /// Appearance packages are downloaded from the online library but managed here,
+    /// beside the selector they change, because "which shape am I using" and "do I
+    /// still want it" are one question. The cases that cannot be removed are answered
+    /// in place rather than by greying the button out: a reason is more use than a
+    /// control that looks broken, and whether removal is allowed depends on what else
+    /// is installed, which can change while the window is open.
+    /// </remarks>
+    private void OnUninstallSelectedAppearance(object sender, RoutedEventArgs e)
+    {
+        var style = SelectedTag(PetStyleBox, "");
+        if (style.Length == 0) return;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        if (PetStyleCatalog.IsShipped(style))
+        {
+            ShowPetStyleMessage("这套形象随主程序提供，不能卸载。", "This appearance ships with the program and cannot be uninstalled.");
+            return;
+        }
+
+        var installed = _extensions.GetInstalled()
+            .FirstOrDefault(pet => string.Equals(pet.StyleId, style, StringComparison.OrdinalIgnoreCase));
+        if (installed is null)
+        {
+            ShowPetStyleMessage("这套形象不是已安装的扩展，没有可以删除的内容。", "This appearance is not an installed extension, so there is nothing to remove.");
+            return;
+        }
+
+        // The pet is the whole window, so removing the last appearance would leave a
+        // blank window and an empty selector with no way back through the interface.
+        if (PetStyleCatalog.IsLastAvailableStyle(style))
+        {
+            ShowPetStyleMessage("这是最后一套可用形象，不能卸载。请先安装或启用另一套形象。", "This is the last available appearance and cannot be uninstalled. Install or enable another one first.");
+            return;
+        }
+
+        var definition = PetStyleCatalog.Get(style);
+        var styleName = AppLocalization.IsEnglish(language) ? definition.EnglishName : definition.ChineseName;
+        var answer = System.Windows.MessageBox.Show(this,
+            AppLocalization.Text(language, $"确定卸载形象“{styleName}”吗？这只会删除它的扩展目录，桌宠会切回默认形象。", $"Uninstall the appearance \"{styleName}\"? Only its extension directory is removed, and the pet switches back to the default."),
+            AppLocalization.Text(language, "卸载形象", "Uninstall appearance"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (answer != MessageBoxResult.Yes) return;
+
+        if (!_extensions.Uninstall(installed.Manifest.Id))
+        {
+            ShowPetStyleMessage("卸载失败，形象目录可能正被占用。请关闭桌宠后重试。", "Uninstall failed; the appearance directory may be in use. Close the pet and try again.");
+            return;
+        }
+
+        PetStyleMessageText.Visibility = Visibility.Collapsed;
+        AddInstalledPetStyles();
+        UpdatePetStyleAvailability();
+        if (PetStyleCatalog.IsAvailable(style)) return;
+        // The removed appearance is still what the selector shows, and it can no
+        // longer be drawn. Move to the default, which the fallback chain in the pet
+        // window would have used anyway.
+        SelectByTag(PetStyleBox, "deepseek");
+        RefreshPetPreview();
+    }
+
     /// <summary>
     /// Marks the switch of every client that is not installed on this machine, so
     /// "not configured yet" is distinguishable from "switched off". The switch
@@ -660,7 +735,15 @@ public partial class SettingsWindow : Window
         UpdateExtensionButtons();
         ExtensionUpdateService.ApplyCachedUpdates(entries, _extensionUpdates.LoadCache());
         ExtensionListBox.ItemsSource = null;
-        ExtensionListBox.ItemsSource = entries.OrderBy(entry => entry.Type, StringComparer.OrdinalIgnoreCase).ThenBy(entry => entry.DisplayLabel, StringComparer.OrdinalIgnoreCase).ToArray();
+        // Appearances are installed from here but chosen on the pet page, so they are
+        // not listed again: a second place to manage the same thing invites the
+        // question of which one is authoritative, and "enable/disable" means nothing
+        // for a pet. Feature extensions and themes are only managed here, so they stay.
+        ExtensionListBox.ItemsSource = entries
+            .Where(entry => !string.Equals(entry.Type, "pet", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(entry => entry.Type, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(entry => entry.DisplayLabel, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
         RebuildPluginCatalogItems();
     }
 

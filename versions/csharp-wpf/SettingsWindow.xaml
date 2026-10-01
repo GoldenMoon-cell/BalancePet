@@ -394,7 +394,9 @@
               <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
               <StackPanel Margin="0,0,8,0">
                 <TextBlock Text="宠物形象"/>
-            <ComboBox x:Name="PetStyleBox" SelectionChanged="OnComboSelectionChanged" DropDownClosed="OnComboDropDownClosed" Margin="0,5,0,12">
+                <Grid Margin="0,5,0,12">
+                  <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <ComboBox x:Name="PetStyleBox" SelectionChanged="OnComboSelectionChanged" DropDownClosed="OnComboDropDownClosed">
                   <ComboBoxItem Tag="deepseek" ToolTip="DeepSeek 小鲸鱼 / Whale-chan / 澜汐">DeepSeek 小鲸鱼「澜汐」</ComboBoxItem>
                   <ComboBoxItem Tag="chatgpt" ToolTip="ChatGPT 小白龙 / ChatGPT White Dragon / 霁珑">ChatGPT 小白龙「霁珑」</ComboBoxItem>
                   <ComboBoxItem Tag="minimax" ToolTip="MiniMax 小海螺 / 绯音">MiniMax 小海螺「绯音」</ComboBoxItem>
@@ -412,9 +414,16 @@
                        being reachable only when everything else is missing. -->
                   <ComboBoxItem Tag="_placeholder" ToolTip="内置占位形象 / Built-in placeholder：未安装其他形象时使用">内置占位形象</ComboBoxItem>
                 </ComboBox>
+                  <Button Grid.Column="1" x:Name="PetStyleUninstallButton" Content="卸载形象" Click="OnUninstallSelectedAppearance" ToolTip="卸载当前形象；随主程序提供的形象与最后一套可用形象不能卸载" Padding="10,5" Margin="6,0,0,0"/>
+                </Grid>
               </StackPanel>
               <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="交互模式"/><ComboBox x:Name="InteractionBox" SelectionChanged="OnComboSelectionChanged" DropDownClosed="OnComboDropDownClosed" Margin="0,5,0,12"><ComboBoxItem Tag="free">自由拖动</ComboBoxItem><ComboBoxItem Tag="locked">锁定互动</ComboBoxItem></ComboBox></StackPanel>
             </Grid>
+
+            <!-- Refusals and failures for the appearance row land here rather than in
+                 the extension page's message line, which is on a different tab and
+                 would leave the user reading nothing after pressing the button. -->
+            <TextBlock x:Name="PetStyleMessageText" Foreground="{DynamicResource DangerBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10" Visibility="Collapsed"/>
 
             <!-- Read from disk rather than from a table, so this shows what the pet
                  window would actually draw: an appearance installed as a package
