@@ -11,7 +11,11 @@
     "occurred_at": { "type": "string", "format": "date-time" },
     "kind": { "const": "llm_request" },
     "provider": { "type": "string", "minLength": 1, "maxLength": 64 },
-    "account_id": { "type": "string", "maxLength": 128 },
+    "account_id": {
+      "type": "string",
+      "maxLength": 128,
+      "description": "Account this task billed to. Present only when the client names the account outright: the host never guesses, so an absent value means the account is unknown rather than unset."
+    },
     "model": { "type": "string", "maxLength": 160 },
     "success": { "type": "boolean" },
     "input_tokens": {
@@ -34,6 +38,17 @@
       "minimum": 0,
       "description": "Tokens written to cache (cache creation), kept separate from cache reads."
     },
+    "cost": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Amount charged. Read cost_source to learn what this figure covers: one request, or the whole task."
+    },
+    "currency": { "type": "string", "maxLength": 12 },
+    "cost_source": {
+      "type": "string",
+      "enum": ["relay-log", "balance-delta", "client"],
+      "description": "Where cost came from. relay-log: matched to a per-request record in a relay's billing log, so cost is that single request. balance-delta: the account balance drop observed across the whole task, used for official API accounts that publish no per-request billing; it is a real charge, but its granularity is the account refresh interval. client: reported by the client itself. Absent when no cost is known."
+    },
     "duration_ms": {
       "type": "integer",
       "minimum": 0,
@@ -45,6 +60,26 @@
       "description": "Client-reported time to first token; omitted when unavailable."
     },
     "tool_calls": { "type": "integer", "minimum": 0 },
-    "steps": { "type": "integer", "minimum": 0 }
+    "steps": { "type": "integer", "minimum": 0 },
+    "reasoning_effort": { "type": "string", "maxLength": 32 },
+    "details": {
+      "type": "array",
+      "maxItems": 192,
+      "description": "Per-request breakdown, present when the client or a relay log supplies one. Only meaningful when cost_source is relay-log or absent; a balance-delta task has no per-request detail by construction.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "occurred_at": { "type": "string", "format": "date-time" },
+          "model": { "type": "string", "maxLength": 160 },
+          "reasoning_effort": { "type": "string", "maxLength": 32 },
+          "input_tokens": { "type": "integer", "minimum": 0 },
+          "output_tokens": { "type": "integer", "minimum": 0 },
+          "cache_read_tokens": { "type": "integer", "minimum": 0 },
+          "cost": { "type": "number", "minimum": 0 },
+          "currency": { "type": "string", "maxLength": 12 }
+        }
+      }
+    }
   }
 }

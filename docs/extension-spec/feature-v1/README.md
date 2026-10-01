@@ -179,7 +179,23 @@ The first event kind is `llm_request`:
   "duration_ms": 98000,
   "time_to_first_token_ms": 18500,
   "tool_calls": 0,
-  "steps": 5
+  "steps": 5,
+  "reasoning_effort": "high",
+  "cost": 1.36,
+  "currency": "USD",
+  "cost_source": "relay-log",
+  "details": [
+    {
+      "occurred_at": "2026-09-05T11:59:10+08:00",
+      "model": "model-name",
+      "reasoning_effort": "high",
+      "input_tokens": 1160,
+      "output_tokens": 853,
+      "cache_read_tokens": 0,
+      "cost": 0.09619396,
+      "currency": "USD"
+    }
+  ]
 }
 ```
 
@@ -195,6 +211,30 @@ the file to `usage-events-<timestamp>.ndjson`; extensions should read the
 `usage-events*.ndjson` set, tolerate a partially written last line, and
 deduplicate by `event_id` when combining files. Rescan the set when the user
 presses Refresh.
+
+`account_id` names the account a task billed to, and is present only when the
+client names that account outright. The host never falls back to "whichever
+account is selected", because labelling a task with an account it never touched
+is worse than leaving the label off; an absent value therefore means "unknown",
+not "unset".
+
+`cost` is the amount charged and `cost_source` says what that figure covers. They
+must be read together, because the two sources are not the same kind of number:
+
+- `relay-log` — matched to a per-request record in a relay's billing log. `cost`
+  is that single request, and `details` carries the per-request breakdown.
+- `balance-delta` — the account balance drop observed across the whole task, used
+  for official API accounts that publish no per-request billing log. `cost` is a
+  real charge and already includes any peak/off-peak discount, but its granularity
+  is the account refresh interval, so a task shorter than that interval can measure
+  zero. A `balance-delta` event has no `details`, and a consumer must not render an
+  empty per-request panel for it as though parsing had failed.
+- `client` — reported by the client itself.
+
+When both a relay log and a balance drop are available for one task, the relay log
+wins: it is the more precise figure. An event with no `cost` at all simply has no
+known cost; v1 cannot express why, so consumers should present it as unreported
+rather than as zero.
 
 The host may create a lifecycle-only event when a trusted local task bridge
 knows that a request finished but the client did not provide token counters.
