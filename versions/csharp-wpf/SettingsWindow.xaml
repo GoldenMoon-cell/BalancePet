@@ -108,6 +108,43 @@
         </Setter.Value>
       </Setter>
     </Style>
+    <!-- Horizontal section tabs. The sidebar's TabItem style is vertical-only (fixed
+         width, left-hand selection bar), so these carry their own template instead of
+         inheriting it. ChipTab is the same idea one size down, for filtering. -->
+    <Style x:Key="SectionTab" TargetType="TabItem">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
+      <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Padding" Value="14,6,14,6"/>
+      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabItem">
+            <Border x:Name="TabBorder" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
+                    CornerRadius="{DynamicResource ThemeCornerRadius}" Padding="{TemplateBinding Padding}">
+              <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource SurfaceStrongBrush}"/>
+                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="ChipTab" TargetType="TabItem" BasedOn="{StaticResource SectionTab}">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Padding" Value="10,4,10,4"/>
+      <Setter Property="Margin" Value="0,0,4,0"/>
+    </Style>
     <Style TargetType="TabItem">
       <Setter Property="Width" Value="165"/>
       <Setter Property="Height" Value="40"/>
@@ -473,21 +510,34 @@
                 <TextBlock x:Name="ExtensionManagementHintText" Text="在线插件库负责发现扩展；功能扩展安装即启用，后台能力会自动运行。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
               </StackPanel>
             </Grid>
-            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10">
-              <StackPanel>
-                <Grid Margin="0,0,0,6">
+            <!-- Two sections that used to share one long page. Downloading something
+                 is a different activity from managing what is already on the disk,
+                 and mixing them buried the local list under a catalog that can be
+                 arbitrarily long. -->
+            <TabControl x:Name="ExtensionTabs" Style="{x:Null}" Background="Transparent" BorderThickness="0" Padding="0">
+              <TabItem Style="{StaticResource SectionTab}">
+                <TabItem.Header><TextBlock x:Name="OnlineLibraryTabText" Text="在线插件库"/></TabItem.Header>
+                <StackPanel Margin="0,12,0,0">
+                <Grid Margin="0,0,0,7">
                   <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                  <StackPanel>
-                    <TextBlock x:Name="PluginCatalogTitleText" Text="在线插件库" FontWeight="SemiBold" FontSize="14"/>
-                    <TextBlock x:Name="PluginCatalogHintText" Text="从 BalancePet 官方目录发现插件；下载后仍会执行本地安全校验。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
-                  </StackPanel>
-                  <Button x:Name="PluginCatalogRefreshButton" Grid.Column="1" Content="刷新目录" Click="OnRefreshPluginCatalog" ToolTip="刷新在线插件目录" Padding="10,5" Margin="8,0,0,0"/>
+                  <TextBlock x:Name="PluginCatalogHintText" Text="从 BalancePet 官方目录发现插件；下载后仍会执行本地安全校验。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                  <Button x:Name="PluginCatalogRefreshButton" Grid.Column="1" Content="刷新目录" Click="OnRefreshPluginCatalog" ToolTip="刷新在线插件目录" Padding="10,5"/>
                 </Grid>
                 <Grid Margin="0,0,0,7">
                   <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <TextBox x:Name="PluginCatalogSearchBox" Height="29" ToolTip="搜索插件名称、作者或分类" TextChanged="OnPluginCatalogSearchChanged"/>
                   <TextBlock Grid.Column="1" x:Name="PluginCatalogCountText" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </Grid>
+                <!-- Filtering by kind, because the catalog mixes plugins, appearances,
+                     themes and browser extensions, and the useful question is usually
+                     about only one of them. -->
+                <TabControl x:Name="PluginCatalogCategoryTabs" Style="{x:Null}" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,4" SelectionChanged="OnPluginCatalogCategoryChanged">
+                  <TabItem Style="{StaticResource ChipTab}" Tag=""><TabItem.Header><TextBlock x:Name="CatalogCategoryAllText" Text="全部"/></TabItem.Header></TabItem>
+                  <TabItem Style="{StaticResource ChipTab}" Tag="feature"><TabItem.Header><TextBlock x:Name="CatalogCategoryFeatureText" Text="功能"/></TabItem.Header></TabItem>
+                  <TabItem Style="{StaticResource ChipTab}" Tag="pet"><TabItem.Header><TextBlock x:Name="CatalogCategoryPetText" Text="形象"/></TabItem.Header></TabItem>
+                  <TabItem Style="{StaticResource ChipTab}" Tag="theme"><TabItem.Header><TextBlock x:Name="CatalogCategoryThemeText" Text="主题"/></TabItem.Header></TabItem>
+                  <TabItem Style="{StaticResource ChipTab}" Tag="browser"><TabItem.Header><TextBlock x:Name="CatalogCategoryBrowserText" Text="浏览器"/></TabItem.Header></TabItem>
+                </TabControl>
                 <ListBox x:Name="PluginCatalogListBox" Height="218" BorderThickness="0" Background="Transparent" Padding="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                   <ListBox.ItemTemplate>
                     <DataTemplate>
@@ -513,9 +563,11 @@
                   </ListBox.ItemTemplate>
                 </ListBox>
                 <TextBlock x:Name="PluginCatalogStatusText" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"/>
-              </StackPanel>
-            </Border>
-            <TextBlock x:Name="LocalExtensionsTitleText" Text="本地扩展" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,5"/>
+                </StackPanel>
+              </TabItem>
+              <TabItem Style="{StaticResource SectionTab}">
+                <TabItem.Header><TextBlock x:Name="LocalExtensionsTabText" Text="本地扩展功能"/></TabItem.Header>
+                <StackPanel Margin="0,12,0,0">
             <TextBlock x:Name="LocalExtensionsHintText" Text="已下载到扩展库的 ZIP 会显示在这里；扫描到不代表已经安装。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,7"/>
             <ListBox x:Name="ExtensionListBox" AllowDrop="True" Drop="OnExtensionDrop" DragOver="OnExtensionDragOver" MinHeight="280" Height="360" SelectionChanged="OnExtensionSelectionChanged" BorderBrush="{DynamicResource BorderBrush}" Background="{DynamicResource SurfaceBrush}" BorderThickness="1" Padding="7" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
               <ListBox.ItemTemplate>
@@ -551,6 +603,9 @@
             <Border Background="{DynamicResource SurfaceBrush}" Padding="10" CornerRadius="4">
               <TextBlock Text="扩展不会写入主程序安装目录。禁用或卸载当前正在使用的资源扩展后，桌宠会回退到内置形象；功能扩展始终在独立进程中运行。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap"/>
             </Border>
+                </StackPanel>
+              </TabItem>
+            </TabControl>
           </StackPanel>
         </ScrollViewer>
       </TabItem>

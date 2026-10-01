@@ -800,18 +800,42 @@ public partial class SettingsWindow : Window
 
     private readonly HashSet<string> _pluginCatalogBusyIds = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Empty for "all", otherwise the record <c>type</c> being shown.</summary>
+    private string _pluginCatalogCategory = "";
+
+    /// <summary>
+    /// Narrows the catalog to one kind of extension.
+    /// </summary>
+    /// <remarks>
+    /// A TabControl selects its first tab while the XAML is still being read, which
+    /// raises this before the settings object and the list it feeds have been
+    /// assigned. <see cref="_trackChanges"/> is what tells that apart from a click,
+    /// because it is set once the constructor is done.
+    /// </remarks>
+    private void OnPluginCatalogCategoryChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_trackChanges) return;
+        _pluginCatalogCategory = (PluginCatalogCategoryTabs.SelectedItem as TabItem)?.Tag?.ToString() ?? "";
+        RebuildPluginCatalogItems();
+    }
+
     private void RefreshPluginCatalogLabels(string language)
     {
-        if (PluginCatalogTitleText is null) return;
+        if (OnlineLibraryTabText is null) return;
         ExtensionManagementTitleText.Text = AppLocalization.Text(language, "扩展管理", "Extension management");
         ExtensionManagementHintText.Text = AppLocalization.Text(language, "在线插件库负责发现扩展；功能扩展安装即启用，后台能力会自动运行。", "Discover extensions online; feature extensions enable on installation, and background capabilities start automatically.");
-        PluginCatalogTitleText.Text = AppLocalization.Text(language, "在线插件库", "Online plugin catalog");
+        OnlineLibraryTabText.Text = AppLocalization.Text(language, "在线插件库", "Online plugin catalog");
         PluginCatalogHintText.Text = AppLocalization.Text(language, "从 BalancePet 官方目录发现插件；下载后仍会执行本地安全校验。", "Discover plugins from the curated BalancePet catalog; every download is still verified locally.");
         PluginCatalogRefreshButton.Content = AppLocalization.Text(language, "刷新目录", "Refresh catalog");
         PluginCatalogRefreshButton.ToolTip = AppLocalization.Text(language, "刷新在线插件目录", "Refresh the online plugin catalog");
         PluginCatalogSearchBox.ToolTip = AppLocalization.Text(language, "搜索插件名称、作者或分类", "Search by plugin name, author, or category");
-        LocalExtensionsTitleText.Text = AppLocalization.Text(language, "本地扩展", "Local extensions");
-        LocalExtensionsHintText.Text = AppLocalization.Text(language, "可将扩展 ZIP 拖到此处直接安装；扩展库中的 ZIP 也会显示在这里。", "Drop an extension ZIP here to install it; ZIPs in the extension library also appear here.");
+        CatalogCategoryAllText.Text = AppLocalization.Text(language, "全部", "All");
+        CatalogCategoryFeatureText.Text = AppLocalization.Text(language, "功能", "Features");
+        CatalogCategoryPetText.Text = AppLocalization.Text(language, "形象", "Appearances");
+        CatalogCategoryThemeText.Text = AppLocalization.Text(language, "主题", "Themes");
+        CatalogCategoryBrowserText.Text = AppLocalization.Text(language, "浏览器", "Browser");
+        LocalExtensionsTabText.Text = AppLocalization.Text(language, "本地扩展功能", "Local extension features");
+        LocalExtensionsHintText.Text = AppLocalization.Text(language, "可将扩展 ZIP 拖到此处直接安装；扩展库中的 ZIP 也会显示在这里。安装后的形象在「桌宠与交互」里选择。", "Drop an extension ZIP here to install it; ZIPs in the extension library also appear here. Installed appearances are chosen under Pet & interaction.");
     }
 
     private async void OnRefreshPluginCatalog(object sender, RoutedEventArgs e)
@@ -870,6 +894,8 @@ public partial class SettingsWindow : Window
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var query = PluginCatalogSearchBox?.Text?.Trim() ?? "";
         var views = _pluginCatalogEntries
+            .Where(record => _pluginCatalogCategory.Length == 0
+                || string.Equals(record.Type, _pluginCatalogCategory, StringComparison.OrdinalIgnoreCase))
             .Where(record => string.IsNullOrWhiteSpace(query) || string.Join(" ", record.Id, record.Name, record.NameEn, record.Author, record.Description, record.DescriptionEn, string.Join(" ", record.Categories)).Contains(query, StringComparison.OrdinalIgnoreCase))
             .OrderBy(record => record.Name, StringComparer.OrdinalIgnoreCase)
             .Select(record =>

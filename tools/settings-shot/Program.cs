@@ -36,6 +36,10 @@ internal static class Program
         // captured without editing the user's settings file.
         if (Array.IndexOf(args, "--style") is var at && at >= 0 && at + 1 < args.Length)
             settings.PetStyle = args[at + 1];
+        // The page to capture, named by any element it contains.
+        var tabElement = Array.IndexOf(args, "--tab") is var tt && tt >= 0 && tt + 1 < args.Length
+            ? args[tt + 1]
+            : "PetPreviewGrid";
         var window = new SettingsWindow(store, new DpapiTokenStore(), settings)
         {
             WindowStartupLocation = WindowStartupLocation.Manual,
@@ -49,8 +53,15 @@ internal static class Program
         {
             window.Show();
             window.UpdateLayout();
-            SelectTabContaining(window, "PetPreviewGrid");
-            window.UpdateLayout();
+            SelectTabContaining(window, tabElement);
+            // Selecting a tab builds its content, and a tab nested inside it builds
+            // its own content one pass later, so a single UpdateLayout can capture a
+            // half-built page. Draining the dispatcher lets every pass finish.
+            for (var pass = 0; pass < 4; pass++)
+            {
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+                window.UpdateLayout();
+            }
 
             var width = (int)Math.Ceiling(window.ActualWidth);
             var height = (int)Math.Ceiling(window.ActualHeight);
@@ -81,19 +92,19 @@ internal static class Program
     }
 
     /// <summary>
-    /// Selects whichever tab holds a named element, so the capture shows the page
-    /// that was changed instead of whichever one happens to open first.
+    /// Selects every tab above a named element, outermost included, so the capture
+    /// shows the page that was changed rather than whichever one opens first.
     /// </summary>
     private static void SelectTabContaining(FrameworkElement window, string elementName)
     {
         if (window.FindName(elementName) is not DependencyObject node) return;
-        while (node is not null and not TabItem)
+        while (node is not null)
         {
+            if (node is TabItem tab) tab.IsSelected = true;
             // The logical tree reaches a tab's content even before that tab has been
             // selected and connected to the visual tree, which is exactly the case
             // this has to handle.
             node = LogicalTreeHelper.GetParent(node) ?? VisualTreeHelper.GetParent(node);
         }
-        if (node is TabItem tab) tab.IsSelected = true;
     }
 }
