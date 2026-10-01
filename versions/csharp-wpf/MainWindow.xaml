@@ -7,14 +7,20 @@
         Topmost="True" ShowInTaskbar="False" ClipToBounds="False"
         >
   <Canvas ClipToBounds="False">
-    <Grid x:Name="BubbleGroup" Canvas.Left="5" Canvas.Top="8" Width="315" Height="220" Panel.ZIndex="1" Visibility="Collapsed" Opacity="0" RenderTransformOrigin="0.72,1" MouseLeftButtonDown="OnBubbleClick">
+    <Grid x:Name="BubbleGroup" Canvas.Left="5" Canvas.Top="8" Width="315" Panel.ZIndex="1" Visibility="Collapsed" Opacity="0" RenderTransformOrigin="0.72,1" MouseLeftButtonDown="OnBubbleClick">
       <Grid.RenderTransform>
         <TransformGroup>
           <ScaleTransform x:Name="BubbleScale" ScaleX="0.76" ScaleY="0.76"/>
           <TranslateTransform x:Name="BubbleTranslate" Y="16"/>
         </TransformGroup>
       </Grid.RenderTransform>
-      <Border Width="300" Height="210" HorizontalAlignment="Left" VerticalAlignment="Top" Background="White" BorderBrush="#263D78" BorderThickness="5" CornerRadius="105" Padding="24">
+      <!-- Height is content-driven rather than pinned at 210. At the minimum it is a
+           capsule (CornerRadius 105 is exactly half of 210), and as the text needs
+           more room it grows into a rounded rectangle instead of clipping. WPF caps
+           the radius at half the shorter side, so no radius change is needed for the
+           shape to stay correct; MaxHeight keeps an unexpectedly long message from
+           covering the screen, and text is truncated before it can reach that. -->
+      <Border Width="300" MinHeight="210" MaxHeight="400" HorizontalAlignment="Left" VerticalAlignment="Top" Background="White" BorderBrush="#263D78" BorderThickness="5" CornerRadius="105" Padding="24">
         <StackPanel x:Name="BubbleContent" VerticalAlignment="Center" Opacity="1" RenderTransformOrigin="0.5,0.5">
           <TextBlock x:Name="BubbleLabel" Text="账户余额" Foreground="#667DB1" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center"/>
           <TextBlock x:Name="BubbleAmount" Text="--" Foreground="#263D78" FontSize="39" FontWeight="Bold" HorizontalAlignment="Center" Width="252" Margin="0,4" TextAlignment="Center" TextWrapping="Wrap" TextTrimming="None"/>

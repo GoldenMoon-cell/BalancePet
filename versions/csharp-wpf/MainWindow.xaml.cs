@@ -1691,7 +1691,10 @@ public partial class MainWindow : Window
                 // broken update path look exactly like "already up to date".
                 // Announced once per run, not on every background attempt.
                 _updateFailureAnnounced = true;
-                ShowNativeBubble("更新检查失败", "--", error.Message);
+                // Truncated like every other failure bubble: an HttpRequestException
+                // message can run to hundreds of characters.
+                var reason = error.Message.Length > 90 ? error.Message[..90] + "…" : error.Message;
+                ShowNativeBubble("更新检查失败", "--", reason);
             }
         }
         finally { _updateBusy = false; }
