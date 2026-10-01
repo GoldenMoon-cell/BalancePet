@@ -386,6 +386,17 @@ public partial class MainWindow : Window
             _codexTaskBridge.Start();
             _ = SyncClientHooksAsync();
         }
+        // Appearances that shipped in an earlier release are still on disk after an
+        // upgrade. Converting them into packages is what makes them removable and
+        // updatable, and it is a no-op once there are none left, so it can simply run
+        // every launch rather than needing a marker to remember it happened.
+        //
+        // Off the UI thread deliberately: it copies and compresses roughly 15 MB per
+        // appearance, which is long enough to be visible as a frozen window. Drawing
+        // is unaffected either way, because the asset lookup checks the folder on
+        // disk and then the installed packages, so the appearance resolves before,
+        // during and after the conversion.
+        _ = Task.Run(() => ShippedPetMigration.Run());
         _usageEventBridge.Start();
         PublishNotificationState();
         SetupTray();
