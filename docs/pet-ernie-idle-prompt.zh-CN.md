@@ -2,7 +2,7 @@
 ## 参考图
 
 ```text
-素材/二次元形象/Ernie.jpg
+素材/二次元形象/ernie/参考图.png
 ```
 
 参考图只用于保留蓝紫色长发、蓝紫与白色配色、安静可靠的气质、书灵/护理助手的角色方向和几何饰品轮廓。必须移除参考图中的轮椅、输液袋、医疗监护设备、温度数字、书堆、可读文字、平台标志和场景。
@@ -40,7 +40,7 @@ Avoid: white/gray/black background, checkerboard baked into the image, scenery, 
 首张图验收前暂存为：
 
 ```text
-素材/Ernie/idle.png
+二次元形象/ernie/形象/idle.png
 ```
 
 确认角色后，再复制到：

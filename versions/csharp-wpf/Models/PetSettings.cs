@@ -33,10 +33,22 @@ public sealed class PetSettings
     [JsonPropertyName("settings_navigation_collapsed")] public bool NavigationCollapsed { get; set; }
     [JsonPropertyName("random_easter_eggs")] public bool RandomEasterEggs { get; set; } = true;
     [JsonPropertyName("codex_task_integration")] public bool CodexTaskIntegration { get; set; }
+    // DeepSeek Harness reports through the same provider-neutral pipe as other
+    // third-party clients, so it gets its own opt-in instead of riding on the
+    // Codex switch.
+    [JsonPropertyName("deepseek_harness_integration")] public bool DeepSeekHarnessIntegration { get; set; }
+    // Each hook-based client is gated separately. Before schema 4 a single
+    // codex_task_integration switch covered all of them; Migrate() expands the
+    // legacy value so an upgrade never silently stops following a client.
+    [JsonPropertyName("gemini_task_integration")] public bool GeminiTaskIntegration { get; set; }
+    [JsonPropertyName("qwen_task_integration")] public bool QwenTaskIntegration { get; set; }
+    [JsonPropertyName("claude_task_integration")] public bool ClaudeTaskIntegration { get; set; }
+    // Fallback bucket for any provider that matches no known client, so custom
+    // CLIs calling balancepet-task.ps1 keep working.
+    [JsonPropertyName("other_task_integration")] public bool OtherTaskIntegration { get; set; }
     // Keep the JSON name so existing settings continue to work after the
     // login-state source was narrowed to CC Switch.
     [JsonPropertyName("account_status_integration")] public bool CCSwitchIntegration { get; set; } = true;
-    [JsonPropertyName("system_notifications")] public bool SystemNotifications { get; set; } = true;
     [JsonPropertyName("update_check_mode")] public string UpdateCheckMode { get; set; } = "daily";
     [JsonPropertyName("last_update_check_utc")] public DateTimeOffset? LastUpdateCheckUtc { get; set; }
     [JsonPropertyName("extension_update_check_mode")] public string ExtensionUpdateCheckMode { get; set; } = "daily";

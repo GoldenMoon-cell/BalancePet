@@ -47,7 +47,9 @@ public sealed class UsageEventBridge : IDisposable
         bool? success = null,
         CancellationToken cancellationToken = default,
         string? reasoningEffort = null,
-        IReadOnlyList<UsageEventDetailSnapshot>? details = null)
+        IReadOnlyList<UsageEventDetailSnapshot>? details = null,
+        string? accountId = null,
+        string? costSource = null)
     {
         return RecordCoreAsync(
             Guid.NewGuid().ToString("N"),
@@ -67,6 +69,8 @@ public sealed class UsageEventBridge : IDisposable
             success,
             reasoningEffort,
             details,
+            accountId,
+            costSource,
             cancellationToken);
     }
 
@@ -88,7 +92,9 @@ public sealed class UsageEventBridge : IDisposable
         bool? success = null,
         CancellationToken cancellationToken = default,
         string? reasoningEffort = null,
-        IReadOnlyList<UsageEventDetailSnapshot>? details = null)
+        IReadOnlyList<UsageEventDetailSnapshot>? details = null,
+        string? accountId = null,
+        string? costSource = null)
     {
         return RecordCoreAsync(
             Clean(eventId, 80),
@@ -108,6 +114,8 @@ public sealed class UsageEventBridge : IDisposable
             success,
             reasoningEffort,
             details,
+            accountId,
+            costSource,
             cancellationToken);
     }
 
@@ -129,6 +137,8 @@ public sealed class UsageEventBridge : IDisposable
         bool? success,
         string? reasoningEffort,
         IReadOnlyList<UsageEventDetailSnapshot>? details,
+        string? accountId,
+        string? costSource,
         CancellationToken cancellationToken)
     {
         var sanitizedProvider = Clean(provider, 64);
@@ -140,6 +150,8 @@ public sealed class UsageEventBridge : IDisposable
             OccurredAt = occurredAt,
             Kind = "llm_request",
             Provider = sanitizedProvider,
+            AccountId = Clean(accountId, 128),
+            CostSource = Clean(costSource, 24),
             Model = Clean(model, 160),
             Success = success,
             InputTokens = ClampCounter(inputTokens),
@@ -248,6 +260,7 @@ public sealed class UsageEventBridge : IDisposable
             Kind = "llm_request",
             Provider = provider,
             AccountId = Clean(ReadString(root, "account_id", "accountId"), 128),
+            CostSource = Clean(ReadString(root, "cost_source", "costSource"), 24),
             Model = Clean(ReadString(root, "model") ?? ReadString(usage, "model"), 160),
             Success = ReadBool(usage, "success") ?? ReadBool(root, "success"),
             InputTokens = ReadCounter(usage, "input_tokens", "inputTokens", "prompt_tokens", "promptTokens", "input_token_count", "inputTokenCount", "prompt_token_count", "promptTokenCount") ?? ReadCounter(root, "input_tokens", "inputTokens", "prompt_tokens", "promptTokens", "input_token_count", "inputTokenCount", "prompt_token_count", "promptTokenCount"),
@@ -421,7 +434,9 @@ public sealed class UsageEventBridge : IDisposable
                 ReadCounter(root, "steps"),
                 ReadBool(root, "success"),
                 Clean(ReadString(root, "reasoning_effort", "reasoningEffort"), 32),
-                ReadDetails(root));
+                ReadDetails(root),
+                Clean(ReadString(root, "account_id", "accountId"), 128),
+                Clean(ReadString(root, "cost_source", "costSource"), 24));
             return snapshot.OccurredAt != DateTimeOffset.MinValue;
         }
         catch (JsonException) { return false; }
@@ -462,6 +477,12 @@ public sealed class UsageEventBridge : IDisposable
         public string Kind { get; set; } = "llm_request";
         public string Provider { get; set; } = "";
         public string AccountId { get; set; } = "";
+        /// <summary>
+        /// Where <see cref="Cost"/> came from: <c>relay-log</c> when it was matched
+        /// to a per-request relay record, <c>balance-delta</c> when it is the
+        /// account balance drop across the whole task. Empty means no cost.
+        /// </summary>
+        public string CostSource { get; set; } = "";
         public string Model { get; set; } = "";
         public bool? Success { get; set; }
         public long? InputTokens { get; set; }
@@ -502,7 +523,9 @@ public sealed record UsageEventSnapshot(
     long? Steps,
     bool? Success,
     string ReasoningEffort = "",
-    IReadOnlyList<UsageEventDetailSnapshot>? Details = null);
+    IReadOnlyList<UsageEventDetailSnapshot>? Details = null,
+    string AccountId = "",
+    string CostSource = "");
 
 public sealed record UsageEventDetailSnapshot(
     DateTimeOffset OccurredAt,

@@ -19,11 +19,15 @@
     <SolidColorBrush x:Key="PurpleBrush" Color="#B586FF"/>
     <SolidColorBrush x:Key="OrangeBrush" Color="#F4B942"/>
     <SolidColorBrush x:Key="RedBrush" Color="#FF7086"/>
+    <!-- Every navigation and toolbar glyph keeps the same (2,2)-(12,12) box so
+         Stretch="Uniform" normalizes them identically and their optical sizes
+         match. Dashboard, History and Folder are filled; Refresh is an open arc
+         and must be stroked, never filled. -->
     <Geometry x:Key="BrandMarkGeometry">M 3,5 L 8,5 L 8,7 L 6.2,7 L 11.6,12.4 L 10.1,13.9 L 4.7,8.5 L 4.7,12 L 3,12 Z</Geometry>
     <Geometry x:Key="DashboardIconGeometry">M 2,2 H 6 V 6 H 2 Z M 8,2 H 12 V 6 H 8 Z M 2,8 H 6 V 12 H 2 Z M 8,8 H 12 V 12 H 8 Z</Geometry>
     <Geometry x:Key="HistoryIconGeometry">M 2,2 H 12 V 4 H 2 Z M 2,6 H 12 V 8 H 2 Z M 2,10 H 9 V 12 H 2 Z</Geometry>
     <Geometry x:Key="ProviderIconGeometry">M 7,1.5 L 12.5,7 L 7,12.5 L 1.5,7 Z M 5,7 H 9</Geometry>
-    <Geometry x:Key="FolderIconGeometry">M 1.5,3 H 5 L 6.5,4.5 H 12.5 V 12.5 H 1.5 Z</Geometry>
+    <Geometry x:Key="FolderIconGeometry">M 2,2 H 5.2 L 6.6,3.4 H 12 V 12 H 2 Z</Geometry>
     <Geometry x:Key="MinimizeIconGeometry">M 2,8 H 12</Geometry>
     <Geometry x:Key="CloseIconGeometry">M 3,3 L 11,11 M 11,3 L 3,11</Geometry>
     <Geometry x:Key="RefreshIconGeometry">M 12,6 A 5,5 0 1 0 10.3,10.1 M 12,2.5 V 6 H 8.5</Geometry>
@@ -41,11 +45,16 @@
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="FontFamily" Value="Segoe UI"/>
       <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <!-- The template now honours these, so the default is stated explicitly:
+           ordinary buttons keep centred content and NavButton overrides it with
+           Left, which is what actually lines the navigation icons up. -->
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
             <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsKeyboardFocused" Value="True">

@@ -1,5 +1,16 @@
+> **⚠️ 本文件的角色锚点已被取代（校正于 2026-09）**
+>
+> 「10 个角色身份锚点」那一节描述的是**动物与器物吉祥物**（小羊驼、小方灵、小墨龙、小乌鸦……），
+> 与项目实际交付的**人类少女 Q 版半身像**方向相反，按它出图无法与已有 12 套素材对齐。
+> **请勿再使用这批锚点。**
+>
+> 画布应为 `1024x1024` 的贴边半身胸像，而非文中写的 `2048x2048` 全身立绘。
+> 请改用 [`pet-generation-prompts-remaining-6.zh-CN.md`](./pet-generation-prompts-remaining-6.zh-CN.md)，规格见 [`pet-art-spec-v2.zh-CN.md`](./pet-art-spec-v2.zh-CN.md)。
+
+---
+
 # BalancePet 1.0.0 剩余形象生成提示词
-这份提示词包用于补齐当前还没有素材的 10 个形象：`ernie`、`glm`、`gpt-image2`、`llama`、`mimo`、`mistral`、`opencode`、`perplexity`、`rwkv`、`seedence`。
+这份提示词包用于补齐当前还没有素材的 10 个形象：`ernie`、`glm`、`gpt-image2`、`llama`、`mimo`、`mistral`、`opencode`、`perplexity`、`rwkv`、`seedance`。
 
 提示词结构采用 GPT-Image-2 Style Library 的：
 
@@ -124,10 +135,10 @@ Perplexity 小探灯「青鉴」：一只圆润的小探灯精灵，主体像青
 RWKV 小乌鸦「夜翎」：一只不吓人的圆润小乌鸦，主色为夜蓝、炭黑和少量蓝紫高光；短翅、蓬松胸羽和一根明显但不尖锐的青蓝羽毛是识别点。眼神聪明、安静、观察力强，羽毛采用简化块面而非密集写实纹理，不要墓地、乌云、恐怖元素、文字、Logo 或场景。
 ```
 
-### `seedence`：Seedence 小星晶「澄芽」
+### `seedance`：Seedance 小星晶「澄芽」
 
 ```text
-Seedence 小星晶「澄芽」：一枚圆润的半透明青蓝星晶与嫩芽精灵，主体像小水晶种子，顶部长出两片柔软的浅青嫩芽，晶体内部有一颗小星点；主色为澄蓝、薄荷绿、暖白，边缘清晰但不要尖锐。气质清新、灵动、有成长感，不要复杂宝石展台、文字、Logo、漂浮星星或独立粒子。
+Seedance 小星晶「澄芽」：一枚圆润的半透明青蓝星晶与嫩芽精灵，主体像小水晶种子，顶部长出两片柔软的浅青嫩芽，晶体内部有一颗小星点；主色为澄蓝、薄荷绿、暖白，边缘清晰但不要尖锐。气质清新、灵动、有成长感，不要复杂宝石展台、文字、Logo、漂浮星星或独立粒子。
 ```
 
 ## 生成顺序与验收
@@ -135,7 +146,7 @@ Seedence 小星晶「澄芽」：一枚圆润的半透明青蓝星晶与嫩芽�
 建议按下面顺序逐个完成，先做身份最容易稳定的角色，再做材质和结构更特殊的角色：
 
 1. `llama` → `mimo` → `rwkv` → `glm`
-2. `perplexity` → `seedence` → `mistral`
+2. `perplexity` → `seedance` → `mistral`
 3. `ernie` → `opencode` → `gpt-image2`
 
 每个形象都要经历：

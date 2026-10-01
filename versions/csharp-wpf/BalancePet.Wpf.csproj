@@ -8,10 +8,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>BalancePet.Wpf</AssemblyName>
     <RootNamespace>BalancePet.Wpf</RootNamespace>
-    <Version>1.2.7</Version>
-    <AssemblyVersion>1.2.7.0</AssemblyVersion>
-    <FileVersion>1.2.7.0</FileVersion>
-    <InformationalVersion>1.2.7</InformationalVersion>
+    <Version>1.2.22</Version>
+    <AssemblyVersion>1.2.22.0</AssemblyVersion>
+    <FileVersion>1.2.22.0</FileVersion>
+    <InformationalVersion>1.2.22</InformationalVersion>
     <ApplicationIcon>assets\balance-pet.ico</ApplicationIcon>
     <!-- User-facing packages do not need debugger files or local source paths. -->
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
@@ -19,7 +19,19 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
-    <Content Include="assets\**\*" Exclude="assets\**\*.key-v2" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
+    <!-- _backup-* holds local pre-resize copies of pet art and is gitignored;
+         without this exclusion the glob ships ~91 MB of duplicates. -->
+    <Content Include="assets\**\*" Exclude="assets\**\*.key-v2;assets\**\_backup-*\**" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\plugin-catalog.json" Link="plugin-catalog.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The AI-integration switches run these scripts from tools\ next to the
+         executable. Copying them here keeps a development build behaving like a
+         packaged one, where the release script stages the same files. -->
+    <Content Include="..\..\tools\balancepet-client-hook.ps1" Link="tools\balancepet-client-hook.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\tools\balancepet-task.ps1" Link="tools\balancepet-task.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\tools\balancepet-task.cmd" Link="tools\balancepet-task.cmd" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\tools\install-balancepet-client-hooks.ps1" Link="tools\install-balancepet-client-hooks.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\tools\install-balancepet-dsh-plugin.ps1" Link="tools\install-balancepet-dsh-plugin.ps1" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\tools\dsh-bridge\package.json" Link="tools\dsh-bridge\package.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\tools\dsh-bridge\lib\index.js" Link="tools\dsh-bridge\lib\index.js" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

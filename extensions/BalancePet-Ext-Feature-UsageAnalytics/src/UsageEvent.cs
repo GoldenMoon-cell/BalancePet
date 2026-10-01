@@ -11,6 +11,13 @@ public sealed class UsageEvent
     [JsonPropertyName("kind")] public string Kind { get; set; } = "";
     [JsonPropertyName("provider")] public string Provider { get; set; } = "";
     [JsonPropertyName("account_id")] public string AccountId { get; set; } = "";
+    /// <summary>
+    /// Where <see cref="Cost"/> came from: <c>relay-log</c> for a matched
+    /// per-request relay record, <c>balance-delta</c> for the account balance
+    /// drop across a whole task, <c>client</c> when the client reported it.
+    /// Empty means the cost is unknown, which decides which detail panels apply.
+    /// </summary>
+    [JsonPropertyName("cost_source")] public string CostSource { get; set; } = "";
     [JsonPropertyName("model")] public string Model { get; set; } = "";
     [JsonPropertyName("success")] public bool? Success { get; set; }
     [JsonPropertyName("input_tokens")] public long? InputTokens { get; set; }

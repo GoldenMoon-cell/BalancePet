@@ -103,7 +103,7 @@ public static class CodexHookInstaller
                     ["type"] = "command",
                     ["command"] = command,
                     ["commandWindows"] = command,
-                    ["timeout"] = state == "stop" ? 2 : 3,
+                    ["timeout"] = state == "stop" ? 5 : 3,
                     // Codex is about to tear down after Stop. Keep this one
                     // synchronous so the completion event reaches BalancePet.
                     ["async"] = state != "stop"
@@ -176,7 +176,8 @@ public static class CodexHookInstaller
             function Enter-ActiveTaskStateLock {
                 try {
                     $activeStateMutex = [Threading.Mutex]::new($false, 'Local\BalancePet.CodexActiveTasks')
-                    $activeStateMutexHeld = $activeStateMutex.WaitOne(1200)
+                    $lockTimeout = if ($State -eq 'stop') { 300 } else { 1200 }
+                    $activeStateMutexHeld = $activeStateMutex.WaitOne($lockTimeout)
                 }
                 catch { $activeStateMutexHeld = $false }
             }
@@ -191,7 +192,8 @@ public static class CodexHookInstaller
             # is interrupted before it closes Hook stdin.
             $inputBuffer = New-Object char[] 65536
             $readTask = [Console]::In.ReadAsync($inputBuffer, 0, $inputBuffer.Length)
-            $readCount = if ($readTask.Wait(1000)) { [int]$readTask.Result } else { 0 }
+            $inputTimeout = if ($State -eq 'stop') { 250 } else { 1000 }
+            $readCount = if ($readTask.Wait($inputTimeout)) { [int]$readTask.Result } else { 0 }
             $inputText = if ($readCount -gt 0) { -join $inputBuffer[0..($readCount - 1)] } else { '' }
             if (-not [string]::IsNullOrWhiteSpace($inputText)) {
                 try {
@@ -294,8 +296,11 @@ public static class CodexHookInstaller
             }
             $message = $messageObject | ConvertTo-Json -Compress
 
-            $maxAttempts = if ($State -eq 'stop') { 2 } else { 3 }
-            $connectTimeout = if ($State -eq 'stop') { 300 } else { 800 }
+            # Stop has a bounded but more forgiving retry window. This keeps
+            # the synchronous hook below its five-second Codex timeout while
+            # allowing the bridge a moment to accept a new pipe connection.
+            $maxAttempts = if ($State -eq 'stop') { 4 } else { 3 }
+            $connectTimeout = if ($State -eq 'stop') { 500 } else { 800 }
             $sent = $false
             for ($attempt = 0; $attempt -lt $maxAttempts -and -not $sent; $attempt++) {
                 $pipe = $null

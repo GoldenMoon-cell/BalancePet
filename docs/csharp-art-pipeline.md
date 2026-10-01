@@ -1,3 +1,11 @@
+> **⚠️ 已修正（校正于 2026-09）**
+>
+> 第 36 行"推荐 2048x2048 的方形画布"已不适用：实际交付为 `1024x1024` 的贴边半身胸像，
+> 统一画布尺寸的目的是控制发布包体积，而非观感（`PetImage` 使用 `Stretch="Uniform"`）。
+> 详见 [`pet-art-spec-v2.zh-CN.md`](./pet-art-spec-v2.zh-CN.md)。
+
+---
+
 # C# 桌宠素材要求
 
 C# WPF 版本从 `versions/csharp-wpf/assets/pets/<style>/<state>.png` 加载状态图。缺少某个状态时会回退到该形象的基础图。

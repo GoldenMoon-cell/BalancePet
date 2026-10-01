@@ -6,7 +6,7 @@ namespace BalancePet.Wpf.Services;
 
 public sealed class SettingsStore
 {
-    private const int CurrentSchemaVersion = 3;
+    private const int CurrentSchemaVersion = 4;
     private readonly string _path;
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
 
@@ -76,6 +76,24 @@ public sealed class SettingsStore
             settings.ThemeMode = "system";
             settings.ThemeBackdrop = "mica";
             settings.SettingsSchemaVersion = 3;
+        }
+
+        // Version 4 splits the single AI-task follow switch into one switch per
+        // client. Before this version codex_task_integration gated every hook
+        // client, so expanding it keeps the previous behaviour instead of
+        // silently dropping Gemini, Qwen, Claude and custom integrations.
+        // DeepSeek Harness already had its own switch, so its value is left
+        // exactly as the file had it.
+        if (settings.SettingsSchemaVersion < 4)
+        {
+            if (settings.CodexTaskIntegration)
+            {
+                settings.GeminiTaskIntegration = true;
+                settings.QwenTaskIntegration = true;
+                settings.ClaudeTaskIntegration = true;
+                settings.OtherTaskIntegration = true;
+            }
+            settings.SettingsSchemaVersion = 4;
         }
 
         // Never downgrade a file created by a newer build.

@@ -104,6 +104,8 @@ public partial class MainWindow : Window
     private bool _codexShownPet;
     private bool _temporarilyShownForUpdate;
     private readonly Dictionary<string, double?> _codexStartBalances = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Account ids as they were before the settings dialog opened.</summary>
+    private HashSet<string> _monitorIdsBeforeSettings = new(StringComparer.OrdinalIgnoreCase);
     private double? _lastBalance;
     private double _todayUsage;
     private bool _hasBalance;
@@ -128,7 +130,10 @@ public partial class MainWindow : Window
     private string _lastCompletedTaskSource = "AI 任务";
     private EventWaitHandle? _usageRefreshRequest;
     private CancellationTokenSource? _usageRefreshRequestCancellation;
-    private DateTimeOffset _lastAccountStatusAt = DateTimeOffset.MinValue;
+    /// <summary>
+    /// Last announced CC Switch status. Kept so an unchanged status stays silent;
+    /// only a genuine change is worth a bubble.
+    /// </summary>
     private string _lastAccountStatusKey = "";
     private double _bubbleAnimationProgress;
     private double _bubbleAnimationFrom;
@@ -383,13 +388,12 @@ public partial class MainWindow : Window
         _retiredTaskKeys.Clear();
         _codexStartBalances.Clear();
         _codexShownPet = false;
-        if (_settings.CodexTaskIntegration)
+        // Any enabled client needs the pipe listener, so the bridge starts
+        // whenever at least one switch is on.
+        if (AnyTaskIntegrationEnabled())
         {
-            // Refresh the installed hook after upgrades so the persisted
-            // active-task state protocol is available without requiring the
-            // user to toggle the integration setting again.
-            CodexHookInstaller.TryInstall(out _);
             _codexTaskBridge.Start();
+            _ = SyncClientHooksAsync();
         }
         if (_settings.CCSwitchIntegration) _ccSwitchAccountBridge.Start();
         _usageEventBridge.Start();
@@ -754,8 +758,6 @@ public partial class MainWindow : Window
                 var low = snapshot.Amount <= runtime.Profile.LowThreshold;
                 var temporaryMs = low && _activeCodexTurns.Count > 0 && manual ? 1800 : low ? 0 : 1800;
                 SetVisualState(low ? PetVisualState.Low : PetVisualState.Success, temporaryMs);
-                if (low && (!wasLow || !hadBalance))
-                    ShowSystemNotification($"{runtime.Profile.Name} 余额偏低", $"当前余额 {snapshot.Amount:0.00} {snapshot.Currency}", Forms.ToolTipIcon.Warning);
                 if (!suppressResultBubble && (manual || !hadBalance)) ShowRefreshBubble("账户余额", $"{snapshot.Amount:0.00} {snapshot.Currency}", $"{runtime.Profile.Name} · 更新于 {snapshot.UpdatedAt:HH:mm:ss} · 今日已用 {observation.TodayUsage:0.00}");
             }
         }
@@ -814,11 +816,6 @@ public partial class MainWindow : Window
                     ShowRefreshBubble("上次余额", $"{cached.Amount:0.00} {cached.Currency}", $"{runtime.Profile.Name} 网络波动，暂用缓存 · {detail}");
             }
             else if (!suppressResultBubble) ShowRefreshBubble("刷新失败", "--", $"{runtime.Profile.Name} · {detail}");
-            if (DateTimeOffset.Now - runtime.LastErrorNotification > TimeSpan.FromMinutes(10))
-            {
-                ShowSystemNotification($"{runtime.Profile.Name} 刷新失败", detail, Forms.ToolTipIcon.Error);
-                runtime.LastErrorNotification = DateTimeOffset.Now;
-            }
         }
         finally { runtime.Refreshing = false; }
     }
@@ -869,6 +866,10 @@ public partial class MainWindow : Window
             var source = new BitmapImage();
             source.BeginInit();
             source.CacheOption = BitmapCacheOption.OnLoad;
+            // Decode at about twice the 238-DIP render box so the bitmap stays
+            // sharp up to roughly 215% DPI scaling, without ever materialising
+            // the full source resolution (1024x1024 RGBA = 4 MiB per state).
+            source.DecodePixelWidth = 512;
             source.UriSource = new Uri(selectedPath, UriKind.Absolute);
             source.EndInit();
             source.Freeze();
@@ -1150,6 +1151,10 @@ public partial class MainWindow : Window
             var currency = selected?.Profile.Currency ?? _settings.Currency;
             var name = selected?.Profile.Name ?? "当前账户";
             ShowRefreshBubble("账户余额", $"{_lastBalance:0.00} {currency}", $"{name} · 今日已用 {_todayUsage:0.00} {currency}");
+            // Show what is already known immediately, then replace it with live
+            // numbers: the cached figure can be minutes old, and the user opened
+            // this bubble precisely because they want the balance right now.
+            _ = RefreshAsync(true, true);
         }
         else
             ShowRefreshBubble("还没查询", "--", "点击立即刷新获取余额");
@@ -1360,8 +1365,11 @@ public partial class MainWindow : Window
         UpdateTrayMonitorMenu();
         UpdateContextMonitorMenu();
         RestoreSteadyVisualState();
-        if (refreshWhenMissing && SelectedMonitor is { HasBalance: false }) _ = RefreshAsync(true, true);
-        else if (announce) ShowBubble("已切换账户", SelectedMonitor?.Profile.Name ?? "当前账户", "余额与状态已切换");
+        // Always pull the freshly selected account's own numbers. With announce on,
+        // the refresh ends on the balance bubble for that account, so the switch
+        // confirms itself with real figures instead of a generic message — and a
+        // switch is exactly when a stale cached balance is most misleading.
+        _ = RefreshAsync(announce, true);
     }
 
     private string PetStyleDisplayName(string style)
@@ -1431,6 +1439,9 @@ public partial class MainWindow : Window
         await StopActiveRefreshAsync();
         try
         {
+            // Remember which accounts existed so the save handler can tell whether
+            // this save added one; the dialog mutates _settings in place.
+            _monitorIdsBeforeSettings = _settings.Monitors.Select(profile => profile.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var dialog = new SettingsWindow(_settingsStore, _tokenStore, _settings, _featureExtensions, _browserSessionBridge) { Owner = this };
             dialog.SettingsAppliedChanged += OnSettingsAppliedFromDialog;
             dialog.ShowDialog();
@@ -1447,6 +1458,18 @@ public partial class MainWindow : Window
         LoadSettingsAndPosition();
         ConfigureSounds();
         RefreshFeatureExtensionMenuItems();
+
+        // Say what the save did. A new account is the case that needs feedback: it
+        // is not made current automatically, so switch to it and pull its numbers
+        // instead of leaving the pet showing the account the user just replaced.
+        var added = _settings.Monitors.FirstOrDefault(profile => !_monitorIdsBeforeSettings.Contains(profile.Id));
+        _monitorIdsBeforeSettings = _settings.Monitors.Select(profile => profile.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (added is not null && _monitorStates.ContainsKey(added.Id))
+        {
+            SelectMonitor(added.Id, announce: true);
+            return;
+        }
+        ShowBubble("设置已生效", SelectedMonitor?.Profile.Name ?? "当前账户", "更改已保存");
     }
 
     private async Task StopActiveRefreshAsync()
@@ -1720,7 +1743,6 @@ public partial class MainWindow : Window
             if (updates > 0)
             {
                 ShowNativeBubble("发现扩展更新", $"{updates} 个扩展", "打开设置查看");
-                ShowSystemNotification("发现扩展更新", $"有 {updates} 个扩展可以更新", Forms.ToolTipIcon.Info);
             }
         }
         catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or JsonException or TaskCanceledException)
@@ -1745,12 +1767,11 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(version) || version.Length > 64) return false;
         if (!IsVisible)
         {
-            _temporarilyShownForUpdate = _settings.CodexTaskIntegration && !IsVisible;
+            _temporarilyShownForUpdate = AnyTaskIntegrationEnabled() && !IsVisible;
             Show();
         }
         SetVisualState(PetVisualState.Success, 3600);
         ShowNativeBubble("更新完成", version, "BalancePet 已重新启动", TimeSpan.FromSeconds(6));
-        ShowSystemNotification("BalancePet 已更新", $"当前版本 {version}", Forms.ToolTipIcon.Info);
         if (_temporarilyShownForUpdate)
         {
             _codexHideTimer.Stop();
@@ -2453,10 +2474,61 @@ public partial class MainWindow : Window
     {
         Dispatcher.BeginInvoke(new Action(async () =>
         {
-            if (!_settings.CodexTaskIntegration || _closing) return;
+            if (!IsTaskIntegrationEnabled(activity.Provider) || _closing) return;
             if (activity.State == "start") await StartCodexTaskAsync(activity);
             else await CompleteCodexTaskAsync(activity);
         }));
+    }
+
+    /// <summary>
+    /// Resolves the opt-in switch that owns a reporting client. A provider is
+    /// free text supplied by the client, so anything that matches no known
+    /// client falls into the "other clients" bucket rather than being dropped —
+    /// custom CLIs calling balancepet-task.ps1 keep working.
+    /// </summary>
+    private bool IsTaskIntegrationEnabled(string? provider)
+    {
+        var value = provider?.Trim() ?? string.Empty;
+        if (value.Equals(CodexTaskBridge.CodexProvider, StringComparison.OrdinalIgnoreCase)) return _settings.CodexTaskIntegration;
+        if (value.Equals(CodexTaskBridge.DeepSeekHarnessProvider, StringComparison.OrdinalIgnoreCase)) return _settings.DeepSeekHarnessIntegration;
+        if (value.Equals(CodexTaskBridge.GeminiProvider, StringComparison.OrdinalIgnoreCase)) return _settings.GeminiTaskIntegration;
+        if (value.Equals(CodexTaskBridge.QwenProvider, StringComparison.OrdinalIgnoreCase)) return _settings.QwenTaskIntegration;
+        if (value.Equals(CodexTaskBridge.ClaudeProvider, StringComparison.OrdinalIgnoreCase)) return _settings.ClaudeTaskIntegration;
+        return _settings.OtherTaskIntegration;
+    }
+
+    /// <summary>
+    /// True when at least one client is allowed to drive the pet. The pipe
+    /// listener must run whenever any switch is on, otherwise enabling a single
+    /// client would leave nothing listening.
+    /// </summary>
+    private bool AnyTaskIntegrationEnabled()
+        => _settings.CodexTaskIntegration
+            || _settings.DeepSeekHarnessIntegration
+            || _settings.GeminiTaskIntegration
+            || _settings.QwenTaskIntegration
+            || _settings.ClaudeTaskIntegration
+            || _settings.OtherTaskIntegration;
+
+    /// <summary>
+    /// Repairs the hook of every enabled client at startup: it reinstalls after a
+    /// BalancePet update and picks up a client that appeared since the last run,
+    /// so the user never has to revisit the settings window. It deliberately does
+    /// not remove anything — a switched-off client keeps its hook until the user
+    /// saves settings, and its events are ignored by the gate anyway.
+    /// Runs off the UI thread because each install starts a PowerShell process.
+    /// </summary>
+    private Task SyncClientHooksAsync()
+    {
+        var wanted = new List<(TaskClient Client, bool Enabled)>
+        {
+            (TaskClient.Codex, _settings.CodexTaskIntegration),
+            (TaskClient.DeepSeekHarness, _settings.DeepSeekHarnessIntegration),
+            (TaskClient.Gemini, _settings.GeminiTaskIntegration),
+            (TaskClient.Qwen, _settings.QwenTaskIntegration),
+            (TaskClient.Claude, _settings.ClaudeTaskIntegration),
+        };
+        return Task.Run(() => ClientHookInstaller.TrySync(wanted, removeDisabled: false, out _));
     }
 
     private void OnAccountStatusReceived(object? sender, AiAccountActivity activity)
@@ -2505,10 +2577,16 @@ public partial class MainWindow : Window
         _currentAccountKnown = true;
         PublishNotificationState();
         var key = $"{activity.State}|{activity.Provider}|{activity.AccountType}|{activity.AccountLabel}|{activity.Endpoint}|{activity.TokenFingerprint}";
-        var now = DateTimeOffset.UtcNow;
-        if (string.Equals(key, _lastAccountStatusKey, StringComparison.Ordinal) && now - _lastAccountStatusAt < TimeSpan.FromSeconds(2)) return;
+        // Announce only a genuine change. The previous rule suppressed repeats for
+        // two seconds and then showed the same status again, so a steady CC Switch
+        // account kept re-announcing itself — which read as the pet switching back
+        // to that account on every poll.
+        // The first status after startup is an initial reading, not a switch: there
+        // is no previous value to differ from. Treating it as a change made every
+        // launch jump to the CC Switch account and discard the saved selection.
+        var initialStatus = _lastAccountStatusKey.Length == 0;
+        if (string.Equals(key, _lastAccountStatusKey, StringComparison.Ordinal)) return;
         _lastAccountStatusKey = key;
-        _lastAccountStatusAt = now;
 
         var label = string.IsNullOrWhiteSpace(activity.AccountLabel) ? "" : $" · {activity.AccountLabel}";
         var accountType = AccountSourceClassifier.ResolveAccountType(activity);
@@ -2529,7 +2607,12 @@ public partial class MainWindow : Window
         var local = FindMatchingMonitor(activity);
         if (local is not null)
         {
-            if (!IsSelectedMonitor(local)) SelectMonitor(local.Profile.Id, announce: false, refreshWhenMissing: false);
+            // Follow CC Switch here, which is the point of the integration: switch
+            // an API key there and the pet switches with it. Guarded by the checks
+            // above so it only runs on a real change while the app is running — a
+            // steady status, or the first reading after launch, leaves the saved
+            // selection alone.
+            if (!initialStatus && !IsSelectedMonitor(local)) SelectMonitor(local.Profile.Id, announce: false, refreshWhenMissing: false);
             var balance = local.LastBalance.HasValue
                 ? FormatAccountBalance(local.LastBalance.Value, local.Profile.Currency)
                 : "余额待查询";
@@ -2546,11 +2629,12 @@ public partial class MainWindow : Window
 
         if (accountType is "relay-api" or "third-party")
         {
+            // The actionable guidance used to ride on a tray balloon. That
+            // notification is gone, so the bubble carries it instead.
             const string reminder = "是否保存到 BalancePet？右键桌宠打开“设置面板”";
             var endpoint = string.IsNullOrWhiteSpace(activity.Endpoint) ? "接口地址未提供" : activity.Endpoint;
             var accountName = string.IsNullOrWhiteSpace(activity.AccountLabel) ? "中转站账户" : activity.AccountLabel;
-            ShowAiIntegrationBubble($"{accountName} API 已登录", "未匹配本地账户", $"CC Switch · {endpoint}");
-            ShowSystemNotification("未收录的第三方 API", reminder, Forms.ToolTipIcon.Info);
+            ShowAiIntegrationBubble($"{accountName} API 已登录", reminder, $"CC Switch · {endpoint}");
         }
         else
         {
@@ -2745,7 +2829,6 @@ public partial class MainWindow : Window
         var spent = spentByCurrency;
         SetVisualState(PetVisualState.CodexDone, CodexDoneDurationMs);
         ShowAiIntegrationBubble($"{completedSource} 已停止", spent > 0 ? $"-{spent:0.00} {currency}" : "任务结束", spent > 0 ? $"当前余额 {_lastBalance:0.00} {currency}" : "已完成或手动停止");
-        ShowSystemNotification($"{completedSource} 任务已停止", spent > 0 ? $"本次消耗 {spent:0.00} {currency}" : "任务已完成或手动停止", Forms.ToolTipIcon.Info);
         _codexStartBalances.Clear();
         _ = RefreshAfterCodexCompletionAsync();
         if (_codexShownPet)
@@ -2763,13 +2846,23 @@ public partial class MainWindow : Window
             .Select(pair => pair.Value)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        return sources.Length == 1 ? sources[0] : "AI 任务";
+        return sources.Length == 1 ? sources[0] : AppLocalization.Text(_settings.Language, "AI 任务", "AI tasks");
     }
 
-    private static string TaskSourceLabel(string? provider)
+    /// <summary>
+    /// Text shown for the client driving the pet. A provider is free text, so it
+    /// is displayed as reported — that is what tells the user which tool is
+    /// running. The provider-neutral pipe substitutes a placeholder when a
+    /// client does not name itself, and that placeholder is display text rather
+    /// than a client name, so it is localized.
+    /// </summary>
+    private string TaskSourceLabel(string? provider)
     {
-        if (string.IsNullOrWhiteSpace(provider)) return "Codex";
+        if (string.IsNullOrWhiteSpace(provider)) return CodexTaskBridge.CodexProvider;
         var value = provider.Trim();
+        if (value.Equals(CodexTaskBridge.UnnamedClientProvider, StringComparison.OrdinalIgnoreCase)
+            || value.Equals(CodexTaskBridge.GenericProvider, StringComparison.OrdinalIgnoreCase))
+            return AppLocalization.Text(_settings.Language, "其他客户端", "Other clients");
         return value.Length <= 32 ? value : value[..32];
     }
 
@@ -2840,6 +2933,22 @@ public partial class MainWindow : Window
         return true;
     }
 
+    /// <summary>
+    /// Balance drop observed for one account since the task started. This is the
+    /// only cost signal an official API account can offer: it publishes no
+    /// per-request billing log, but its balance does fall, and that drop is what
+    /// was actually charged — including any peak/off-peak discount. Returns zero
+    /// when the balance has not been refreshed since the task began, which is why
+    /// it is a fallback and never overrides a relay match.
+    /// </summary>
+    private double BalanceDeltaFor(string profileId)
+    {
+        if (string.IsNullOrWhiteSpace(profileId)) return 0;
+        if (!_codexStartBalances.TryGetValue(profileId, out var start) || !start.HasValue) return 0;
+        if (!_monitorStates.TryGetValue(profileId, out var runtime) || !runtime.LastBalance.HasValue) return 0;
+        return Math.Max(0, start.Value - runtime.LastBalance.Value);
+    }
+
     private async Task RecordUsageFromTaskAsync(CodexTaskActivity activity, DateTimeOffset? startedAt, string completedProfileId)
     {
         var codexSnapshot = string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
@@ -2868,6 +2977,28 @@ public partial class MainWindow : Window
         try
         {
             var occurredAt = DateTimeOffset.Now;
+            // Resolve the account first so the event can carry it, and decide where
+            // its cost may come from. A relay account has per-request billing logs
+            // and is matched afterwards; an official account has none, so the only
+            // real signal is the balance drop across the task — which already
+            // reflects whatever peak/off-peak discount applied.
+            var profile = _monitorStates.TryGetValue(completedProfileId, out var completedRuntime)
+                ? completedRuntime.Profile
+                : FindMonitorProfile(activity.Provider);
+            var isRelayAccount = profile is not null && NewApiUsageProvider.Supports(profile);
+            var needsCodexBackfill = string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
+                && (codexUsage?.HasTokenData != true || string.IsNullOrWhiteSpace(model));
+            var relayBackfillPending = activity.Cost is null && isRelayAccount && !needsCodexBackfill;
+            // A relay match validates itself: the log either lines up or it does
+            // not. A balance drop does not, so it is only used when the client
+            // named the account outright — never the selected-account fallback,
+            // which would charge one account for another's work.
+            var namedProfileId = FindNamedMonitorProfile(activity.Provider)?.Id ?? "";
+            var balanceCost = activity.Cost is null && !isRelayAccount ? BalanceDeltaFor(namedProfileId) : 0;
+            var costSource = activity.Cost is not null ? "client"
+                : relayBackfillPending ? ""              // BackfillServerCostAsync stamps relay-log
+                : balanceCost > 0 ? "balance-delta"
+                : "";
             var eventId = await _usageEventBridge.RecordAsync(
             activity.Provider,
             model,
@@ -2875,7 +3006,7 @@ public partial class MainWindow : Window
             activity.OutputTokens ?? codexUsage?.OutputTokens,
             activity.CacheReadTokens ?? codexUsage?.CacheReadTokens,
             activity.CacheWriteTokens ?? codexUsage?.CacheWriteTokens,
-            activity.Cost,
+            activity.Cost ?? (balanceCost > 0 ? balanceCost : null),
             activity.Currency,
             duration,
                 activity.TimeToFirstTokenMs,
@@ -2883,17 +3014,10 @@ public partial class MainWindow : Window
                 activity.Steps,
                 activity.Success ?? true,
                 reasoningEffort: reasoningEffort,
-                details: localDetails);
-            var profile = _monitorStates.TryGetValue(completedProfileId, out var completedRuntime)
-                ? completedRuntime.Profile
-                : FindMonitorProfile(activity.Provider);
-            var needsCodexBackfill = string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
-                && (codexUsage?.HasTokenData != true || string.IsNullOrWhiteSpace(model));
-            if (!string.IsNullOrWhiteSpace(eventId)
-                && activity.Cost is null
-                && profile is not null
-                && NewApiUsageProvider.Supports(profile)
-                && !needsCodexBackfill)
+                details: localDetails,
+                accountId: FindNamedMonitorProfile(activity.Provider)?.Id,
+                costSource: costSource);
+            if (!string.IsNullOrWhiteSpace(eventId) && relayBackfillPending)
             {
                 var target = new UsageEventSnapshot(
                     eventId,
@@ -2912,7 +3036,7 @@ public partial class MainWindow : Window
                     activity.Steps,
                     activity.Success ?? true,
                     reasoningEffort);
-                _ = BackfillServerCostAsync(target, profile, startedAt);
+                _ = BackfillServerCostAsync(target, profile!, startedAt);
             }
             if (!string.IsNullOrWhiteSpace(eventId) && needsCodexBackfill)
             {
@@ -2996,7 +3120,8 @@ public partial class MainWindow : Window
                         target.Success,
                         _usageCostSyncCancellation.Token,
                         reasoningEffort.Length == 1 ? reasoningEffort[0] : reasoningEffort.Length > 1 ? "多种" : "",
-                        details);
+                        details,
+                        costSource: "relay-log");
                 }
                 catch (IOException)
                 {
@@ -3186,7 +3311,8 @@ public partial class MainWindow : Window
                             target.Success,
                             _usageCostSyncCancellation.Token,
                             effort.Length == 1 ? effort[0] : effort.Length > 1 ? "多种" : "",
-                            detailRows);
+                            detailRows,
+                            costSource: "relay-log");
                     }
                     catch (IOException)
                     {
@@ -3389,18 +3515,23 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private MonitorProfile? FindMonitorProfile(string? provider)
+    /// <summary>
+    /// The account a client named explicitly, by id or display name, or null.
+    /// Deliberately does not fall back to the selected account: that fallback
+    /// exists so a cost can be looked up, but labelling a task with an account it
+    /// never touched is worse than leaving the label off.
+    /// </summary>
+    private MonitorProfile? FindNamedMonitorProfile(string? provider)
     {
-        if (!string.IsNullOrWhiteSpace(provider))
-        {
-            var value = provider.Trim();
-            var exact = _settings.Monitors.FirstOrDefault(profile =>
-                string.Equals(profile.Id, value, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(profile.Name, value, StringComparison.OrdinalIgnoreCase));
-            if (exact is not null) return exact;
-        }
-        return SelectedMonitor?.Profile;
+        if (string.IsNullOrWhiteSpace(provider)) return null;
+        var value = provider.Trim();
+        return _settings.Monitors.FirstOrDefault(profile =>
+            string.Equals(profile.Id, value, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(profile.Name, value, StringComparison.OrdinalIgnoreCase));
     }
+
+    private MonitorProfile? FindMonitorProfile(string? provider)
+        => FindNamedMonitorProfile(provider) ?? SelectedMonitor?.Profile;
 
     private void HideAfterCodexCompletion()
     {
@@ -3410,11 +3541,5 @@ public partial class MainWindow : Window
         Hide();
         _codexShownPet = false;
         _temporarilyShownForUpdate = false;
-    }
-
-    private void ShowSystemNotification(string title, string message, Forms.ToolTipIcon icon)
-    {
-        if (!_settings.SystemNotifications || _trayIcon is null) return;
-        try { _trayIcon.ShowBalloonTip(5000, title, message, icon); } catch (InvalidOperationException) { }
     }
 }

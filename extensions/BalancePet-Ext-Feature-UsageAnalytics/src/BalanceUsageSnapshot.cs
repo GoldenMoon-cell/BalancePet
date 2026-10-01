@@ -16,15 +16,25 @@ public sealed class BalanceUsageSnapshot
 
     public bool HasData { get; private init; }
     public bool HasBalanceData { get; private init; }
+    public bool HasTotalUsageData { get; private init; }
     public double TodayUsage { get; private init; }
     public double RecentUsage { get; private init; }
+    public double TotalUsage { get; private init; }
     public double TotalBalance { get; private init; }
     public string Currency { get; private init; } = "USD";
     public string BalanceCurrency { get; private init; } = "USD";
     public string AccountId { get; private init; } = "";
     public int BalanceAccountCount { get; private init; }
+    /// <summary>Every account the host reported, in the order the file lists them.</summary>
+    public IReadOnlyList<string> Accounts { get; private init; } = Array.Empty<string>();
 
-    public static BalanceUsageSnapshot Read(string directory, DateTimeOffset? now = null)
+    /// <param name="accountId">
+    /// Restricts every figure to one account. Empty — the default — means all
+    /// accounts, so the balance, usage and today figures always describe the
+    /// same scope instead of mixing an all-account balance with one account's
+    /// usage.
+    /// </param>
+    public static BalanceUsageSnapshot Read(string directory, DateTimeOffset? now = null, string accountId = "")
     {
         var path = Path.Combine(directory, FileName);
         try
@@ -33,10 +43,19 @@ public sealed class BalanceUsageSnapshot
             var document = JsonSerializer.Deserialize<Document>(File.ReadAllText(path), Options);
             if (document is null || document.Schema != Schema || document.Entries is null) return Empty();
 
-            var selected = document.SelectedAccountId ?? "";
+            var selected = accountId ?? "";
+            bool Wanted(string? id) => string.IsNullOrWhiteSpace(selected)
+                || string.Equals(id, selected, StringComparison.OrdinalIgnoreCase);
+
+            var allBalances = (document.Balances ?? Array.Empty<BalanceEntry>()).Where(IsValid).ToArray();
+            var accounts = allBalances.Select(entry => entry!.AccountId)
+                .Concat((document.Totals ?? Array.Empty<TotalEntry>()).Where(IsValid).Select(entry => entry!.AccountId))
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
             var entries = document.Entries
-                .Where(entry => entry is not null && IsValid(entry))
-                .Where(entry => string.IsNullOrWhiteSpace(selected) || entry!.AccountId == selected)
+                .Where(entry => entry is not null && IsValid(entry) && Wanted(entry!.AccountId))
                 .ToArray();
             var today = (now ?? DateTimeOffset.Now).ToString("yyyy-MM-dd");
             var todayEntries = entries.Where(entry => entry!.Date == today).ToArray();
@@ -46,9 +65,17 @@ public sealed class BalanceUsageSnapshot
             var recent = entries.Where(entry => DateTime.TryParseExact(entry!.Date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.None, out var date) && date >= recentFrom)
                 .Sum(entry => entry!.Usage);
-            var balances = (document.Balances ?? Array.Empty<BalanceEntry>())
+            var balances = allBalances.Where(entry => Wanted(entry!.AccountId)).ToArray();
+            var totals = (document.Totals ?? Array.Empty<TotalEntry>())
                 .Where(IsValid)
+                .Where(entry => Wanted(entry!.AccountId))
                 .ToArray();
+            var totalGroups = totals.GroupBy(entry => entry.Currency, StringComparer.OrdinalIgnoreCase).ToArray();
+            var selectedTotal = totals.FirstOrDefault(entry => string.Equals(entry.AccountId, selected, StringComparison.OrdinalIgnoreCase));
+            var hasTotalUsage = totals.Length > 0 && (totalGroups.Length == 1 || selectedTotal is not null);
+            var totalUsage = hasTotalUsage
+                ? totalGroups.Length == 1 ? totalGroups[0].Sum(entry => entry.Amount) : selectedTotal!.Amount
+                : 0;
             var selectedBalance = balances.FirstOrDefault(entry => string.Equals(entry.AccountId, selected, StringComparison.OrdinalIgnoreCase));
             var balanceGroups = balances.GroupBy(entry => entry.Currency, StringComparer.OrdinalIgnoreCase).ToArray();
             var commonCurrency = selectedBalance?.Currency ?? (balanceGroups.Length == 1 ? balanceGroups[0].Key : "USD");
@@ -59,12 +86,15 @@ public sealed class BalanceUsageSnapshot
             {
                 HasData = todayEntries.Length > 0,
                 HasBalanceData = balances.Length > 0,
+                HasTotalUsageData = hasTotalUsage,
                 TodayUsage = currentToday,
                 RecentUsage = recent,
+                TotalUsage = totalUsage,
                 TotalBalance = totalBalance,
                 Currency = latest?.Currency ?? selectedBalance?.Currency ?? "USD",
                 BalanceCurrency = commonCurrency,
                 AccountId = latest?.AccountId ?? selectedBalance?.AccountId ?? "",
+                Accounts = accounts,
                 BalanceAccountCount = balanceGroups.Length == 1 ? balances.Length : selectedBalance is null ? 0 : 1
             };
         }
@@ -96,6 +126,16 @@ public sealed class BalanceUsageSnapshot
             && entry.Amount >= -10_000_000_000
             && entry.Amount <= 10_000_000_000;
 
+    private static bool IsValid(TotalEntry? entry)
+        => entry is not null
+            && !string.IsNullOrWhiteSpace(entry.AccountId)
+            && entry.AccountId.Length <= 128
+            && !string.IsNullOrWhiteSpace(entry.Currency)
+            && entry.Currency.Length <= 12
+            && double.IsFinite(entry.Amount)
+            && entry.Amount >= 0
+            && entry.Amount <= 10_000_000_000;
+
     private static BalanceUsageSnapshot Empty() => new() { HasData = false };
 
     private sealed class Document
@@ -104,8 +144,8 @@ public sealed class BalanceUsageSnapshot
         [JsonPropertyName("selected_account_id")] public string? SelectedAccountId { get; set; }
         [JsonPropertyName("entries")] public Entry[]? Entries { get; set; }
         [JsonPropertyName("balances")] public BalanceEntry[]? Balances { get; set; }
+        [JsonPropertyName("totals")] public TotalEntry[]? Totals { get; set; }
     }
-
     private sealed class Entry
     {
         [JsonPropertyName("account_id")] public string AccountId { get; set; } = "";
@@ -115,6 +155,13 @@ public sealed class BalanceUsageSnapshot
     }
 
     private sealed class BalanceEntry
+    {
+        [JsonPropertyName("account_id")] public string AccountId { get; set; } = "";
+        [JsonPropertyName("currency")] public string Currency { get; set; } = "USD";
+        [JsonPropertyName("amount")] public double Amount { get; set; }
+    }
+
+    private sealed class TotalEntry
     {
         [JsonPropertyName("account_id")] public string AccountId { get; set; } = "";
         [JsonPropertyName("currency")] public string Currency { get; set; } = "USD";

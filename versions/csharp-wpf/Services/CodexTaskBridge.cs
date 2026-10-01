@@ -32,6 +32,26 @@ public sealed class CodexTaskBridge : IDisposable
     public const string PipeName = "BalancePet.CodexTask.v1";
     public const string GenericPipeName = "BalancePet.Task.v1";
     public const string ActiveStateFileName = "codex-active-tasks.v1.json";
+
+    // Provider labels are the wire contract shared with the hook scripts and
+    // the DeepSeek Harness plugin, so they live next to the pipe names. Each
+    // one selects the setting that gates that client.
+    public const string CodexProvider = "Codex";
+    public const string DeepSeekHarnessProvider = "DeepSeek Harness";
+    public const string GeminiProvider = "Gemini";
+    public const string QwenProvider = "Qwen";
+    public const string ClaudeProvider = "Claude";
+    /// <summary>
+    /// Substitute label for the provider-neutral pipe when a client does not
+    /// name itself. It is display text, not a client name: the task-follow gate
+    /// treats it as the "other clients" bucket.
+    /// </summary>
+    public const string UnnamedClientProvider = "其他客户端";
+    /// <summary>
+    /// Provider value the bundled <c>balancepet-task.ps1</c> sends by default.
+    /// Also part of the "other clients" bucket.
+    /// </summary>
+    public const string GenericProvider = "generic";
     private static readonly TimeSpan ActiveStateLifetime = TimeSpan.FromHours(24);
     private static readonly JsonSerializerOptions StateJsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -51,8 +71,8 @@ public sealed class CodexTaskBridge : IDisposable
         _cancellation = new CancellationTokenSource();
         _listeners =
         [
-            ListenAsync(PipeName, "Codex", _cancellation.Token),
-            ListenAsync(GenericPipeName, "其他客户端", _cancellation.Token)
+            ListenAsync(PipeName, CodexProvider, _cancellation.Token),
+            ListenAsync(GenericPipeName, UnnamedClientProvider, _cancellation.Token)
         ];
         _ = RecoverActiveStartsAsync(_cancellation.Token);
     }

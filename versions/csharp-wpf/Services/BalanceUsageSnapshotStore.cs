@@ -62,6 +62,16 @@ public sealed class BalanceUsageSnapshotStore
             .Where(entry => !string.IsNullOrWhiteSpace(entry.AccountId) && !string.IsNullOrWhiteSpace(entry.Currency))
             .OrderBy(entry => entry.AccountId, StringComparer.Ordinal)
             .ToArray();
+        var totals = profileValues
+            .Select(profile => new BalanceTotalEntry
+            {
+                AccountId = Clean(profile.AccountId, 128),
+                Currency = CleanCurrency(profile.Currency),
+                Amount = Math.Clamp(profile.Ledger.GetTotalUsage(), 0, 10_000_000_000)
+            })
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.AccountId) && !string.IsNullOrWhiteSpace(entry.Currency))
+            .OrderBy(entry => entry.AccountId, StringComparer.Ordinal)
+            .ToArray();
 
         var document = new BalanceUsageDocument
         {
@@ -69,7 +79,8 @@ public sealed class BalanceUsageSnapshotStore
             UpdatedAt = DateTimeOffset.Now,
             SelectedAccountId = Clean(selectedAccountId, 128),
             Entries = entries,
-            Balances = balances
+            Balances = balances,
+            Totals = totals
         };
 
         lock (_gate)
@@ -96,6 +107,7 @@ public sealed class BalanceUsageSnapshotStore
         [JsonPropertyName("selected_account_id")] public string SelectedAccountId { get; set; } = "";
         [JsonPropertyName("entries")] public BalanceUsageEntry[] Entries { get; set; } = Array.Empty<BalanceUsageEntry>();
         [JsonPropertyName("balances")] public BalanceBalanceEntry[] Balances { get; set; } = Array.Empty<BalanceBalanceEntry>();
+        [JsonPropertyName("totals")] public BalanceTotalEntry[] Totals { get; set; } = Array.Empty<BalanceTotalEntry>();
     }
 
     private sealed class BalanceUsageEntry
@@ -107,6 +119,13 @@ public sealed class BalanceUsageSnapshotStore
     }
 
     private sealed class BalanceBalanceEntry
+    {
+        [JsonPropertyName("account_id")] public string AccountId { get; set; } = "";
+        [JsonPropertyName("currency")] public string Currency { get; set; } = "USD";
+        [JsonPropertyName("amount")] public double Amount { get; set; }
+    }
+
+    private sealed class BalanceTotalEntry
     {
         [JsonPropertyName("account_id")] public string AccountId { get; set; } = "";
         [JsonPropertyName("currency")] public string Currency { get; set; } = "USD";

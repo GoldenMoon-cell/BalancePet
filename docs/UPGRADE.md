@@ -39,6 +39,16 @@
 
 Claude、Qwen、Gemini 等客户端 Hook 如果仍使用旧目录下的 `tools` 脚本，需要在新版安装目录中重新运行 `tools\install-balancepet-client-hooks.ps1`，或在客户端配置中改为新路径。安装器不会静默修改这些客户端配置。
 
+DeepSeek Harness 的桥接插件同样是复制进 DSH profile 的，升级 BalancePet 不会更新 profile 里的那份副本。在“AI 联动”页勾选 DeepSeek Harness 后保存会自动刷新它；也可以手动运行 `tools\install-balancepet-dsh-plugin.ps1`，它会先删掉旧副本再复制，并保证 `cordis.patch.yml` 里始终只有一条挂载项。用 `-Action Status` 可以只查看当前状态而不改动任何文件。
+
+## 设置项重组（0.2.x 起）
+
+原先只有一个“自动跟随 AI 任务”开关，它同时管着 Codex、Gemini CLI、Qwen Code、Claude Code 和自定义 CLI。现在每个客户端一个开关，统一放在新的“AI 联动”页；“桌宠与交互”页的“功能开关”更名为“交互开关”（只剩音效、气泡、互动动作、动效、彩蛋）；“随 Windows 启动”移到“高级与迁移”。
+
+设置文件会自动从 schema 3 迁移到 4：原来“自动跟随 AI 任务”为开时，五个 Hook 客户端会一并展开为开，**行为与升级前完全一致**；DeepSeek Harness 的开关保持各人自己设过的值不变。
+
+同一版本移除了“系统通知”开关及其托盘气泡功能 —— 每次 AI 任务结束时弹出的 Windows 气泡会正好盖住右下角的桌宠。该功能移除后，事件记录仍然保留在消息中心扩展里，只是不再弹窗打扰。
+
 ## 便携 ZIP
 
 `BalancePet-<版本>-win-x64.zip` 可以解压到任何当前用户可写的稳定目录中使用，适合不需要开始菜单和卸载入口的场景。不要将 ZIP 解压到带版本号的临时目录后反复更换目录；程序内更新会覆盖当前目录，不会为每个版本创建或重命名安装文件夹。

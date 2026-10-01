@@ -85,13 +85,14 @@ public partial class SettingsWindow : Window
         _suppressLanguageChange = true;
         SelectByTag(LanguageBox, settings.Language);
         _suppressLanguageChange = false;
-        ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; NavigationAnimationsBox.IsChecked = settings.NavigationAnimations; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; AccountStatusBox.IsChecked = settings.CCSwitchIntegration; NotificationsBox.IsChecked = settings.SystemNotifications; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
+        ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; NavigationAnimationsBox.IsChecked = settings.NavigationAnimations; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = settings.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = settings.GeminiTaskIntegration; FollowQwenBox.IsChecked = settings.QwenTaskIntegration; FollowClaudeBox.IsChecked = settings.ClaudeTaskIntegration; FollowOtherBox.IsChecked = settings.OtherTaskIntegration; AccountStatusBox.IsChecked = settings.CCSwitchIntegration; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
         _navigationCollapsed = settings.NavigationCollapsed;
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
         AppLocalization.Apply(this, settings.Language);
         RefreshLanguageSelector(settings.Language, selectLanguage: false);
         SyncAllComboDisplays();
         UpdatePetStyleAvailability();
+        UpdateClientAvailability();
         UpdateAccountSummary();
         ApplyNavigationState();
         _trackChanges = true;
@@ -120,7 +121,7 @@ public partial class SettingsWindow : Window
         if (SettingsTabs is null || NavigationToggleButton is null) return;
         var textBlocks = new[]
         {
-            AccountNavigationText, PetNavigationText, ExtensionNavigationText,
+            AccountNavigationText, PetNavigationText, AiNavigationText, ExtensionNavigationText,
             AppearanceNavigationText, AdvancedNavigationText
         };
         var transitionId = ++_navigationTransitionId;
@@ -326,6 +327,7 @@ public partial class SettingsWindow : Window
         SyncComboDisplay(ThemeBox);
         SyncComboDisplay(ThemeModeBox);
         SyncComboDisplay(ThemeBackdropBox);
+        SyncComboDisplay(BrowserSessionBrowserBox);
     }
 
     private void RefreshThemeList(string? selectedId = null)
@@ -504,6 +506,40 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>
+    /// Marks the switch of every client that is not installed on this machine, so
+    /// "not configured yet" is distinguishable from "switched off". The switch
+    /// stays usable on purpose: turning it on records the intent, and the hook is
+    /// written once the client appears.
+    /// </summary>
+    private void UpdateClientAvailability()
+    {
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        var warning = ThemeBrush("WarningTextBrush", System.Windows.Media.Brushes.DarkOrange);
+
+        Mark(TaskClient.Codex, FollowCodexBox, FollowCodexHint);
+        Mark(TaskClient.DeepSeekHarness, FollowDeepSeekHarnessBox, FollowDeepSeekHarnessHint);
+        Mark(TaskClient.Gemini, FollowGeminiBox, FollowGeminiHint);
+        Mark(TaskClient.Qwen, FollowQwenBox, FollowQwenHint);
+        Mark(TaskClient.Claude, FollowClaudeBox, FollowClaudeHint);
+
+        void Mark(TaskClient client, System.Windows.Controls.CheckBox box, System.Windows.Controls.TextBlock hint)
+        {
+            if (box is null || hint is null) return;
+            if (ClientHookInstaller.IsClientPresent(client))
+            {
+                box.ClearValue(System.Windows.Controls.Control.ForegroundProperty);
+                hint.Visibility = System.Windows.Visibility.Collapsed;
+                return;
+            }
+            box.Foreground = warning;
+            hint.Text = AppLocalization.Text(language,
+                $"未检测到 {ClientHookInstaller.DisplayName(client)}。仍可开启，安装它之后会自动写入联动配置。",
+                $"{ClientHookInstaller.DisplayName(client)} is not installed. The switch still works; its hook is written once the client appears.");
+            hint.Visibility = System.Windows.Visibility.Visible;
+        }
+    }
+
     private void RefreshExtensionList()
     {
         if (ExtensionListBox is null) return;
@@ -607,6 +643,7 @@ public partial class SettingsWindow : Window
             SyncAllComboDisplays();
             UpdatePresetUi(false);
             UpdatePetStyleAvailability();
+            UpdateClientAvailability();
             UpdateExtensionButtons();
             RefreshExtensionActionLabels(language);
             RefreshPluginCatalogLabels(language);
@@ -1272,6 +1309,11 @@ public partial class SettingsWindow : Window
 
     private void OnBrowserSessionBrowserChanged(object sender, SelectionChangedEventArgs e)
     {
+        // This combo has its own handler rather than OnComboSelectionChanged, so
+        // it must refresh its display itself: the custom template does not pick
+        // up a new SelectedItem on its own, and without this the box keeps
+        // showing the previously chosen browser until the window is reopened.
+        SyncComboDisplay(BrowserSessionBrowserBox);
         if (!_suppressProfileChange && _trackChanges) MarkSettingsDirty();
     }
 
@@ -1318,14 +1360,20 @@ public partial class SettingsWindow : Window
         if (PresetBox is null || SiteUrlBox is null || EndpointBox is null || AuthModeBox is null || PathBox is null) return;
         var presetId = SelectedTag(PresetBox, BalancePresetCatalog.Custom);
         var usesSiteUrl = BalancePresetCatalog.UsesSiteUrl(presetId);
+        var fixedEndpoint = BalancePresetCatalog.HasFixedEndpoint(presetId);
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         var visibility = usesSiteUrl ? Visibility.Visible : Visibility.Collapsed;
         SiteUrlLabel.Visibility = visibility;
         SiteUrlBox.Visibility = visibility;
         SiteUrlHint.Visibility = visibility;
-        EndpointBox.IsReadOnly = usesSiteUrl;
+        EndpointBox.IsReadOnly = usesSiteUrl || fixedEndpoint;
         AuthModeBox.IsEnabled = !usesSiteUrl;
-        PathBox.IsReadOnly = usesSiteUrl;
+        PathBox.IsReadOnly = usesSiteUrl || fixedEndpoint;
+        // The auto-detecting presets write a human hint into the path box. A
+        // manual endpoint must not submit that hint as a real JSON path: an
+        // account saved that way fails every refresh with
+        // "JSON path not found: 自动识别".
+        if (!usesSiteUrl && IsGeneratedBalancePath(PathBox.Text)) PathBox.Text = "";
         EndpointHint.Text = AppLocalization.Text(language,
             usesSiteUrl ? "接口地址由预设自动生成；切换到“自定义接口”后可以手动修改。" : "填写中转站文档中的余额查询 URL，不是网站首页或聊天接口。",
             usesSiteUrl ? "The endpoint is generated by the preset. Switch to Custom endpoint to edit it." : "Enter the balance URL from your relay provider's documentation, not the website or chat endpoint.");
@@ -1334,15 +1382,40 @@ public partial class SettingsWindow : Window
             BalancePresetCatalog.Auto => AppLocalization.Text(language, "依次尝试同一站点的 /v1/usage 和 /api/usage/token，只执行只读查询。", "Tries /v1/usage and /api/usage/token on the same site using read-only requests."),
             BalancePresetCatalog.V1Usage => AppLocalization.Text(language, "适用于提供 /v1/usage 的中转站；自动识别 balance、remaining 和单位。", "For relays exposing /v1/usage; balance, remaining, and units are detected automatically."),
             BalancePresetCatalog.NewApiToken => AppLocalization.Text(language, "适用于标准 New API 令牌额度接口，并按站点公开的额度与货币设置换算。", "Uses the standard New API token-usage endpoint and the site's published quota and currency settings."),
+            BalancePresetCatalog.DeepSeek => AppLocalization.Text(language, "DeepSeek 官方平台的账户余额。只填 API Key（platform.deepseek.com 创建），接口与 JSON 路径已预设。", "The DeepSeek platform account balance. Supply only an API key created on platform.deepseek.com; the endpoint and JSON path are preset."),
             _ => AppLocalization.Text(language, "手动填写完整接口、认证方式和 JSON 路径。", "Enter the full endpoint, authentication method, and JSON path manually.")
         };
-        if (updatePreview && usesSiteUrl) UpdatePresetPreview();
+        if (updatePreview && (usesSiteUrl || fixedEndpoint)) UpdatePresetPreview();
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
+    }
+
+    /// <summary>
+    /// True when the path box holds a hint generated for one of the auto-detecting
+    /// presets rather than a real JSON path. Matching both languages directly
+    /// keeps this independent of the current UI language.
+    /// </summary>
+    private static bool IsGeneratedBalancePath(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        return value.Trim() is "自动识别" or "Automatic detection"
+            or "balance / remaining（自动）" or "balance / remaining (automatic)"
+            or "data.total_available（自动换算）" or "data.total_available (automatic conversion)";
     }
 
     private void UpdatePresetPreview()
     {
         var presetId = SelectedTag(PresetBox, BalancePresetCatalog.Custom);
+        if (BalancePresetCatalog.HasFixedEndpoint(presetId))
+        {
+            // Everything here is fixed, so fill it in and leave the fields read-only:
+            // the account only needs an API key from the user.
+            EndpointBox.Text = BalancePresetCatalog.FixedEndpoint(presetId);
+            SelectByTag(AuthModeBox, "bearer");
+            HeaderBox.Text = "Authorization";
+            PathBox.Text = BalancePresetCatalog.FixedBalancePath(presetId);
+            CurrencyBox.Text = BalancePresetCatalog.FixedCurrency(presetId);
+            return;
+        }
         if (!BalancePresetCatalog.UsesSiteUrl(presetId)) return;
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         EndpointBox.Text = BalancePresetCatalog.BuildEndpoint(SiteUrlBox.Text, presetId);
@@ -1432,7 +1505,7 @@ public partial class SettingsWindow : Window
             ThemeCompactBox.IsChecked = imported.ThemeCompact;
             ApplySelectedTheme();
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
-            SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; NavigationAnimationsBox.IsChecked = imported.NavigationAnimations; EasterEggsBox.IsChecked = imported.RandomEasterEggs; AccountStatusBox.IsChecked = imported.CCSwitchIntegration; NotificationsBox.IsChecked = imported.SystemNotifications; StartupBox.IsChecked = imported.StartWithWindows;
+            SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; NavigationAnimationsBox.IsChecked = imported.NavigationAnimations; EasterEggsBox.IsChecked = imported.RandomEasterEggs; AccountStatusBox.IsChecked = imported.CCSwitchIntegration; FollowCodexBox.IsChecked = imported.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = imported.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = imported.GeminiTaskIntegration; FollowQwenBox.IsChecked = imported.QwenTaskIntegration; FollowClaudeBox.IsChecked = imported.ClaudeTaskIntegration; FollowOtherBox.IsChecked = imported.OtherTaskIntegration; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
             AppLocalization.Apply(this, imported.Language);
             RefreshLanguageSelector(imported.Language, selectLanguage: false);
@@ -1482,8 +1555,12 @@ public partial class SettingsWindow : Window
                 navigation_animations = NavigationAnimationsBox.IsChecked == true,
                 random_easter_eggs = EasterEggsBox.IsChecked == true,
                 codex_task_integration = FollowCodexBox.IsChecked == true,
+                deepseek_harness_integration = FollowDeepSeekHarnessBox.IsChecked == true,
+                gemini_task_integration = FollowGeminiBox.IsChecked == true,
+                qwen_task_integration = FollowQwenBox.IsChecked == true,
+                claude_task_integration = FollowClaudeBox.IsChecked == true,
+                other_task_integration = FollowOtherBox.IsChecked == true,
                 account_status_integration = AccountStatusBox.IsChecked == true,
-                system_notifications = NotificationsBox.IsChecked == true,
                 start_with_windows = StartupBox.IsChecked == true,
                 selected_monitor_id = selected.Id,
                 monitors = _profiles.Select(profile => new
@@ -1540,7 +1617,7 @@ public partial class SettingsWindow : Window
                 RefreshProfileList(profile.Id);
                 return;
             }
-            if (!BalancePresetCatalog.UsesSiteUrl(profile.PresetId) && string.IsNullOrWhiteSpace(profile.BalancePath)) { MessageText.Text = $"监控账户“{profile.Name}”的余额 JSON 路径不能为空。"; RefreshProfileList(profile.Id); return; }
+            if (!BalancePresetCatalog.UsesSiteUrl(profile.PresetId) && (string.IsNullOrWhiteSpace(profile.BalancePath) || IsGeneratedBalancePath(profile.BalancePath))) { MessageText.Text = $"监控账户“{profile.Name}”的余额 JSON 路径不能为空，也不能是预设的提示文字。"; RefreshProfileList(profile.Id); return; }
             if (!BalancePresetCatalog.UsesSiteUrl(profile.PresetId) && profile.AuthMode == "custom" && string.IsNullOrWhiteSpace(profile.HeaderName)) { MessageText.Text = $"监控账户“{profile.Name}”使用自定义 Header 时必须填写 Header 名。"; RefreshProfileList(profile.Id); return; }
         }
         var selected = CurrentProfile ?? _profiles[0];
@@ -1597,8 +1674,12 @@ public partial class SettingsWindow : Window
                 NavigationCollapsed = _navigationCollapsed,
                 RandomEasterEggs = EasterEggsBox.IsChecked == true,
                 CodexTaskIntegration = FollowCodexBox.IsChecked == true,
+                DeepSeekHarnessIntegration = FollowDeepSeekHarnessBox.IsChecked == true,
+                GeminiTaskIntegration = FollowGeminiBox.IsChecked == true,
+                QwenTaskIntegration = FollowQwenBox.IsChecked == true,
+                ClaudeTaskIntegration = FollowClaudeBox.IsChecked == true,
+                OtherTaskIntegration = FollowOtherBox.IsChecked == true,
                 CCSwitchIntegration = AccountStatusBox.IsChecked == true,
-                SystemNotifications = NotificationsBox.IsChecked == true,
                 StartWithWindows = startupEnabled,
                 WindowX = _settings.WindowX,
                 WindowY = _settings.WindowY,
@@ -1606,27 +1687,32 @@ public partial class SettingsWindow : Window
                 Monitors = _profiles.Select(CloneProfile).ToList(),
                 SelectedMonitorId = selected.Id
             };
-            var hookChanged = false;
-            var hookWasInstalled = CodexHookInstaller.IsInstalled();
-            if (updated.CodexTaskIntegration)
+            // Bring every client's hook in line with its switch. A client that is
+            // not installed is skipped rather than reported, so a switch can be
+            // turned on before its client exists. The work runs off the UI thread
+            // because each install starts a PowerShell process.
+            var syncTargets = new List<(TaskClient Client, bool Enabled)>
             {
-                if (!CodexHookInstaller.TryInstall(out var hookError))
-                {
-                    MessageText.Text = $"Codex Hook 安装失败：{hookError}";
-                    return;
-                }
-                // Reinstalling also refreshes the script after a BalancePet update.
-                hookChanged = !hookWasInstalled;
-            }
-            else if (!updated.CodexTaskIntegration && CodexHookInstaller.IsInstalled())
+                (TaskClient.Codex, updated.CodexTaskIntegration),
+                (TaskClient.DeepSeekHarness, updated.DeepSeekHarnessIntegration),
+                (TaskClient.Gemini, updated.GeminiTaskIntegration),
+                (TaskClient.Qwen, updated.QwenTaskIntegration),
+                (TaskClient.Claude, updated.ClaudeTaskIntegration)
+            };
+            var installedBefore = syncTargets.Select(target => ClientHookInstaller.IsInstalled(target.Client)).ToArray();
+            var syncResult = await Task.Run(() =>
             {
-                if (!CodexHookInstaller.TryUninstall(out var hookError))
-                {
-                    MessageText.Text = $"Codex Hook 移除失败：{hookError}";
-                    return;
-                }
-                hookChanged = true;
+                var ok = ClientHookInstaller.TrySync(syncTargets, removeDisabled: true, out var message);
+                return (Ok: ok, Error: message);
+            });
+            if (!syncResult.Ok)
+            {
+                MessageText.Text = $"AI 联动配置失败：{syncResult.Error}";
+                return;
             }
+            var hookChanged = syncTargets
+                .Select((target, index) => installedBefore[index] != ClientHookInstaller.IsInstalled(target.Client))
+                .Any(changed => changed);
             _store.Save(updated);
             _hasUnsavedChanges = false;
             _settings.Language = updated.Language;
@@ -1644,6 +1730,7 @@ public partial class SettingsWindow : Window
             RefreshLanguageSelector(updated.Language, selectLanguage: false);
             UpdatePresetUi(false);
             UpdatePetStyleAvailability();
+            UpdateClientAvailability();
             UpdateExtensionButtons();
             if (!StartupManager.SetEnabled(startupEnabled))
             {
@@ -1660,9 +1747,9 @@ public partial class SettingsWindow : Window
                 else NotifySettingsApplied();
                 return;
             }
-            if (hookChanged && updated.CodexTaskIntegration)
+            if (hookChanged && (updated.CodexTaskIntegration || updated.DeepSeekHarnessIntegration || updated.GeminiTaskIntegration || updated.QwenTaskIntegration || updated.ClaudeTaskIntegration))
             {
-                System.Windows.MessageBox.Show(this, "AI 任务联动已启用。Codex 会在出现 Hook 审核提示时请求信任；其他客户端可调用发布包 tools\\balancepet-task.ps1。之后任务开始、完成或停止都会自动通知桌宠。", "BalancePet", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show(this, "AI 联动已更新。Codex 会在出现 Hook 审核提示时请求信任；尚未安装的客户端会在安装后自动写入配置。之后任务开始、完成或停止都会自动通知桌宠。", "BalancePet", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             if (string.IsNullOrWhiteSpace(selectedToken))
             {

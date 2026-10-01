@@ -24,13 +24,13 @@ The cache metric follows the relay-console convention: `Cache Hit Rate = Cache R
 
 左侧导航包含两个视图：
 
-- **仪表盘**：概览卡片、提供方拆分、模型分布和 Token 趋势。
-- **使用记录**：最近请求、耗时、模型以及已上报的 Token 数据。
+- **仪表盘**：概览卡片、提供方拆分、模型分布和 Token 趋势。顶栏的账户下拉可在「全部账户（合计）」与单个账户之间切换，「本地余额快照」「累计余额变化」「余额变化估算」会一起跟随，三个数字始终描述同一个范围。账户名取自主程序设置里账户的显示名，取不到时退化为缩短的账户 ID。
+- **使用记录**：最近请求、耗时、模型以及已上报的 Token 数据。顶部是按客户端生成的筛选标签（`全部` / `Codex` / `DeepSeek Harness` / …），每个标签带该客户端的记录条数；只影响这份列表，仪表盘的汇总口径不变。某个客户端不再有记录时，筛选会自动退回「全部」，列表不会卡在空状态。
 
 The sidebar contains two views:
 
-- **仪表盘 / Dashboard**: overview cards, provider split, model distribution, and token trend.
-- **使用记录 / Recent usage**: recent requests, duration, model, and reported token data.
+- **仪表盘 / Dashboard**: overview cards, provider split, model distribution, and token trend. The account selector in the header switches between the combined view and a single account, and the balance snapshot, cumulative change and balance-based estimate all follow it, so the three figures always describe one scope. Names come from the host settings; an unknown account falls back to a shortened id.
+- **使用记录 / Recent usage**: recent requests, duration, model, and reported token data. Client chips above the list (`全部` / `Codex` / `DeepSeek Harness` / …) each carry that client's record count and filter only this list — the dashboard aggregates stay unchanged. A filter whose client no longer reports falls back to "all" so the list can never be stuck empty.
 
 如果主程序只记录了任务生命周期事件，状态栏会明确显示这一点，不会把 Token 为 0
 误解为解析失败。If the host has only recorded task-lifecycle events, the status bar says so
@@ -43,7 +43,17 @@ explicitly instead of treating a zero Token value as a parser failure.
 
 ```text
 %LOCALAPPDATA%\\BalancePet\\usage-events.ndjson
+%LOCALAPPDATA%\\BalancePet\\csharp-settings.json   （仅 monitors[].id 与 monitors[].name）
 ```
+
+第二个文件用于把账户 ID 显示成账户名。它同时保存着受 DPAPI 保护的访问令牌，因此插件
+以 DOM 方式解析，只取出 `monitors[].id` 和 `monitors[].name` 两个字符串字段，不把文档
+反序列化成可能携带凭据的模型，也不会记录或转发文件内容。
+
+The second file maps account ids to display names. It also holds DPAPI-protected access
+tokens, so it is parsed through a DOM and only the `monitors[].id` and `monitors[].name`
+strings are ever materialized; the document is never deserialized into a model that could
+carry credentials, and its contents are never logged or forwarded.
 
 也可以通过 `--data-dir` 指定测试目录或便携版数据目录。插件只读取脱敏的计数和耗时，
 通过本地命名管道接收客户端主动上报的 Usage Event v1 数据。
@@ -52,15 +62,18 @@ The extension never receives or reads API tokens, prompts, replies, cookies, or 
 websites. It reads only the local Usage Event v1 files and accepts an optional `--data-dir`
 argument for testing or portable setups. Only sanitized counters and timings are used.
 
-仪表盘会在事件文件变化时刷新，并每 60 秒进行一次兜底同步；标题栏显示实时倒计时。主程序收到同步信号后也遵守自身的最短刷新间隔。
-插件还会通过本地无凭据信号唤醒主程序的到期刷新调度，但不会接触余额 API 凭据。只有客户端主动上报 Token、缓存和首 Token 延迟（TTFT）字段时，
-对应卡片才会显示数值；没有主程序余额记录时“今日消费”卡片会显示“暂无数据”。
+仪表盘在使用记录、余额快照或站点用量文件变化时自动刷新，此外顶栏的「刷新」按钮可以手动重读数据目录。**没有定时轮询**：
+主程序为每条新记录都会写文件，轮询只是重复劳动。打开窗口时会向主程序发一次无凭据的刷新信号（仅此一次，不是轮询），
+主程序收到后仍遵守自身的最短刷新间隔。只有客户端主动上报 Token、缓存和首 Token 延迟（TTFT）字段时，
+对应卡片才会显示数值；没有主程序余额记录时“余额变化估算”卡片会显示“暂无数据”。
 插件还会读取主程序提供的当前账户余额快照，在“总余额”卡片中显示所有已配置账户的合计（仅在币种一致时求和）。
 
-“今日消费”卡片读取主程序发布的脱敏
+“余额变化估算”卡片读取主程序发布的脱敏
 `%LOCALAPPDATA%\\BalancePet\\balance-usage.v1.json`。它与主程序“用量统计”
 窗口使用同一份本地余额变化账本：仅统计两次成功余额查询之间的余额下降，
 不代表中转站账单或每次请求的精确价格。没有成功余额记录时显示“暂无数据”。
+“总余额”区块中的“总消费”读取同一余额账本的累计值；币种切换后会重新开始累计，
+因此它表示当前币种下主程序已记录的累计余额下降，而不是中转站账单总额。
 
 对于 New API 兼容的中转站，主程序会在同一站点提供只读日志接口时，将服务器返回的
 `quota` 按站点公开的额度换算规则回写到对应请求；其他中转站、接口拒绝日志查询或无法可靠匹配的记录仍显示“未上报”，不会按公开模型价格猜测。
@@ -69,17 +82,20 @@ argument for testing or portable setups. Only sanitized counters and timings are
 该值来自接口的 `daily_usage.actual_cost`（没有时回退到 `cost`），按日期汇总，不能代表某一条请求的精确费用；
 历史记录中的单条额度仍会显示“未上报”。
 
-The dashboard refreshes when event files change and every 60 seconds as a fallback.
-The header shows a live countdown and signals the host's due-refresh scheduler without receiving credentials. Token and cache cards
-are populated only when the client reports those counters; the “Today spending” card
+The dashboard refreshes when the usage, balance or server-usage files change, and the header's Refresh button
+re-reads the data directory on demand. There is no polling timer: the host writes a file for every new record,
+so polling only repeated work. Opening the window signals the host once (not a poll); the host still honours its
+own minimum refresh interval. Token and cache cards
+are populated only when the client reports those counters; the “Balance-change estimate” card
 is populated from the host's balance-usage summary.
-The “Today spending” card reads the credential-free
+The “Balance-change estimate” card reads the credential-free
 `%LOCALAPPDATA%\\BalancePet\\balance-usage.v1.json` summary published by the host.
 It uses the same local balance-change ledger as the core usage window: only decreases
 between successful balance observations count, so it is not a relay invoice or an exact
 per-request price. It shows “暂无数据 / No data” until a successful balance observation exists.
 The total balance card reads the host's credential-free balance snapshot and sums accounts only
-when their currencies match; no provider token is included in the snapshot.
+when their currencies match; no provider token is included in the snapshot. Its “Total spending”
+value is the cumulative balance decrease tracked by the host for the current currency.
 
 For relays that expose only the OpenAI-compatible `/v1/usage` endpoint, the dashboard also shows
 a credential-free “server usage summary” read by the host from `daily_usage.actual_cost` (falling
@@ -122,7 +138,7 @@ package provides `tools/balancepet-usage.ps1`.
 This package implements the shipped **BalancePet Feature Extension API v1** and requires
 BalancePet `0.7.7` or newer for Codex token and cache counters. Older cores can still show
 request metadata but cannot populate those counters. The extension version is independent from
-the core version; the current package version is `0.3.4`.
+the core version; the current package version is `0.3.13`.
 
 功能扩展规范只约束 manifest、独立进程启动、能力声明、Usage Event v1、本地数据目录、
 更新和安全校验；不要求统一插件的 UI 工具包、主题、Logo、字体、语言或窗口布局。

@@ -55,6 +55,7 @@
             <MenuItem Header="GLM 小方灵「青棱」" Tag="glm" IsCheckable="True" Click="OnPetStyleClick"/>
             <MenuItem Header="GPT Image 2 小墨龙「玄珏」" Tag="gpt-image2" IsCheckable="True" Click="OnPetStyleClick"/>
             <MenuItem Header="Llama 小羊驼「绒眠」" Tag="llama" IsCheckable="True" Click="OnPetStyleClick"/>
+            <MenuItem Header="Seedance 小星晶「澄芽」" Tag="seedance" IsCheckable="True" Click="OnPetStyleClick"/>
           </MenuItem>
           <MenuItem x:Name="MonitorMenuItem" Header="当前账户"/>
           <Separator/>

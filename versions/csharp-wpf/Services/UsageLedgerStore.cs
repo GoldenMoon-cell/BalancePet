@@ -41,6 +41,8 @@ public sealed class UsageLedgerStore
         var recordedAt = now ?? DateTimeOffset.Now;
         var normalizedCurrency = string.IsNullOrWhiteSpace(currency) ? "USD" : currency.Trim().ToUpperInvariant();
         var ledger = Load();
+        if (ledger.TotalUsage <= 0 && (ledger.History.Count > 0 || ledger.Usage > 0))
+            ledger.TotalUsage = Math.Max(0, ledger.History.Values.Sum(value => Math.Max(0, value)) + Math.Max(0, ledger.Usage));
         var today = recordedAt.ToString("yyyy-MM-dd");
         var spent = 0d;
 
@@ -69,6 +71,7 @@ public sealed class UsageLedgerStore
         {
             spent = ledger.Balance.Value - balance;
             ledger.Usage += spent;
+            ledger.TotalUsage = Math.Clamp(ledger.TotalUsage + spent, 0, 10_000_000_000);
         }
 
         ledger.Date = today;
@@ -76,6 +79,13 @@ public sealed class UsageLedgerStore
         ledger.Balance = balance;
         Save(ledger);
         return new UsageObservation(balance, spent, Math.Max(0, ledger.Usage), normalizedCurrency, recordedAt);
+    }
+
+    public double GetTotalUsage()
+    {
+        var ledger = Load();
+        var historical = ledger.History.Values.Sum(value => Math.Max(0, value));
+        return Math.Clamp(Math.Max(ledger.TotalUsage, historical + Math.Max(0, ledger.Usage)), 0, 10_000_000_000);
     }
 
     public IReadOnlyList<UsageDay> GetRecentHistory(int days = 30)
@@ -140,6 +150,7 @@ public sealed class UsageLedgerStore
         [JsonPropertyName("currency")] public string Currency { get; set; } = "";
         [JsonPropertyName("balance")] public double? Balance { get; set; }
         [JsonPropertyName("usage")] public double Usage { get; set; }
+        [JsonPropertyName("total_usage")] public double TotalUsage { get; set; }
         [JsonPropertyName("history")] public Dictionary<string, double> History { get; set; } = new(StringComparer.Ordinal);
     }
 }

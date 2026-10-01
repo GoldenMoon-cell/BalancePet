@@ -261,6 +261,7 @@
               <ComboBoxItem Tag="auto">自动识别（推荐）</ComboBoxItem>
               <ComboBoxItem Tag="v1-usage">通用 /v1/usage</ComboBoxItem>
               <ComboBoxItem Tag="new-api-token">New API /api/usage/token</ComboBoxItem>
+              <ComboBoxItem Tag="deepseek-platform">DeepSeek 官方平台</ComboBoxItem>
               <ComboBoxItem Tag="custom">自定义接口</ComboBoxItem>
             </ComboBox>
             <TextBlock x:Name="PresetHint" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
@@ -379,18 +380,48 @@
               <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="音量"/><Slider x:Name="VolumeSlider" ValueChanged="OnSettingValueChanged" Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,8,0,12"/></StackPanel>
             </Grid>
 
-            <TextBlock Text="功能开关" FontWeight="SemiBold" FontSize="15" Margin="0,2,0,8"/>
+            <TextBlock Text="交互开关" FontWeight="SemiBold" FontSize="15" Margin="0,2,0,8"/>
             <StackPanel>
               <CheckBox x:Name="SoundBox" Content="按压音效" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <CheckBox x:Name="BubbleBox" Content="对话气泡" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <CheckBox x:Name="InteractionEffectsBox" Content="互动动作" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <CheckBox x:Name="NavigationAnimationsBox" Content="设置面板动效" ToolTip="关闭后，设置面板展开和折叠会立即切换，不播放过渡动画。" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
-              <CheckBox x:Name="EasterEggsBox" Content="随机彩蛋" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
-              <CheckBox x:Name="FollowCodexBox" Content="自动跟随 AI 任务" ToolTip="兼容 Codex Hook 和其他客户端调用；只传递开始、结束、客户端名和任务 ID，不读取提示词、回复或令牌" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
-              <CheckBox x:Name="AccountStatusBox" Content="读取 CC Switch 当前账户" ToolTip="只读读取 CC Switch 当前供应商；令牌只在本机内存中计算指纹，不读取网页登录凭据或上传明文令牌" Checked="OnAccountStatusChanged" Unchecked="OnAccountStatusChanged" Margin="0,0,0,9"/>
-              <CheckBox x:Name="NotificationsBox" Content="系统通知" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
-              <CheckBox x:Name="StartupBox" Content="随 Windows 启动（进入托盘）" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,12"/>
+              <CheckBox x:Name="EasterEggsBox" Content="随机彩蛋" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,12"/>
             </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <TabItem>
+        <TabItem.Header>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Path Grid.Column="0" Data="M9,3 V7 M15,3 V7 M6,7 H18 V11 A6,6 0 0 1 6,11 Z M12,17 V21" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" StrokeThickness="1.35" StrokeLineJoin="Round" Width="18" Height="18" Stretch="Uniform"/>
+            <TextBlock Grid.Column="1" x:Name="AiNavigationText" Text="AI 联动" VerticalAlignment="Center" Margin="10,0,0,0"/>
+          </Grid>
+        </TabItem.Header>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+          <StackPanel Margin="2">
+            <TextBlock Text="自动跟随 AI 任务" FontWeight="SemiBold" FontSize="15"/>
+            <TextBlock Text="勾选后，桌宠会在对应客户端开始任务时显示工作中，结束后显示完成并刷新余额。只传递开始、结束、客户端名和任务 ID，不读取提示词、回复或令牌。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,12"/>
+
+            <StackPanel Margin="14,0,0,4">
+              <CheckBox x:Name="FollowDeepSeekHarnessBox" Content="DeepSeek Harness" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,2"/>
+              <TextBlock x:Name="FollowDeepSeekHarnessHint" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="22,0,0,10" Visibility="Collapsed"/>
+              <CheckBox x:Name="FollowCodexBox" Content="Codex" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,2"/>
+              <TextBlock x:Name="FollowCodexHint" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="22,0,0,10" Visibility="Collapsed"/>
+              <CheckBox x:Name="FollowGeminiBox" Content="Gemini CLI" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,2"/>
+              <TextBlock x:Name="FollowGeminiHint" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="22,0,0,10" Visibility="Collapsed"/>
+              <CheckBox x:Name="FollowQwenBox" Content="Qwen Code" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,2"/>
+              <TextBlock x:Name="FollowQwenHint" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="22,0,0,10" Visibility="Collapsed"/>
+              <CheckBox x:Name="FollowClaudeBox" Content="Claude Code" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,2"/>
+              <TextBlock x:Name="FollowClaudeHint" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="22,0,0,10" Visibility="Collapsed"/>
+              <CheckBox x:Name="FollowOtherBox" Content="其他客户端" ToolTip="任何未在上面列出的客户端，例如自行调用 tools\balancepet-task.ps1 的 CLI" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,12"/>
+            </StackPanel>
+
+            <Separator Margin="0,0,0,14"/>
+            <TextBlock Text="账户识别" FontWeight="SemiBold" FontSize="15"/>
+            <CheckBox x:Name="AccountStatusBox" Content="读取 CC Switch 当前账户" ToolTip="只读读取 CC Switch 当前供应商；令牌只在本机内存中计算指纹，不读取网页登录凭据或上传明文令牌" Checked="OnAccountStatusChanged" Unchecked="OnAccountStatusChanged" Margin="0,8,0,12"/>
           </StackPanel>
         </ScrollViewer>
       </TabItem>
@@ -590,6 +621,7 @@
             <ComboBox x:Name="ExtensionUpdateCheckBox" SelectionChanged="OnComboSelectionChanged" DropDownClosed="OnComboDropDownClosed" Margin="0,5,0,14"><ComboBoxItem Tag="startup">每次启动时</ComboBoxItem><ComboBoxItem Tag="daily">每天一次（推荐）</ComboBoxItem><ComboBoxItem Tag="weekly">每周一次</ComboBoxItem><ComboBoxItem Tag="manual">仅手动检查</ComboBoxItem></ComboBox>
             <TextBlock Text="语言"/>
             <ComboBox x:Name="LanguageBox" SelectionChanged="OnLanguageChanged" DropDownClosed="OnComboDropDownClosed" Margin="0,5,0,18"><ComboBoxItem Tag="zh-CN">简体中文</ComboBoxItem><ComboBoxItem Tag="en-US">English</ComboBoxItem></ComboBox>
+            <CheckBox x:Name="StartupBox" Content="随 Windows 启动（进入托盘）" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,18"/>
 
             <Separator Margin="0,0,0,14"/>
             <TextBlock Text="设置迁移" FontWeight="SemiBold" FontSize="15"/>

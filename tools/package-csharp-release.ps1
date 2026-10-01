@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "1.2.7",
+    [string]$Version = "1.2.22",
     [switch]$SkipInstaller,
     [string]$StagePath = ""
 )
@@ -25,6 +25,23 @@ $versionCore = "$($Matches.major).$($Matches.minor).$($Matches.patch)"
 $revision = if ($Version -match '\.(?<revision>\d+)$') { [int]$Matches.revision } else { 0 }
 $assemblyVersion = "$versionCore.0"
 $fileVersion = "$versionCore.$revision"
+
+# The build tree may carry a Low mandatory integrity label (a sandboxing tool
+# can apply one to the repository folder). An executable inheriting that label
+# runs at Low integrity, and a Low-integrity process cannot write to %TEMP%.
+# Inno Setup then fails with "unable to create the directory ... is-XXXX.tmp"
+# (error 5) even though the very same installer works when launched elevated or
+# from a copied location. Reset the label on the artifacts users launch.
+function Reset-IntegrityLabel {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    $label = (icacls $Path 2>&1 | Select-String 'Mandatory Label') -join ''
+    if ($label -match 'Low Mandatory') {
+        & icacls $Path /setintegritylevel Medium | Out-Null
+        Write-Host "Reset Low integrity label on $(Split-Path -Leaf $Path)"
+    }
+}
 
 if (-not (Test-Path -LiteralPath $project)) {
     throw "C# project was not found: $project"
@@ -75,6 +92,16 @@ Copy-Item (Join-Path $root "tools\balancepet-task.cmd") (Join-Path $stage "tools
 Copy-Item (Join-Path $root "tools\balancepet-client-hook.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\balancepet-usage.ps1") (Join-Path $stage "tools")
 Copy-Item (Join-Path $root "tools\install-balancepet-client-hooks.ps1") (Join-Path $stage "tools")
+# The DeepSeek Harness bridge is a Cordis plugin rather than a hook script, so
+# it ships as a directory that the installer copies into the DSH profile.
+Copy-Item (Join-Path $root "tools\install-balancepet-dsh-plugin.ps1") (Join-Path $stage "tools")
+# The project file already copies dsh-bridge into the publish output for
+# development builds, so clear it first: copying the whole directory over an
+# existing one fails, and the release wants the full folder (docs and tools
+# included) rather than just the two files the app needs at runtime.
+$dshBridgeStage = Join-Path $stage "tools\dsh-bridge"
+if (Test-Path -LiteralPath $dshBridgeStage) { Remove-Item -LiteralPath $dshBridgeStage -Recurse -Force }
+Copy-Item (Join-Path $root "tools\dsh-bridge") (Join-Path $stage "tools") -Recurse
 New-Item -ItemType Directory -Path (Join-Path $stage "docs\licenses") -Force | Out-Null
 Copy-Item (Join-Path $root "docs\licenses\MeteorNOX-MIT.txt") (Join-Path $stage "docs\licenses")
 
@@ -84,6 +111,7 @@ Write-Host "Created $zip"
 Write-Host "SHA256 $zipHash"
 
 if ($SkipInstaller) {
+    Reset-IntegrityLabel -Path $zip
     Write-Warning "Skipped Setup.exe creation. The portable ZIP is suitable for local testing only."
     return
 }
@@ -117,3 +145,12 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $setup)) {
 $setupHash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Host "Created $setup"
 Write-Host "SHA256 $setupHash"
+
+# The build tree may carry a Low mandatory integrity label (a sandboxing tool
+# can apply one to the repository folder). An executable inheriting that label
+# runs at Low integrity, and a Low-integrity process cannot write to %TEMP%.
+# Inno Setup then fails with "unable to create the directory ... is-XXXX.tmp"
+# (error 5) even though the same installer works when run elevated or from a
+# copied location. Reset the label on the artifacts users actually launch.
+Reset-IntegrityLabel -Path $zip
+Reset-IntegrityLabel -Path $setup

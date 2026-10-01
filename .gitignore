@@ -30,3 +30,14 @@ extensions/**/dist/
 /素材/
 /release-notes-*.md
 extensions/**/release-notes-*.md
+
+# Asset tooling kept local only; never publish these to GitHub
+/tools/prepare-pet-assets.py
+/tools/sync-pet-reference-folders.py
+/tools/audit-pet-colors.py
+/tools/make-color-swatch-sheet.py
+/tools/make-comparison-sheets.py
+
+# Resize backups kept locally; never publish these to GitHub
+/versions/csharp-wpf/assets/pets/_backup-*/
+/tools/check-pet-image.py

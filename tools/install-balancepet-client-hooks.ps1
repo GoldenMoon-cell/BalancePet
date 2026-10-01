@@ -1,5 +1,8 @@
 [CmdletBinding()]
 param(
+    [ValidateSet("Install", "Remove", "Status")]
+    [string]$Action = "Install",
+
     [ValidateSet("All", "Gemini", "Qwen", "Claude")]
     [string]$Client = "All",
 
@@ -110,6 +113,42 @@ function Set-BalancePetHook(
     else { $property.Value = $updated }
 }
 
+function Remove-BalancePetHook(
+    [pscustomobject]$Hooks,
+    [string]$Event,
+    [string]$Provider
+)
+{
+    $name = "BalancePet-$Provider-$Event"
+    $property = $Hooks.PSObject.Properties[$Event]
+    if ($null -eq $property) { return }
+    $kept = @($property.Value | Where-Object {
+        $names = @($_.hooks | ForEach-Object { $_.name })
+        $names -notcontains $name
+    })
+    # Drop the event key entirely once nothing is left, so an uninstalled client
+    # leaves no empty scaffolding behind.
+    if ($kept.Count -eq 0) { $Hooks.PSObject.Properties.Remove($Event) }
+    else { $property.Value = $kept }
+}
+
+function Test-BalancePetHook(
+    [pscustomobject]$Hooks,
+    [string]$Event,
+    [string]$Provider
+)
+{
+    $name = "BalancePet-$Provider-$Event"
+    $property = $Hooks.PSObject.Properties[$Event]
+    if ($null -eq $property) { return $false }
+    foreach ($entry in @($property.Value))
+    {
+        $names = @($entry.hooks | ForEach-Object { $_.name })
+        if ($names -contains $name) { return $true }
+    }
+    return $false
+}
+
 function Save-Settings([string]$Path, [pscustomobject]$Settings)
 {
     $directory = [System.IO.Path]::GetDirectoryName($Path)
@@ -128,37 +167,77 @@ function Save-Settings([string]$Path, [pscustomobject]$Settings)
     Move-Item -LiteralPath $temporary -Destination $Path -Force
 }
 
-if ($Client -in @("All", "Gemini"))
-{
-    $settings = Get-SettingsObject $GeminiSettingsPath
-    $hooks = Get-OrAddObjectProperty $settings "hooks"
-    Set-BalancePetHook $hooks "BeforeAgent" "start" "Gemini"
-    Set-BalancePetHook $hooks "AfterAgent" "stop" "Gemini"
-    Set-BalancePetHook $hooks "SessionEnd" "stop" "Gemini"
-    Save-Settings $GeminiSettingsPath $settings
-    Write-Host "Installed BalancePet hooks for Gemini CLI: $GeminiSettingsPath"
-}
+# Each client's hook layout as data, so Install, Remove and Status share one
+# definition instead of drifting apart.
+$clientSpecs = @(
+    [pscustomobject]@{
+        Client = "Gemini"; Label = "Gemini CLI"; Path = $GeminiSettingsPath
+        Events = @(
+            [pscustomobject]@{ Event = "BeforeAgent"; State = "start"; Matcher = "" }
+            [pscustomobject]@{ Event = "AfterAgent"; State = "stop"; Matcher = "" }
+            [pscustomobject]@{ Event = "SessionEnd"; State = "stop"; Matcher = "" }
+        )
+    }
+    [pscustomobject]@{
+        Client = "Qwen"; Label = "Qwen Code"; Path = $QwenSettingsPath
+        Events = @(
+            [pscustomobject]@{ Event = "UserPromptSubmit"; State = "start"; Matcher = "" }
+            [pscustomobject]@{ Event = "Stop"; State = "stop"; Matcher = "" }
+            [pscustomobject]@{ Event = "StopFailure"; State = "stop"; Matcher = ".*" }
+            [pscustomobject]@{ Event = "SessionEnd"; State = "stop"; Matcher = "" }
+        )
+    }
+    [pscustomobject]@{
+        Client = "Claude"; Label = "Claude Code"; Path = $ClaudeSettingsPath
+        Events = @(
+            [pscustomobject]@{ Event = "UserPromptSubmit"; State = "start"; Matcher = "" }
+            [pscustomobject]@{ Event = "Stop"; State = "stop"; Matcher = "" }
+            [pscustomobject]@{ Event = "StopFailure"; State = "stop"; Matcher = "" }
+            [pscustomobject]@{ Event = "SessionEnd"; State = "stop"; Matcher = "" }
+        )
+    }
+)
 
-if ($Client -in @("All", "Qwen"))
+foreach ($spec in $clientSpecs)
 {
-    $settings = Get-SettingsObject $QwenSettingsPath
-    $hooks = Get-OrAddObjectProperty $settings "hooks"
-    Set-BalancePetHook $hooks "UserPromptSubmit" "start" "Qwen"
-    Set-BalancePetHook $hooks "Stop" "stop" "Qwen"
-    Set-BalancePetHook $hooks "StopFailure" "stop" "Qwen" ".*"
-    Set-BalancePetHook $hooks "SessionEnd" "stop" "Qwen"
-    Save-Settings $QwenSettingsPath $settings
-    Write-Host "Installed BalancePet hooks for Qwen Code: $QwenSettingsPath"
-}
+    if ($Client -ne "All" -and $Client -ne $spec.Client) { continue }
 
-if ($Client -in @("All", "Claude"))
-{
-    $settings = Get-SettingsObject $ClaudeSettingsPath
+    $directory = [System.IO.Path]::GetDirectoryName($spec.Path)
+
+    if ($Action -eq "Status")
+    {
+        if (-not (Test-Path -LiteralPath $spec.Path))
+        {
+            Write-Host "$($spec.Label): not configured ($($spec.Path))"
+            continue
+        }
+        $settings = Get-SettingsObject $spec.Path
+        $hooks = Get-OrAddObjectProperty $settings "hooks"
+        $installed = 0
+        foreach ($item in $spec.Events)
+        {
+            if (Test-BalancePetHook $hooks $item.Event $spec.Client) { $installed++ }
+        }
+        Write-Host "$($spec.Label): $installed of $($spec.Events.Count) hooks installed ($($spec.Path))"
+        continue
+    }
+
+    # Skip a client that is neither configured nor installed, so this script
+    # never creates a settings file for software the user does not have.
+    if (-not (Test-Path -LiteralPath $spec.Path) -and -not (Test-Path -LiteralPath $directory))
+    {
+        Write-Host "$($spec.Label): not present, skipped ($directory)"
+        continue
+    }
+
+    $settings = Get-SettingsObject $spec.Path
     $hooks = Get-OrAddObjectProperty $settings "hooks"
-    Set-BalancePetHook $hooks "UserPromptSubmit" "start" "Claude"
-    Set-BalancePetHook $hooks "Stop" "stop" "Claude"
-    Set-BalancePetHook $hooks "StopFailure" "stop" "Claude"
-    Set-BalancePetHook $hooks "SessionEnd" "stop" "Claude"
-    Save-Settings $ClaudeSettingsPath $settings
-    Write-Host "Installed BalancePet hooks for Claude Code: $ClaudeSettingsPath"
+    foreach ($item in $spec.Events)
+    {
+        if ($Action -eq "Install") { Set-BalancePetHook $hooks $item.Event $item.State $spec.Client $item.Matcher }
+        else { Remove-BalancePetHook $hooks $item.Event $spec.Client }
+    }
+    Save-Settings $spec.Path $settings
+    if ($Action -eq "Install") { Write-Host "Installed BalancePet hooks for $($spec.Label): $($spec.Path)" }
+    else { Write-Host "Removed BalancePet hooks for $($spec.Label): $($spec.Path)" }
 }
