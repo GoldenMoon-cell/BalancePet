@@ -528,6 +528,19 @@ public partial class MainWindow : Window
             ? UsageFormatting.Currency(_lastBalanceUsage.TotalUsage, _lastBalanceUsage.Currency)
             : "暂无数据";
         TotalUsageHint.Text = _lastBalanceUsage.HasTotalUsageData ? "余额账本累计" : "等待主程序累计记录";
+        // A subscription has no per-request price and no balance to draw down, so the
+        // money cards have nothing to report. Saying that is more useful than the
+        // "no data yet" they would otherwise show, which reads as a broken lookup.
+        // The site card is left alone: it describes a relay, a different thing.
+        if (ScopedToSubscriptionAccount)
+        {
+            TodayUsage.Text = "订阅制 · 不计费";
+            TodayUsageHint.Text = "该账户按订阅计费，没有逐次扣费";
+            TotalBalance.Text = "订阅制 · 无余额";
+            TotalBalanceHint.Text = "订阅账户没有可读取的余额";
+            TotalUsage.Text = "订阅制 · 不计费";
+            TotalUsageHint.Text = "订阅账户不产生余额变化";
+        }
         Throughput.Text = UsageFormatting.Rate(report.AllTime.OutputPerSecond);
         AverageDuration.Text = UsageFormatting.Milliseconds(report.AllTime.AverageDurationMs);
         var providers = events.Select(value => value.Provider).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Count();
@@ -692,6 +705,15 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// <summary>
+    /// True when the dashboard is scoped to one account the user declared
+    /// subscription-billed. A combined scope is deliberately excluded: it mixes
+    /// accounts, and the money cards remain meaningful for the others.
+    /// </summary>
+    private bool ScopedToSubscriptionAccount =>
+        _accountFilter.Length > 0
+        && _accounts.TryGetValue(_accountFilter, out var scoped)
+        && scoped.IsSubscription;
     /// Fills the account selector from the snapshot and the host's account names.
     /// The combined entry is always first and is the default, so every figure on
     /// the dashboard describes the same scope without the user choosing.
