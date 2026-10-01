@@ -111,6 +111,7 @@ public partial class MainWindow : Window
     private bool _refreshing;
     private CancellationTokenSource? _refreshCancellation;
     private DateTimeOffset _lastManualRefreshAttempt = DateTimeOffset.MinValue;
+    private CancellationTokenSource? _updateCancellation;
     private bool _updateFailureAnnounced;
     private bool _updateBusy;
     private string? _configuredUpdateCheckMode;
@@ -967,6 +968,15 @@ public partial class MainWindow : Window
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is System.Windows.Controls.Button) return;
+        // While an update downloads, the pet is the only thing reporting it and a
+        // 200 MB download otherwise has no way out. The bubble says "click to
+        // cancel", so the press is spent on that instead of the usual squash.
+        if (_updateCancellation is not null)
+        {
+            _updateCancellation.Cancel();
+            ShowNativeBubble("正在取消更新", "--", "已请求停止下载");
+            return;
+        }
         _mousePressed = true;
         ResetInactiveTimer();
         if (_settings.InteractionEffects)
@@ -1632,7 +1642,22 @@ public partial class MainWindow : Window
             // Progress<double> captures this thread's dispatcher, so the callback
             // lands on the UI thread even though the download does not.
             var downloadProgress = new Progress<double>(value => ShowUpdateProgress(value, release.TagName));
-            var payload = await _updateService.DownloadAsync(plan.Asset, default, downloadProgress);
+            _updateCancellation = new CancellationTokenSource();
+            string payload;
+            try
+            {
+                payload = await _updateService.DownloadAsync(plan.Asset, _updateCancellation.Token, downloadProgress);
+            }
+            catch (OperationCanceledException)
+            {
+                ShowNativeBubble("已取消更新", "--", "下载已停止，当前版本未改动");
+                return;
+            }
+            finally
+            {
+                _updateCancellation.Dispose();
+                _updateCancellation = null;
+            }
             ShowUpdateProgress(1, release.TagName);
             if (plan.Method == UpdateInstallMethod.Installer)
             {
@@ -1957,7 +1982,7 @@ public partial class MainWindow : Window
     private void ShowNativeBubble(string label, string amount, string hint, TimeSpan? duration = null)
         => ShowBubble(label, amount, hint, duration, preferNativePresentation: true);
 
-    // AI/CC Switch integration feedback belongs to the pet itself. Keep
+    // Settings and task-integration feedback belongs to the pet itself. Keep
     // recording these events for Notification Center, but always present the
     // immediate feedback through the built-in bubble next to the pet.
     private void ShowAiIntegrationBubble(string label, string amount, string hint, TimeSpan? duration = null)
@@ -2027,8 +2052,8 @@ public partial class MainWindow : Window
             AppLocalization.Text(_settings.Language, "正在更新", "Updating"),
             $"{progress * 100:0}%",
             AppLocalization.Text(_settings.Language,
-                $"{version} · 下载中，完成后自动重启",
-                $"{version} · downloading, restarts when done"));
+                $"{version} · 下载中，点我取消",
+                $"{version} · downloading, click to cancel"));
         BubbleProgress.Value = progress;
         BubbleProgress.Visibility = Visibility.Visible;
         _bubbleTimer.Stop();
