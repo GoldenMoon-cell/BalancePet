@@ -118,6 +118,8 @@ public static class CodexUsageReader
                     TryReadRecord(line, sessionId, accumulator);
                 else if (line.Contains("\"turn_context\"", StringComparison.Ordinal))
                     TryReadTurnContext(line, sessionId, accumulator);
+                else if (line.Contains("\"token_count\"", StringComparison.Ordinal))
+                    TryReadRateLimits(line, accumulator);
             }
         }
         catch (IOException) { }
@@ -178,6 +180,27 @@ public static class CodexUsageReader
             var model = ReadString(payload, "model");
             if (!string.IsNullOrWhiteSpace(model)) accumulator.AddModel(occurredAt, model);
             accumulator.AddReasoning(occurredAt, ReadString(payload, "reasoning_effort", "reasoning_level", "thinking_level", "effort"));
+        }
+        catch (JsonException) { }
+    }
+    /// <summary>
+    /// Reads the subscription plan out of an <c>event_msg</c> / <c>token_count</c>
+    /// record. This record type is separate from the token accounting records: it
+    /// carries <c>rate_limits</c>, whose <c>plan_type</c> is the only field in the
+    /// whole rollout that distinguishes a subscription session from an API-key one.
+    /// A pay-as-you-go session reports the object with every value null, so an
+    /// absent plan simply leaves the account classified as it was.
+    /// </summary>
+    private static void TryReadRateLimits(string line, UsageAccumulator accumulator)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(line);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return;
+            if (!root.TryGetProperty("payload", out var payload) || payload.ValueKind != JsonValueKind.Object) return;
+            if (!payload.TryGetProperty("rate_limits", out var limits) || limits.ValueKind != JsonValueKind.Object) return;
+            accumulator.SetPlanType(ReadString(limits, "plan_type") ?? "");
         }
         catch (JsonException) { }
     }
@@ -247,6 +270,19 @@ public static class CodexUsageReader
         private DateTimeOffset _latestReasoningAt = DateTimeOffset.MinValue;
         private JsonElement? _latestCumulative;
         private string _model = "";
+    // Subscription plan reported by the client, empty when it reports none.
+    private string _planType = "";
+
+    /// <summary>
+    /// Records the subscription plan the client reported. Newer readings win, so a
+    /// mid-session plan change is reflected rather than the first value sticking.
+    /// An empty value never overwrites a known one.
+    /// </summary>
+    public void SetPlanType(string planType)
+    {
+        if (string.IsNullOrWhiteSpace(planType)) return;
+        _planType = planType.Trim();
+    }
         private string _reasoningEffort = "";
         private long _input;
         private long _output;
@@ -332,7 +368,7 @@ public static class CodexUsageReader
                     ReadCounter(value, "cached_input_tokens", "cache_read_tokens") ?? ReadCounter(value, "input_tokens_details.cached_tokens"),
                     ReadCounter(value, "cache_write_input_tokens", "cache_write_tokens"),
                     _model,
-                    _reasoningEffort);
+                    _reasoningEffort, _planType);
             }
 
             else
@@ -344,7 +380,7 @@ public static class CodexUsageReader
                     _hasCacheRead ? _cacheRead : null,
                     _hasCacheWrite ? _cacheWrite : null,
                     _model,
-                    _reasoningEffort)
+                    _reasoningEffort, _planType)
                 : null;
             }
 
@@ -384,7 +420,8 @@ public sealed record CodexUsageCounters(
     long? CacheReadTokens,
     long? CacheWriteTokens,
     string Model,
-    string ReasoningEffort = "")
+    string ReasoningEffort = "",
+    string PlanType = "")
 {
     public bool HasData => InputTokens.HasValue || OutputTokens.HasValue || CacheReadTokens.HasValue || CacheWriteTokens.HasValue;
     public bool HasTokenData => HasData;
