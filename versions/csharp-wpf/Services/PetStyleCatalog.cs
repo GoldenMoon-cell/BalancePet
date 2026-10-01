@@ -26,10 +26,36 @@ public static class PetStyleCatalog
 
     private static readonly PetExtensionManager Extensions = new();
 
+    /// <summary>
+    /// Appearances that remain part of the distribution.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately short. Every appearance here adds its artwork to the installer
+    /// and to every download, and the artwork is what dominates both, so the rest
+    /// are published as resource-extension packages instead. This list is only
+    /// "what is guaranteed to arrive with the program"; anything that needs "what
+    /// can be drawn right now" wants <see cref="GetAvailableStyles"/>.
+    /// </remarks>
     public static readonly IReadOnlyList<PetStyleDefinition> All = new[]
     {
         new PetStyleDefinition("deepseek", "DeepSeek 小鲸鱼「澜汐」", "DeepSeek Whale \"Lanxi\"", "DeepSeek 小鲸鱼", "DeepSeek Whale"),
         new PetStyleDefinition("chatgpt", "ChatGPT 小白龙「霁珑」", "ChatGPT White Dragon \"Jilong\"", "ChatGPT 小白龙", "ChatGPT White Dragon"),
+    };
+
+    /// <summary>
+    /// Appearances that are not part of the distribution: published as packages, or
+    /// registered ahead of their artwork.
+    /// </summary>
+    /// <remarks>
+    /// Kept as data rather than deleted because an upgraded installation still has
+    /// these folders on disk, and the migration has to name them when it builds
+    /// their packages. Membership here says nothing about availability: a fresh
+    /// installation has none of these folders, and after migration the installed
+    /// package supplies the appearance. Read <see cref="GetAvailableStyles"/> for
+    /// that question instead.
+    /// </remarks>
+    public static readonly IReadOnlyList<PetStyleDefinition> Extractable = new[]
+    {
         new PetStyleDefinition("minimax", "MiniMax 小海螺「绯音」", "MiniMax Shell \"Feiyin\"", "MiniMax 小海螺", "MiniMax Shell"),
         new PetStyleDefinition("gemini", "Gemini 小星猫「星璃」", "Gemini Star Cat \"Xingli\"", "Gemini 小星猫", "Gemini Star Cat"),
         new PetStyleDefinition("grok", "Grok 小恶魔「烬斧」", "Grok Little Demon \"Jinfu\"", "Grok 小恶魔", "Grok Little Demon"),
@@ -118,6 +144,17 @@ public static class PetStyleCatalog
                 definition = builtIn;
                 return true;
             }
+
+            // An appearance that is no longer distributed still has to resolve. A
+            // saved setting stores its id, and an upgraded installation still has the
+            // folder on disk until the migration converts it, so returning false here
+            // would drop those users onto the default appearance.
+            var extractable = Extractable.FirstOrDefault(item => string.Equals(item.Id, canonicalId, StringComparison.OrdinalIgnoreCase));
+            if (extractable is not null)
+            {
+                definition = extractable;
+                return true;
+            }
         }
 
         if (!IsExtensionStyleId(raw)) return false;
@@ -176,6 +213,15 @@ public static class PetStyleCatalog
     {
         var styles = new Dictionary<string, PetStyleDefinition>(StringComparer.OrdinalIgnoreCase);
         foreach (var definition in All)
+        {
+            if (IsCompleteDirectory(Path.Combine(AppContext.BaseDirectory, "assets", "pets", definition.Id)))
+                styles[definition.Id] = definition;
+        }
+        // Appearances that are no longer distributed still count while their folder
+        // is on disk, which is the whole window between an upgrade and the migration
+        // converting them. Without this the selector would empty out on first launch
+        // after upgrading and the user would appear to have lost their pet.
+        foreach (var definition in Extractable)
         {
             if (IsCompleteDirectory(Path.Combine(AppContext.BaseDirectory, "assets", "pets", definition.Id)))
                 styles[definition.Id] = definition;
