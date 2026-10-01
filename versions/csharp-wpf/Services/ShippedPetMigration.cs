@@ -124,7 +124,11 @@ public static class ShippedPetMigration
         // The manager installs from a ZIP, so the appearance is staged into one. The
         // staging copy is what makes the original disposable: nothing is written
         // inside the installation directory while the package is being built.
-        var staging = Path.Combine(Path.GetTempPath(), $"BalancePet-pet-{Guid.NewGuid():N}");
+        // Staged under the extension store rather than %TEMP%. The store is written
+        // to by definition, so it is known to be writable, while the temp directory
+        // is not available to a process running under a restricted token — which is
+        // exactly the situation where a silent failure would be hardest to explain.
+        var staging = Path.Combine(manager.RootDirectory, $".migration-{Guid.NewGuid():N}");
         Directory.CreateDirectory(staging);
         try
         {
@@ -148,7 +152,7 @@ public static class ShippedPetMigration
             };
             File.WriteAllText(Path.Combine(staging, "manifest.json"), JsonSerializer.Serialize(manifest, JsonOptions), new UTF8Encoding(false));
 
-            var archive = Path.Combine(Path.GetTempPath(), $"BalancePet-pet-{Guid.NewGuid():N}.zip");
+            var archive = Path.Combine(manager.RootDirectory, $".migration-{Guid.NewGuid():N}.zip");
             try
             {
                 ZipFile.CreateFromDirectory(staging, archive, CompressionLevel.Optimal, includeBaseDirectory: false);
