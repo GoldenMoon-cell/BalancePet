@@ -1125,7 +1125,8 @@ public partial class SettingsWindow : Window
         RefreshSeconds = profile.RefreshSeconds,
         AutoRefreshEnabled = profile.AutoRefreshEnabled,
         LowThreshold = profile.LowThreshold,
-        Enabled = profile.Enabled
+        Enabled = profile.Enabled,
+        IsSubscription = profile.IsSubscription
     };
 
     private MonitorProfile? CurrentProfile => _profiles.FirstOrDefault(profile => string.Equals(profile.Id, _currentProfileId, StringComparison.OrdinalIgnoreCase));
@@ -1598,7 +1599,8 @@ public partial class SettingsWindow : Window
                     refresh_seconds = Math.Max(30, profile.RefreshSeconds),
                     auto_refresh_enabled = profile.AutoRefreshEnabled,
                     low_threshold = profile.LowThreshold,
-                    enabled = profile.Enabled
+                    enabled = profile.Enabled,
+                    is_subscription = profile.IsSubscription,
                 }).ToArray()
             };
             var options = new JsonSerializerOptions { WriteIndented = true };
