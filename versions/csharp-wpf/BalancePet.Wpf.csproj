@@ -8,20 +8,30 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>BalancePet.Wpf</AssemblyName>
     <RootNamespace>BalancePet.Wpf</RootNamespace>
-    <Version>1.3.5</Version>
-    <AssemblyVersion>1.3.5.0</AssemblyVersion>
-    <FileVersion>1.3.5.0</FileVersion>
-    <InformationalVersion>1.3.5</InformationalVersion>
+    <Version>1.3.6</Version>
+    <AssemblyVersion>1.3.6.0</AssemblyVersion>
+    <FileVersion>1.3.6.0</FileVersion>
+    <InformationalVersion>1.3.6</InformationalVersion>
     <ApplicationIcon>assets\balance-pet.ico</ApplicationIcon>
     <!-- User-facing packages do not need debugger files or local source paths. -->
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
     <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- Appearances are distributed as resource-extension packages, so the release
+         build leaves their artwork out and the installer carries only the default
+         pair. The developer build keeps every folder, because running the app from
+         source should not require installing packages first. The packer turns this
+         on; nothing else should.
+         Keep this list in step with PetStyleCatalog.Extractable: a folder that is
+         excluded here but not listed there would simply vanish for new users. -->
+    <PetPackageExcludeGlob Condition="'$(ExcludePackagedPets)' == 'true'">assets\pets\minimax\**;assets\pets\gemini\**;assets\pets\grok\**;assets\pets\claude\**;assets\pets\kimi\**;assets\pets\qwen\**;assets\pets\ernie\**;assets\pets\glm\**;assets\pets\gpt-image2\**;assets\pets\llama\**;assets\pets\mimo\**;assets\pets\seedance\**</PetPackageExcludeGlob>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
     <!-- _backup-* holds local pre-resize copies of pet art and is gitignored;
          without this exclusion the glob ships ~91 MB of duplicates. -->
-    <Content Include="assets\**\*" Exclude="assets\**\*.key-v2;assets\**\_backup-*\**" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="assets\**\*" Exclude="assets\**\*.key-v2;assets\**\_backup-*\**;$(PetPackageExcludeGlob)" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\plugin-catalog.json" Link="plugin-catalog.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- The AI-integration switches run these scripts from tools\ next to the
          executable. Copying them here keeps a development build behaving like a

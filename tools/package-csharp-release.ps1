@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "1.3.5",
+    [string]$Version = "1.3.6",
     [switch]$SkipInstaller,
     [string]$StagePath = ""
 )
@@ -67,7 +67,8 @@ dotnet publish $project --configuration Release --runtime win-x64 --self-contain
     -p:Version=$Version `
     -p:AssemblyVersion=$assemblyVersion `
     -p:FileVersion=$fileVersion `
-    -p:InformationalVersion=$Version
+    -p:InformationalVersion=$Version `
+    -p:ExcludePackagedPets=true
 
 # Keep the license and attribution next to the executable so binary users see
 # the same terms as source users.
