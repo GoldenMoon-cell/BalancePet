@@ -60,6 +60,7 @@ public partial class MainWindow : Window
     private readonly BrowserSessionBridgeServer _browserSessionBridge = new();
     private readonly FeatureExtensionManager _featureExtensions = new();
     private readonly DispatcherTimer _stateTimer;
+    private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _inactiveTimer;
     private readonly DispatcherTimer _bubbleAnimationTimer;
     private readonly DispatcherTimer _bubbleContentTimer;
@@ -146,6 +147,10 @@ public partial class MainWindow : Window
     private string _amountCurrency = "USD";
     private bool _hasDisplayAmount;
     private string? _activePetImagePath;
+    private IReadOnlyList<string> _activePetFrames = Array.Empty<string>();
+    private readonly Dictionary<string, BitmapImage> _petFrameCache = new(StringComparer.OrdinalIgnoreCase);
+    private string? _petFrameCacheDirectory;
+    private int _petFrameIndex;
     private bool _lockedPressed;
     private bool _mousePressed;
     private bool _clickUpperRegion;
@@ -271,6 +276,8 @@ public partial class MainWindow : Window
         _browserSessionBridge.SessionReceived += OnBrowserSessionReceivedForUsage;
         _stateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _stateTimer.Tick += (_, _) => RestoreSteadyVisualState();
+        _frameTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(140) };
+        _frameTimer.Tick += (_, _) => AdvancePetFrame();
         _inactiveTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(15) };
         _inactiveTimer.Tick += (_, _) => OnInactiveTimerElapsed();
         _bubbleAnimationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
@@ -851,11 +858,61 @@ public partial class MainWindow : Window
         };
         var styleDirectory = PetStyleCatalog.ResolveAssetDirectory(style);
         var baseName = style == "chatgpt" ? "chatgpt-dragon.png" : "pet.png";
-        var statePath = System.IO.Path.Combine(styleDirectory, $"{stateName}.png");
-        var styleIdlePath = System.IO.Path.Combine(styleDirectory, "idle.png");
         var basePath = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", baseName);
-        var selectedPath = File.Exists(statePath) ? statePath : File.Exists(styleIdlePath) ? styleIdlePath : basePath;
-        if (!File.Exists(selectedPath) || string.Equals(_activePetImagePath, selectedPath, StringComparison.OrdinalIgnoreCase)) return;
+        // A state that publishes extra frames animates; one that does not is exactly
+        // the still image it has always been, because one frame is a whole sequence.
+        var frames = PetStyleCatalog.ResolveStateFrames(style, stateName);
+        if (frames.Count == 0) frames = PetStyleCatalog.ResolveStateFrames(style, "idle");
+        if (frames.Count == 0) frames = File.Exists(basePath) ? new[] { basePath } : Array.Empty<string>();
+        if (frames.Count == 0)
+        {
+            _frameTimer.Stop();
+            return;
+        }
+
+        // Re-requesting the sequence already on screen keeps its position instead of
+        // restarting it. SetVisualState runs on every refresh, so restarting here
+        // would snap the pet back to frame one and it would never appear to move.
+        if (SamePetFrames(frames, _activePetFrames)) return;
+
+        var directory = System.IO.Path.GetDirectoryName(frames[0]) ?? styleDirectory;
+        var first = LoadPetFrame(frames[0], directory);
+        if (first is null) return;
+        PetImage.Source = first;
+        _activePetImagePath = frames[0];
+        _activePetFrames = frames;
+        _petFrameIndex = 0;
+        if (frames.Count > 1) _frameTimer.Start();
+        else _frameTimer.Stop();
+    }
+
+    private static bool SamePetFrames(IReadOnlyList<string> left, IReadOnlyList<string> right)
+    {
+        if (ReferenceEquals(left, right)) return true;
+        if (left.Count != right.Count) return false;
+        for (var index = 0; index < left.Count; index++)
+        {
+            if (!string.Equals(left[index], right[index], StringComparison.OrdinalIgnoreCase)) return false;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// One decoded frame, remembered so playback does not decode on every tick.
+    /// </summary>
+    /// <remarks>
+    /// The cache is dropped whenever the frames come from a different folder, so
+    /// trying every appearance in turn costs one appearance's worth of bitmaps
+    /// rather than every appearance's.
+    /// </remarks>
+    private BitmapImage? LoadPetFrame(string path, string directory)
+    {
+        if (!string.Equals(_petFrameCacheDirectory, directory, StringComparison.OrdinalIgnoreCase))
+        {
+            _petFrameCache.Clear();
+            _petFrameCacheDirectory = directory;
+        }
+        if (_petFrameCache.TryGetValue(path, out var cached)) return cached;
         try
         {
             var source = new BitmapImage();
@@ -865,14 +922,38 @@ public partial class MainWindow : Window
             // sharp up to roughly 215% DPI scaling, without ever materialising
             // the full source resolution (1024x1024 RGBA = 4 MiB per state).
             source.DecodePixelWidth = 512;
-            source.UriSource = new Uri(selectedPath, UriKind.Absolute);
+            source.UriSource = new Uri(path, UriKind.Absolute);
             source.EndInit();
             source.Freeze();
-            PetImage.Source = source;
-            _activePetImagePath = selectedPath;
+            _petFrameCache[path] = source;
+            return source;
         }
-        catch (IOException) { }
-        catch (ArgumentException) { }
+        catch (IOException) { return null; }
+        catch (ArgumentException) { return null; }
+    }
+
+    private void AdvancePetFrame()
+    {
+        // Nothing is watching a hidden pet, and skipping the advance rather than
+        // stopping keeps the sequence where it was when the window comes back.
+        if (!IsVisible || _activePetFrames.Count <= 1)
+        {
+            if (_activePetFrames.Count <= 1) _frameTimer.Stop();
+            return;
+        }
+        var next = (_petFrameIndex + 1) % _activePetFrames.Count;
+        var frame = LoadPetFrame(_activePetFrames[next], System.IO.Path.GetDirectoryName(_activePetFrames[next]) ?? _petFrameCacheDirectory ?? string.Empty);
+        if (frame is null) return;
+        _petFrameIndex = next;
+        PetImage.Source = frame;
+        _activePetImagePath = _activePetFrames[next];
+    }
+
+    private void StopPetFrames()
+    {
+        _frameTimer.Stop();
+        _activePetFrames = Array.Empty<string>();
+        _petFrameIndex = 0;
     }
 
     private void RestoreSteadyVisualState()
@@ -1208,6 +1289,10 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Dropping the remembered sequence is what makes the switch take effect even
+        // when the new appearance resolves to the same state: without it the loader
+        // would recognise the paths as already playing and change nothing.
+        StopPetFrames();
         _activePetImagePath = null;
         LoadPetVisual(_visualState);
         ApplyFlipVisuals();
@@ -2397,7 +2482,15 @@ public partial class MainWindow : Window
     private static string NormalizePetStyle(string? style)
     {
         var normalized = PetStyleCatalog.NormalizeId(style);
-        return PetStyleCatalog.IsAvailable(normalized) ? normalized : "deepseek";
+        if (PetStyleCatalog.IsAvailable(normalized)) return normalized;
+        // DeepSeek could be named unconditionally while it was part of the
+        // distribution. It arrives as a package now, so returning it here would hand
+        // back an id nothing can draw on an installation that has not downloaded it.
+        // Prefer it while it is present, then take whatever actually is, and land on
+        // the built-in placeholder rather than on nothing at all.
+        var available = PetStyleCatalog.GetAvailableStyles();
+        if (available.Any(item => string.Equals(item.Id, "deepseek", StringComparison.OrdinalIgnoreCase))) return "deepseek";
+        return available.Count > 0 ? available[0].Id : PetStyleCatalog.FallbackId;
     }
 
     private bool IsDragonStyle() => NormalizePetStyle(_settings.PetStyle) == "chatgpt";

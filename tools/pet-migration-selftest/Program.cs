@@ -84,6 +84,49 @@ internal static class Program
             Check("重复形象被回收", duplicate.Reclaimed == 1, $"实际 {duplicate.Reclaimed}");
             Check("重复形象不再迁移", duplicate.Migrated == 0, $"实际 {duplicate.Migrated}");
             Check("重复形象目录已删除", !Directory.Exists(Path.Combine(appDirectory, "assets", "pets", "qwen")));
+
+            // --- 6. The animation contract ------------------------------------
+            // Frames are found by name, so the numbering and the rule that a gap ends
+            // the sequence are the entire contract and are worth pinning down. This
+            // runs against a synthetic tree because the point is the naming, not the
+            // artwork, and no real appearance has to animate for it to hold.
+            var probeRoot = Path.Combine(workspace, "probe");
+            var probe = Path.Combine(probeRoot, "assets", "pets", "zz-probe-anim");
+            Directory.CreateDirectory(probe);
+            var sample = Path.Combine(realPets, "qwen", "idle.png");
+            foreach (var name in new[] { "idle.png", "idle-2.png", "idle-3.png", "loading.png" })
+                File.Copy(sample, Path.Combine(probe, name));
+
+            var idleFrames = PetStyleCatalog.ResolveStateFrames("zz-probe-anim", "idle", probeRoot);
+            Check("首帧沿用原名", idleFrames.Count == 3 && Path.GetFileName(idleFrames[0]) == "idle.png",
+                string.Join(",", idleFrames.Select(Path.GetFileName)));
+            Check("单帧状态只有一帧", PetStyleCatalog.ResolveStateFrames("zz-probe-anim", "loading", probeRoot).Count == 1);
+            Check("没有的状态返回空", PetStyleCatalog.ResolveStateFrames("zz-probe-anim", "success", probeRoot).Count == 0);
+
+            File.Copy(sample, Path.Combine(probe, "idle-5.png"));
+            Check("序号断档即终止", PetStyleCatalog.ResolveStateFrames("zz-probe-anim", "idle", probeRoot).Count == 3,
+                string.Join(",", PetStyleCatalog.ResolveStateFrames("zz-probe-anim", "idle", probeRoot).Select(Path.GetFileName)));
+
+            for (var index = 4; index <= 9; index++) File.Copy(sample, Path.Combine(probe, $"idle-{index}.png"), overwrite: true);
+            Check($"帧数封顶在 {PetStyleCatalog.MaxAnimationFrames}",
+                PetStyleCatalog.ResolveStateFrames("zz-probe-anim", "idle", probeRoot).Count == PetStyleCatalog.MaxAnimationFrames,
+                $"实际 {PetStyleCatalog.ResolveStateFrames("zz-probe-anim", "idle", probeRoot).Count}");
+
+            // --- 7. The built-in placeholder cannot go missing ----------------
+            // It is the only shape guaranteed to be on disk, so it has to survive the
+            // id normalisation that decides what gets drawn, and it has to be complete
+            // enough to be offered: an appearance missing a state is not listed at all.
+            // In the source tree the project directory plays the part of the installed
+            // application directory: assets/ sits directly under it, exactly as it does
+            // under the install folder at run time.
+            var appRoot = Path.GetFullPath(Path.Combine(realPets, "..", ".."));
+            Check("占位形象 id 经归一化不变", PetStyleCatalog.NormalizeId(PetStyleCatalog.FallbackId) == PetStyleCatalog.FallbackId,
+                PetStyleCatalog.NormalizeId(PetStyleCatalog.FallbackId));
+            Check("占位形象是已登记形象", PetStyleCatalog.TryGetDefinition(PetStyleCatalog.FallbackId, out _));
+            var placeholder = Path.Combine(realPets, PetStyleCatalog.FallbackId);
+            Check("占位形象九张状态图齐全", RequiredStates.All(state => File.Exists(Path.Combine(placeholder, state))));
+            var placeholderFrames = PetStyleCatalog.ResolveStateFrames(PetStyleCatalog.FallbackId, "idle", appRoot).Count;
+            Check("占位形象自带 idle 动画", placeholderFrames > 1, $"实际 {placeholderFrames} 帧");
         }
         finally
         {

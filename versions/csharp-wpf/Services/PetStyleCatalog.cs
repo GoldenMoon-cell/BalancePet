@@ -27,6 +27,17 @@ public static class PetStyleCatalog
     private static readonly PetExtensionManager Extensions = new();
 
     /// <summary>
+    /// The id of the appearance that ships inside the application folder and is never
+    /// published as a package, so there is always something to draw.
+    /// </summary>
+    /// <remarks>
+    /// The leading underscore is deliberate and load-bearing: it fails
+    /// <see cref="IsExtensionStyleId"/>, so no package can ever claim this id and
+    /// displace the safety net with a download that might not arrive.
+    /// </remarks>
+    public const string FallbackId = "_placeholder";
+
+    /// <summary>
     /// Appearances that remain part of the distribution.
     /// </summary>
     /// <remarks>
@@ -40,6 +51,11 @@ public static class PetStyleCatalog
     {
         new PetStyleDefinition("deepseek", "DeepSeek 小鲸鱼「澜汐」", "DeepSeek Whale \"Lanxi\"", "DeepSeek 小鲸鱼", "DeepSeek Whale"),
         new PetStyleDefinition("chatgpt", "ChatGPT 小白龙「霁珑」", "ChatGPT White Dragon \"Jilong\"", "ChatGPT 小白龙", "ChatGPT White Dragon"),
+        // Never published as artwork, and not something to choose on purpose. It is
+        // the shape the window draws when no appearance is installed yet, which is a
+        // real state now that appearances arrive as packages: without it a fresh
+        // installation that cannot reach the network would have an empty window.
+        new PetStyleDefinition(FallbackId, "内置占位形象", "Built-in Placeholder", "占位形象", "Placeholder"),
     };
 
     /// <summary>
@@ -76,6 +92,7 @@ public static class PetStyleCatalog
 
     public static string NormalizeId(string? value) => value?.Trim().ToLowerInvariant() switch
     {
+        "_placeholder" => FallbackId,
         "chatgpt" or "gpt" => "chatgpt",
         "minimax" => "minimax",
         "gemini" => "gemini",
@@ -115,6 +132,7 @@ public static class PetStyleCatalog
         var raw = value.Trim();
         var canonicalId = raw.ToLowerInvariant() switch
         {
+            "_placeholder" => FallbackId,
             "deepseek" => "deepseek",
             "chatgpt" or "gpt" => "chatgpt",
             "minimax" => "minimax",
