@@ -1,0 +1,75 @@
+# Generates the curated plugin catalog entry set for the appearance packages.
+#
+# Why a generator rather than a checked-in file: the catalog schema requires a
+# download URL and a SHA-256 per package, and both are derived from artifacts that
+# are built rather than authored. Computing the hashes by hand would drift from the
+# packages the first time one is rebuilt, and a catalog whose hash is wrong is
+# worse than no catalog, because the install fails after the download.
+#
+# The repository name is a parameter because it is the one thing that cannot be
+# derived. Everything else comes from the packages themselves.
+#
+# Usage:
+#   .\tools\build-skin-catalog.ps1 -Repository GoldenMoon-cell/BalancePet-Pets -ReleaseTag skins-1.0.0
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)] [string] $Repository,
+    [Parameter(Mandatory = $true)] [string] $ReleaseTag,
+    [string] $PackagesDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'dist\pets'),
+    [string] $OutputPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'skins\catalog.json')
+)
+
+$ErrorActionPreference = 'Stop'
+
+if ($Repository -notmatch '^[^/]+/[^/]+$') { throw "仓库应为 owner/name 形式：$Repository" }
+if (-not (Test-Path $PackagesDirectory)) { throw "找不到皮肤包目录：$PackagesDirectory" }
+
+$packages = Get-ChildItem $PackagesDirectory -Filter '*.zip' | Sort-Object Name
+if ($packages.Count -eq 0) { throw "皮肤包目录里没有 ZIP：$PackagesDirectory" }
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$baseUrl = "https://github.com/$Repository/releases/download/$ReleaseTag"
+$plugins = @()
+
+foreach ($package in $packages) {
+    # Names and versions come from the manifest inside the package rather than from
+    # the file name, so a renamed file cannot produce an entry that disagrees with
+    # what the host will actually read.
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($package.FullName)
+    try {
+        $entry = $archive.Entries | Where-Object { $_.FullName -eq 'manifest.json' }
+        if (-not $entry) { throw "$($package.Name)：包内没有 manifest.json" }
+        $reader = New-Object System.IO.StreamReader($entry.Open())
+        try { $manifest = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Close() }
+    }
+    finally { $archive.Dispose() }
+
+    if ($manifest.type -ne 'pet') { throw "$($package.Name)：type 应为 pet，实为 $($manifest.type)" }
+
+    $plugins += [ordered]@{
+        id              = $manifest.id
+        type            = 'pet'
+        name            = $manifest.name
+        name_en         = $manifest.name_en
+        version         = $manifest.version
+        min_core_version = $manifest.min_core_version
+        download_url    = "$baseUrl/$($package.Name)"
+        sha256          = (Get-FileHash $package.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        repository_url  = "https://github.com/$Repository"
+        release_url     = "https://github.com/$Repository/releases/tag/$ReleaseTag"
+        # The selector groups by provider, so the entry says which one it is rather
+        # than leaving the user to work it out from the name.
+        categories      = @('appearance')
+    }
+}
+
+$catalog = [ordered]@{
+    schema_version = 1
+    updated_at     = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    plugins        = $plugins
+}
+
+New-Item -ItemType Directory -Path (Split-Path $OutputPath -Parent) -Force | Out-Null
+[System.IO.File]::WriteAllText($OutputPath, ($catalog | ConvertTo-Json -Depth 5), [System.Text.UTF8Encoding]::new($false))
+Write-Host "已写入 $OutputPath（$($plugins.Count) 条）"
+$plugins | ForEach-Object { Write-Host "  $($_.id)  $($_.version)  $($_.sha256.Substring(0,12))…" }

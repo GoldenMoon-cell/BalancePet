@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-01T14:44:14Z",
+  "plugins": [
+    {
+      "id": "pet.claude",
+      "type": "pet",
+      "name": "Claude 小书灵「丹笺」",
+      "name_en": "Claude Little Book Spirit \"Danqian\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.claude-1.0.0.zip",
+      "sha256": "38b36e6ca1e68e99cd9142a43b30043348699b011e33e4ab8f83aedf83bfe631",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.ernie",
+      "type": "pet",
+      "name": "Ernie 小病书灵「青绡」",
+      "name_en": "Ernie Little Book Spirit \"Qingxiao\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.ernie-1.0.0.zip",
+      "sha256": "b6dac175c75807408954534d13a8962943819f3ff55b853122fdd1813dad2905",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.gemini",
+      "type": "pet",
+      "name": "Gemini 小星猫「星璃」",
+      "name_en": "Gemini Star Cat \"Xingli\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.gemini-1.0.0.zip",
+      "sha256": "111161b6b8e79fdfa3955813e43d3a03c8bd8427b5e073617365df0a6106183e",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.glm",
+      "type": "pet",
+      "name": "GLM 小方灵「青棱」",
+      "name_en": "GLM Little Square Spirit \"Qingleng\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.glm-1.0.0.zip",
+      "sha256": "f956d06ef93a4ed2028fcb22f3aea6b4d6e7ab58f4cf15c0749918a137e86ca9",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.gpt-image2",
+      "type": "pet",
+      "name": "GPT Image 2 小墨龙「玄珏」",
+      "name_en": "GPT Image 2 Ink Dragon \"Xuanjue\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.gpt-image2-1.0.0.zip",
+      "sha256": "2f9bae3c1c884f9a3ae181c4b662133b5dd4f13c05f27cd60ed40445b20584fe",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.grok",
+      "type": "pet",
+      "name": "Grok 小恶魔「烬斧」",
+      "name_en": "Grok Little Demon \"Jinfu\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.grok-1.0.0.zip",
+      "sha256": "c93e53c570b54c8c3163a64a2ca8c554fd1a1a6cb895a54233bcf75d4a5c8511",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.kimi",
+      "type": "pet",
+      "name": "Kimi 小棱镜「虹谱」",
+      "name_en": "Kimi Little Prism \"Hongpu\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.kimi-1.0.0.zip",
+      "sha256": "a2174ae3ebed21530d8f610670fb2e7f1233869f9bf75a1c5e4fb16679c556b7",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.llama",
+      "type": "pet",
+      "name": "Llama 小羊驼「绒眠」",
+      "name_en": "Llama Alpaca \"Rongmian\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.llama-1.0.0.zip",
+      "sha256": "709e2aceb9475b60d1e25d621fab10e6b77b4fea54543ddf2908127bc788d224",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.mimo",
+      "type": "pet",
+      "name": "MiMo 小兔码师「橙析」",
+      "name_en": "MiMo Bunny Coder \"Chengxi\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.mimo-1.0.0.zip",
+      "sha256": "446f02e45a72f83797abc72013148717bdc0b1faa83cf453499aa90d496d133a",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.minimax",
+      "type": "pet",
+      "name": "MiniMax 小海螺「绯音」",
+      "name_en": "MiniMax Shell \"Feiyin\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.minimax-1.0.0.zip",
+      "sha256": "bc5c3344f3c5d589bbe7542a04118f9a5df2cd44b929fd081fb1eedf15099b36",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.qwen",
+      "type": "pet",
+      "name": "Qwen 小折扇「绀华」",
+      "name_en": "Qwen Folding Fan \"Ganhua\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.qwen-1.0.0.zip",
+      "sha256": "543dd69de4d9a898d339a6e763ef31a8f065f21bb5089aa1e22a5cd65919115b",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.seedance",
+      "type": "pet",
+      "name": "Seedance 小星晶「澄芽」",
+      "name_en": "Seedance Little Star Crystal \"Chengya\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.seedance-1.0.0.zip",
+      "sha256": "0c0191e36bfcaf9e726562a01e4453ae96d1e5e6435122c89964734417d82c9c",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    }
+  ]
+}
