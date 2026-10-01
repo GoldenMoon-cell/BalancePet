@@ -85,7 +85,7 @@ public partial class SettingsWindow : Window
         _suppressLanguageChange = true;
         SelectByTag(LanguageBox, settings.Language);
         _suppressLanguageChange = false;
-        ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; NavigationAnimationsBox.IsChecked = settings.NavigationAnimations; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = settings.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = settings.GeminiTaskIntegration; FollowQwenBox.IsChecked = settings.QwenTaskIntegration; FollowClaudeBox.IsChecked = settings.ClaudeTaskIntegration; FollowOtherBox.IsChecked = settings.OtherTaskIntegration; AccountStatusBox.IsChecked = settings.CCSwitchIntegration; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
+ ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; NavigationAnimationsBox.IsChecked = settings.NavigationAnimations; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = settings.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = settings.GeminiTaskIntegration; FollowQwenBox.IsChecked = settings.QwenTaskIntegration; FollowClaudeBox.IsChecked = settings.ClaudeTaskIntegration; FollowOtherBox.IsChecked = settings.OtherTaskIntegration; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
         _navigationCollapsed = settings.NavigationCollapsed;
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
         AppLocalization.Apply(this, settings.Language);
@@ -1205,9 +1205,7 @@ public partial class SettingsWindow : Window
         var endpointHint = Uri.TryCreate(address, UriKind.Absolute, out var endpoint) && !string.IsNullOrWhiteSpace(endpoint.Host)
             ? endpoint.Host
             : "余额接口尚未配置";
-        var integrationEnabled = AccountStatusBox is null ? _settings.CCSwitchIntegration : AccountStatusBox.IsChecked == true;
-        var integrationHint = integrationEnabled ? "CC Switch 联动已开启" : "CC Switch 联动已关闭";
-        AccountSummaryHintText.Text = $"{endpointHint} · {integrationHint}";
+        AccountSummaryHintText.Text = endpointHint;
     }
 
     private void OnMonitorEnabledChanged(object sender, RoutedEventArgs e)
@@ -1216,10 +1214,25 @@ public partial class SettingsWindow : Window
         UpdateAccountSummary();
     }
 
-    private void OnAccountStatusChanged(object sender, RoutedEventArgs e)
+
+    private readonly System.Windows.Media.MediaPlayer _volumePreview = new();
+
+    private void OnVolumePreviewClick(object sender, RoutedEventArgs e)
     {
-        MarkSettingsDirty();
-        UpdateAccountSummary();
+        try
+        {
+            var path = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", "press.mp3");
+            if (!File.Exists(path)) return;
+            // Played regardless of the 按压音效 switch and at whatever the slider
+            // shows, so the volume can be judged before saving and without closing
+            // the panel just to click the pet.
+            _volumePreview.Stop();
+            _volumePreview.Open(new Uri(path));
+            _volumePreview.Volume = Math.Clamp(VolumeSlider.Value, 0, 1);
+            _volumePreview.Play();
+        }
+        catch (InvalidOperationException) { }
+        catch (IOException) { }
     }
 
     private void MarkSettingsDirty()
@@ -1505,7 +1518,7 @@ public partial class SettingsWindow : Window
             ThemeCompactBox.IsChecked = imported.ThemeCompact;
             ApplySelectedTheme();
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
-            SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; NavigationAnimationsBox.IsChecked = imported.NavigationAnimations; EasterEggsBox.IsChecked = imported.RandomEasterEggs; AccountStatusBox.IsChecked = imported.CCSwitchIntegration; FollowCodexBox.IsChecked = imported.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = imported.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = imported.GeminiTaskIntegration; FollowQwenBox.IsChecked = imported.QwenTaskIntegration; FollowClaudeBox.IsChecked = imported.ClaudeTaskIntegration; FollowOtherBox.IsChecked = imported.OtherTaskIntegration; StartupBox.IsChecked = imported.StartWithWindows;
+ SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; NavigationAnimationsBox.IsChecked = imported.NavigationAnimations; EasterEggsBox.IsChecked = imported.RandomEasterEggs; FollowCodexBox.IsChecked = imported.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = imported.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = imported.GeminiTaskIntegration; FollowQwenBox.IsChecked = imported.QwenTaskIntegration; FollowClaudeBox.IsChecked = imported.ClaudeTaskIntegration; FollowOtherBox.IsChecked = imported.OtherTaskIntegration; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
             AppLocalization.Apply(this, imported.Language);
             RefreshLanguageSelector(imported.Language, selectLanguage: false);
@@ -1560,7 +1573,6 @@ public partial class SettingsWindow : Window
                 qwen_task_integration = FollowQwenBox.IsChecked == true,
                 claude_task_integration = FollowClaudeBox.IsChecked == true,
                 other_task_integration = FollowOtherBox.IsChecked == true,
-                account_status_integration = AccountStatusBox.IsChecked == true,
                 start_with_windows = StartupBox.IsChecked == true,
                 selected_monitor_id = selected.Id,
                 monitors = _profiles.Select(profile => new
@@ -1679,7 +1691,6 @@ public partial class SettingsWindow : Window
                 QwenTaskIntegration = FollowQwenBox.IsChecked == true,
                 ClaudeTaskIntegration = FollowClaudeBox.IsChecked == true,
                 OtherTaskIntegration = FollowOtherBox.IsChecked == true,
-                CCSwitchIntegration = AccountStatusBox.IsChecked == true,
                 StartWithWindows = startupEnabled,
                 WindowX = _settings.WindowX,
                 WindowY = _settings.WindowY,

@@ -376,8 +376,27 @@
 
             <Grid Margin="0,2,0,8">
               <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-              <StackPanel Margin="0,0,8,0"><TextBlock Text="桌宠大小"/><Slider x:Name="ScaleSlider" ValueChanged="OnSettingValueChanged" Minimum="0.6" Maximum="1.4" TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,8,0,12"/></StackPanel>
-              <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="音量"/><Slider x:Name="VolumeSlider" ValueChanged="OnSettingValueChanged" Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,8,0,12"/></StackPanel>
+              <!-- LargeChange defaults to 1.0, which on a 0.6-1.4 range makes a track
+                   click slam the value to whichever end it was nearer. Clicking the
+                   track now moves to that point, and the step keys move by 0.05/0.1. -->
+              <StackPanel Margin="0,0,8,0"><TextBlock Text="桌宠大小"/><Slider x:Name="ScaleSlider" ValueChanged="OnSettingValueChanged" Minimum="0.6" Maximum="1.4" TickFrequency="0.05" IsSnapToTickEnabled="True" IsMoveToPointEnabled="True" SmallChange="0.05" LargeChange="0.1" Margin="0,8,0,12"/></StackPanel>
+              <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                <TextBlock Text="音量"/>
+                <Grid Margin="0,8,0,12">
+                  <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <Slider x:Name="VolumeSlider" ValueChanged="OnSettingValueChanged" Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True" IsMoveToPointEnabled="True" SmallChange="0.05" LargeChange="0.1"/>
+                  <Button Grid.Column="1" x:Name="VolumePreviewButton" Click="OnVolumePreviewClick" Margin="10,0,0,0"
+                          Width="34" Height="34" Padding="0" ToolTip="点击试听当前音量">
+                    <Grid Width="18" Height="18">
+                      <Path Data="M 2,5.5 H 4.8 L 8.4,2.6 V 13.4 L 4.8,10.5 H 2 Z"
+                            Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Stretch="None"/>
+                      <Path Data="M 10.6,5.4 A 3.6,3.6 0 0 1 10.6,10.6 M 12.8,3.2 A 6.4,6.4 0 0 1 12.8,12.8"
+                            Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.4"
+                            StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="None"/>
+                    </Grid>
+                  </Button>
+                </Grid>
+              </StackPanel>
             </Grid>
 
             <TextBlock Text="交互开关" FontWeight="SemiBold" FontSize="15" Margin="0,2,0,8"/>
@@ -418,10 +437,6 @@
               <TextBlock x:Name="FollowClaudeHint" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="22,0,0,10" Visibility="Collapsed"/>
               <CheckBox x:Name="FollowOtherBox" Content="其他客户端" ToolTip="任何未在上面列出的客户端，例如自行调用 tools\balancepet-task.ps1 的 CLI" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,12"/>
             </StackPanel>
-
-            <Separator Margin="0,0,0,14"/>
-            <TextBlock Text="账户识别" FontWeight="SemiBold" FontSize="15"/>
-            <CheckBox x:Name="AccountStatusBox" Content="读取 CC Switch 当前账户" ToolTip="只读读取 CC Switch 当前供应商；令牌只在本机内存中计算指纹，不读取网页登录凭据或上传明文令牌" Checked="OnAccountStatusChanged" Unchecked="OnAccountStatusChanged" Margin="0,8,0,12"/>
           </StackPanel>
         </ScrollViewer>
       </TabItem>

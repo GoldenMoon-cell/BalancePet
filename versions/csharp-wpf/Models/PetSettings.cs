@@ -48,7 +48,6 @@ public sealed class PetSettings
     [JsonPropertyName("other_task_integration")] public bool OtherTaskIntegration { get; set; }
     // Keep the JSON name so existing settings continue to work after the
     // login-state source was narrowed to CC Switch.
-    [JsonPropertyName("account_status_integration")] public bool CCSwitchIntegration { get; set; } = true;
     [JsonPropertyName("update_check_mode")] public string UpdateCheckMode { get; set; } = "daily";
     [JsonPropertyName("last_update_check_utc")] public DateTimeOffset? LastUpdateCheckUtc { get; set; }
     [JsonPropertyName("extension_update_check_mode")] public string ExtensionUpdateCheckMode { get; set; } = "daily";

@@ -58,8 +58,7 @@ public sealed class SettingsStore
     private static void Migrate(PetSettings settings)
     {
         // Version 1 files predate an explicit schema marker. Their existing
-        // account_status_integration key is still mapped to CCSwitchIntegration
-        // by the model, so the migration only needs to establish the marker.
+        // marker only; the migration needs to establish it and nothing more.
         if (settings.SettingsSchemaVersion < 1)
             settings.SettingsSchemaVersion = 1;
 

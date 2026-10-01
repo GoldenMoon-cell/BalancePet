@@ -52,7 +52,6 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _bubbleTimer;
     private readonly DispatcherTimer _floatTimer;
     private readonly CodexTaskBridge _codexTaskBridge = new();
-    private readonly CCSwitchAccountBridge _ccSwitchAccountBridge = new();
     private readonly UsageEventBridge _usageEventBridge = new();
     private readonly NotificationEventStore _notificationEventStore = new();
     private readonly NotificationStateStore _notificationStateStore = new();
@@ -125,16 +124,12 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, DateTimeOffset> _recordedTaskStops = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _retiredTaskKeys = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Queue<string>> _easterEggHistory = new(StringComparer.Ordinal);
-    private AiAccountActivity? _currentAccountActivity;
-    private bool _currentAccountKnown;
     private string _lastCompletedTaskSource = "AI 任务";
     private EventWaitHandle? _usageRefreshRequest;
     private CancellationTokenSource? _usageRefreshRequestCancellation;
     /// <summary>
-    /// Last announced CC Switch status. Kept so an unchanged status stays silent;
     /// only a genuine change is worth a bubble.
     /// </summary>
-    private string _lastAccountStatusKey = "";
     private double _bubbleAnimationProgress;
     private double _bubbleAnimationFrom;
     private double _bubbleAnimationTo;
@@ -271,8 +266,6 @@ public partial class MainWindow : Window
         _floatTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _floatTimer.Tick += (_, _) => AnimatePet();
         _codexTaskBridge.ActivityReceived += OnCodexTaskActivityReceived;
-        _ccSwitchAccountBridge.ActivityReceived += OnAccountStatusReceived;
-        _ccSwitchAccountBridge.StatusChanged += OnCCSwitchStatusChanged;
         _browserSessionBridge.SessionReceived += OnBrowserSessionReceivedForUsage;
         _stateTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
         _stateTimer.Tick += (_, _) => RestoreSteadyVisualState();
@@ -323,7 +316,6 @@ public partial class MainWindow : Window
             _updateTimer.Stop();
             _extensionUpdateTimer.Stop();
             _codexTaskBridge.Dispose();
-            _ccSwitchAccountBridge.Dispose();
             _usageEventBridge.Dispose();
             StopUsageRefreshRequestListener();
             _notificationEventStore.Dispose();
@@ -338,8 +330,6 @@ public partial class MainWindow : Window
     private void LoadSettingsAndPosition(bool allowImmediateRefresh = false)
     {
         _settings = _settingsStore.Load();
-        _currentAccountActivity = null;
-        _currentAccountKnown = !_settings.CCSwitchIntegration;
         _lastCompletedTaskSource = "AI 任务";
         RebuildMonitorStates(allowImmediateRefresh);
         // Release folders are versioned, so refresh the Run entry to this
@@ -377,7 +367,6 @@ public partial class MainWindow : Window
         ResetInactiveTimer();
         ConfigureSounds();
         _codexTaskBridge.Stop();
-        _ccSwitchAccountBridge.Stop();
         _usageEventBridge.Stop();
         _activeCodexTurns.Clear();
         _activeTaskSources.Clear();
@@ -395,7 +384,6 @@ public partial class MainWindow : Window
             _codexTaskBridge.Start();
             _ = SyncClientHooksAsync();
         }
-        if (_settings.CCSwitchIntegration) _ccSwitchAccountBridge.Start();
         _usageEventBridge.Start();
         PublishNotificationState();
         SetupTray();
@@ -545,26 +533,20 @@ public partial class MainWindow : Window
         var selected = SelectedMonitor;
         var taskActive = _activeCodexTurns.Count > 0;
         var taskProvider = taskActive ? CurrentTaskSourceLabel() : _lastCompletedTaskSource;
-        var account = _currentAccountActivity;
-        var loginMode = !_settings.CCSwitchIntegration
-            ? "未启用"
-            : account is null
-                ? ""
-                : AccountSourceClassifier.ResolveAccountType(account) is "official" or "official-api"
-                    ? AccountSourceClassifier.ResolveAccountType(account) == "official" ? "官方登录" : "官方 API"
-                    : "CC Switch";
-        var loginDetail = account is null
-            ? ""
-            : string.IsNullOrWhiteSpace(account.AccountLabel) ? "当前账户" : account.AccountLabel;
+        // The login fields stay in the published shape so the notification
+        // extension's contract is untouched, but nothing in the host reports a live
+        // login any more: CC Switch integration was removed to become a plugin, and
+        // the extension already falls back to its recorded history when
+        // loginKnown is false.
         _notificationStateStore.Publish(
             GetCurrentVersion(),
             taskKnown: true,
             taskActive,
             taskProvider,
             _activeCodexTurns.Count,
-            loginKnown: _currentAccountKnown,
-            loginMode,
-            loginDetail,
+            loginKnown: false,
+            "",
+            "",
             selected?.HasBalance == true ? selected.LastBalance : null,
             selected?.Profile.Currency ?? _settings.Currency,
             selected?.LastSpent,
@@ -2529,176 +2511,6 @@ public partial class MainWindow : Window
             (TaskClient.Claude, _settings.ClaudeTaskIntegration),
         };
         return Task.Run(() => ClientHookInstaller.TrySync(wanted, removeDisabled: false, out _));
-    }
-
-    private void OnAccountStatusReceived(object? sender, AiAccountActivity activity)
-    {
-        Dispatcher.BeginInvoke(new Action(() => HandleAccountStatus(activity)));
-    }
-
-    private void OnCCSwitchStatusChanged(object? sender, CCSwitchBridgeStatus status)
-    {
-        Dispatcher.BeginInvoke(new Action(() => HandleCCSwitchStatus(status)));
-    }
-
-    private void HandleCCSwitchStatus(CCSwitchBridgeStatus status)
-    {
-        if (_closing || !_settings.CCSwitchIntegration) return;
-        if (status.Kind != CCSwitchBridgeStatusKind.Connected)
-        {
-            _currentAccountActivity = null;
-            _currentAccountKnown = true;
-            PublishNotificationState();
-        }
-        switch (status.Kind)
-        {
-            case CCSwitchBridgeStatusKind.DatabaseMissing:
-                ShowAiIntegrationBubble("CC Switch 未检测到", "尚未登录", "未找到 CC Switch 数据库，联动会继续等待");
-                break;
-            case CCSwitchBridgeStatusKind.DatabaseLocked:
-                ShowAiIntegrationBubble("CC Switch 暂不可读", "数据库被占用", "程序会在稍后自动重试");
-                break;
-            case CCSwitchBridgeStatusKind.DatabaseCorrupt:
-                ShowAiIntegrationBubble("CC Switch 数据异常", "数据库无法读取", "请检查 CC Switch 数据库后重试");
-                break;
-            case CCSwitchBridgeStatusKind.DatabaseUnreadable:
-                ShowAiIntegrationBubble("CC Switch 暂不可读", "读取失败", "请检查文件权限，程序会继续监听");
-                break;
-            case CCSwitchBridgeStatusKind.NoCurrentCodexAccount:
-                ShowAiIntegrationBubble("未检测到 Codex 当前账户", "等待切换", "请在 CC Switch 中启用一个 Codex 供应商");
-                break;
-        }
-    }
-
-    private void HandleAccountStatus(AiAccountActivity activity)
-    {
-        if (_closing || !_settings.CCSwitchIntegration) return;
-        _currentAccountActivity = activity;
-        _currentAccountKnown = true;
-        PublishNotificationState();
-        var key = $"{activity.State}|{activity.Provider}|{activity.AccountType}|{activity.AccountLabel}|{activity.Endpoint}|{activity.TokenFingerprint}";
-        // Announce only a genuine change. The previous rule suppressed repeats for
-        // two seconds and then showed the same status again, so a steady CC Switch
-        // account kept re-announcing itself — which read as the pet switching back
-        // to that account on every poll.
-        // The first status after startup is an initial reading, not a switch: there
-        // is no previous value to differ from. Treating it as a change made every
-        // launch jump to the CC Switch account and discard the saved selection.
-        var initialStatus = _lastAccountStatusKey.Length == 0;
-        if (string.Equals(key, _lastAccountStatusKey, StringComparison.Ordinal)) return;
-        _lastAccountStatusKey = key;
-
-        var label = string.IsNullOrWhiteSpace(activity.AccountLabel) ? "" : $" · {activity.AccountLabel}";
-        var accountType = AccountSourceClassifier.ResolveAccountType(activity);
-        if (accountType == "official")
-        {
-            ShowAiIntegrationBubble($"{activity.Provider} 官方账户已登录", "登录成功", $"官方账户{label}");
-            return;
-        }
-        else if (accountType == "official-api")
-        {
-            var amount = activity.ReportedBalance.HasValue
-                ? FormatAccountBalance(activity.ReportedBalance.Value, activity.Currency)
-                : "余额未提供";
-            ShowAiIntegrationBubble($"{activity.Provider} API 已登录", amount, $"官方 API{label}");
-            return;
-        }
-
-        var local = FindMatchingMonitor(activity);
-        if (local is not null)
-        {
-            // Follow CC Switch here, which is the point of the integration: switch
-            // an API key there and the pet switches with it. Guarded by the checks
-            // above so it only runs on a real change while the app is running — a
-            // steady status, or the first reading after launch, leaves the saved
-            // selection alone.
-            if (!initialStatus && !IsSelectedMonitor(local)) SelectMonitor(local.Profile.Id, announce: false, refreshWhenMissing: false);
-            var balance = local.LastBalance.HasValue
-                ? FormatAccountBalance(local.LastBalance.Value, local.Profile.Currency)
-                : "余额待查询";
-            ShowAiIntegrationBubble(
-                $"{local.Profile.Name} API 已登录",
-                balance,
-                $"已匹配本地账户 · {local.Profile.Name}");
-            // The bridge publishes the current account once when it starts.
-            // That snapshot accompanies the normal startup refresh and must
-            // not be treated as a second manual refresh.
-            if (!activity.IsInitialSnapshot) _ = RefreshAsync(true, true, true);
-            return;
-        }
-
-        if (accountType is "relay-api" or "third-party")
-        {
-            // The actionable guidance used to ride on a tray balloon. That
-            // notification is gone, so the bubble carries it instead.
-            const string reminder = "是否保存到 BalancePet？右键桌宠打开“设置面板”";
-            var endpoint = string.IsNullOrWhiteSpace(activity.Endpoint) ? "接口地址未提供" : activity.Endpoint;
-            var accountName = string.IsNullOrWhiteSpace(activity.AccountLabel) ? "中转站账户" : activity.AccountLabel;
-            ShowAiIntegrationBubble($"{accountName} API 已登录", reminder, $"CC Switch · {endpoint}");
-        }
-        else
-        {
-            ShowAiIntegrationBubble($"{activity.Provider} 账户已登录", "登录成功", $"来源未分类{label}");
-        }
-    }
-
-    private MonitorRuntime? FindMatchingMonitor(AiAccountActivity activity)
-    {
-        var enabled = _monitorStates.Values.Where(runtime => runtime.Profile.Enabled).ToArray();
-        if (activity.TokenFingerprint.Length == 64)
-        {
-            var exact = enabled.FirstOrDefault(runtime => string.Equals(runtime.TokenFingerprint, activity.TokenFingerprint, StringComparison.OrdinalIgnoreCase));
-            if (exact is not null) return exact;
-        }
-
-        if (string.IsNullOrWhiteSpace(activity.Endpoint)) return null;
-        var endpointMatches = enabled.Where(runtime => EndpointMatches(runtime.Profile, activity.Endpoint)).ToArray();
-        if (endpointMatches.Length == 1) return endpointMatches[0];
-
-        // AI clients usually report their model API base (/v1), while the
-        // saved monitor points at a balance endpoint (/v1/usage). The origin
-        // is a safe fallback only when it identifies exactly one local profile.
-        var originMatches = enabled.Where(runtime => EndpointOriginMatches(runtime.Profile, activity.Endpoint)).ToArray();
-        return originMatches.Length == 1 ? originMatches[0] : null;
-    }
-
-    private static bool EndpointMatches(MonitorProfile profile, string endpoint)
-    {
-        var incoming = NormalizeAccountEndpoint(endpoint);
-        if (incoming.Length == 0) return false;
-        var profileEndpoint = NormalizeAccountEndpoint(profile.Endpoint);
-        var siteEndpoint = NormalizeAccountEndpoint(profile.SiteUrl);
-        return string.Equals(incoming, profileEndpoint, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(incoming, siteEndpoint, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool EndpointOriginMatches(MonitorProfile profile, string endpoint)
-    {
-        var incomingOrigin = AccountEndpointOrigin(endpoint);
-        if (incomingOrigin.Length == 0) return false;
-        return string.Equals(incomingOrigin, AccountEndpointOrigin(profile.Endpoint), StringComparison.OrdinalIgnoreCase)
-            || string.Equals(incomingOrigin, AccountEndpointOrigin(profile.SiteUrl), StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string AccountEndpointOrigin(string value)
-    {
-        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) return "";
-        return uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
-    }
-
-    private static string NormalizeAccountEndpoint(string value)
-    {
-        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) return "";
-        var path = uri.AbsolutePath.TrimEnd('/');
-        foreach (var suffix in new[] { "/v1/usage", "/api/usage/token" })
-        {
-            if (path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-            {
-                path = path[..^suffix.Length].TrimEnd('/');
-                break;
-            }
-        }
-        return uri.GetLeftPart(UriPartial.Authority).TrimEnd('/') + path;
     }
 
     private static string FingerprintToken(string token)
