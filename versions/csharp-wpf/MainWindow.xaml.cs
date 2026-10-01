@@ -115,6 +115,16 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _updateCancellation;
     private bool _updateFailureAnnounced;
     private bool _updateBusy;
+    /// <summary>
+    /// Whether the bubble currently on screen is the update progress one.
+    /// </summary>
+    /// <remarks>
+    /// It has to be tracked because that bubble stops the hide timer while it is up,
+    /// so unlike every other bubble it will not take itself down. A failure that
+    /// leaves it standing freezes a percentage on screen that never changes and never
+    /// disappears, describing a download that has already stopped.
+    /// </remarks>
+    private bool _updateProgressShown;
     private string? _configuredUpdateCheckMode;
     private string? _configuredExtensionUpdateCheckMode;
     private int _trayRecoveryAttempts;
@@ -1778,9 +1788,16 @@ public partial class MainWindow : Window
         }
         catch (Exception error)
         {
+            // A failure after the download started is not a failed check, and calling
+            // it one sends the user to look at the wrong half of the update.
+            var headline = _updateProgressShown ? "更新失败" : "检查更新失败";
             if (manual)
             {
-                System.Windows.MessageBox.Show(this, $"检查更新失败：{error.Message}", "BalancePet 更新", MessageBoxButton.OK, MessageBoxImage.Warning);
+                // The progress bubble never arms the hide timer, so it has to be taken
+                // down explicitly. Otherwise it stays on screen at the percentage it
+                // reached, claiming a download is running that has already stopped.
+                if (_updateProgressShown) HideBubble();
+                System.Windows.MessageBox.Show(this, $"{headline}：{error.Message}", "BalancePet 更新", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             else if (!_updateFailureAnnounced)
             {
@@ -1791,7 +1808,8 @@ public partial class MainWindow : Window
                 // Truncated like every other failure bubble: an HttpRequestException
                 // message can run to hundreds of characters.
                 var reason = error.Message.Length > 90 ? error.Message[..90] + "…" : error.Message;
-                ShowNativeBubble("更新检查失败", "--", reason);
+                // Replacing the text also takes the bar down, so no explicit hide here.
+                ShowNativeBubble(headline, "--", reason);
             }
         }
         finally { _updateBusy = false; }
@@ -2156,6 +2174,8 @@ public partial class MainWindow : Window
                 $"{version} · downloading, click to cancel"));
         BubbleProgress.Value = progress;
         BubbleProgress.Visibility = Visibility.Visible;
+        // Set after SetBubbleText, which is what clears this for every ordinary bubble.
+        _updateProgressShown = true;
         _bubbleTimer.Stop();
         if (BubbleGroup.Visibility == Visibility.Visible) return;
         BubbleContent.Opacity = 1;
@@ -2172,6 +2192,7 @@ public partial class MainWindow : Window
         // Every ordinary bubble hides the bar; only ShowUpdateProgress turns it
         // back on after setting the text.
         BubbleProgress.Visibility = Visibility.Collapsed;
+        _updateProgressShown = false;
         BubbleLabel.Text = label;
         BubbleLabel.MaxWidth = BubbleTextMaxWidth;
         BubbleLabel.TextWrapping = TextWrapping.Wrap;
