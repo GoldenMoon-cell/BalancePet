@@ -1303,7 +1303,13 @@ public partial class SettingsWindow : Window
             profile.BalancePath = PathBox.Text.Trim();
         }
         profile.UsageDetailEndpoint = UsageDetailEndpointBox.Text.Trim();
-        profile.Currency = string.IsNullOrWhiteSpace(CurrencyBox.Text) ? "USD" : CurrencyBox.Text.Trim().ToUpperInvariant();
+        // A JSON path must keep its original casing, because property names are
+        // case-sensitive: upper-casing balance_infos.0.currency turns it into a path
+        // that resolves to nothing. Only a literal currency label is normalised.
+        var currencyText = CurrencyBox.Text.Trim();
+        profile.Currency = currencyText.Length == 0
+            ? "USD"
+            : currencyText.Contains('.', StringComparison.Ordinal) ? currencyText : currencyText.ToUpperInvariant();
         var refreshTag = SelectedTag(RefreshBox, "off");
         profile.AutoRefreshEnabled = !string.Equals(refreshTag, "off", StringComparison.OrdinalIgnoreCase);
         if (profile.AutoRefreshEnabled)

@@ -324,7 +324,7 @@
             <Grid>
               <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
               <StackPanel Margin="0,0,8,0"><TextBlock Text="余额 JSON 路径"/><TextBox x:Name="PathBox" TextChanged="OnSettingTextChanged" Margin="0,5,0,12"/></StackPanel>
-              <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="货币"/><TextBox x:Name="CurrencyBox" TextChanged="OnSettingTextChanged" Margin="0,5,0,12"/></StackPanel>
+              <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="货币 / 货币路径" ToolTip="可直接填货币代码，如 CNY；也可填响应里的字段路径，如 balance_infos.0.currency。填路径时会按原样保留大小写。"/><TextBox x:Name="CurrencyBox" TextChanged="OnSettingTextChanged" Margin="0,5,0,12" ToolTip="可直接填货币代码，如 CNY；也可填响应里的字段路径，如 balance_infos.0.currency。填路径时会按原样保留大小写。"/></StackPanel>
             </Grid>
             <Grid>
               <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>

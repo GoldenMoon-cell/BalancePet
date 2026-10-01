@@ -104,7 +104,52 @@ public sealed class JsonBalanceProvider(HttpClient http)
         var value = ReadPath(document.RootElement, settings.BalancePath);
         if (!value.HasValue || !TryParseAmount(value.Value, out var amount) || !double.IsFinite(amount))
             throw new InvalidDataException($"JSON path not found: {settings.BalancePath}");
-        return new BalanceSnapshot(amount, settings.Currency, DateTimeOffset.Now, BalancePresetCatalog.Custom);
+        return new BalanceSnapshot(amount, ResolveCurrency(document.RootElement, settings.Currency), DateTimeOffset.Now, BalancePresetCatalog.Custom);
+    }
+
+    /// <summary>
+    /// The currency field accepts either a literal such as <c>CNY</c> or a JSON path
+    /// such as <c>balance_infos.0.currency</c>.
+    /// </summary>
+    /// <remarks>
+    /// There is no separate mode switch, and none is needed: a path is tried first and
+    /// only a value it actually resolves to wins. <c>CNY</c> resolves to nothing on a
+    /// real payload and falls through to the literal, while a response that does carry
+    /// the field is readable without the user having to hard-code what it says. The
+    /// cost is that a literal matching a real property name would be shadowed, which
+    /// cannot happen for a currency code in practice.
+    /// </remarks>
+    private static string ResolveCurrency(JsonElement root, string configured)
+    {
+        var literal = (configured ?? "").Trim();
+        if (literal.Length == 0) return "";
+        if (!literal.Contains('.', StringComparison.Ordinal) && !literal.Contains('[', StringComparison.Ordinal))
+        {
+            // No separator, so it can only be a property name at the root; still worth
+            // one lookup for payloads that report a bare "currency".
+            var direct = ReadPath(root, literal);
+            return direct is { ValueKind: JsonValueKind.String } ? CleanCurrency(direct.Value.GetString(), literal) : literal;
+        }
+
+        var resolved = ReadPath(root, literal);
+        if (resolved is null) return literal;
+        return resolved.Value.ValueKind switch
+        {
+            JsonValueKind.String => CleanCurrency(resolved.Value.GetString(), literal),
+            JsonValueKind.Number => CleanCurrency(resolved.Value.GetRawText(), literal),
+            _ => literal
+        };
+    }
+
+    private static string CleanCurrency(string? value, string fallback)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length == 0) return fallback;
+        // Keep it a currency label, not a sentence: the response is untrusted and this
+        // ends up in the bubble.
+        return text.Length <= 12 && text.All(character => char.IsLetter(character) || character is ' ' or '-' or '$' or '¥' or '€' or '£')
+            ? text.ToUpperInvariant()
+            : fallback;
     }
 
     private async Task<BalanceSnapshot> FetchAutoAsync(MonitorProfile profile, string token, CancellationToken cancellationToken)

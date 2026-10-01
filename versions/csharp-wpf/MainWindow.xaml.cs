@@ -111,6 +111,7 @@ public partial class MainWindow : Window
     private bool _refreshing;
     private CancellationTokenSource? _refreshCancellation;
     private DateTimeOffset _lastManualRefreshAttempt = DateTimeOffset.MinValue;
+    private bool _updateFailureAnnounced;
     private bool _updateBusy;
     private string? _configuredUpdateCheckMode;
     private string? _configuredExtensionUpdateCheckMode;
@@ -1655,7 +1656,18 @@ public partial class MainWindow : Window
         }
         catch (Exception error)
         {
-            if (manual) System.Windows.MessageBox.Show(this, $"检查更新失败：{error.Message}", "BalancePet 更新", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (manual)
+            {
+                System.Windows.MessageBox.Show(this, $"检查更新失败：{error.Message}", "BalancePet 更新", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            else if (!_updateFailureAnnounced)
+            {
+                // An automatic check used to fail in complete silence, which made a
+                // broken update path look exactly like "already up to date".
+                // Announced once per run, not on every background attempt.
+                _updateFailureAnnounced = true;
+                ShowNativeBubble("更新检查失败", "--", error.Message);
+            }
         }
         finally { _updateBusy = false; }
     }
