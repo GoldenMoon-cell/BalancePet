@@ -14,7 +14,14 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)] [string] $Repository,
-    [Parameter(Mandatory = $true)] [string] $ReleaseTag,
+    # One tag for every entry. Leave empty to derive one per package from its own
+    # version, which is what republishing a single appearance needs: the packages
+    # that did not change keep pointing at the release that already holds them, and
+    # only the republished one moves to a new tag. Deriving it is also what makes a
+    # version bump reach installed copies, because the update check compares the
+    # catalog's version with the installed manifest's.
+    [string] $ReleaseTag = '',
+    [string] $TagPrefix = 'skins-',
     [string] $PackagesDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'dist\pets'),
     [string] $OutputPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'skins\catalog.json')
 )
@@ -28,8 +35,9 @@ $packages = Get-ChildItem $PackagesDirectory -Filter '*.zip' | Sort-Object Name
 if ($packages.Count -eq 0) { throw "皮肤包目录里没有 ZIP：$PackagesDirectory" }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$baseUrl = "https://github.com/$Repository/releases/download/$ReleaseTag"
+$releaseRoot = "https://github.com/$Repository/releases"
 $appearances = @()
+$seenIds = @{}
 
 foreach ($package in $packages) {
     # Names and versions come from the manifest inside the package rather than from
@@ -46,6 +54,16 @@ foreach ($package in $packages) {
 
     if ($manifest.type -ne 'pet') { throw "$($package.Name)：type 应为 pet，实为 $($manifest.type)" }
 
+    # A rebuilt package left beside the one it replaces is how an appearance ends up
+    # with two entries, and a reader would have no way to choose between them. Refuse
+    # it here rather than publish a catalog that cannot be acted on.
+    if ($seenIds.ContainsKey($manifest.id)) {
+        throw "$($package.Name)：id $($manifest.id) 与 $($seenIds[$manifest.id]) 重复。请删除被替换的旧包后重试。"
+    }
+    $seenIds[$manifest.id] = $package.Name
+
+    $tag = if ($ReleaseTag) { $ReleaseTag } else { "$TagPrefix$($manifest.version)" }
+
     $appearances += [ordered]@{
         id              = $manifest.id
         type            = 'pet'
@@ -53,10 +71,10 @@ foreach ($package in $packages) {
         name_en         = $manifest.name_en
         version         = $manifest.version
         min_core_version = $manifest.min_core_version
-        download_url    = "$baseUrl/$($package.Name)"
+        download_url    = "$releaseRoot/download/$tag/$($package.Name)"
         sha256          = (Get-FileHash $package.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         repository_url  = "https://github.com/$Repository"
-        release_url     = "https://github.com/$Repository/releases/tag/$ReleaseTag"
+        release_url     = "$releaseRoot/tag/$tag"
         # The selector groups by provider, so the entry says which one it is rather
         # than leaving the user to work it out from the name.
         categories      = @('appearance')

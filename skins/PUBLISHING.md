@@ -31,16 +31,48 @@ sinking doze, both as ordinary frames.
 `catalog.json` is generated, not authored:
 
 ```powershell
-.\tools\build-skin-catalog.ps1 -Repository OWNER/REPO -ReleaseTag TAG
+.\tools\build-skin-catalog.ps1 -Repository OWNER/REPO
 ```
 
 It reads each package's own manifest for the id, name and version, and computes the
 SHA-256 from the file, so an entry cannot disagree with the artifact it points at.
-The repository name and release tag are parameters because they are the only two
-things that cannot be derived from the packages.
+The repository is a parameter because it is the one thing that cannot be derived
+from the packages.
+
+The release tag is derived per package as `skins-<version>`, so the packages that
+did not change keep pointing at the release that already holds them. Pass
+`-ReleaseTag` to force one tag for every entry, which is only right when they were
+all rebuilt together.
 
 Regenerate it after rebuilding any package. A stale hash is worse than a missing
 entry: the install downloads the whole archive and then fails.
+
+## Updating one appearance
+
+Redrawing a single state does not need a new release of the program, because the
+artwork is not in the program any more. The whole cycle is:
+
+```powershell
+# 1. Replace the artwork in versions\csharp-wpf\assets\pets\<style>\<state>.png
+
+# 2. Bump the version. Installed copies are offered an update by comparing this
+#    with the version in their manifest, so leaving it alone means nobody is told.
+.\tools\package-shipped-pets.ps1 -Version 1.0.1 -Style seedance
+
+# 3. Delete the package this one replaces, then regenerate the catalog. The
+#    generator refuses two packages with the same id rather than publishing a
+#    catalog that cannot be acted on.
+Remove-Item .\dist\pets\pet.seedance-1.0.0.zip
+.\tools\build-skin-catalog.ps1 -Repository GoldenMoon-cell/BalancePet-Pets
+
+# 4. Publish: a release tagged skins-1.0.1 carrying the new ZIP, and the updated
+#    catalog.json on the default branch.
+```
+
+`-Style` takes one or more ids. Without it every appearance that is not kept is
+rebuilt, which is what a first publication wants and what a redraw of one does not:
+a new version number on unchanged artwork pushes an update to everyone who already
+installed it.
 
 ## Publishing
 

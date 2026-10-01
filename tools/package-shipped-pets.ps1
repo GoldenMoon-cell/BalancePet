@@ -18,7 +18,12 @@ param(
     [string] $OutputDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'dist\pets'),
     [string] $Version = '1.0.0',
     # Appearances that stay in the distribution and therefore get no package.
-    [string[]] $Keep = @('deepseek', 'chatgpt')
+    [string[]] $Keep = @('deepseek', 'chatgpt'),
+    # Package only these ids; empty means every appearance that is not kept. A first
+    # publication wants all of them, but republishing one redrawn appearance should
+    # not rebuild the other eleven: their packages have not changed, and a new
+    # version number would push an update to everyone who already installed them.
+    [string[]] $Style = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -62,6 +67,7 @@ $skipped = @()
 try {
     foreach ($definition in $definitions) {
         if ($Keep -contains $definition.Id) { continue }
+        if ($Style.Count -gt 0 -and $Style -notcontains $definition.Id) { continue }
 
         $source = Join-Path $petsRoot $definition.Id
         if (-not (Test-Path $source)) { $skipped += "$($definition.Id)（无素材目录）"; continue }

@@ -1,7 +1,7 @@
 {
   "catalog": "balancepet.appearances",
   "schema_version": 1,
-  "updated_at": "2026-10-01T16:32:44Z",
+  "updated_at": "2026-10-01T17:05:20Z",
   "appearances": [
     {
       "id": "pet.claude",
@@ -173,12 +173,12 @@
       "type": "pet",
       "name": "Seedance 小星晶「澄芽」",
       "name_en": "Seedance Little Star Crystal \"Chengya\"",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.seedance-1.0.0.zip",
-      "sha256": "0c0191e36bfcaf9e726562a01e4453ae96d1e5e6435122c89964734417d82c9c",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.1/pet.seedance-1.0.1.zip",
+      "sha256": "f93d851e97982b7a62c38daacfdca03762ae8815c25316e92819c15700879ab3",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.1",
       "categories": [
         "appearance"
       ]
