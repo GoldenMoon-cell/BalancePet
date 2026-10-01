@@ -11,6 +11,21 @@ repository, so that publishing is a copy rather than a second authoring step.
 | `README.md` | The appearance repository's front page. Written to be read there, so its links point at the main repository rather than at files beside it. |
 | `catalog.json` | Generated. The index the online extension library reads, so an appearance can be installed from Settings instead of downloaded by hand. |
 
+## Animating an appearance
+
+A state may publish extra frames beside it: `idle.png` is frame one, `idle-2.png`
+is frame two, and so on up to `idle-8.png`. A gap ends the sequence, so frames
+are read in order and the loop stops at the first missing number. Nothing is
+required here — a state with no extra frames is drawn as a still image — and the
+contract is written out in
+[`docs/extension-spec/v1/README.md`](../docs/extension-spec/v1/README.md).
+
+Movement has to be drawn into the artwork. The host cycles the frames in place
+and applies no transform of its own, so an appearance cannot express a bounce or
+a tilt by publishing one frame and a motion. `tools/generate-placeholder-pet.py`
+is a worked example: it draws `idle` like a slow breath and `inactive` like a
+sinking doze, both as ordinary frames.
+
 ## Regenerating the catalog
 
 `catalog.json` is generated, not authored:

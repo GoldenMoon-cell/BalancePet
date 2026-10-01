@@ -17,11 +17,32 @@ assets/pets/<style>/clicked.png
 assets/pets/<style>/codex-working.png
 assets/pets/<style>/codex-done.png
 assets/pets/<style>/inactive.png
+assets/pets/<style>/<state>-<n>.png  (optional: extra animation frames)
 README.md                         (optional)
 LICENSE                           (recommended)
 ```
 
 All nine PNG files are required. They must be transparent RGBA PNG files with the same canvas and a real alpha channel. The recommended canvas is 238 x 238 pixels, matching the built-in pets.
+
+## Optional animation frames
+
+Any state may publish extra frames. The plain file name is the first frame and each further frame adds a number starting at two:
+
+```text
+assets/pets/<style>/idle.png      frame 1
+assets/pets/<style>/idle-2.png    frame 2
+assets/pets/<style>/idle-3.png    frame 3
+```
+
+Rules:
+
+- A state with no extra frames is a still image, and that is not a special case: one frame is a whole sequence. Animation is therefore additive, and a package that uses it stays valid for a host that does not.
+- Numbering starts at two because `idle-1.png` would be a second name for `idle.png`. One file with two names is a way to get the two out of step, so it is not part of the contract and hosts ignore it.
+- A gap ends the sequence. If `idle-3.png` is missing, `idle-4.png` is not read, and the host plays the frames it has rather than skipping the hole. A partially published set therefore degrades into a shorter loop instead of an out-of-order one.
+- At most eight frames per state are read; further files are ignored.
+- Every frame must use the same canvas size as the first frame of that state.
+
+Playback is the host's decision and is not part of the contract: v1 cycles at about 140 ms per frame. Frames are drawn in place, so movement has to be drawn into the artwork rather than applied as a transform, and a loop that starts and ends on the same pose avoids a visible jump. States are independent: `idle` may animate while `error` stays a single image.
 
 ## Manifest
 
