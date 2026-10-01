@@ -29,7 +29,7 @@ if ($packages.Count -eq 0) { throw "皮肤包目录里没有 ZIP：$PackagesDire
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $baseUrl = "https://github.com/$Repository/releases/download/$ReleaseTag"
-$plugins = @()
+$appearances = @()
 
 foreach ($package in $packages) {
     # Names and versions come from the manifest inside the package rather than from
@@ -46,7 +46,7 @@ foreach ($package in $packages) {
 
     if ($manifest.type -ne 'pet') { throw "$($package.Name)：type 应为 pet，实为 $($manifest.type)" }
 
-    $plugins += [ordered]@{
+    $appearances += [ordered]@{
         id              = $manifest.id
         type            = 'pet'
         name            = $manifest.name
@@ -64,12 +64,18 @@ foreach ($package in $packages) {
 }
 
 $catalog = [ordered]@{
+    # An identity, not just a different file name. The main repository's
+    # plugin-catalog.json has the same shape -- schema_version, updated_at, one array
+    # of entries -- so a reader handed either document has no way to tell which it is
+    # holding. This catalog is published from the appearance repository, which
+    # describes nothing else, and it says so.
+    catalog        = 'balancepet.appearances'
     schema_version = 1
     updated_at     = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-    plugins        = $plugins
+    appearances    = $appearances
 }
 
 New-Item -ItemType Directory -Path (Split-Path $OutputPath -Parent) -Force | Out-Null
 [System.IO.File]::WriteAllText($OutputPath, ($catalog | ConvertTo-Json -Depth 5), [System.Text.UTF8Encoding]::new($false))
-Write-Host "已写入 $OutputPath（$($plugins.Count) 条）"
-$plugins | ForEach-Object { Write-Host "  $($_.id)  $($_.version)  $($_.sha256.Substring(0,12))…" }
+Write-Host "已写入 $OutputPath（$($appearances.Count) 条）"
+$appearances | ForEach-Object { Write-Host "  $($_.id)  $($_.version)  $($_.sha256.Substring(0,12))…" }

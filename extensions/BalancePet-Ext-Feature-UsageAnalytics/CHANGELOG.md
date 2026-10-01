@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0
+
+### Features
+
+- Declare an account subscription-billed. A subscription has no per-request price at all, so "no cost reported" is the expected state rather than a gap in the data. The account settings gain a switch that says so, and the account directory carries the declaration through to the dashboard.
+- Read the plan the client reports. The host now forwards the subscription plan it observed for a session. The two signals are independent and both count: the declaration covers subscriptions whose client never reports a plan, and a reported plan covers accounts the user never labelled.
+- Say what the money cards mean on a subscription account. Balance, today's usage and total usage each read 订阅制 · 不计费 or 订阅制 · 无余额 with a line explaining why, instead of showing a zero that looks like a failed reading.
+
+### Fixes
+
+- Tell an absent cost apart for official accounts and relays. A relay that reports no cost is missing data; an official API account under a subscription genuinely has none. The row text no longer reads the same for both.
+- Stop clipping the official-account cost text. It was drawn on one line in a fixed-height box, so the longer explanation was cut off mid-sentence.
+- Default `EventRow.AccountLabel` to empty rather than null. The constructor returns early when the host reported no account, and `ProviderLine` and `HasAccount` both read the value without a null check, so a record with no account id could throw while being rendered.
+
+### Notes
+
+- Requires BalancePet core `1.4.0` or newer. The reported plan arrives on a field the core only publishes from that version, and on an older core the subscription features stay hidden rather than showing figures that are wrong.
+
 ## 0.3.22
 
 ### Features

@@ -1246,7 +1246,12 @@ public partial class MainWindow : Window
         public string OccurredAtText => _event.OccurredAt.ToLocalTime().ToString("MM-dd HH:mm:ss");
         public string Provider => _event.Provider;
         /// <summary>Account the task billed to, empty when the host did not say.</summary>
-        public string AccountLabel { get; }
+        /// <remarks>
+        /// Initialised because the constructor returns early when the host reported no
+        /// account at all, and <see cref="ProviderLine"/> and <see cref="HasAccount"/>
+        /// both read this without a null check.
+        /// </remarks>
+        public string AccountLabel { get; } = "";
         /// <summary>Client and account together: which tool ran, on whose key.</summary>
         public string ProviderLine => AccountLabel.Length == 0 ? Provider : $"{Provider} · {AccountLabel}";
         public bool HasAccount => AccountLabel.Length > 0;

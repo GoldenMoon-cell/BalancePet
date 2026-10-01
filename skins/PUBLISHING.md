@@ -44,9 +44,20 @@ entry: the install downloads the whole archive and then fails.
 
 ## Publishing
 
-Copy `README.md` to the appearance repository's default branch, then attach the
-ZIPs from `dist/pets/` to a release. Nothing in this folder is read by the
-application.
+Copy `README.md` and `catalog.json` to the appearance repository's default branch,
+then attach the ZIPs from `dist/pets/` to a release.
+
+`catalog.json` is the one file the application reads from that repository, so it has
+to be published rather than left here. It carries an identity of its own —
+`"catalog": "balancepet.appearances"`, with the entries under `appearances` — because
+the main repository's `plugin-catalog.json` is otherwise the same shape, and a
+reader holding one of the two documents has no way to tell which it has. The two
+catalogs are never merged: plugins and themes come from the main repository, and
+appearances come from this one.
+
+Nothing else in this folder is read by the application.
 
 The release tag should match the package versions it carries, so that a package
-downloaded from a release can be identified later.
+downloaded from a release can be identified later. The catalog points at the
+release, so republishing a catalog whose packages were rebuilt means republishing
+the release too, or the hashes will disagree with the assets.

@@ -1,7 +1,8 @@
 {
+  "catalog": "balancepet.appearances",
   "schema_version": 1,
-  "updated_at": "2026-10-01T14:44:14Z",
-  "plugins": [
+  "updated_at": "2026-10-01T16:32:44Z",
+  "appearances": [
     {
       "id": "pet.claude",
       "type": "pet",
