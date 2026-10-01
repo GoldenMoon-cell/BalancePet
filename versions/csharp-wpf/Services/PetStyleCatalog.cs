@@ -267,6 +267,46 @@ public static class PetStyleCatalog
         return available.Any(definition => string.Equals(definition.Id, style, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Upper bound on the frames a state may publish. Beyond this the loop would be
+    /// longer than the eye can follow and the frames would cost more to decode than
+    /// the movement is worth.
+    /// </summary>
+    public const int MaxAnimationFrames = 8;
+
+    /// <summary>
+    /// The frames for one state, in playback order.
+    /// </summary>
+    /// <remarks>
+    /// The first frame keeps the plain name — <c>idle.png</c> — and any further frames
+    /// add a suffix: <c>idle-2.png</c>, <c>idle-3.png</c>. That ordering is what makes
+    /// animation additive rather than a new contract: an appearance with a single frame
+    /// per state is exactly an appearance with no extra frames, and a host that knows
+    /// nothing about cycling still loads a correct still image from the same path it
+    /// always used.
+    ///
+    /// Numbering starts at two rather than one because <c>idle-1.png</c> would be a
+    /// second spelling of <c>idle.png</c>, and one file with two names is a way to get
+    /// the two out of step. A gap ends the sequence: <c>idle-2</c> missing means
+    /// <c>idle-3</c> is not read, so a partially published set plays what it has
+    /// instead of skipping.
+    /// </remarks>
+    public static IReadOnlyList<string> ResolveStateFrames(string? value, string stateName, string? baseDirectory = null)
+    {
+        var directory = ResolveAssetDirectory(value, baseDirectory);
+        var first = Path.Combine(directory, $"{stateName}.png");
+        if (!File.Exists(first)) return Array.Empty<string>();
+
+        var frames = new List<string> { first };
+        for (var index = 2; index <= MaxAnimationFrames; index++)
+        {
+            var next = Path.Combine(directory, $"{stateName}-{index}.png");
+            if (!File.Exists(next)) break;
+            frames.Add(next);
+        }
+        return frames;
+    }
+
     private static bool IsCompleteDirectory(string directory)
         => RequiredStateFiles.All(file => File.Exists(Path.Combine(directory, file)));
 }
