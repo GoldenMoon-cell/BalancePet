@@ -968,15 +968,6 @@ public partial class MainWindow : Window
     private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is System.Windows.Controls.Button) return;
-        // While an update downloads, the pet is the only thing reporting it and a
-        // 200 MB download otherwise has no way out. The bubble says "click to
-        // cancel", so the press is spent on that instead of the usual squash.
-        if (_updateCancellation is not null)
-        {
-            _updateCancellation.Cancel();
-            ShowNativeBubble("正在取消更新", "--", "已请求停止下载");
-            return;
-        }
         _mousePressed = true;
         ResetInactiveTimer();
         if (_settings.InteractionEffects)
@@ -1029,6 +1020,16 @@ public partial class MainWindow : Window
         PlaySound(_releaseSound);
         if (!_dragMoved)
         {
+            // A download in progress is cancelled by a click, not by a press: the
+            // press has to keep starting a drag, or the pet could not be moved
+            // without also throwing the download away.
+            if (_updateCancellation is not null)
+            {
+                _updateCancellation.Cancel();
+                ShowNativeBubble("正在取消更新", "--", "已请求停止下载");
+                if (_settings.InteractionEffects) RestoreSteadyVisualState();
+                return;
+            }
             if (_clickUpperRegion)
             {
                 var preserveVisualState = ShowInteractionFeedback("hair");
