@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/feature-v1/notification-state.schema.json",
+  "title": "BalancePet notification state v1",
+  "description": "Sanitized live state the host publishes for feature extensions holding the notifications.read capability. It is a snapshot, not a log: the host rewrites the whole file, so consumers should read it whole and must tolerate a partially written read. Only counters, names and statuses appear here; prompts, replies, credentials and plaintext tokens never do.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "updated_at"],
+  "properties": {
+    "schema": { "const": "balancepet.notification-state.v1" },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the host last rewrote this snapshot."
+    },
+    "core_version": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Version of the host that produced the snapshot."
+    },
+    "task_known": {
+      "type": "boolean",
+      "description": "Whether the host has any observation about AI task activity at all. False means the task fields carry no information, which is different from 'no task is running'."
+    },
+    "task_active": {
+      "type": "boolean",
+      "description": "True while at least one AI task is running."
+    },
+    "task_provider": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Client driving the active task, or the last one to finish. Free text supplied by the client."
+    },
+    "task_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000,
+      "description": "Number of tasks currently active."
+    },
+    "login_known": {
+      "type": "boolean",
+      "description": "Whether the host has a live login observation. Always false as of host 1.3.0: the CC Switch integration that supplied it was removed to be rebuilt as a plugin, and consumers should fall back to their own recorded login events rather than treat false as 'logged out'."
+    },
+    "login_mode": {
+      "type": "string",
+      "maxLength": 48,
+      "description": "Human-readable login mode. Empty while login_known is false."
+    },
+    "login_detail": {
+      "type": "string",
+      "maxLength": 160,
+      "description": "Account label behind login_mode. Empty while login_known is false."
+    },
+    "balance": {
+      "type": "number",
+      "minimum": -10000000000,
+      "maximum": 10000000000,
+      "description": "Latest balance of the account the user selected. Omitted when that account has no reading yet; an absent value means unknown, not zero."
+    },
+    "currency": {
+      "type": "string",
+      "maxLength": 12,
+      "description": "Currency code for balance, upper case."
+    },
+    "spent": {
+      "type": "number",
+      "minimum": -10000000000,
+      "maximum": 10000000000,
+      "description": "Amount the most recently finished task consumed, when the host could attribute one. Omitted otherwise."
+    },
+    "spent_currency": {
+      "type": "string",
+      "maxLength": 12,
+      "description": "Currency code for spent, upper case."
+    }
+  }
+}

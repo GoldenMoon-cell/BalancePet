@@ -114,6 +114,17 @@ own bubble. The extension may listen for the named auto-reset event
 `Local\\BalancePet.NotificationCenter.ShowPanel.v1` to reveal its settings or
 history panel when the user explicitly opens it.
 
+Alongside the event log, the host publishes a sanitized live snapshot at
+`%LOCALAPPDATA%\\BalancePet\\notification-state.v1.json`, conforming to
+[`notification-state.schema.json`](notification-state.schema.json). Unlike the
+event log it is a snapshot rather than a log: the host rewrites the whole file, so
+read it whole and tolerate a partially written read. It carries the active task
+and the selected account's latest balance. Its `login_known` / `login_mode` /
+`login_detail` fields are always false and empty as of host 1.3.0, because the CC
+Switch integration that supplied them was removed to be rebuilt as a plugin;
+treat that as "no live observation" and fall back to your own recorded events
+rather than as "the user is logged out".
+
 The host may install multiple versions of the same extension ID side by side,
 but launches the highest installed semantic version when that ID is enabled.
 The `.disabled` marker applies to the ID as a whole; v1 has no per-version
