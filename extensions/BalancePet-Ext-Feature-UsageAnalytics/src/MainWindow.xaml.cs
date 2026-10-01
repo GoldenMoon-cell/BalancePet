@@ -1259,7 +1259,7 @@ public partial class MainWindow : Window
         // either matched or did not, so an absent cost is a failed lookup. An official
         // account has no such log, and its only signal is the balance drop a task
         // caused, so an absent cost usually just means the balance did not move.
-        public string CostText => _event.Cost is null ? (IsOfficialAccount ? "官方账户 · 未产生余额变化" : "未上报") : $"{_event.Cost:0.########} {(_event.Currency.Length == 0 ? "USD" : _event.Currency)}";
+        public string CostText => _event.Cost is null ? (IsOfficialAccount ? "余额未变化" : "未上报") : $"{_event.Cost:0.########} {(_event.Currency.Length == 0 ? "USD" : _event.Currency)}";
         public string DurationText => _event.DurationMs is null ? "耗时 —" : $"耗时 {UsageFormatting.Milliseconds(_event.DurationMs)}";
         public string DetailsCaption => Details.Count == 0 ? "查看中转站请求明细 · 暂无可关联记录" : $"查看本次任务的 {Details.Count} 次中转站请求";
         public string Currency => string.IsNullOrWhiteSpace(_event.Currency) ? "USD" : _event.Currency;
