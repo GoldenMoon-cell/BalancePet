@@ -31,6 +31,12 @@ public static class ShippedPetMigration
         "clicked.png", "codex-working.png", "codex-done.png", "inactive.png"
     ];
 
+    /// <summary>
+    /// Written next to the extension store once a conversion finds nothing left to
+    /// do. Versioned so that a future change to the conversion can ask for it again.
+    /// </summary>
+    private const string MarkerFileName = "pet-migration.v1.done";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -68,6 +74,21 @@ public static class ShippedPetMigration
         }
         catch (IOException) { return Result.Nothing; }
 
+        // A run that converted everything it found is remembered, because the work is
+        // hundreds of megabytes of copying and compressing and repeating it on every
+        // launch to discover there is nothing to do would be felt. A run that had
+        // failures is deliberately not remembered, so a transient problem heals on
+        // the next launch instead of leaving an appearance unmanaged forever.
+        //
+        // The marker gates the conversion only. Reclaiming a duplicate is cheap — a
+        // directory listing — and has to keep happening, because repairing or
+        // reinstalling the application puts the shipped folders back and a leftover
+        // folder shadows the installed package when the asset path is resolved.
+        var marker = Path.Combine(Path.GetDirectoryName(manager.RootDirectory) ?? manager.RootDirectory, MarkerFileName);
+        var canConvert = true;
+        try { canConvert = !File.Exists(marker); }
+        catch (IOException) { }
+
         // An appearance that is already installed under the same style needs no
         // package built; the shipping folder is then only a stale duplicate.
         HashSet<string> packaged;
@@ -101,6 +122,8 @@ public static class ShippedPetMigration
                 continue;
             }
 
+            if (!canConvert) continue;
+
             try
             {
                 InstallFrom(directory, definition, manager);
@@ -114,6 +137,13 @@ public static class ShippedPetMigration
                 // user nothing but a retry on the next launch.
                 failed.Add($"{style}：{error.Message}");
             }
+        }
+
+        if (failed.Count == 0)
+        {
+            try { File.WriteAllText(marker, DateTimeOffset.UtcNow.ToString("O")); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
 
         return new Result(migrated, reclaimed, failed);

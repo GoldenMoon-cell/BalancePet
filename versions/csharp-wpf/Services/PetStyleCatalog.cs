@@ -169,10 +169,20 @@ public static class PetStyleCatalog
     {
         var style = NormalizeId(value);
         var root = baseDirectory ?? AppContext.BaseDirectory;
-        var builtIn = Path.Combine(root, "assets", "pets", style);
-        if (RequiredStateFiles.All(file => File.Exists(Path.Combine(builtIn, file)))) return builtIn;
+
+        // The installed package is checked first, and that order matters. Repairing or
+        // reinstalling the application restores the shipped folders, and a leftover
+        // folder would otherwise win over the package the user installed or updated —
+        // so a redrawn appearance would keep drawing the old artwork, which is the one
+        // outcome the whole package system exists to avoid.
         var extension = Extensions.GetLatestEnabled().FirstOrDefault(info => string.Equals(info.StyleId, style, StringComparison.OrdinalIgnoreCase));
-        return extension is null ? builtIn : Path.Combine(extension.DirectoryPath, "assets", "pets", extension.StyleId);
+        if (extension is not null)
+        {
+            var packaged = Path.Combine(extension.DirectoryPath, "assets", "pets", extension.StyleId);
+            if (IsCompleteDirectory(packaged)) return packaged;
+        }
+
+        return Path.Combine(root, "assets", "pets", style);
     }
 
     public static IReadOnlyList<PetStyleDefinition> GetAvailableExtensionStyles()
