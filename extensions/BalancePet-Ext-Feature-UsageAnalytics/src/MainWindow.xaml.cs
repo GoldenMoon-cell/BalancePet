@@ -1201,6 +1201,7 @@ public partial class MainWindow : Window
             {
                 AccountLabel = account.Name;
                 IsOfficialAccount = account.IsOfficial;
+                IsSubscriptionAccount = account.IsSubscription;
                 return;
             }
             AccountLabel = AccountDirectory.Label(accountId);
@@ -1210,6 +1211,12 @@ public partial class MainWindow : Window
         /// a relay. Decides how an absent cost reads; see the cost text below.
         /// </summary>
         public bool IsOfficialAccount { get; }
+        /// <summary>
+        /// Whether the user declared this account subscription-billed. Takes priority
+        /// over the official-account reading: a subscription has no per-request price
+        /// at all, so "no cost" is the expected state rather than a missing reading.
+        /// </summary>
+        public bool IsSubscriptionAccount { get; }
         public string OccurredAtText => _event.OccurredAt.ToLocalTime().ToString("MM-dd HH:mm:ss");
         public string Provider => _event.Provider;
         /// <summary>Account the task billed to, empty when the host did not say.</summary>
@@ -1259,7 +1266,9 @@ public partial class MainWindow : Window
         // either matched or did not, so an absent cost is a failed lookup. An official
         // account has no such log, and its only signal is the balance drop a task
         // caused, so an absent cost usually just means the balance did not move.
-        public string CostText => _event.Cost is null ? (IsOfficialAccount ? "余额未变化" : "未上报") : $"{_event.Cost:0.########} {(_event.Currency.Length == 0 ? "USD" : _event.Currency)}";
+        public string CostText => _event.Cost is null
+            ? (IsSubscriptionAccount ? "订阅制 · 不计费" : IsOfficialAccount ? "余额未变化" : "未上报")
+            : $"{_event.Cost:0.########} {(_event.Currency.Length == 0 ? "USD" : _event.Currency)}";
         public string DurationText => _event.DurationMs is null ? "耗时 —" : $"耗时 {UsageFormatting.Milliseconds(_event.DurationMs)}";
         public string DetailsCaption => Details.Count == 0 ? "查看中转站请求明细 · 暂无可关联记录" : $"查看本次任务的 {Details.Count} 次中转站请求";
         public string Currency => string.IsNullOrWhiteSpace(_event.Currency) ? "USD" : _event.Currency;

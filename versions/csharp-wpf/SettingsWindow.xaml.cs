@@ -1169,6 +1169,7 @@ public partial class SettingsWindow : Window
         ThresholdBox.Text = profile.LowThreshold.ToString(CultureInfo.InvariantCulture);
         SelectByTag(AuthModeBox, profile.AuthMode);
         MonitorEnabledBox.IsChecked = profile.Enabled;
+        SubscriptionBox.IsChecked = profile.IsSubscription;
         TokenBox.Clear();
         WebSessionBox.Clear();
         SelectByTag(BrowserSessionBrowserBox, string.Equals(profile.BrowserSessionBrowser, "chrome", StringComparison.OrdinalIgnoreCase) ? "chrome" : "edge");
@@ -1321,6 +1322,7 @@ public partial class SettingsWindow : Window
         }
         if (double.TryParse(ThresholdBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold)) profile.LowThreshold = threshold;
         profile.Enabled = MonitorEnabledBox.IsChecked == true;
+        profile.IsSubscription = SubscriptionBox.IsChecked == true;
         if (!string.IsNullOrWhiteSpace(TokenBox.Password)) profile.TokenBlob = _tokens.Protect(TokenBox.Password);
         if (!string.IsNullOrWhiteSpace(WebSessionBox.Password)) profile.WebSessionBlob = _tokens.Protect(WebSessionBox.Password);
         profile.BrowserSessionBrowser = SelectedTag(BrowserSessionBrowserBox, profile.BrowserSessionBrowser).Equals("chrome", StringComparison.OrdinalIgnoreCase) ? "chrome" : "edge";

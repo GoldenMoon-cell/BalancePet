@@ -35,7 +35,8 @@ public static class AccountDirectory
     /// <param name="Name">Display name the user gave the account.</param>
     /// <param name="Endpoint">Configured balance endpoint, used only to classify.</param>
     /// <param name="PresetId">Preset the account was created from, when known.</param>
-    public sealed record AccountInfo(string Name, string Endpoint, string PresetId)
+    /// <param name="IsSubscription">User's declaration that the account is billed by subscription.</param>
+    public sealed record AccountInfo(string Name, string Endpoint, string PresetId, bool IsSubscription)
     {
         /// <summary>
         /// True when the account points at a vendor's own API rather than a relay.
@@ -76,7 +77,7 @@ public static class AccountDirectory
                 var key = ReadString(monitor, "id", 128);
                 var name = ReadString(monitor, "name", 64);
                 if (key.Length == 0 || name.Length == 0) continue;
-                accounts[key] = new AccountInfo(name, ReadString(monitor, "endpoint", 512), ReadString(monitor, "preset_id", 64));
+                accounts[key] = new AccountInfo(name, ReadString(monitor, "endpoint", 512), ReadString(monitor, "preset_id", 64), ReadBool(monitor, "is_subscription"));
             }
         }
         catch (IOException) { }
@@ -95,6 +96,10 @@ public static class AccountDirectory
         var text = (value.GetString() ?? "").Trim();
         return text.Length <= maxLength ? text : "";
     }
+
+    private static bool ReadBool(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value)
+        && value.ValueKind == JsonValueKind.True;
 
     /// <summary>Display name for an account id, falling back to a shortened id.</summary>
     public static string Label(IReadOnlyDictionary<string, string> names, string accountId)

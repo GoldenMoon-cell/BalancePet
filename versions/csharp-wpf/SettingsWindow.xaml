@@ -337,6 +337,7 @@
               </StackPanel>
               <StackPanel Grid.Column="1" Margin="8,0,0,0"><TextBlock Text="低余额阈值"/><TextBox x:Name="ThresholdBox" TextChanged="OnSettingTextChanged" Margin="0,5,0,12"/></StackPanel>
             </Grid>
+            <CheckBox x:Name="SubscriptionBox" Content="此账户按订阅计费" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,10" ToolTip="勾选后，用量统计中该账户没有费用的任务会显示为「订阅制 · 不计费」。订阅密钥与按量付费密钥在配置上无法区分，因此需要手动声明。"/>
           </StackPanel>
         </ScrollViewer>
       </TabItem>

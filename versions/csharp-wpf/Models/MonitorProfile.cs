@@ -30,4 +30,20 @@ public sealed class MonitorProfile
     [JsonPropertyName("auto_refresh_enabled")] public bool AutoRefreshEnabled { get; set; } = true;
     [JsonPropertyName("low_threshold")] public double LowThreshold { get; set; } = 5;
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// The user's declaration that this account is billed by subscription rather
+    /// than per request.
+    /// </summary>
+    /// <remarks>
+    /// Nothing in an account's configuration can reveal this: a subscription key
+    /// and a pay-as-you-go key look identical, and the vendor's balance endpoint
+    /// simply returns nothing useful for a subscription. Cost reporting therefore
+    /// has to be told, or it will keep describing a subscription account as an
+    /// account whose balance never moved.
+    ///
+    /// Stated by the user rather than inferred so that it works for every
+    /// subscription, including ones whose client never reports a plan type.
+    /// </remarks>
+    [JsonPropertyName("is_subscription")] public bool IsSubscription { get; set; }
 }
