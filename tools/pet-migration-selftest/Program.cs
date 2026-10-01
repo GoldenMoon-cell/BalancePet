@@ -2,6 +2,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using BalancePet.Wpf.Services;
@@ -169,6 +170,39 @@ internal static class Program
             catch (HttpRequestException error) { notFoundMessage = error.Message; }
             Check("HTTP 错误状态不重试", notFoundAttempts == 1, $"实际请求 {notFoundAttempts} 次");
             Check("HTTP 错误保留状态码", notFoundMessage.Contains("404", StringComparison.Ordinal), notFoundMessage);
+
+            // --- 9. A download cut short resumes instead of starting over -------
+            // Restarting an 86 MB transfer on a connection that drops is what makes it
+            // never finish, so the partial file has to survive and the next request has
+            // to ask only for the rest. These use a stub that really does cut the first
+            // response in half, because the interesting part is what lands on disk.
+            var payload = new byte[200_000];
+            Random.Shared.NextBytes(payload);
+            var digest = "sha256:" + Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant();
+
+            async Task<(bool Ok, byte[] Bytes, List<long> From)> Download(RangeServer server)
+            {
+                var service = new UpdateService(new HttpClient(new StubHandler(server.Respond)));
+                var asset = new UpdateAsset(UpdateAssetKind.PortableArchive, "x.zip", new Uri("https://github.com/x/y.zip"), digest);
+                var path = await service.DownloadAsync(asset);
+                var bytes = await File.ReadAllBytesAsync(path);
+                File.Delete(path);
+                return (bytes.Length == payload.Length && bytes.SequenceEqual(payload), bytes, server.RequestedFrom);
+            }
+
+            var resumed = await Download(new RangeServer(payload, dropAfter: 50_000));
+            Check("断连后续传得到完整文件", resumed.Ok, $"实际 {resumed.Bytes.Length} 字节");
+            Check("第二次请求只取剩余部分", resumed.From.Count == 2 && resumed.From[1] == 50_000, string.Join(",", resumed.From));
+
+            var ignored = await Download(new RangeServer(payload, dropAfter: 50_000) { IgnoreRange = true });
+            Check("服务器不支持 Range 时从头重来", ignored.Ok, $"实际 {ignored.Bytes.Length} 字节");
+
+            // The digest is what makes resuming safe: bytes appended from a source that
+            // answered the wrong range would otherwise be installed as an update.
+            var corrupted = "";
+            try { await Download(new RangeServer(payload, dropAfter: 50_000) { CorruptResume = true }); }
+            catch (InvalidDataException error) { corrupted = error.Message; }
+            Check("续传拼错的文件被校验拦下", corrupted.Contains("校验失败", StringComparison.Ordinal), corrupted);
         }
         finally
         {
@@ -198,6 +232,75 @@ internal static class Program
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(respond(request));
+    }
+
+    /// <summary>
+    /// Serves a payload over ranged requests and cuts the first one short, so a
+    /// download that resumes can be exercised without a network.
+    /// </summary>
+    private sealed class RangeServer(byte[] payload, int dropAfter)
+    {
+        /// <summary>Answers 200 with the whole file however it is asked, like a host without Range.</summary>
+        public bool IgnoreRange { get; init; }
+
+        /// <summary>Returns wrong bytes for a resumed range, to prove the digest catches it.</summary>
+        public bool CorruptResume { get; init; }
+
+        public List<long> RequestedFrom { get; } = new();
+
+        public HttpResponseMessage Respond(HttpRequestMessage request)
+        {
+            var from = request.Headers.Range?.Ranges.FirstOrDefault()?.From ?? 0;
+            var first = RequestedFrom.Count == 0;
+            RequestedFrom.Add(from);
+            if (from > 0 && IgnoreRange) from = 0;
+
+            if (from >= payload.Length) return new HttpResponseMessage(HttpStatusCode.RequestedRangeNotSatisfiable);
+
+            var body = payload[(int)from..];
+            if (from > 0 && CorruptResume) body = body.Reverse().ToArray();
+            var response = new HttpResponseMessage(from > 0 ? HttpStatusCode.PartialContent : HttpStatusCode.OK)
+            {
+                Content = new DripContent(body, first ? dropAfter : int.MaxValue)
+            };
+            response.Content.Headers.ContentLength = body.Length;
+            return response;
+        }
+    }
+
+    /// <summary>Yields the payload, then fails the way a dropped connection does.</summary>
+    private sealed class DripContent(byte[] body, int dropAfter) : HttpContent
+    {
+        protected override Task<Stream> CreateContentReadStreamAsync() => Task.FromResult<Stream>(new DripStream(body, dropAfter));
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) => Task.CompletedTask;
+        protected override bool TryComputeLength(out long length) { length = body.Length; return true; }
+    }
+
+    private sealed class DripStream(byte[] body, int dropAfter) : Stream
+    {
+        private int _position;
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            if (_position >= dropAfter) throw new IOException("Received an unexpected EOF or 0 bytes from the transport stream.");
+            var take = Math.Min(Math.Min(buffer.Length, dropAfter - _position), body.Length - _position);
+            if (take <= 0) return 0;
+            body.AsSpan(_position, take).CopyTo(buffer);
+            _position += take;
+            return take;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => _position; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     /// <summary>Copies a real appearance into a throwaway application directory.</summary>
