@@ -18,6 +18,12 @@ public sealed class UsageEvent
     /// Empty means the cost is unknown, which decides which detail panels apply.
     /// </summary>
     [JsonPropertyName("cost_source")] public string CostSource { get; set; } = "";
+    /// <summary>
+    /// Subscription plan the client reported, empty when it reported none. Its
+    /// presence is the signal: a subscription and a pay-as-you-go key are otherwise
+    /// indistinguishable, and the client only reports this for the former.
+    /// </summary>
+    [JsonPropertyName("plan_type")] public string PlanType { get; set; } = "";
     [JsonPropertyName("model")] public string Model { get; set; } = "";
     [JsonPropertyName("success")] public bool? Success { get; set; }
     [JsonPropertyName("input_tokens")] public long? InputTokens { get; set; }

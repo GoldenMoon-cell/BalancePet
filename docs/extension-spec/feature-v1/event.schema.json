@@ -62,6 +62,11 @@
     "tool_calls": { "type": "integer", "minimum": 0 },
     "steps": { "type": "integer", "minimum": 0 },
     "reasoning_effort": { "type": "string", "maxLength": 32 },
+    "plan_type": {
+      "type": "string",
+      "maxLength": 32,
+      "description": "Subscription plan the client reported for the session this task ran in, when it reports one. Presence is what matters: a subscription and a pay-as-you-go key are otherwise indistinguishable, and the client reports this field only for the former. Absent means the client said nothing, not that the account is pay-as-you-go."
+    },
     "details": {
       "type": "array",
       "maxItems": 192,

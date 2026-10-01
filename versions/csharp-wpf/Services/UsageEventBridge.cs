@@ -49,7 +49,8 @@ public sealed class UsageEventBridge : IDisposable
         string? reasoningEffort = null,
         IReadOnlyList<UsageEventDetailSnapshot>? details = null,
         string? accountId = null,
-        string? costSource = null)
+        string? costSource = null,
+        string? planType = null)
     {
         return RecordCoreAsync(
             Guid.NewGuid().ToString("N"),
@@ -71,6 +72,7 @@ public sealed class UsageEventBridge : IDisposable
             details,
             accountId,
             costSource,
+            planType,
             cancellationToken);
     }
 
@@ -94,7 +96,8 @@ public sealed class UsageEventBridge : IDisposable
         string? reasoningEffort = null,
         IReadOnlyList<UsageEventDetailSnapshot>? details = null,
         string? accountId = null,
-        string? costSource = null)
+        string? costSource = null,
+        string? planType = null)
     {
         return RecordCoreAsync(
             Clean(eventId, 80),
@@ -116,6 +119,7 @@ public sealed class UsageEventBridge : IDisposable
             details,
             accountId,
             costSource,
+            planType,
             cancellationToken);
     }
 
@@ -139,6 +143,7 @@ public sealed class UsageEventBridge : IDisposable
         IReadOnlyList<UsageEventDetailSnapshot>? details,
         string? accountId,
         string? costSource,
+        string? planType,
         CancellationToken cancellationToken)
     {
         var sanitizedProvider = Clean(provider, 64);
@@ -152,6 +157,7 @@ public sealed class UsageEventBridge : IDisposable
             Provider = sanitizedProvider,
             AccountId = Clean(accountId, 128),
             CostSource = Clean(costSource, 24),
+            PlanType = Clean(planType, 32),
             Model = Clean(model, 160),
             Success = success,
             InputTokens = ClampCounter(inputTokens),
@@ -261,6 +267,7 @@ public sealed class UsageEventBridge : IDisposable
             Provider = provider,
             AccountId = Clean(ReadString(root, "account_id", "accountId"), 128),
             CostSource = Clean(ReadString(root, "cost_source", "costSource"), 24),
+            PlanType = Clean(ReadString(root, "plan_type", "planType"), 32),
             Model = Clean(ReadString(root, "model") ?? ReadString(usage, "model"), 160),
             Success = ReadBool(usage, "success") ?? ReadBool(root, "success"),
             InputTokens = ReadCounter(usage, "input_tokens", "inputTokens", "prompt_tokens", "promptTokens", "input_token_count", "inputTokenCount", "prompt_token_count", "promptTokenCount") ?? ReadCounter(root, "input_tokens", "inputTokens", "prompt_tokens", "promptTokens", "input_token_count", "inputTokenCount", "prompt_token_count", "promptTokenCount"),
@@ -436,7 +443,8 @@ public sealed class UsageEventBridge : IDisposable
                 Clean(ReadString(root, "reasoning_effort", "reasoningEffort"), 32),
                 ReadDetails(root),
                 Clean(ReadString(root, "account_id", "accountId"), 128),
-                Clean(ReadString(root, "cost_source", "costSource"), 24));
+                Clean(ReadString(root, "cost_source", "costSource"), 24),
+            Clean(ReadString(root, "plan_type", "planType"), 32));
             return snapshot.OccurredAt != DateTimeOffset.MinValue;
         }
         catch (JsonException) { return false; }
@@ -483,6 +491,7 @@ public sealed class UsageEventBridge : IDisposable
         /// account balance drop across the whole task. Empty means no cost.
         /// </summary>
         public string CostSource { get; set; } = "";
+        public string PlanType { get; set; } = "";
         public string Model { get; set; } = "";
         public bool? Success { get; set; }
         public long? InputTokens { get; set; }
@@ -525,7 +534,8 @@ public sealed record UsageEventSnapshot(
     string ReasoningEffort = "",
     IReadOnlyList<UsageEventDetailSnapshot>? Details = null,
     string AccountId = "",
-    string CostSource = "");
+    string CostSource = "",
+    string PlanType = "");
 
 public sealed record UsageEventDetailSnapshot(
     DateTimeOffset OccurredAt,

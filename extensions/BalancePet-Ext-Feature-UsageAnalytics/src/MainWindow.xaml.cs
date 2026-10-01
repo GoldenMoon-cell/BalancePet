@@ -1223,7 +1223,11 @@ public partial class MainWindow : Window
             {
                 AccountLabel = account.Name;
                 IsOfficialAccount = account.IsOfficial;
-                IsSubscriptionAccount = account.IsSubscription;
+                // Either the user declared the account subscription-billed, or the
+                // client said so itself for this session. The two are independent:
+                // the declaration covers subscriptions whose client never reports a
+                // plan, and a reported plan covers accounts the user never labelled.
+                IsSubscriptionAccount = account.IsSubscription || value.PlanType.Length > 0;
                 return;
             }
             AccountLabel = AccountDirectory.Label(accountId);

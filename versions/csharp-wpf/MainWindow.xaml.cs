@@ -2911,7 +2911,8 @@ public partial class MainWindow : Window
                 reasoningEffort: reasoningEffort,
                 details: localDetails,
                 accountId: FindNamedMonitorProfile(activity.Provider)?.Id,
-                costSource: costSource);
+                costSource: costSource,
+                planType: codexUsage?.PlanType);
             if (!string.IsNullOrWhiteSpace(eventId) && relayBackfillPending)
             {
                 var target = new UsageEventSnapshot(
