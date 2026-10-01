@@ -1045,6 +1045,16 @@ public partial class SettingsWindow : Window
             ShowExtensionError("内置云母主题是主题系统的安全回退，不能卸载。", "The bundled Mica theme is the theme system fallback and cannot be uninstalled.");
             return;
         }
+        // Same reasoning as the theme guard above: the pet is the whole window, so
+        // removing the last appearance would leave a blank window and an empty shape
+        // selector, with no way back through the interface.
+        if (selected.Pet is not null && PetStyleCatalog.IsLastAvailableStyle(selected.Pet.StyleId))
+        {
+            ShowExtensionError(
+                "这是最后一套可用形象，不能卸载。请先安装或启用另一套形象。",
+                "This is the last available appearance and cannot be uninstalled. Install or enable another one first.");
+            return;
+        }
         var selectedName = selected.Pet?.Manifest.Name ?? selected.Feature?.Manifest.Name ?? selected.Theme?.Manifest.Name ?? selected.Id;
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         var answer = System.Windows.MessageBox.Show(this,

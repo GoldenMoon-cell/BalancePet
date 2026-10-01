@@ -160,4 +160,57 @@ public static class PetStyleCatalog
         => !string.IsNullOrWhiteSpace(value) && value.Trim().Length is >= 2 and <= 64
             && value.Trim().All(ch => (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch is '.' or '-')
             && char.IsLetterOrDigit(value.Trim()[0]) && char.IsLetterOrDigit(value.Trim()[^1]);
+
+    /// <summary>
+    /// Every appearance the app can draw right now, shipped and installed alike.
+    /// </summary>
+    /// <remarks>
+    /// A shipped pet is only a package that happens to live inside the application
+    /// folder, so listing both here is what lets an appearance move out of the
+    /// distribution and become installable without any caller noticing. Callers that
+    /// need to know which is which should ask <see cref="IsShipped"/> rather than
+    /// keeping their own list of ids, because that list is exactly what changes when
+    /// a pet is extracted.
+    /// </remarks>
+    public static IReadOnlyList<PetStyleDefinition> GetAvailableStyles()
+    {
+        var styles = new Dictionary<string, PetStyleDefinition>(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in All)
+        {
+            if (IsCompleteDirectory(Path.Combine(AppContext.BaseDirectory, "assets", "pets", definition.Id)))
+                styles[definition.Id] = definition;
+        }
+        // An installed package of the same id deliberately wins: it is the newer
+        // copy, and it is the one the user can see and manage.
+        foreach (var definition in GetAvailableExtensionStyles()) styles[definition.Id] = definition;
+        return styles.Values.ToArray();
+    }
+
+    /// <summary>True when the appearance is a package shipped inside the app folder.</summary>
+    public static bool IsShipped(string? value)
+    {
+        var style = NormalizeId(value);
+        return All.Any(definition => string.Equals(definition.Id, style, StringComparison.OrdinalIgnoreCase))
+            && IsCompleteDirectory(Path.Combine(AppContext.BaseDirectory, "assets", "pets", style));
+    }
+
+    /// <summary>
+    /// Whether removing this appearance would leave the app with nothing to draw.
+    /// </summary>
+    /// <remarks>
+    /// The pet is the entire window. With no appearance left the window would be
+    /// blank and the shape selector would offer nothing, so there would be no way
+    /// back through the interface. The last one is therefore not removable; the
+    /// caller is expected to explain that rather than let the removal fail silently.
+    /// </remarks>
+    public static bool IsLastAvailableStyle(string? value)
+    {
+        var available = GetAvailableStyles();
+        if (available.Count > 1) return false;
+        var style = NormalizeId(value);
+        return available.Any(definition => string.Equals(definition.Id, style, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsCompleteDirectory(string directory)
+        => RequiredStateFiles.All(file => File.Exists(Path.Combine(directory, file)));
 }
