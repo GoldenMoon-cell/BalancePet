@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private string _accountSelectorSignature = "";
     private bool _suppressFilterRefresh;
     private IReadOnlyDictionary<string, string> _accountNames = new Dictionary<string, string>();
+    private IReadOnlyDictionary<string, AccountDirectory.AccountInfo> _accounts = new Dictionary<string, AccountDirectory.AccountInfo>(StringComparer.OrdinalIgnoreCase);
 
     public MainWindow(string dataDirectory)
     {
@@ -490,7 +491,8 @@ public partial class MainWindow : Window
         var events = _store.ReadAll();
         _lastEvents = events;
         _lastReport = UsageReport.Build(events, DateTimeOffset.Now);
-        _accountNames = AccountDirectory.Read(_store.DirectoryPath);
+        _accounts = AccountDirectory.ReadAccounts(_store.DirectoryPath);
+        _accountNames = _accounts.ToDictionary(pair => pair.Key, pair => pair.Value.Name, StringComparer.OrdinalIgnoreCase);
         _lastBalanceUsage = BalanceUsageSnapshot.Read(_store.DirectoryPath, DateTimeOffset.Now, _accountFilter);
         _lastServerUsage = ServerUsageSummarySnapshot.Read(_store.DirectoryPath, DateTimeOffset.Now);
         var report = _lastReport;
@@ -549,7 +551,7 @@ public partial class MainWindow : Window
         ModelItems.ItemsSource = modelValues.Select((value, index) => new ModelRow(value.Name, value.Events.Length, value.Tokens, modelBasis, Palette(index + 1))).ToArray();
         ModelEmpty.Visibility = modelValues.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        var eventRows = VisibleEvents(events).Select(value => new EventRow(value, _accountNames)).ToArray();
+        var eventRows = VisibleEvents(events).Select(value => new EventRow(value, _accounts)).ToArray();
         EventsList.ItemsSource = eventRows;
         if (_selectedEvent is not null)
         {
@@ -679,7 +681,7 @@ public partial class MainWindow : Window
     private void ApplyHistoryFilter()
     {
         UpdateProviderFilters(_lastEvents);
-        var rows = VisibleEvents(_lastEvents).Select(value => new EventRow(value, _accountNames)).ToArray();
+        var rows = VisibleEvents(_lastEvents).Select(value => new EventRow(value, _accounts)).ToArray();
         EventsList.ItemsSource = rows;
         RecentSummary.Text = BuildRecentSummary(_lastEvents, rows.Length);
         if (_selectedEvent is not null
@@ -1189,14 +1191,25 @@ public partial class MainWindow : Window
     private sealed class EventRow
     {
         private readonly UsageEvent _event;
-        public EventRow(UsageEvent value, IReadOnlyDictionary<string, string> accountNames)
+        public EventRow(UsageEvent value, IReadOnlyDictionary<string, AccountDirectory.AccountInfo> accounts)
         {
             _event = value;
             Details = value.Details.Select(detail => new DetailRow(detail)).ToArray();
-            AccountLabel = string.IsNullOrWhiteSpace(value.AccountId)
-                ? ""
-                : AccountDirectory.Label(accountNames, value.AccountId);
+            var accountId = value.AccountId;
+            if (string.IsNullOrWhiteSpace(accountId)) return;
+            if (accounts.TryGetValue(accountId, out var account))
+            {
+                AccountLabel = account.Name;
+                IsOfficialAccount = account.IsOfficial;
+                return;
+            }
+            AccountLabel = AccountDirectory.Label(accountId);
         }
+        /// <summary>
+        /// Whether the account billed for this task is a vendor's own API rather than
+        /// a relay. Decides how an absent cost reads; see the cost text below.
+        /// </summary>
+        public bool IsOfficialAccount { get; }
         public string OccurredAtText => _event.OccurredAt.ToLocalTime().ToString("MM-dd HH:mm:ss");
         public string Provider => _event.Provider;
         /// <summary>Account the task billed to, empty when the host did not say.</summary>
@@ -1242,7 +1255,11 @@ public partial class MainWindow : Window
         public string OutputText => _event.OutputTokens is null ? "模型输出 —" : $"模型输出 {UsageFormatting.Tokens(_event.OutputTokens.Value)}";
         public string CacheReadText => _event.CacheReadTokens is null ? "缓存读取 —" : $"缓存读取 {UsageFormatting.Tokens(_event.CacheReadTokens.Value)}";
         public string CacheWriteText => _event.CacheWriteTokens is null ? "缓存写入 —" : $"缓存写入 {UsageFormatting.Tokens(_event.CacheWriteTokens.Value)}";
-        public string CostText => _event.Cost is null ? "未上报" : $"{_event.Cost:0.########} {(_event.Currency.Length == 0 ? "USD" : _event.Currency)}";
+        // "Unreported" means two different things. A relay has a billing log that
+        // either matched or did not, so an absent cost is a failed lookup. An official
+        // account has no such log, and its only signal is the balance drop a task
+        // caused, so an absent cost usually just means the balance did not move.
+        public string CostText => _event.Cost is null ? (IsOfficialAccount ? "官方账户 · 未产生余额变化" : "未上报") : $"{_event.Cost:0.########} {(_event.Currency.Length == 0 ? "USD" : _event.Currency)}";
         public string DurationText => _event.DurationMs is null ? "耗时 —" : $"耗时 {UsageFormatting.Milliseconds(_event.DurationMs)}";
         public string DetailsCaption => Details.Count == 0 ? "查看中转站请求明细 · 暂无可关联记录" : $"查看本次任务的 {Details.Count} 次中转站请求";
         public string Currency => string.IsNullOrWhiteSpace(_event.Currency) ? "USD" : _event.Currency;
