@@ -209,6 +209,30 @@ internal static class Program
             return 2;
         }
 
+        // A Popup renders in its own window, so RenderTargetBitmap cannot reach it and the
+        // whole dropdown has been unphotographable. Its Child can be rendered on its own,
+        // which is enough to see what the list actually looks like.
+        if (Array.IndexOf(Environment.GetCommandLineArgs(), "--popup-shot") is var ps && ps >= 0)
+        {
+            // Pumped, not just UpdateLayout(). A popup lays itself out on the dispatcher, and
+            // rendering before that finishes captures a half-sized thumb, which reads exactly
+            // like the clipping this is meant to be checking for.
+            for (var pass = 0; pass < 4; pass++)
+            {
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+                chrome.UpdateLayout();
+            }
+            var shot = new RenderTargetBitmap(
+                (int)Math.Ceiling(chrome.ActualWidth), (int)Math.Ceiling(chrome.ActualHeight),
+                96, 96, PixelFormats.Pbgra32);
+            shot.Render(chrome);
+            var png = new PngBitmapEncoder();
+            png.Frames.Add(BitmapFrame.Create(shot));
+            var popupPath = Path.Combine(AppContext.BaseDirectory, "settings-popup.png");
+            using (var stream = File.Create(popupPath)) png.Save(stream);
+            Console.WriteLine($"弹出层截图 {popupPath}  {(int)chrome.ActualWidth}x{(int)chrome.ActualHeight}");
+        }
+
         var padding = chrome is System.Windows.Controls.Border { Padding: var p } ? p : default;
         Console.WriteLine($"弹出层 {chrome.ActualWidth:0.##} x {chrome.ActualHeight:0.##}，内边距 L{padding.Left} T{padding.Top} R{padding.Right} B{padding.Bottom}");
         Console.WriteLine($"可用内部宽度 {chrome.ActualWidth - padding.Left - padding.Right:0.##}");
@@ -216,6 +240,45 @@ internal static class Program
 
         var problems = 0;
         var previousBottom = double.NaN;
+        var itemHeights = new List<double>();
+
+        // The scrollbar lives inside the popup, so the window-wide --type walk cannot reach
+        // it: a popup renders in its own tree. Reporting it here is the only way to ask a
+        // dropdown thumb how tall it is and whether the popup is cutting it off.
+        foreach (var bar in FindDescendants<System.Windows.Controls.Primitives.ScrollBar>(chrome))
+        {
+            var thumb = FindDescendant<System.Windows.Controls.Primitives.Thumb>(bar);
+            if (thumb is null)
+            {
+                Console.WriteLine($"  滚动条 {bar.Orientation} {bar.ActualWidth:0.##} x {bar.ActualHeight:0.##}，没有滑块（{bar.Visibility}）");
+                continue;
+            }
+            var barOrigin = bar.TransformToAncestor(chrome).Transform(new Point(0, 0));
+            var thumbOrigin = thumb.TransformToAncestor(chrome).Transform(new Point(0, 0));
+            var thumbBottom = thumbOrigin.Y + thumb.ActualHeight;
+            var barBottom = barOrigin.Y + bar.ActualHeight;
+            var cut = thumbBottom > chrome.ActualHeight + 0.5 || barBottom > chrome.ActualHeight + 0.5;
+            if (cut) problems++;
+            Console.WriteLine(
+                $"  滚动条 {bar.Orientation} 位于 x {barOrigin.X:0.##}..{barOrigin.X + bar.ActualWidth:0.##}，" +
+                $"y {barOrigin.Y:0.##}..{barBottom:0.##}（弹出层高 {chrome.ActualHeight:0.##}）");
+            Console.WriteLine(
+                $"    滑块 高 {thumb.ActualHeight:0.##}  y {thumbOrigin.Y:0.##}..{thumbBottom:0.##}" +
+                $"{(cut ? "   <- 底部超出弹出层，会被裁掉" : "")}");
+
+            // The border inside the thumb is the only part with a corner radius, so it is the
+            // part that has to be the right size. Reporting the thumb alone says nothing about
+            // whether the pill drawn inside it is being clipped.
+            if (FindDescendant<System.Windows.Controls.Border>(thumb) is { } pill)
+            {
+                var pillOrigin = pill.TransformToAncestor(chrome).Transform(new Point(0, 0));
+                Console.WriteLine(
+                    $"      内层 Border 高 {pill.ActualHeight:0.##}  y {pillOrigin.Y:0.##}..{pillOrigin.Y + pill.ActualHeight:0.##}" +
+                    $"  Margin {pill.Margin.Top:0.##}/{pill.Margin.Bottom:0.##}" +
+                    $"  CornerRadius {pill.CornerRadius.TopLeft:0.##}");
+            }
+        }
+
         foreach (var item in FindDescendants<System.Windows.Controls.ComboBoxItem>(chrome))
         {
             // The highlight is the Border inside the item, not the item itself: the inset
@@ -230,6 +293,7 @@ internal static class Program
             var overflowsRight = right > chrome.ActualWidth - padding.Right + 0.5;
             var flush = !double.IsNaN(previousBottom) && Math.Abs(top - previousBottom) < 0.01;
             if (overflowsRight || flush) problems++;
+            itemHeights.Add(target.ActualHeight);
             Console.WriteLine(
                 $"  {Describe(item),-14} 左 {left,6:0.##}  右 {right,6:0.##}  上 {top,6:0.##}  下 {bottom,6:0.##}" +
                 $"{(overflowsRight ? "   ← 超出右边界" : "")}{(flush ? "   ← 与上一项贴合" : "")}");
@@ -237,6 +301,17 @@ internal static class Program
         }
 
         Console.WriteLine();
+        // Unequal heights are not a defect by themselves, but they are what makes a
+        // virtualising list shift under a moving pointer: each item is drawn in its own face,
+        // faces load when first shown, and an item that changes height after the panel has
+        // measured moves everything below it.
+        if (itemHeights.Count > 1)
+        {
+            var shortest = itemHeights.Min();
+            var tallest = itemHeights.Max();
+            Console.WriteLine($"条目高度 {shortest:0.##}..{tallest:0.##}（相差 {tallest - shortest:0.##}）");
+        }
+
         Console.WriteLine(problems == 0
             ? "高亮完整落在弹出层内，且相邻高亮之间有空隙。"
             : $"{problems} 处问题：超出右边界或与相邻项贴合。");

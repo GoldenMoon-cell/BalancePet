@@ -488,16 +488,19 @@ public partial class SettingsWindow : Window
     private void OnUiFontChanged(object sender, SelectionChangedEventArgs e)
     {
         var choice = UiFontBox?.SelectedItem as FontChoice;
+        if (!_fillingFonts && _trackChanges)
+        {
+            _selectedUiFont = choice?.Family ?? "";
+            // Applied before the display is filled in, not after. Swapping the font resource
+            // re-templates every control in the window, which builds a fresh, empty selection
+            // TextBlock; filling it first means the new one is the blank that gets seen.
+            WindowThemeService.ApplyFont(this, _selectedUiFont);
+            MarkSettingsDirty();
+        }
         // This window's combo template does not bind its selection text; every combo here has
         // to fill it in, and an item that is not a ComboBoxItem has nothing for the shared
         // helper to read, so the label is handed over explicitly.
         SyncComboDisplay(UiFontBox, choice?.Label);
-        if (_fillingFonts || !_trackChanges) return;
-        _selectedUiFont = choice?.Family ?? "";
-        // Applied straight away, because the point of choosing a font is seeing it, and the
-        // window the choice affects is the one the choice is being made in.
-        WindowThemeService.ApplyFont(this, _selectedUiFont);
-        MarkSettingsDirty();
     }
 
     private void ApplySelectedTheme()

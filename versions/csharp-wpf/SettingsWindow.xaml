@@ -713,7 +713,13 @@
                         ToolTip="设置窗口、提示气泡和更新记录使用的字体。">
                 <ComboBox.ItemTemplate>
                   <DataTemplate>
-                    <TextBlock Text="{Binding Label}" FontFamily="{Binding Preview}"/>
+                    <!-- Fixed height, and this is not cosmetic. Each row is drawn in the face
+                         it names, faces load when first shown, and faces disagree about line
+                         height: an unconstrained row measures anywhere from 25 to 46 px. A row
+                         that grows after the panel has measured it moves every row below it,
+                         so the list scrolls itself while the pointer moves across it. -->
+                    <TextBlock Text="{Binding Label}" FontFamily="{Binding Preview}"
+                               Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                   </DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>

@@ -304,7 +304,7 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="{x:Type Thumb}">
-          <Border x:Name="Thumb" Margin="2" Background="{DynamicResource MutedBrush}" CornerRadius="3" Opacity="0.42"/>
+          <Border x:Name="Thumb" Background="{DynamicResource MutedBrush}" CornerRadius="3" Opacity="0.42"/>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Thumb" Property="Opacity" Value="0.7"/></Trigger>
             <Trigger Property="IsDragging" Value="True"><Setter TargetName="Thumb" Property="Opacity" Value="0.9"/></Trigger>
@@ -317,7 +317,7 @@
     <Grid Background="Transparent">
       <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="Vertical">
         <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="{x:Static ScrollBar.PageUpCommand}"/></Track.DecreaseRepeatButton>
-        <Track.Thumb><Thumb MinHeight="32" Style="{StaticResource ScrollBarThumb}"/></Track.Thumb>
+        <Track.Thumb><Thumb MinHeight="32" Margin="2" Style="{StaticResource ScrollBarThumb}"/></Track.Thumb>
         <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="{x:Static ScrollBar.PageDownCommand}"/></Track.IncreaseRepeatButton>
       </Track>
     </Grid>
@@ -326,7 +326,7 @@
     <Grid Background="Transparent">
       <Track x:Name="PART_Track" Orientation="Horizontal">
         <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="{x:Static ScrollBar.PageLeftCommand}"/></Track.DecreaseRepeatButton>
-        <Track.Thumb><Thumb MinWidth="32" Style="{StaticResource ScrollBarThumb}"/></Track.Thumb>
+        <Track.Thumb><Thumb MinWidth="32" Margin="2" Style="{StaticResource ScrollBarThumb}"/></Track.Thumb>
         <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="{x:Static ScrollBar.PageRightCommand}"/></Track.IncreaseRepeatButton>
       </Track>
     </Grid>
