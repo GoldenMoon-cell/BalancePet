@@ -22,7 +22,12 @@ if ($Version -notmatch '^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)') {
     throw "Version must begin with major.minor.patch: $Version"
 }
 $versionCore = "$($Matches.major).$($Matches.minor).$($Matches.patch)"
-$revision = if ($Version -match '\.(?<revision>\d+)$') { [int]$Matches.revision } else { 0 }
+# A revision is a fourth component when one was given. Matching the tail of the
+# string instead picked up the patch number, so 1.4.2 was stamped as file version
+# 1.4.2.2 -- visible in the installer's file properties and to anything reading
+# FileVersion, while the update check reads the informational version and so never
+# noticed.
+$revision = if ($Version -match '^\d+\.\d+\.\d+\.(?<revision>\d+)') { [int]$Matches.revision } else { 0 }
 $assemblyVersion = "$versionCore.0"
 $fileVersion = "$versionCore.$revision"
 
