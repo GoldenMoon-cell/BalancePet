@@ -149,25 +149,46 @@ public static class WindowThemeService
     public static void ApplyBackdropOrFallback(Window window, string backdrop, string mode)
     {
         if (ApplyBackdrop(window, backdrop, mode)) return;
+
+        // The page first, because it is what everything else sits on.
+        var page = Flatten(window, "WindowBackgroundBrush", null);
         foreach (var key in OpaqueSurfaceKeys)
         {
-            if (window.Resources[key] is not System.Windows.Media.SolidColorBrush brush) continue;
-            var color = brush.Color;
-            window.Resources[key] = new System.Windows.Media.SolidColorBrush(
-                System.Windows.Media.Color.FromArgb(byte.MaxValue, color.R, color.G, color.B));
+            if (!string.Equals(key, "WindowBackgroundBrush", StringComparison.Ordinal)) Flatten(window, key, page);
         }
 
-        // Composited against the window's own background, now that it is opaque. This is the
-        // colour the theme asked for, so it follows the light and dark palettes on its own;
-        // a fixed white does not, and in the dark palette it turned every translucent surface
-        // pale and left the light text sitting on top of it.
+        // And composited against that page. Both answers come from the theme, so light and
+        // dark need no special case here.
         var handle = new WindowInteropHelper(window).Handle;
-        if (handle != IntPtr.Zero
-            && HwndSource.FromHwnd(handle) is HwndSource source
-            && window.Resources["WindowBackgroundBrush"] is System.Windows.Media.SolidColorBrush page)
-        {
-            source.CompositionTarget.BackgroundColor = page.Color;
-        }
+        if (handle != IntPtr.Zero && HwndSource.FromHwnd(handle) is HwndSource source)
+            source.CompositionTarget.BackgroundColor = page;
+    }
+
+    /// <summary>
+    /// Resolves one surface to an opaque colour by compositing it over what is behind it.
+    /// </summary>
+    /// <remarks>
+    /// The obvious way to remove transparency is to set alpha to 255, and it is wrong. The
+    /// dark palette's surface is white at 29 percent: its meaning is a faint lift off a dark
+    /// page, and forcing it opaque produces pure white instead, which is how an opaque dark
+    /// window ended up with white cards and white combo boxes in it. Compositing keeps the
+    /// colour the theme was describing; it only resolves the part the theme left to whatever
+    /// was underneath.
+    /// </remarks>
+    private static System.Windows.Media.Color Flatten(Window window, string key, System.Windows.Media.Color? background)
+    {
+        if (window.Resources[key] is not System.Windows.Media.SolidColorBrush brush) return System.Windows.Media.Colors.Transparent;
+        var color = brush.Color;
+
+        var resolved = background is { } behind
+            ? System.Windows.Media.Color.FromRgb(
+                (byte)Math.Round(color.R * color.A / 255.0 + behind.R * (255 - color.A) / 255.0),
+                (byte)Math.Round(color.G * color.A / 255.0 + behind.G * (255 - color.A) / 255.0),
+                (byte)Math.Round(color.B * color.A / 255.0 + behind.B * (255 - color.A) / 255.0))
+            : System.Windows.Media.Color.FromRgb(color.R, color.G, color.B);
+
+        window.Resources[key] = new System.Windows.Media.SolidColorBrush(resolved);
+        return resolved;
     }
 
     /// <summary>
