@@ -43,6 +43,8 @@ qwen      Qwen 小折扇「绀华」
 
 **4 个替换了用词**（`mimo`、`perplexity`、`rwkv`、`seedance`）：文档原作「小兔码师」「小探灯」「小乌鸦」「小星晶」，在撰写提示词锚点时改为现名，已确认沿用。
 
+> **以程序为准**：本表右列的「名字」只是从 `提示词.md` 抽取出来的历史记录，**不是**程序里实际显示的名字。两者不一致时，以 `versions/csharp-wpf/Services/PetStyleCatalog.cs` 为准（2026-10 确认）。当前有 7 处不一致，都不打算改回：`glm`、`gpt-image2`、`llama` 保留程序里的词缀，`mimo`、`perplexity`、`rwkv`、`seedance` 保留程序里的用词。改名字会改变用户看到的选择菜单和已发布包的 `manifest.json`，需要单独决定。
+
 ## ID 规范
 
 ID 一律小写，且与 `versions/csharp-wpf/assets/pets/<id>/` 目录名严格一致：
