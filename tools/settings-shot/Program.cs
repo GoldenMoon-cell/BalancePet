@@ -110,6 +110,12 @@ internal static class Program
             if (Array.IndexOf(args, "--combo") is var ct && ct >= 0 && ct + 1 < args.Length)
                 return ReportPopupLayout(window, args[ct + 1]);
 
+            if (Array.IndexOf(args, "--bounds") is var bt && bt >= 0 && bt + 1 < args.Length)
+                return ReportBounds(window, args[bt + 1]);
+
+            if (Array.IndexOf(args, "--type") is var tt2 && tt2 >= 0 && tt2 + 1 < args.Length)
+                return ReportType(window, args[tt2 + 1]);
+
             var width = (int)Math.Ceiling(window.ActualWidth);
             var height = (int)Math.Ceiling(window.ActualHeight);            if (width <= 0 || height <= 0)
             {
@@ -216,6 +222,117 @@ internal static class Program
             if (child is T match) yield return match;
             foreach (var nested in FindDescendants<T>(child)) yield return nested;
         }
+    }
+
+    /// <summary>
+    /// Prints every element of a type with its bounds, in window coordinates.
+    /// </summary>
+    /// <remarks>
+    /// For the parts a template never names. A scrollbar thumb is one of those, and reading
+    /// its size out of the pixels is guesswork: it is a translucent brush over whatever
+    /// happens to be behind it, so there is no colour to look for. Asking the element is
+    /// exact.
+    /// </remarks>
+    private static int ReportType(FrameworkElement window, string typeName)
+    {
+        var found = 0;
+        foreach (var child in EnumerateAll(window))
+        {
+            if (child.GetType().Name != typeName) continue;
+            var origin = child.TransformToAncestor(window).Transform(new Point(0, 0));
+            Console.WriteLine($"  {child.GetType().Name,-14} {child.ActualWidth,7:0.##} x {child.ActualHeight,6:0.##}" +
+                              $"   位置 {origin.X:0.##},{origin.Y:0.##}   {(child.IsVisible ? "可见" : "不可见")}");
+            found++;
+        }
+        Console.WriteLine();
+        Console.WriteLine(found == 0 ? $"没有找到 {typeName}。" : $"共 {found} 个 {typeName}。");
+        return 0;
+    }
+
+    private static IEnumerable<FrameworkElement> EnumerateAll(DependencyObject root)
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var index = 0; index < count; index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is FrameworkElement element) yield return element;
+            foreach (var nested in EnumerateAll(child)) yield return nested;
+        }
+    }
+
+    /// <summary>
+    /// Prints a named element's bounds and every ancestor's, so "it looks cut off" becomes a
+    /// comparison of two numbers.
+    /// </summary>
+    /// <remarks>
+    /// A rounded corner is clipped when the element carrying it is wider than the space its
+    /// container actually gives it. That is arithmetic rather than a judgement call, but it
+    /// is close to invisible in a screenshot: a border three pixels too wide looks like a
+    /// border three pixels too wide, which looks fine until the corners turn out to be
+    /// missing. This prints the chain so the two numbers can be compared directly.
+    /// </remarks>
+    private static int ReportBounds(FrameworkElement window, string name)
+    {
+        if (window.FindName(name) is not FrameworkElement target)
+        {
+            Console.WriteLine($"找不到元素：{name}");
+            return 2;
+        }
+
+        var chain = new List<FrameworkElement>();
+        DependencyObject? node = target;
+        while (node is not null)
+        {
+            if (node is FrameworkElement element) chain.Add(element);
+            var visual = VisualTreeHelper.GetParent(node);
+            node = visual ?? (node is FrameworkElement current ? LogicalTreeHelper.GetParent(current) : null);
+        }
+
+        var origin = target.TransformToAncestor(window).Transform(new Point(0, 0));
+        Console.WriteLine($"{name}: {target.ActualWidth:0.##} x {target.ActualHeight:0.##}，窗口内位置 {origin.X:0.##},{origin.Y:0.##}");
+        Console.WriteLine();
+        Console.WriteLine("祖先链（内层到外层）：");
+
+        var problems = 0;
+        for (var index = 0; index < chain.Count; index++)
+        {
+            var element = chain[index];
+            var label = string.IsNullOrEmpty(element.Name) ? "" : $"#{element.Name}";
+            var margin = element.Margin;
+            Console.Write($"  {index,2} {element.GetType().Name,-20}{label,-24}" +
+                          $"{element.ActualWidth,7:0.##} x {element.ActualHeight,6:0.##}  " +
+                          $"Margin {margin.Left:0.##},{margin.Top:0.##},{margin.Right:0.##},{margin.Bottom:0.##}");
+
+            if (index + 1 < chain.Count)
+            {
+                // chain is built from the inside out, so the parent of entry i is entry i+1.
+                var parent = chain[index + 1];
+                var padding = parent is System.Windows.Controls.Border border ? border.Padding : default;
+                var availableWidth = parent.ActualWidth - padding.Left - padding.Right;
+                var availableHeight = parent.ActualHeight - padding.Top - padding.Bottom;
+                var neededWidth = element.ActualWidth + margin.Left + margin.Right;
+                var neededHeight = element.ActualHeight + margin.Top + margin.Bottom;
+                var overWidth = neededWidth - availableWidth;
+                var overHeight = neededHeight - availableHeight;
+                if (overWidth > 0.5)
+                {
+                    problems++;
+                    Console.Write($"   <- 宽 {neededWidth:0.##} > 可用 {availableWidth:0.##}（超 {overWidth:0.##}）");
+                }
+                if (overHeight > 0.5)
+                {
+                    problems++;
+                    Console.Write($"   <- 高 {neededHeight:0.##} > 可用 {availableHeight:0.##}（超 {overHeight:0.##}）");
+                }
+            }
+            Console.WriteLine();
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(problems == 0
+            ? "链上没有元素超出它拿到的宽度。"
+            : $"{problems} 层超出了可用宽度，圆角就是在那里被裁掉的。");
+        return problems == 0 ? 0 : 1;
     }
 
     /// <summary>

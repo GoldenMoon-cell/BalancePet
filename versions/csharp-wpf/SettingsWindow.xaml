@@ -504,14 +504,17 @@
             <TextBlock Grid.Column="1" x:Name="ExtensionNavigationText" Text="扩展" VerticalAlignment="Center" Margin="10,0,0,0"/>
           </Grid>
         </TabItem.Header>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+        <ScrollViewer Padding="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
           <!-- Rows, not a stack. A StackPanel hands its children infinite height, so the
                lists below could never be told to fill what is left and had to be given a
                fixed Height instead. That is why this page had a large empty region under a
                218 px list, and why that list scrollbar thumb shrank to 23 px. MinHeight is
                bound to the viewport so the star rows have a real height to divide, while a
-               window too short to fit everything still scrolls. -->
-          <Grid Margin="2" MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+               window too short to fit everything still scrolls. The 2 px inset lives on the
+               ScrollViewer rather than as a margin here: a margin would be added on top of a
+               MinHeight that already equals the viewport, and the page would scroll by four
+               pixels for no reason. -->
+          <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto"/>
               <RowDefinition Height="*"/>
