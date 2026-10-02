@@ -569,15 +569,32 @@ public partial class SettingsWindow : Window
         //
         // A request is allowed through when the target is genuinely out of view, which is what
         // keeps keyboard navigation working: arrowing past the edge still scrolls.
-        if (e.TargetObject is FrameworkElement target && IsMostlyInView(target))
+        // Nothing inside a list is scrolled on request any more. The lists have their own
+        // scrollbars and the wheel works; a request to reveal a row arrives whenever the
+        // pointer moves over one, because hovering moves keyboard focus, and honouring it is
+        // what made the list jump by rows. Forty-five of these still went through under the
+        // previous rule, which asked only whether the row was out of sight.
+        if (e.TargetObject is DependencyObject target && IsInsideList(target))
         {
             e.Handled = true;
-            Diagnostics.Write("bring", $"窗口: 已拦下（目标已露出 90% 以上）");
+            Diagnostics.Write("bring", "窗口: 已拦下（列表内）");
         }
         else
         {
-            Diagnostics.Write("bring", $"窗口: 放行（目标大部分在视野外）");
+            Diagnostics.Write("bring", "窗口: 放行（不在列表内）");
         }
+    }
+
+    /// <summary>Whether an element belongs to a list or a combo dropdown rather than a page.</summary>
+    private static bool IsInsideList(DependencyObject target)
+    {
+        for (var node = target; node is not null; node = System.Windows.Media.VisualTreeHelper.GetParent(node))
+        {
+            if (node is System.Windows.Controls.Primitives.Selector)
+                return true;
+            if (node is ScrollViewer) return false;
+        }
+        return false;
     }
 
     /// <summary>Whether an element is already far enough inside its viewport to be readable.</summary>

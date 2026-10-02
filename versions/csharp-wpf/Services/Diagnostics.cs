@@ -135,8 +135,16 @@ public static class Diagnostics
         foreach (var thumb in Descendants<Thumb>(root))
         {
             found++;
+            var bar = FindAncestor<System.Windows.Controls.Primitives.ScrollBar>(thumb);
+            var inBar = bar is null ? double.NaN : thumb.TransformToAncestor(bar).Transform(new System.Windows.Point(0, 0)).Y;
             Write("thumb", $"{label}: Thumb {thumb.ActualWidth:0.##} x {thumb.ActualHeight:0.##} " +
-                           $"可见={thumb.IsVisible} 透明度={thumb.Opacity}");
+                           $"可见={thumb.IsVisible} 透明度={thumb.Opacity} 在轨道内的 y={inBar:0.##}");
+            if (bar is not null)
+            {
+                Write("thumb", $"{label}:   滚动条 {bar.ActualWidth:0.##} x {bar.ActualHeight:0.##} " +
+                               $"轨道 {bar.Track?.ActualHeight:0.##} 视口={bar.Track?.ViewportSize:0.##} " +
+                               $"范围={bar.Track?.Maximum:0.##} 值={bar.Value:0.##} 方向反转={bar.Track?.IsDirectionReversed}");
+            }
             var pill = Descendants<Border>(thumb).FirstOrDefault();
             if (pill is not null)
             {
