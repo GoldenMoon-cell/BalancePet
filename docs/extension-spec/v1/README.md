@@ -85,6 +85,42 @@ Rules:
   guessing at an unknown shape would put the wrong words in a character's mouth, while
   the neutral lines are merely generic.
 
+### Lines served from a repository
+
+The lines above travel inside the package, which is what makes an appearance speak for
+itself with no network. They may also be served from a repository, and a host that
+supports it prefers the served copy when it can reach it.
+
+The reason is cost. A package is mostly artwork, so correcting one word by republishing
+the appearance pushes every installation through a download of megabytes to deliver a
+few hundred bytes — measured on the set published by this project, 147 MB of transfer
+for 36 KB of text. Served separately, a line change is one small commit and reaches
+installations on their next refresh, with no release and no download.
+
+The served document collects every appearance at once, keyed by the same id a saved
+setting stores. Each value has the same shape as the file above, minus the nested
+`schema_version`, which belongs to the document:
+
+```json
+{
+  "schema_version": 1,
+  "lines": {
+    "an-appearance": {
+      "bubble": [ { "label": "在看着", "amount": "放心吧", "hint": "余额变动会告诉你" } ]
+    }
+  }
+}
+```
+
+- A document declaring an unknown `schema_version` replaces nothing: the copies inside
+  installed packages stay in force, so the outcome is words that are merely older
+  rather than a character losing its voice.
+- The document only ever describes appearances its author publishes. A third party's
+  appearance is not named by it and is unaffected, which is what keeps this layer from
+  being a way for one publisher to speak for another.
+- Serving lines is optional and a host may have no such layer at all. The file inside
+  the package is the part of the contract; everything here is a refinement of it.
+
 ## Manifest
 
 `manifest.json` uses the following fields:

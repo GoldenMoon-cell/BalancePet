@@ -35,6 +35,13 @@ public static class PetLineCatalog
     /// <summary>Enough for a generous set; beyond it the file is not being used as intended.</summary>
     private const int MaxLinesPerCategory = 24;
 
+    /// <summary>
+    /// Ceiling for the document the appearance repository serves, which carries every
+    /// appearance at once. Generous, because it is one file for all of them rather than
+    /// one per character.
+    /// </summary>
+    private const long MaxRemoteBytes = 512 * 1024;
+
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -44,6 +51,25 @@ public static class PetLineCatalog
     /// <summary>Keyed by asset directory, so a package replacing another is picked up.</summary>
     private static readonly Dictionary<string, LineFile?> Cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object Gate = new();
+
+    /// <summary>
+    /// Lines served by the appearance repository, keyed by appearance id.
+    /// </summary>
+    /// <remarks>
+    /// A second source, consulted before the package's own file, and it exists because of
+    /// what a line change used to cost. The lines were only ever inside the package, and a
+    /// package is mostly artwork: correcting one word meant republishing an appearance,
+    /// bumping its version, and pushing every installation through a download of several
+    /// megabytes to receive a few hundred bytes. Measured on the published set, updating
+    /// all fourteen appearances to gain their lines was 147 MB of transfer for 36 KB of
+    /// text.
+    ///
+    /// The file inside the package stays, and is what an installation that has never
+    /// reached the network uses. So a package still speaks for itself offline, and a third
+    /// party's appearance is unaffected either way because this document only ever names
+    /// the appearances published by the project.
+    /// </remarks>
+    private static Dictionary<string, LineFile>? _remote;
 
     /// <summary>The categories an appearance may speak in, each with its neutral fallback.</summary>
     private static readonly Dictionary<string, PetLine[]> Neutral = new(StringComparer.OrdinalIgnoreCase)
@@ -127,8 +153,18 @@ public static class PetLineCatalog
 
     private static LineFile? Load(string? style)
     {
+        var id = PetStyleCatalog.NormalizeId(style);
+
+        // The served document is checked first, because a line corrected there is meant to
+        // reach an installation that already has the package and will never download it
+        // again. The package's own file is the fallback, not the other way round.
+        lock (Gate)
+        {
+            if (_remote is not null && _remote.TryGetValue(id, out var served)) return served;
+        }
+
         string directory;
-        try { directory = PetStyleCatalog.ResolveAssetDirectory(style); }
+        try { directory = PetStyleCatalog.ResolveAssetDirectory(id); }
         catch (Exception error) when (error is IOException or ArgumentException or InvalidOperationException) { return null; }
 
         lock (Gate)
@@ -139,6 +175,43 @@ public static class PetLineCatalog
         var parsed = Read(Path.Combine(directory, FileName));
         lock (Gate) { Cache[directory] = parsed; }
         return parsed;
+    }
+
+    /// <summary>
+    /// Replaces the served lines with the contents of a document, returning whether it
+    /// could be used at all.
+    /// </summary>
+    /// <remarks>
+    /// A document written against a schema this build does not know replaces nothing. The
+    /// package copies are then still in play, so an unrecognised document degrades to the
+    /// lines that shipped rather than to an empty set — and never to guessed words.
+    /// </remarks>
+    public static bool PublishRemote(string json)
+    {
+        var document = ParseRemote(json);
+        if (document is null) return false;
+        lock (Gate) { _remote = document; }
+        return true;
+    }
+
+    private static Dictionary<string, LineFile>? ParseRemote(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || json.Length > MaxRemoteBytes) return null;
+        try
+        {
+            var document = JsonSerializer.Deserialize<ServedFile>(json, Options);
+            if (document is null || document.SchemaVersion != CurrentSchemaVersion) return null;
+            if (document.Lines is null) return null;
+
+            var map = new Dictionary<string, LineFile>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in document.Lines)
+            {
+                if (string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null) continue;
+                map[pair.Key.Trim()] = pair.Value;
+            }
+            return map.Count == 0 ? null : map;
+        }
+        catch (JsonException) { return null; }
     }
 
     private static LineFile? Read(string path)
@@ -173,6 +246,16 @@ public static class PetLineCatalog
             return document is not null && document.SchemaVersion == CurrentSchemaVersion ? document : null;
         }
         catch (JsonException) { return null; }
+    }
+
+    /// <summary>
+    /// The document the appearance repository serves: every appearance's lines, keyed by
+    /// the same id a saved setting stores.
+    /// </summary>
+    private sealed class ServedFile
+    {
+        [JsonPropertyName("schema_version")] public int SchemaVersion { get; set; } = 1;
+        [JsonPropertyName("lines")] public Dictionary<string, LineFile>? Lines { get; set; }
     }
 
     private sealed class LineFile

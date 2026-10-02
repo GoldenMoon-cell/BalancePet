@@ -409,6 +409,11 @@ public partial class MainWindow : Window
         // disk and then the installed packages, so the appearance resolves before,
         // during and after the conversion.
         _ = Task.Run(() => ShippedPetMigration.Run());
+        // Before the first draw, so the window does not show the lines frozen inside the
+        // package and then replace them a moment later. The cached copy is a small file
+        // read; the refresh that follows runs in the background and is allowed to fail.
+        AppearanceLinesService.LoadCache();
+        _ = AppearanceLinesService.RefreshAsync(_updateHttpClient);
         _usageEventBridge.Start();
         PublishNotificationState();
         SetupTray();

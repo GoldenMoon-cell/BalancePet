@@ -350,6 +350,48 @@ internal static class Program
             Check("空文件回落到中性文案", PetLineCatalog.IsReadable("") == false);
             Check("正常文件可读", PetLineCatalog.IsReadable(File.ReadAllText(Path.Combine(appRoot, "assets", "pets", "chatgpt", "lines.json"))));
 
+            // --- 12. The served lines layer ------------------------------------
+            // The lines are also published from the appearance repository, because a package
+            // is mostly artwork: correcting one word used to mean a new package version and a
+            // download of megabytes per appearance. Measured across the published set, giving
+            // every appearance its lines cost 147 MB of transfer for 36 KB of text.
+            //
+            // A synthetic document rather than the published one. The published copy is
+            // generated from these very package files, so it cannot tell "the served lines
+            // were used" apart from "the package's were" -- a label that appears nowhere else
+            // can. This runs last because publishing replaces what every later lookup sees.
+            const string marker = """{"schema_version":1,"lines":{"chatgpt":{"bubble":[{"label":"在线文案生效","amount":"ok","hint":"h"}]}}}""";
+            Check("在线文案优先于包内文案",
+                PetLineCatalog.PublishRemote(marker)
+                && PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label).SingleOrDefault() == "在线文案生效",
+                string.Join(" / ", PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label)));
+            // Refusing the document has to leave the previous one in force. Clearing it would
+            // turn an unrecognised schema into characters losing their voices.
+            Check("无法识别的在线文档不会被采用",
+                PetLineCatalog.PublishRemote("""{"schema_version":99,"lines":{}}""") == false
+                && PetLineCatalog.PublishRemote("{ not json") == false
+                && PetLineCatalog.PublishRemote("") == false
+                && PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label).SingleOrDefault() == "在线文案生效");
+
+            var servedJson = File.ReadAllText(Path.Combine(repoRoot, "skins", "lines.json"));
+            using (var servedDocument = JsonDocument.Parse(servedJson))
+            {
+                var servedStyles = servedDocument.RootElement.GetProperty("lines").EnumerateObject()
+                    .Select(property => property.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray();
+                // The placeholder is excluded deliberately: it ships inside the program and is
+                // not published as an appearance, so its file is always there anyway.
+                var expectedServed = publishable.Select(id => id["pet.".Length..]).OrderBy(name => name, StringComparer.Ordinal).ToArray();
+                var absent = expectedServed.Except(servedStyles, StringComparer.Ordinal).ToArray();
+                Check($"在线文案覆盖全部 {expectedServed.Length} 套已发布形象",
+                    absent.Length == 0 && servedStyles.Length == expectedServed.Length,
+                    $"文档 {servedStyles.Length} 套；缺 {string.Join(",", absent)}");
+            }
+            Check("在线文案可被采用", PetLineCatalog.PublishRemote(servedJson));
+            // And with the real document in force, every appearance still answers from it.
+            Check("在线文案生效后形象仍说自己的话",
+                PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label).Any(label => label.Contains("霁珑")),
+                string.Join(" / ", PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label)));
+
             // The digest is what makes resuming safe: bytes appended from a source that
             // answered the wrong range would otherwise be installed as an update.
             var corrupted = "";

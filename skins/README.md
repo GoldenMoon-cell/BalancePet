@@ -51,6 +51,14 @@ installation which upgrades keeps the character it was using: the `style` value 
 each package is the same identifier the application has always stored, which is what
 lets the setting keep resolving.
 
+## What they say
+
+Each package carries the character's lines, so it speaks with no network at all. The
+same lines are also collected into [`lines.json`](lines.json) here, which the
+application prefers when it can reach it — a package is mostly artwork, so correcting
+a word by republishing one would push every installation through a download of
+megabytes to deliver a few hundred bytes.
+
 ## Package format
 
 The format is defined by the

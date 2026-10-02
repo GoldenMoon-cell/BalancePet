@@ -10,6 +10,7 @@ repository, so that publishing is a copy rather than a second authoring step.
 | --- | --- |
 | `README.md` | The appearance repository's front page. Written to be read there, so its links point at the main repository rather than at files beside it. |
 | `catalog.json` | Generated. The index the online extension library reads, so an appearance can be installed from Settings instead of downloaded by hand. |
+| `lines.json` | Generated. Every appearance's lines in one document, so what a character says can be corrected without republishing its artwork. The application prefers it when it can reach the network and falls back to the copy inside the package when it cannot. |
 
 ## Animating an appearance
 
@@ -33,7 +34,6 @@ sinking doze, both as ordinary frames.
 ```powershell
 .\tools\build-skin-catalog.ps1 -Repository OWNER/REPO
 ```
-
 It reads each package's own manifest for the id, name and version, and computes the
 SHA-256 from the file, so an entry cannot disagree with the artifact it points at.
 The repository is a parameter because it is the one thing that cannot be derived
@@ -46,6 +46,31 @@ all rebuilt together.
 
 Regenerate it after rebuilding any package. A stale hash is worse than a missing
 entry: the install downloads the whole archive and then fails.
+
+## Changing what an appearance says
+
+Fixing a line does not need a new package. The lines are collected into one document
+and served from this repository:
+
+```powershell
+# 1. Edit versions\csharp-wpf\assets\pets\<style>\lines.json
+
+# 2. Rebuild the document and publish it to the default branch
+.\tools\build-appearance-lines.ps1
+```
+
+That is the whole cycle. Installed copies pick the change up on their next refresh,
+and nobody downloads artwork to receive it.
+
+The file inside the package is still written, and is what an installation that has
+never reached the network reads, so it must stay correct rather than being treated as
+dead weight. The script rebuilds it from those files, which also means the document
+cannot drift from them.
+
+Do not reach for a new package version to change a line. A package is mostly artwork:
+republishing one to deliver a few hundred bytes pushes every installation through a
+download of megabytes. Measured on the published set, giving all fourteen appearances
+their lines that way cost 147 MB of transfer for 36 KB of text.
 
 ## Updating one appearance
 
@@ -76,8 +101,8 @@ installed it.
 
 ## Publishing
 
-Copy `README.md` and `catalog.json` to the appearance repository's default branch,
-then attach the ZIPs from `dist/pets/` to a release.
+Copy `README.md`, `catalog.json` and `lines.json` to the appearance repository's
+default branch, then attach the ZIPs from `dist/pets/` to a release.
 
 `catalog.json` is the one file the application reads from that repository, so it has
 to be published rather than left here. It carries an identity of its own —
