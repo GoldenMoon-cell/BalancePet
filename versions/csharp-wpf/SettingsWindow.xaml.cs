@@ -591,15 +591,7 @@ public partial class SettingsWindow : Window
         // pointer moves over one, because hovering moves keyboard focus, and honouring it is
         // what made the list jump by rows. Forty-five of these still went through under the
         // previous rule, which asked only whether the row was out of sight.
-        if (e.TargetObject is DependencyObject target && IsInsideList(target))
-        {
-            e.Handled = true;
-            Diagnostics.Write("bring", "窗口: 已拦下（列表内）");
-        }
-        else
-        {
-            Diagnostics.Write("bring", "窗口: 放行（不在列表内）");
-        }
+
     }
 
     /// <summary>Whether an element belongs to a list or a combo dropdown rather than a page.</summary>
