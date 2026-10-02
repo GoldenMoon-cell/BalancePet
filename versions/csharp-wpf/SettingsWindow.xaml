@@ -547,6 +547,7 @@
                   <TabItem Style="{StaticResource ChipTab}" Tag="theme"><TabItem.Header><TextBlock x:Name="CatalogCategoryThemeText" Text="主题"/></TabItem.Header></TabItem>
                   <TabItem Style="{StaticResource ChipTab}" Tag="browser"><TabItem.Header><TextBlock x:Name="CatalogCategoryBrowserText" Text="浏览器"/></TabItem.Header></TabItem>
                 </TabControl>
+                <Grid>
                 <ListBox x:Name="PluginCatalogListBox" Height="218" BorderThickness="0" Background="Transparent" Padding="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                   <ListBox.ItemTemplate>
                     <DataTemplate>
@@ -571,6 +572,13 @@
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
+                  <!-- Says why the list is empty, because an empty box of fixed height
+                       reads as a loading failure rather than as "nothing matches". -->
+                  <TextBlock x:Name="PluginCatalogEmptyText" Visibility="Collapsed" IsHitTestVisible="False"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+                             MaxWidth="330" TextWrapping="Wrap" FontSize="12"
+                             Foreground="{DynamicResource MutedBrush}"/>
+                </Grid>
                 <TextBlock x:Name="PluginCatalogStatusText" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"/>
                 </StackPanel>
               </TabItem>

@@ -113,6 +113,14 @@ public static class ShippedPetMigration
             // is somebody else's business and is left alone rather than guessed at.
             if (!PetStyleCatalog.TryGetDefinition(style, out var definition)) continue;
             if (!string.Equals(definition.Id, style, StringComparison.OrdinalIgnoreCase)) continue;
+
+            // An appearance the program provides is not a leftover and never becomes a
+            // package. Converting it cannot succeed -- the manager refuses a package
+            // whose style collides with a built-in id -- and the failure it produces
+            // would stop the completion marker from ever being written, so every launch
+            // would stage an archive for it and throw it away again.
+            if (PetStyleCatalog.IsProvided(style)) continue;
+
             if (RequiredStates.Any(state => !File.Exists(Path.Combine(directory, state)))) continue;
 
             if (packaged.Contains(style))

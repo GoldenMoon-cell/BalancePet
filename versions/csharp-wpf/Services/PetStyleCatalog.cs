@@ -260,13 +260,24 @@ public static class PetStyleCatalog
         return styles.Values.ToArray();
     }
 
-    /// <summary>True when the appearance is a package shipped inside the app folder.</summary>
-    public static bool IsShipped(string? value)
+    /// <summary>
+    /// True when the appearance is one the program provides itself.
+    /// </summary>
+    /// <remarks>
+    /// Membership is about the id alone, not about whether the artwork happens to be on
+    /// disk. The migration has to know an appearance is provided before it looks at the
+    /// folder, because a provided appearance is never converted into a package and
+    /// attempting it stages an archive per launch that the manager then refuses.
+    /// </remarks>
+    public static bool IsProvided(string? value)
     {
         var style = NormalizeId(value);
-        return All.Any(definition => string.Equals(definition.Id, style, StringComparison.OrdinalIgnoreCase))
-            && IsCompleteDirectory(Path.Combine(AppContext.BaseDirectory, "assets", "pets", style));
+        return All.Any(definition => string.Equals(definition.Id, style, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>True when the appearance is a package shipped inside the app folder.</summary>
+    public static bool IsShipped(string? value)
+        => IsProvided(value) && IsCompleteDirectory(Path.Combine(AppContext.BaseDirectory, "assets", "pets", NormalizeId(value)));
 
     /// <summary>
     /// Whether removing this appearance would leave the app with nothing to draw.

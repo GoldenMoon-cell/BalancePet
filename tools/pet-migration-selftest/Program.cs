@@ -51,9 +51,19 @@ internal static class Program
             // --- 1. Two shipped appearances become packages -------------------
             Stage(appDirectory, realPets, "qwen");
             Stage(appDirectory, realPets, "gemini");
+            // A distribution appearance sits in the same folder and must be left alone.
+            // Converting it cannot succeed -- the manager refuses a package whose style
+            // collides with a built-in id -- and that failure stops the completion
+            // marker from ever being written, so every launch would stage an archive
+            // for it and throw it away again.
+            Stage(appDirectory, realPets, "deepseek");
             var result = ShippedPetMigration.Run(appDirectory, extensionsRoot);
             Check("迁移数量 = 2", result.Migrated == 2, $"实际 {result.Migrated}");
             Check("无失败", result.Failed.Count == 0, string.Join("；", result.Failed));
+            Check("随程序提供的形象不被转换", Directory.Exists(Path.Combine(appDirectory, "assets", "pets", "deepseek")));
+            Check("随程序提供的形象没有装成包", !InstalledStyles(extensionsRoot).Contains("deepseek"));
+            Check("完成后写下标记", File.Exists(Path.Combine(workspace, "pet-migration.v1.done")),
+                Path.Combine(workspace, "pet-migration.v1.done"));
             Check("qwen 原目录已删除", !Directory.Exists(Path.Combine(appDirectory, "assets", "pets", "qwen")));
             Check("gemini 原目录已删除", !Directory.Exists(Path.Combine(appDirectory, "assets", "pets", "gemini")));
             Check("qwen 包已安装", InstalledStyles(extensionsRoot).Contains("qwen"));
@@ -196,6 +206,37 @@ internal static class Program
 
             var ignored = await Download(new RangeServer(payload, dropAfter: 50_000) { IgnoreRange = true });
             Check("服务器不支持 Range 时从头重来", ignored.Ok, $"实际 {ignored.Bytes.Length} 字节");
+
+            // --- 10. The two catalogs cannot be mistaken for each other ---------
+            // They are fetched from different repositories by URL, and a URL is the one
+            // thing that can silently point somewhere else. Each parser has to refuse the
+            // other's document, or a swapped address would be accepted and produce a list
+            // of entries that cannot be installed. These read the real published files
+            // rather than fixtures, so the two shapes cannot drift apart unnoticed.
+            var repoRoot = Path.GetFullPath(Path.Combine(appRoot, "..", ".."));
+            var appearanceJson = File.ReadAllText(Path.Combine(repoRoot, "skins", "catalog.json"));
+            var pluginJson = File.ReadAllText(Path.Combine(repoRoot, "plugin-catalog.json"));
+
+            var appearances = PluginCatalogService.ParseAppearances(appearanceJson);
+            Check("形象目录解析出 12 条", appearances.Count == 12, $"实际 {appearances.Count}");
+            Check("形象条目都是 pet 类型", appearances.All(item => item.Type == "pet"));
+            Check("形象条目可安装", appearances.All(item => item.Id.StartsWith("pet.", StringComparison.Ordinal)
+                && item.Sha256.Length == 64 && item.DownloadUrl.EndsWith(".zip", StringComparison.Ordinal)));
+
+            var plugins = PluginCatalogService.Parse(pluginJson);
+            Check("插件目录仍解析出 4 条", plugins.Count == 4, $"实际 {plugins.Count}");
+
+            var crossed = "";
+            try { PluginCatalogService.ParseAppearances(pluginJson); }
+            catch (InvalidDataException error) { crossed = error.Message; }
+            Check("插件目录不会被当成形象目录", crossed.Contains("不是形象目录", StringComparison.Ordinal), crossed);
+
+            // What a wrong URL really returns is not another catalog but any JSON at
+            // all, which declares no identity.
+            var anonymous = "";
+            try { PluginCatalogService.ParseAppearances("""{"schema_version":1,"appearances":[]}"""); }
+            catch (InvalidDataException error) { anonymous = error.Message; }
+            Check("没有标识的文档被拒绝", anonymous.Contains("不是形象目录", StringComparison.Ordinal), anonymous);
 
             // The digest is what makes resuming safe: bytes appended from a source that
             // answered the wrong range would otherwise be installed as an update.

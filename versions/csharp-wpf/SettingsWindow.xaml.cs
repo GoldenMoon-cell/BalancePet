@@ -941,24 +941,29 @@ public partial class SettingsWindow : Window
             RebuildPluginCatalogItems();
             if (result.FromRemote)
             {
-                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"已从官方目录加载 {_pluginCatalogEntries.Count} 个插件。", $"Loaded {_pluginCatalogEntries.Count} plugin(s) from the curated catalog.");
+                // A source that failed while another succeeded is still worth saying:
+                // an empty category looks like "nothing is published" otherwise.
+                var partial = string.IsNullOrWhiteSpace(result.Error) ? "" : $"（{result.Error}）";
+                PluginCatalogStatusText.Text = AppLocalization.Text(language,
+                    $"已从官方目录加载 {_pluginCatalogEntries.Count} 个扩展。{partial}",
+                    $"Loaded {_pluginCatalogEntries.Count} extension(s) from the curated catalogs.{(string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error}")}");
             }
             else if (_pluginCatalogEntries.Count > 0)
             {
                 var suffix = string.IsNullOrWhiteSpace(result.Error) ? "" : $"（在线目录暂时不可用：{result.Error}）";
-                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"网络不可用，已使用本地缓存目录，共 {_pluginCatalogEntries.Count} 个插件{suffix}", $"Online catalog unavailable; showing {_pluginCatalogEntries.Count} cached plugin(s).{(string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error}")}");
+                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"网络不可用，已使用本地缓存，共 {_pluginCatalogEntries.Count} 个扩展{suffix}", $"Online catalogs unavailable; showing {_pluginCatalogEntries.Count} cached extension(s).{(string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error}")}");
             }
             else
             {
-                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"插件目录加载失败：{result.Error ?? "暂无可用条目"}", $"Could not load the plugin catalog: {result.Error ?? "No entries are available."}");
+                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"扩展目录加载失败：{result.Error ?? "暂无可用条目"}", $"Could not load the catalogs: {result.Error ?? "No entries are available."}");
             }
         }
         catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or JsonException or TaskCanceledException)
         {
             if (!_pluginCatalogCancellation.IsCancellationRequested)
             {
-                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"插件目录加载失败：{error.Message}", $"Could not load the plugin catalog: {error.Message}");
-                if (manual) ShowExtensionError($"插件目录加载失败：{error.Message}", $"Could not load the plugin catalog: {error.Message}");
+                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"扩展目录加载失败：{error.Message}", $"Could not load the catalogs: {error.Message}");
+                if (manual) ShowExtensionError($"扩展目录加载失败：{error.Message}", $"Could not load the catalogs: {error.Message}");
             }
         }
         finally
@@ -989,7 +994,30 @@ public partial class SettingsWindow : Window
             })
             .ToArray();
         PluginCatalogListBox.ItemsSource = views;
-        PluginCatalogCountText.Text = AppLocalization.Text(language, $"{views.Length} 个插件", $"{views.Length} plugin(s)");
+        // Two true numbers that read as a contradiction when a category is selected,
+        // so the count says which is which rather than leaving the user to guess.
+        PluginCatalogCountText.Text = views.Length == _pluginCatalogEntries.Count
+            ? AppLocalization.Text(language, $"{views.Length} 个扩展", $"{views.Length} extension(s)")
+            : AppLocalization.Text(language, $"{views.Length} / {_pluginCatalogEntries.Count} 个扩展", $"{views.Length} / {_pluginCatalogEntries.Count} extension(s)");
+
+        // The list keeps its height whether or not it has rows, so an empty result has
+        // to say something: a blank box of that size looks like a failed load.
+        var empty = views.Length == 0;
+        PluginCatalogEmptyText.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+        if (!empty) return;
+        PluginCatalogEmptyText.Text = _pluginCatalogEntries.Count == 0
+            ? AppLocalization.Text(language,
+                "目录里暂时没有可安装的扩展。点「刷新目录」重新读取。",
+                "No installable extensions in the catalog yet. Use Refresh catalog to read it again.")
+            : _pluginCatalogCategory switch
+            {
+                "pet" => AppLocalization.Text(language,
+                    "还没有可安装的形象包。主程序自带两套形象与一套占位形象，更多形象发布后会出现在这里。",
+                    "No installable appearances yet. The program ships with two appearances and a placeholder; more will appear here once published."),
+                _ => AppLocalization.Text(language,
+                    "这个分类下暂时没有内容。",
+                    "Nothing in this category yet.")
+            };
     }
 
     private async void OnInstallPluginCatalogItem(object sender, RoutedEventArgs e)

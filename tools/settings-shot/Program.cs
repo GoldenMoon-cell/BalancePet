@@ -40,6 +40,12 @@ internal static class Program
         var tabElement = Array.IndexOf(args, "--tab") is var tt && tt >= 0 && tt + 1 < args.Length
             ? args[tt + 1]
             : "PetPreviewGrid";
+        // The catalogs are fetched asynchronously while the window opens, so a capture
+        // taken immediately shows the page mid-load. --wait pumps the dispatcher until
+        // the answers have been applied.
+        var waitSeconds = Array.IndexOf(args, "--wait") is var wt && wt >= 0 && wt + 1 < args.Length && int.TryParse(args[wt + 1], out var seconds)
+            ? seconds
+            : 0;
         var window = new SettingsWindow(store, new DpapiTokenStore(), settings)
         {
             WindowStartupLocation = WindowStartupLocation.Manual,
@@ -62,6 +68,17 @@ internal static class Program
                 window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
                 window.UpdateLayout();
             }
+
+            // Pumping on the UI thread rather than awaiting: the window's own load
+            // continuations are posted to this dispatcher, so they only run while it
+            // is being drained.
+            var deadline = DateTime.UtcNow.AddSeconds(waitSeconds);
+            while (DateTime.UtcNow < deadline)
+            {
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                Thread.Sleep(120);
+            }
+            window.UpdateLayout();
 
             var width = (int)Math.Ceiling(window.ActualWidth);
             var height = (int)Math.Ceiling(window.ActualHeight);
