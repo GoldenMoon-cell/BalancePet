@@ -1366,7 +1366,12 @@ public partial class MainWindow : Window
         foreach (var available in PetStyleCatalog.GetAvailableStyles())
         {
             var entry = new Forms.ToolStripMenuItem(PetStyleDisplayName(available.Id)) { Tag = available.Id };
-            entry.Click += (_, _) => ChangePetStyle(available.Id);
+            // Deferred for the same reason the tray's other handlers are: this runs from
+            // inside the clicked item, and switching appearance rebuilds this very
+            // collection. Removing an item while WinForms is still dispatching its own
+            // click leaves the framework holding an item that is no longer in any menu.
+            var id = available.Id;
+            entry.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() => ChangePetStyle(id)));
             _trayStyleItems[available.Id] = entry;
             _trayStyleMenuItem.DropDownItems.Add(entry);
         }
