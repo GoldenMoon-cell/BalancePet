@@ -173,7 +173,7 @@
             <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
                    IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Fade">
               <Border x:Name="PopupChrome" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                      MaxHeight="320" Margin="0,5,0,0" Padding="4" Background="{DynamicResource SurfaceStrongBrush}"
+                      MaxHeight="320" Margin="0,5,0,0" Padding="4,4,4,10" Background="{DynamicResource SurfaceStrongBrush}"
                       BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
                 <Border.Effect><DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.2" Color="#000000"/></Border.Effect>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="True">
