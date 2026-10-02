@@ -5,6 +5,12 @@
        user can point this one resource at any face the machine has. Swapping it restyles
        every control, which is why nothing binds a literal family. -->
   <FontFamily x:Key="UiFontFamily">Segoe UI, Microsoft YaHei UI</FontFamily>
+  <!-- The face used for the text that names the chosen face. It cannot be UiFontFamily: a
+       combo box draws its selection in its own font, so picking a font that cannot render
+       its own name, which plenty of installed families cannot, made the box look empty while
+       the text was present, visible and correctly sized. The list still previews each face;
+       only the label that reports the choice is kept legible. -->
+  <FontFamily x:Key="UiLabelFontFamily">Segoe UI, Microsoft YaHei UI</FontFamily>
   <Style x:Key="FluentFocusVisual">
     <Setter Property="Control.Template">
       <Setter.Value>
@@ -157,7 +163,7 @@
               <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="34"/></Grid.ColumnDefinitions>
                 <TextBlock x:Name="SelectionText" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"
-                           Foreground="{TemplateBinding Foreground}"
+                           FontFamily="{DynamicResource UiLabelFontFamily}" Foreground="{TemplateBinding Foreground}"
                            Text="{Binding SelectionBoxItem, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
                            TextTrimming="CharacterEllipsis" IsHitTestVisible="False"/>
                 <ToggleButton x:Name="DropDownToggle" Grid.Column="1" Style="{StaticResource ComboDropButton}"

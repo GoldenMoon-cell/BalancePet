@@ -514,7 +514,17 @@ public partial class SettingsWindow : Window
 
     private void OnComboDroppedDown(object sender, EventArgs e)
     {
-        if (ReferenceEquals(sender, UiFontBox)) DumpOpenDropdown("界面字体", UiFontBox);
+        if (!ReferenceEquals(sender, UiFontBox)) return;
+        // Deferred. The popup's tree does not exist yet when this fires, which is why the
+        // first attempt reported no scrollbars at all rather than reporting the wrong ones.
+        foreach (var priority in new[]
+                 {
+                     System.Windows.Threading.DispatcherPriority.Loaded,
+                     System.Windows.Threading.DispatcherPriority.ContextIdle
+                 })
+        {
+            Dispatcher.BeginInvoke(priority, new Action(() => DumpOpenDropdown("界面字体", UiFontBox)));
+        }
     }
 
     private void OnUiFontChanged(object sender, SelectionChangedEventArgs e)
@@ -583,7 +593,11 @@ public partial class SettingsWindow : Window
             var top = element.TransformToAncestor(viewport).Transform(new System.Windows.Point(0, 0)).Y;
             var bottom = top + element.ActualHeight;
             var shown = Math.Min(bottom, viewport.ViewportHeight) - Math.Max(top, 0);
-            return shown >= element.ActualHeight * 0.9;
+            // Any part of the row being visible is enough to leave the list alone. The
+            // threshold was ninety percent, which is precisely the case that was reported:
+            // the last, half-cut row fell under it, so the request went through and the list
+            // scrolled several rows to reveal what the user could already see.
+            return shown > 1;
         }
         catch (InvalidOperationException) { return false; }
     }
