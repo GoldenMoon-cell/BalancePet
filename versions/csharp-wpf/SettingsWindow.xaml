@@ -116,13 +116,17 @@
       <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Padding" Value="14,6,14,6"/>
-      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="Margin" Value="0"/>
       <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="TabItem">
+            <!-- The gap lives here rather than in the item's Margin, for the same reason the
+                 navigation item's does: a TabPanel hands each item a slot the size of the
+                 item, and a margin is taken out of that slot instead of sitting outside it,
+                 so the right-hand corners of the selected tab were sliced off. -->
             <Border x:Name="TabBorder" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"
-                    CornerRadius="{DynamicResource ThemeCornerRadius}" Padding="{TemplateBinding Padding}">
+                    CornerRadius="{DynamicResource ThemeCornerRadius}" Padding="{TemplateBinding Padding}" Margin="0,0,6,0">
               <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
@@ -143,7 +147,7 @@
     <Style x:Key="ChipTab" TargetType="TabItem" BasedOn="{StaticResource SectionTab}">
       <Setter Property="FontSize" Value="12"/>
       <Setter Property="Padding" Value="10,4,10,4"/>
-      <Setter Property="Margin" Value="0,0,4,0"/>
+      <Setter Property="Margin" Value="0"/>
     </Style>
     <Style TargetType="TabItem">
       <!-- Stretch, not a fixed width. It used to be Width="165" with a 6 px margin on each
@@ -567,7 +571,7 @@
                   <TabItem Style="{StaticResource ChipTab}" Tag="browser"><TabItem.Header><TextBlock x:Name="CatalogCategoryBrowserText" Text="浏览器"/></TabItem.Header></TabItem>
                 </TabControl>
                 <Grid Grid.Row="3">
-                <ListBox x:Name="PluginCatalogListBox" MinHeight="120" BorderThickness="0" Background="Transparent" Padding="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                <ListBox x:Name="PluginCatalogListBox" PreviewMouseWheel="OnListPreviewMouseWheel" MinHeight="120" BorderThickness="0" Background="Transparent" Padding="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
                   <ListBox.ItemTemplate>
                     <DataTemplate>
                       <Border Padding="8" Margin="0,2" Background="{DynamicResource SurfaceStrongBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="7">
@@ -605,7 +609,7 @@
                 <TabItem.Header><TextBlock x:Name="LocalExtensionsTabText" Text="本地扩展功能"/></TabItem.Header>
                 <StackPanel Margin="0,12,0,0">
             <TextBlock x:Name="LocalExtensionsHintText" Text="已下载到扩展库的 ZIP 会显示在这里；扫描到不代表已经安装。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,7"/>
-            <ListBox x:Name="ExtensionListBox" AllowDrop="True" Drop="OnExtensionDrop" DragOver="OnExtensionDragOver" MinHeight="120" SelectionChanged="OnExtensionSelectionChanged" BorderBrush="{DynamicResource BorderBrush}" Background="{DynamicResource SurfaceBrush}" BorderThickness="1" Padding="7" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+            <ListBox x:Name="ExtensionListBox" PreviewMouseWheel="OnListPreviewMouseWheel" AllowDrop="True" Drop="OnExtensionDrop" DragOver="OnExtensionDragOver" MinHeight="120" SelectionChanged="OnExtensionSelectionChanged" BorderBrush="{DynamicResource BorderBrush}" Background="{DynamicResource SurfaceBrush}" BorderThickness="1" Padding="7" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
               <ListBox.ItemTemplate>
                 <DataTemplate>
                   <Border Padding="9,8" Margin="0,2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="7">

@@ -985,6 +985,30 @@ public partial class SettingsWindow : Window
         SettingsContentHost.BeginAnimation(OpacityProperty, fade);
     }
 
+    /// <summary>
+    /// Passes the wheel on to whatever contains this list.
+    /// </summary>
+    /// <remarks>
+    /// The lists no longer scroll: the page does, and they size to their content. But a
+    /// ListBox still handles the wheel whether or not it has anywhere to scroll, so the
+    /// pointer resting on a card -- which is most of the page -- stopped the page from
+    /// scrolling at all. Turning the scrollbar off only stops it being drawn.
+    ///
+    /// The event is re-raised on the visual parent rather than left unhandled, because by
+    /// the time it reaches here the ListBox has already claimed it.
+    /// </remarks>
+    private void OnListPreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        if (e.Handled || sender is not UIElement element) return;
+        e.Handled = true;
+        var forwarded = new System.Windows.Input.MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+        {
+            RoutedEvent = UIElement.MouseWheelEvent,
+            Source = element
+        };
+        (System.Windows.Media.VisualTreeHelper.GetParent(element) as UIElement)?.RaiseEvent(forwarded);
+    }
+
     private void OnScanExtensionLibrary(object sender, RoutedEventArgs e)
     {
         try
