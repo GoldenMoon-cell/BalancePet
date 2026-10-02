@@ -1,6 +1,7 @@
 <Window x:Class="BalancePet.Wpf.NoticeWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:BalancePet.Wpf.Controls"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="小余额更新记录" Width="580" Height="620" MinWidth="460" MinHeight="380"
@@ -95,7 +96,7 @@
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
           <StackPanel VerticalAlignment="Center">
-            <CheckBox x:Name="NotifyBox" Content="有新内容时让桌宠提醒我" Checked="OnNotifyChanged" Unchecked="OnNotifyChanged"/>
+            <local:ToggleSwitch x:Name="NotifyBox" Content="有新内容时让桌宠提醒我" Checked="OnNotifyChanged" Unchecked="OnNotifyChanged"/>
             <TextBlock x:Name="NotifyHintText" Text="关掉之后仍然会记录，只是不再主动弹出气泡。" FontSize="11" Margin="0,4,0,0"
                        Foreground="{DynamicResource MutedBrush}"/>
           </StackPanel>
