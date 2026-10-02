@@ -362,7 +362,6 @@ public partial class SettingsWindow : Window
         SyncComboDisplay(ThemeModeBox);
         SyncComboDisplay(ThemeBackdropBox);
         SyncComboDisplay(BrowserSessionBrowserBox);
-        SyncComboDisplay(UiFontBox, (UiFontBox?.SelectedItem as FontChoice)?.Label);
     }
 
     private void RefreshThemeList(string? selectedId = null)
@@ -404,7 +403,12 @@ public partial class SettingsWindow : Window
     /// font names all rendered in the same font tells the reader nothing about any of them,
     /// which is the entire reason someone opens this list.
     /// </remarks>
-    public sealed record FontChoice(string Label, string Family, System.Windows.Media.FontFamily Preview);
+    public sealed record FontChoice(string Label, string Family, System.Windows.Media.FontFamily Preview)
+    {
+        // The combo template shows SelectionBoxItem, which is the item object when the list is
+        // bound to data. This is what turns that object back into the name on the box.
+        public override string ToString() => Label;
+    }
 
     private string _selectedUiFont = "";
     private bool _fillingFonts;
@@ -447,7 +451,6 @@ public partial class SettingsWindow : Window
             var selected = choices.FirstOrDefault(choice =>
                 string.Equals(choice.Family, _selectedUiFont, StringComparison.OrdinalIgnoreCase)) ?? followSystem;
             UiFontBox.SelectedItem = selected;
-            SyncComboDisplay(UiFontBox, selected.Label);
         }
         finally { _fillingFonts = false; }
     }
@@ -502,10 +505,11 @@ public partial class SettingsWindow : Window
             WindowThemeService.ApplyFont(this, _selectedUiFont);
             MarkSettingsDirty();
         }
-        // This window's combo template does not bind its selection text; every combo here has
-        // to fill it in, and an item that is not a ComboBoxItem has nothing for the shared
-        // helper to read, so the label is handed over explicitly.
-        SyncComboDisplay(UiFontBox, choice?.Label);
+        // Deliberately not SyncedComboDisplay'd. That helper writes Text directly, a local
+        // value beats a binding, and it is the local value that a re-template throws away --
+        // which is exactly what left this box blank after a face was picked. The binding in
+        // the template now resolves for data items, so there is nothing to fill in.
+        _ = choice;
     }
 
     private void ApplySelectedTheme()

@@ -152,7 +152,7 @@
                 <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="34"/></Grid.ColumnDefinitions>
                 <TextBlock x:Name="SelectionText" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"
                            Foreground="{TemplateBinding Foreground}"
-                           Text="{Binding SelectedItem.Content, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
+                           Text="{Binding SelectionBoxItem, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}"
                            TextTrimming="CharacterEllipsis" IsHitTestVisible="False"/>
                 <ToggleButton x:Name="DropDownToggle" Grid.Column="1" Style="{StaticResource ComboDropButton}"
                               IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"/>
