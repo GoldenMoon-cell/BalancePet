@@ -75,6 +75,9 @@ public partial class SettingsWindow : Window
         _selectedThemeMode = SelectedTag(ThemeModeBox, "system");
         _selectedThemeBackdrop = SelectedTag(ThemeBackdropBox, "mica");
         _selectedThemeId = SelectedTag(ThemeBox, ThemeExtensionManager.BundledThemeId);
+        Diagnostics.Banner(typeof(SettingsWindow).Assembly.GetName().Version?.ToString() ?? "?");
+        Diagnostics.Write("start", "设置窗口已构造");
+        AddHandler(RequestBringIntoViewEvent, new RequestBringIntoViewEventHandler(OnAnyBringIntoView), true);
         _selectedUiFont = settings.UiFont ?? "";
         PopulateUiFonts();
         ApplySelectedTheme();
@@ -451,6 +454,8 @@ public partial class SettingsWindow : Window
             var selected = choices.FirstOrDefault(choice =>
                 string.Equals(choice.Family, _selectedUiFont, StringComparison.OrdinalIgnoreCase)) ?? followSystem;
             UiFontBox.SelectedItem = selected;
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
+                new Action(() => DumpDiagnostics("列表填充之后")));
         }
         finally { _fillingFonts = false; }
     }
@@ -504,12 +509,36 @@ public partial class SettingsWindow : Window
             // TextBlock; filling it first means the new one is the blank that gets seen.
             WindowThemeService.ApplyFont(this, _selectedUiFont);
             MarkSettingsDirty();
+            Diagnostics.Write("pick", $"选了 ui_font=<{_selectedUiFont}>");
+            DumpDiagnostics("选完之后立刻");
+            // Again after layout: the fault only appeared once the re-template had run.
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
+                new Action(() => DumpDiagnostics("布局之后")));
         }
         // Deliberately not SyncedComboDisplay'd. That helper writes Text directly, a local
         // value beats a binding, and it is the local value that a re-template throws away --
         // which is exactly what left this box blank after a face was picked. The binding in
         // the template now resolves for data items, so there is nothing to fill in.
         _ = choice;
+    }
+
+    /// <summary>
+    /// Records every request to scroll something into view, wherever it comes from.
+    /// </summary>
+    /// <remarks>
+    /// Hung on the window rather than on one list, because the scrolling row was reported on
+    /// every list and singling one out would have hidden the others.
+    /// </remarks>
+    private void OnAnyBringIntoView(object sender, RequestBringIntoViewEventArgs e)
+        => Diagnostics.BringIntoView("窗口", sender, e);
+
+    /// <summary>Dumps the state of the three reported faults. Called at points they change.</summary>
+    private void DumpDiagnostics(string when)
+    {
+        Diagnostics.Write("dump", $"---- {when} ----");
+        Diagnostics.Combo("界面字体", UiFontBox);
+        Diagnostics.Combo("颜色模式", ThemeModeBox);
+        Diagnostics.Thumbs("窗口", this);
     }
 
     private void ApplySelectedTheme()
