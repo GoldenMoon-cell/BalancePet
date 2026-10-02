@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BalancePet changelog notices v1",
+  "description": "Changes published outside a release: a specification gaining a section, a document being corrected, published content being rewritten. An entry never announces a new version -- that is the update check's job.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "notices"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "notices": {
+      "type": "array",
+      "maxItems": 400,
+      "items": { "$ref": "#/$defs/notice" }
+    }
+  },
+  "$defs": {
+    "notice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seq", "date", "area", "title", "url"],
+      "properties": {
+        "seq": {
+          "description": "Positive, unique, and strictly increasing with time. This is the watermark: a reader records the highest number it has shown, and everything above it is new.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "date": {
+          "description": "For display only; nothing is compared against it, because a comparison at day resolution would let two notices published the same day hide each other.",
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "area": {
+          "description": "Short category shown beside the date, such as 规范, 文档 or 在线内容.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "summary": {
+          "description": "Where \"what changed\" is answered. A title alone rarely does.",
+          "type": "string",
+          "maxLength": 500
+        },
+        "url": {
+          "description": "Absolute https address to the change itself. Opened by the shell, so anything else is refused when the document is parsed.",
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        }
+      }
+    }
+  }
+}

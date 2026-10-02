@@ -33,13 +33,14 @@ PAIRS = [
     ("skins/catalog.json", "docs/extension-spec/appearance-v1/catalog.schema.json"),
     ("skins/lines.json", "docs/extension-spec/appearance-v1/lines.schema.json"),
     ("plugin-catalog.json", "docs/extension-spec/feature-v1/catalog.schema.json"),
+    ("notices.json", "docs/extension-spec/notices-v1/notice.schema.json"),
 ]
 
 KNOWN = {
     "$schema", "$id", "title", "description", "$defs", "$ref",
     "type", "const", "enum", "required", "properties", "additionalProperties",
     "items", "maxItems", "maxProperties", "propertyNames", "pattern",
-    "minLength", "maxLength", "format",
+    "minLength", "maxLength", "format", "minimum", "maximum",
 }
 
 TYPES = {
@@ -122,6 +123,12 @@ def check(node, schema, root, path, errors):
             errors.append(f"{path}: shorter than minLength {schema['minLength']}")
         if "pattern" in schema and not re.search(schema["pattern"], node):
             errors.append(f"{path}: {node!r} does not match {schema['pattern']}")
+
+    if isinstance(node, (int, float)) and not isinstance(node, bool):
+        if schema.get("minimum") is not None and node < schema["minimum"]:
+            errors.append(f"{path}: {node} is below minimum {schema['minimum']}")
+        if schema.get("maximum") is not None and node > schema["maximum"]:
+            errors.append(f"{path}: {node} is above maximum {schema['maximum']}")
 
 
 def main() -> int:

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -15,8 +16,12 @@ namespace BalancePet.SettingsShot;
 /// The window is built exactly as the application builds it, from the user's own
 /// settings file, and then placed far off any monitor. It lays out and renders
 /// normally there, so the capture is of the genuine window and not of a replica —
-/// while nothing appears in front of whatever the user is doing. Nothing is saved:
-/// the settings file is read and the process exits.
+/// while nothing appears in front of whatever the user is doing.
+///
+/// The settings window only reads. The changelog window writes: opening it records that
+/// its entries have been read, exactly as it does in the application. Point
+/// BALANCEPET_CSHARP_CONFIG at a scratch file before capturing that one, or the capture
+/// will advance the user's own watermark.
 ///
 /// Scratch output goes beside the binary rather than in %TEMP%. The workspace
 /// carries a low mandatory label, so a process started from it inherits a
@@ -48,15 +53,26 @@ internal static class Program
             : 0;
         // Timed because the window is built on the UI thread: whatever the constructor
         // spends is time the user spends looking at nothing after clicking 设置.
+        // A document to show instead of whatever the cache holds. Without it the changelog
+        // window renders empty here, and the populated layout -- long titles, summaries,
+        // the new-entry badge, the per-row buttons -- is the one worth looking at.
+        if (Array.IndexOf(args, "--notices") is var nt && nt >= 0 && nt + 1 < args.Length && File.Exists(args[nt + 1]))
+            NoticeFeed.Publish(File.ReadAllText(args[nt + 1]));
+
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var window = new SettingsWindow(store, new DpapiTokenStore(), settings)
-        {
-            WindowStartupLocation = WindowStartupLocation.Manual,
-            Left = -32000,
-            Top = -32000,
-            ShowInTaskbar = false,
-            Topmost = false
-        };
+        // Which window to capture. The changelog is built here too rather than only in the
+        // application, because a window that has never been rendered is a window nobody has
+        // looked at -- and the alternative is discovering a clipped label in a release.
+        var asNotice = Array.IndexOf(args, "--window") is var wt2 && wt2 >= 0 && wt2 + 1 < args.Length
+            && string.Equals(args[wt2 + 1], "notice", StringComparison.OrdinalIgnoreCase);
+        Window window = asNotice
+            ? new NoticeWindow(store, settings, new HttpClient { Timeout = TimeSpan.FromSeconds(20) })
+            : new SettingsWindow(store, new DpapiTokenStore(), settings);
+        window.WindowStartupLocation = WindowStartupLocation.Manual;
+        window.Left = -32000;
+        window.Top = -32000;
+        window.ShowInTaskbar = false;
+        window.Topmost = false;
         stopwatch.Stop();
         Console.WriteLine($"构造耗时 {stopwatch.ElapsedMilliseconds} ms");
 
@@ -67,8 +83,7 @@ internal static class Program
             window.UpdateLayout();
             stopwatch.Stop();
             Console.WriteLine($"首次布局耗时 {stopwatch.ElapsedMilliseconds} ms");
-            SelectTabContaining(window, tabElement);
-            // Selecting a tab builds its content, and a tab nested inside it builds
+            SelectTabContaining(window, tabElement);            // Selecting a tab builds its content, and a tab nested inside it builds
             // its own content one pass later, so a single UpdateLayout can capture a
             // half-built page. Draining the dispatcher lets every pass finish.
             for (var pass = 0; pass < 4; pass++)

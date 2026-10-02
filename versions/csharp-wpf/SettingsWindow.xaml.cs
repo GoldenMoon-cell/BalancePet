@@ -2023,6 +2023,13 @@ public partial class SettingsWindow : Window
                 LastUpdateCheckUtc = _settings.LastUpdateCheckUtc,
                 ExtensionUpdateCheckMode = SelectionTag(ExtensionUpdateCheckBox, "daily"),
                 LastExtensionUpdateCheckUtc = _settings.LastExtensionUpdateCheckUtc,
+                // Carried across rather than re-derived. They belong to the changelog
+                // window, which this one does not edit: rebuilding the snapshot without
+                // them would reset the watermark to zero and make the next launch announce
+                // the entire backlog, and would silently switch the notice back on for
+                // anyone who had turned it off.
+                NoticesSeenSeq = _settings.NoticesSeenSeq,
+                NoticesNotify = _settings.NoticesNotify,
                 Scale = ScaleSlider.Value,
                 Volume = VolumeSlider.Value,
                 Sound = SoundBox.IsChecked == true,

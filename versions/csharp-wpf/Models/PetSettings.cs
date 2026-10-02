@@ -59,6 +59,15 @@ public sealed class PetSettings
     [JsonPropertyName("last_update_check_utc")] public DateTimeOffset? LastUpdateCheckUtc { get; set; }
     [JsonPropertyName("extension_update_check_mode")] public string ExtensionUpdateCheckMode { get; set; } = "daily";
     [JsonPropertyName("last_extension_update_check_utc")] public DateTimeOffset? LastExtensionUpdateCheckUtc { get; set; }
+    // The changelog notices the user has already been told about, held as the highest
+    // sequence number seen rather than as a date or a list of ids. A sequence survives
+    // the feed dropping an old entry, and two notices published on the same day cannot
+    // hide each other behind a comparison that has only day resolution.
+    [JsonPropertyName("notices_seen_seq")] public int NoticesSeenSeq { get; set; }
+    // On by default, and it lives in the changelog window rather than among the
+    // interaction switches, because that is where someone who is annoyed by it will
+    // look. A notification nobody can find the switch for is worse than none.
+    [JsonPropertyName("notices_notify")] public bool NoticesNotify { get; set; } = true;
     [JsonPropertyName("start_with_windows")] public bool StartWithWindows { get; set; }
     [JsonPropertyName("monitors")] public List<MonitorProfile> Monitors { get; set; } = new();
     [JsonPropertyName("selected_monitor_id")] public string SelectedMonitorId { get; set; } = "";

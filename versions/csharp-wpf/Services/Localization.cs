@@ -134,6 +134,17 @@ public static class AppLocalization
         ("当前主题", "Current theme"), ("颜色模式", "Color mode"), ("跟随系统", "Use system setting"), ("浅色", "Light"), ("深色", "Dark"),
         ("窗口材质", "Window material"), ("云母（推荐）", "Mica (recommended)"), ("云母 Alt（更浓）", "Mica Alt (stronger)"), ("亚克力", "Acrylic"), ("实色", "Solid"),
         ("紧凑布局", "Compact layout"), ("在相同窗口中显示更多设置项。", "Show more settings in the same window."),
+        // The changelog window. Its list is built in code rather than declared, so these
+        // only cover the shell around it -- the entries themselves are translated where
+        // they are created.
+        ("更新记录", "Changelog"),
+        ("小余额更新记录", "BalancePet changelog"),
+        ("有新内容时让桌宠提醒我", "Let the pet mention new entries"),
+        ("关掉之后仍然会记录，只是不再主动弹出气泡。", "Entries are still recorded when this is off; the pet simply stops mentioning them."),
+        ("规范、文档和在线内容的变更会记在这里。主程序与扩展的版本更新由「检查更新」负责，不会重复出现在这里。", "Changes to specifications, documents and published content are recorded here. Program and extension releases are handled by \"Check for updates\" and do not appear twice."),
+        ("还没有读到更新记录。首次联网后会自动获取；如果一直为空，可以用下面的「刷新」重试。", "No entries have been read yet. They are fetched once the program can reach the network; if this stays empty, try Refresh below."),
+        ("打开", "Open"), ("获取中…", "Fetching…"), ("最小化", "Minimize"),
+        ("条新内容", "new"),
         ("Windows 11 使用云母，Windows 10 使用 Acrylic；高对比度或关闭透明效果时自动回退为实色。", "Windows 11 uses Mica and Windows 10 uses Acrylic; high contrast or disabled transparency falls back to a solid background."),
         ("打开主题目录", "Open theme folder"), ("导入主题 ZIP", "Import theme ZIP"), ("已启用", "Enabled"),
         ("系统云母底层、Fluent 控件与 BalancePet 青绿色强调色。", "System Mica, Fluent controls, and BalancePet's teal accent."),

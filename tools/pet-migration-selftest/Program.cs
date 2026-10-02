@@ -392,6 +392,62 @@ internal static class Program
                 PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label).Any(label => label.Contains("霁珑")),
                 string.Join(" / ", PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label)));
 
+            // --- 13. Changelog notices -----------------------------------------
+            // A notice is about something that changed outside a release. The watermark is
+            // what keeps it from being announced twice, and from a fresh installation
+            // announcing everything ever published -- so the watermark is the part worth
+            // pinning down.
+            const string notices = """
+                {"schema_version":1,"notices":[
+                  {"seq":1,"date":"2026-10-01","area":"文档","title":"第一条","url":"https://example.com/1"},
+                  {"seq":3,"date":"2026-10-02","area":"规范","title":"第三条","summary":"摘要","url":"https://example.com/3"},
+                  {"seq":2,"date":"2026-10-02","area":"在线内容","title":"第二条","url":"https://example.com/2"}
+                ]}
+                """;
+            Check("通告文档可读", NoticeFeed.Publish(notices) && NoticeFeed.All.Count == 3, $"实际 {NoticeFeed.All.Count}");
+            Check("通告按序号从新到旧", NoticeFeed.All.Select(item => item.Seq).SequenceEqual(new[] { 3, 2, 1 }),
+                string.Join(",", NoticeFeed.All.Select(item => item.Seq)));
+            Check("水位之内不再重复提示",
+                NoticeFeed.NewerThan(2).Select(item => item.Seq).SequenceEqual(new[] { 3 })
+                && NoticeFeed.NewerThan(3).Count == 0,
+                string.Join(",", NoticeFeed.NewerThan(2).Select(item => item.Seq)));
+            // A fresh installation records this without showing anything, which is why it has
+            // to be the highest published number rather than the newest it happened to read.
+            Check("最高序号即首次运行的静默水位", NoticeFeed.NewestSeq == 3, $"实际 {NoticeFeed.NewestSeq}");
+
+            // An entry the program cannot act on is dropped on its own; the rest of the
+            // changelog still arrives. One publisher's typo must not hide every other note.
+            const string partlyBroken = """
+                {"schema_version":1,"notices":[
+                  {"seq":5,"date":"2026-10-02","area":"文档","title":"好的","url":"https://example.com/ok"},
+                  {"seq":4,"date":"2026-10-02","area":"文档","title":"外链不是 https","url":"http://example.com/insecure"},
+                  {"seq":4,"date":"2026-10-02","area":"文档","title":"重复序号","url":"https://example.com/dup"},
+                  {"seq":0,"date":"2026-10-02","area":"文档","title":"序号非正","url":"https://example.com/zero"},
+                  {"seq":6,"date":"2026-10-02","area":"文档","url":"https://example.com/notitle"}
+                ]}
+                """;
+            Check("无法打开的链接被单独丢弃",
+                NoticeFeed.Publish(partlyBroken) && NoticeFeed.All.Count == 1 && NoticeFeed.All[0].Seq == 5,
+                $"{NoticeFeed.All.Count} 条：{string.Join(",", NoticeFeed.All.Select(item => item.Seq))}");
+
+            // An unrecognised document replaces nothing: the previous notes stay, so the
+            // window shows something older rather than emptying itself.
+            Check("无法识别的通告文档不会清空记录",
+                NoticeFeed.Publish("""{"schema_version":99,"notices":[]}""") == false
+                && NoticeFeed.Publish("{ not json") == false
+                && NoticeFeed.Publish("") == false
+                && NoticeFeed.All.Count == 1 && NoticeFeed.All[0].Seq == 5);
+
+            var publishedNotices = File.ReadAllText(Path.Combine(repoRoot, "notices.json"));
+            Check("随仓库发布的通告文档可读", NoticeFeed.Publish(publishedNotices) && NoticeFeed.All.Count > 0,
+                $"{NoticeFeed.All.Count} 条");
+            // The watermark only moves forward, so a sequence that went backwards would make
+            // the next note compare as already read.
+            var sequences = NoticeFeed.All.Select(item => item.Seq).ToArray();
+            Check("通告序号严格递增且不重复",
+                sequences.Distinct().Count() == sequences.Length && sequences.OrderByDescending(value => value).SequenceEqual(sequences),
+                string.Join(",", sequences));
+
             // The digest is what makes resuming safe: bytes appended from a source that
             // answered the wrong range would otherwise be installed as an update.
             var corrupted = "";

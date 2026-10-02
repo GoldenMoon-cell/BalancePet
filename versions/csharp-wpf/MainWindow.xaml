@@ -76,6 +76,7 @@
           <MenuItem x:Name="ContextUpdateMenuItem" Header="检查更新" Click="OnContextUpdateClick"/>
           <MenuItem x:Name="ContextUsageMenuItem" Header="用量统计" Click="OnContextUsageClick"/>
           <MenuItem x:Name="ContextNotificationMenuItem" Header="消息中心" Click="OnContextNotificationClick"/>
+          <MenuItem x:Name="ContextNoticeMenuItem" Header="更新记录" Click="OnContextNoticeClick"/>
           <MenuItem x:Name="ContextHideMenuItem" Header="隐藏桌宠" Click="OnContextHideClick"/>
           <Separator/>
           <MenuItem x:Name="ContextExitMenuItem" Header="退出" Click="OnContextExitClick"/>
