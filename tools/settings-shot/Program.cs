@@ -123,7 +123,10 @@ internal static class Program
                 return 2;
             }
 
-            var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+            var dpi = Array.IndexOf(args, "--dpi") is var dt && dt >= 0 && dt + 1 < args.Length && double.TryParse(args[dt + 1], out var parsedDpi)
+                ? parsedDpi
+                : 96d;
+            var bitmap = new RenderTargetBitmap((int)Math.Ceiling(width * dpi / 96), (int)Math.Ceiling(height * dpi / 96), dpi, dpi, PixelFormats.Pbgra32);
             bitmap.Render(window);
 
             var target = Path.Combine(AppContext.BaseDirectory, "settings-shot.png");
