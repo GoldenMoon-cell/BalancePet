@@ -23,7 +23,14 @@ public static class AppLocalization
         if (!visited.Add(node)) return;
 
         if (node is Window window) window.Title = Translate(window.Title, language);
-        if (node is TextBlock textBlock) textBlock.Text = Translate(textBlock.Text, language);
+        // SetCurrentValue, not assignment. A plain assignment to Text writes a local value,
+        // and a local value destroys whatever binding was on that property. This pass walks
+        // every TextBlock in the window, template parts included, so it was quietly killing
+        // bindings all over the interface: the font combo's selection text came out of it
+        // with no binding left, showing a stale name and never updating again. SetCurrentValue
+        // changes what is displayed without taking the binding away.
+        if (node is TextBlock textBlock)
+            textBlock.SetCurrentValue(TextBlock.TextProperty, Translate(textBlock.Text, language));
         if (node is FrameworkElement element && element.ToolTip is string toolTip) element.ToolTip = Translate(toolTip, language);
         if (node is System.Windows.Controls.Button button && button.Content is string buttonText) button.Content = Translate(buttonText, language);
         if (node is System.Windows.Controls.CheckBox checkBox && checkBox.Content is string checkBoxText) checkBox.Content = Translate(checkBoxText, language);

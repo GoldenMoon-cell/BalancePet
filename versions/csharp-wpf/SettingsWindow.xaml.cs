@@ -530,7 +530,36 @@ public partial class SettingsWindow : Window
     /// every list and singling one out would have hidden the others.
     /// </remarks>
     private void OnAnyBringIntoView(object sender, RequestBringIntoViewEventArgs e)
-        => Diagnostics.BringIntoView("窗口", sender, e);
+    {
+        Diagnostics.BringIntoView("窗口", sender, e);
+
+        // The pointer resting on the last, half-cut row of a list scrolled the list by several
+        // rows. The stack says why: hovering moves keyboard focus to that row, and focus asks
+        // for the row to be brought into view, which WPF satisfies by scrolling it fully into
+        // sight. The row was already almost entirely visible, so the scroll is pure loss.
+        //
+        // A request is allowed through when the target is genuinely out of view, which is what
+        // keeps keyboard navigation working: arrowing past the edge still scrolls.
+        if (e.TargetObject is FrameworkElement target && IsMostlyInView(target)) e.Handled = true;
+    }
+
+    /// <summary>Whether an element is already far enough inside its viewport to be readable.</summary>
+    private static bool IsMostlyInView(FrameworkElement element)
+    {
+        DependencyObject? node = element;
+        while (node is not null and not ScrollViewer)
+            node = System.Windows.Media.VisualTreeHelper.GetParent(node);
+        if (node is not ScrollViewer viewport || viewport.ViewportHeight <= 0) return false;
+
+        try
+        {
+            var top = element.TransformToAncestor(viewport).Transform(new System.Windows.Point(0, 0)).Y;
+            var bottom = top + element.ActualHeight;
+            var shown = Math.Min(bottom, viewport.ViewportHeight) - Math.Max(top, 0);
+            return shown >= element.ActualHeight * 0.9;
+        }
+        catch (InvalidOperationException) { return false; }
+    }
 
     /// <summary>Dumps the state of the three reported faults. Called at points they change.</summary>
     private void DumpDiagnostics(string when)
