@@ -1,7 +1,7 @@
 {
   "catalog": "balancepet.appearances",
   "schema_version": 1,
-  "updated_at": "2026-10-02T07:24:08Z",
+  "updated_at": "2026-10-02T16:59:19Z",
   "appearances": [
     {
       "id": "pet.chatgpt",
@@ -179,6 +179,36 @@
       "sha256": "e63b539fe3f17a5b2fd923cdf77bacc2f4347237b0a963decfcf94a191e68bf2",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
       "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.opencode",
+      "type": "pet",
+      "name": "OpenCode 小码灵「墨枢」",
+      "name_en": "OpenCode Code Sprite \"Moshu\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.opencode-1.0.0.zip",
+      "sha256": "81ec3d0a2d95eccd7bc689fe232922a1ba75ff8243c6dc5b29b2088f356724f7",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.perplexity",
+      "type": "pet",
+      "name": "Perplexity 小探灯「青鉴」",
+      "name_en": "Perplexity Little Lantern \"Qingjian\"",
+      "version": "1.0.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.perplexity-1.0.0.zip",
+      "sha256": "1ff892ab6eaac722b7a4d5f96d5cc3169a5f69723aed23f953ccbd753551df95",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
       "categories": [
         "appearance"
       ]

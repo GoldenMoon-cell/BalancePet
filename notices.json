@@ -2,6 +2,14 @@
   "schema_version": 1,
   "notices": [
     {
+      "seq": 5,
+      "date": "2026-10-02",
+      "area": "在线内容",
+      "title": "新增两套形象",
+      "summary": "形象仓库新增 OpenCode 小码灵「墨枢」与 Perplexity 小探灯「青鉴」，各自九个状态与专属台词均已就位，可在「扩展」页的在线插件库中安装。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet-Pets"
+    },
+    {
       "seq": 4,
       "date": "2026-10-02",
       "area": "规范",
