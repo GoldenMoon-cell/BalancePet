@@ -2,6 +2,14 @@
   "schema_version": 1,
   "notices": [
     {
+      "seq": 4,
+      "date": "2026-10-02",
+      "area": "规范",
+      "title": "通告文档有了自己的规范",
+      "summary": "更新记录读取的 notices.json 此前只有读取端、没有对外规范，现已补上说明与 schema，第三方可以据此生成合法的通告文档，校验脚本也一并覆盖它。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/notices-v1/README.md"
+    },
+    {
       "seq": 3,
       "date": "2026-10-02",
       "area": "规范",
