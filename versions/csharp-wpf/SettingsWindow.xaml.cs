@@ -517,6 +517,17 @@ public partial class SettingsWindow : Window
         if (!ReferenceEquals(sender, UiFontBox)) return;
         // Deferred. The popup's tree does not exist yet when this fires, which is why the
         // first attempt reported no scrollbars at all rather than reporting the wrong ones.
+        // The popup is its own visual tree in its own window, so a routed event raised
+        // inside it never reaches the settings window and the handler installed there never
+        // saw these. Attaching to the popup itself is the only way to catch them: 489 went
+        // through unhandled while the window-level handler reported almost none.
+        if (UiFontBox.Template?.FindName("PART_Popup", UiFontBox) is System.Windows.Controls.Primitives.Popup popup
+            && popup.Child is UIElement chrome)
+        {
+            chrome.RemoveHandler(RequestBringIntoViewEvent, new RequestBringIntoViewEventHandler(OnAnyBringIntoView));
+            chrome.AddHandler(RequestBringIntoViewEvent, new RequestBringIntoViewEventHandler(OnAnyBringIntoView), true);
+            Diagnostics.Write("bring", "已在弹出层上挂上拦截");
+        }
         foreach (var priority in new[]
                  {
                      System.Windows.Threading.DispatcherPriority.Loaded,
