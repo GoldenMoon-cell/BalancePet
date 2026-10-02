@@ -418,10 +418,13 @@ public partial class SettingsWindow : Window
         _fillingFonts = true;
         try
         {
-            var bundled = new FontChoice(
-                AppLocalization.Text(_settings.Language, "内置字体（霞鹜新晰黑）", "Bundled (LXGW Neo XiHei)"),
+            // No face is shipped, so the first entry means "leave it to Windows" rather than
+            // "the one we chose for you". Nothing is bundled precisely because the list below
+            // exists: picking a default on the user's behalf was the thing being avoided.
+            var followSystem = new FontChoice(
+                AppLocalization.Text(_settings.Language, "跟随系统", "Use system setting"),
                 "",
-                new System.Windows.Media.FontFamily(WindowThemeService.BundledFontFamily));
+                new System.Windows.Media.FontFamily(WindowThemeService.DefaultFontFamily));
 
             var names = new SortedSet<string>(StringComparer.CurrentCulture);
             foreach (var family in System.Windows.Media.Fonts.SystemFontFamilies)
@@ -431,13 +434,13 @@ public partial class SettingsWindow : Window
                 if (!string.IsNullOrWhiteSpace(name)) names.Add(name);
             }
 
-            var choices = new List<FontChoice> { bundled };
+            var choices = new List<FontChoice> { followSystem };
             choices.AddRange(names.Select(name => new FontChoice(
                 name, name, new System.Windows.Media.FontFamily(name))));
 
             UiFontBox.ItemsSource = choices;
             var selected = choices.FirstOrDefault(choice =>
-                string.Equals(choice.Family, _selectedUiFont, StringComparison.OrdinalIgnoreCase)) ?? bundled;
+                string.Equals(choice.Family, _selectedUiFont, StringComparison.OrdinalIgnoreCase)) ?? followSystem;
             UiFontBox.SelectedItem = selected;
             SyncComboDisplay(UiFontBox, selected.Label);
         }

@@ -1,10 +1,10 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="clr-namespace:BalancePet.Wpf.Controls">
-  <!-- The interface font, embedded in the assembly so it cannot go missing and does not
-       depend on what the machine has installed. Nothing here is special-cased per theme:
-       the window swaps this one resource when the user picks a different font. -->
-  <FontFamily x:Key="UiFontFamily">pack://application:,,,/assets/fonts/#霞鸜新晰黑, Microsoft YaHei UI</FontFamily>
+  <!-- The interface font. Nothing is embedded: the program uses the Windows stack, and the
+       user can point this one resource at any face the machine has. Swapping it restyles
+       every control, which is why nothing binds a literal family. -->
+  <FontFamily x:Key="UiFontFamily">Segoe UI, Microsoft YaHei UI</FontFamily>
   <Style x:Key="FluentFocusVisual">
     <Setter Property="Control.Template">
       <Setter.Value>

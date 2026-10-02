@@ -110,9 +110,6 @@ if (Test-Path -LiteralPath $dshBridgeStage) { Remove-Item -LiteralPath $dshBridg
 Copy-Item (Join-Path $root "tools\dsh-bridge") (Join-Path $stage "tools") -Recurse
 New-Item -ItemType Directory -Path (Join-Path $stage "docs\licenses") -Force | Out-Null
 Copy-Item (Join-Path $root "docs\licenses\MeteorNOX-MIT.txt") (Join-Path $stage "docs\licenses")
-# The IPA Font License requires a copy of the agreement to travel with the font. It is
-# redistributed unmodified and under its own name, which is what that licence permits.
-Copy-Item (Join-Path $root "docs\licenses\LXGWNeoXiHei-IPA.txt") (Join-Path $stage "docs\licenses")
 
 Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $zip -CompressionLevel Optimal
 $zipHash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
