@@ -92,12 +92,14 @@ public static class WindowThemeService
         // Leaving it transparent in solid mode is what made "solid" translucent: the window
         // was told to composite against nothing and then painted with brushes that the theme
         // makes translucent on purpose.
+        // Left transparent. What a window with no material composites against is decided in
+        // ApplyBackdropOrFallback, once every surface has been resolved to an opaque colour.
+        // Deciding it here means guessing at a colour the theme has not resolved yet, and
+        // guessing white is what made a dark solid window unreadable: the dark translucent
+        // surfaces composited against white and turned pale, so the light text ended up on a
+        // pale background.
         if (HwndSource.FromHwnd(handle) is HwndSource source)
-        {
-            source.CompositionTarget.BackgroundColor = solid
-                ? System.Windows.Media.Colors.White
-                : System.Windows.Media.Colors.Transparent;
-        }
+            source.CompositionTarget.BackgroundColor = System.Windows.Media.Colors.Transparent;
 
         var dark = ResolveDarkMode(mode) ? 1 : 0;
         if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763))
@@ -153,6 +155,18 @@ public static class WindowThemeService
             var color = brush.Color;
             window.Resources[key] = new System.Windows.Media.SolidColorBrush(
                 System.Windows.Media.Color.FromArgb(byte.MaxValue, color.R, color.G, color.B));
+        }
+
+        // Composited against the window's own background, now that it is opaque. This is the
+        // colour the theme asked for, so it follows the light and dark palettes on its own;
+        // a fixed white does not, and in the dark palette it turned every translucent surface
+        // pale and left the light text sitting on top of it.
+        var handle = new WindowInteropHelper(window).Handle;
+        if (handle != IntPtr.Zero
+            && HwndSource.FromHwnd(handle) is HwndSource source
+            && window.Resources["WindowBackgroundBrush"] is System.Windows.Media.SolidColorBrush page)
+        {
+            source.CompositionTarget.BackgroundColor = page.Color;
         }
     }
 
