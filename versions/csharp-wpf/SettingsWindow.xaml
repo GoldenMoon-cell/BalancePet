@@ -715,7 +715,7 @@
                      is the only combo that goes blank: it is the only one that changes the
                      resource its own template depends on. Choosing 跟随系统 resolves to the face
                      already in use, the change is skipped, and the box keeps its text. -->
-                <ComboBox x:Name="UiFontBox" FontFamily="{DynamicResource UiLabelFontFamily}" SelectionChanged="OnUiFontChanged" DropDownOpened="OnComboDroppedDown" DropDownClosed="OnComboDropDownClosed"
+                <ComboBox x:Name="UiFontBox" FontFamily="{DynamicResource UiLabelFontFamily}" SelectionChanged="OnUiFontChanged" DropDownOpened="OnComboDroppedDown"
                         Margin="0,6,0,0" MaxDropDownHeight="320"
                         ToolTip="设置窗口、提示气泡和更新记录使用的字体。">
                 <ComboBox.ItemTemplate>
