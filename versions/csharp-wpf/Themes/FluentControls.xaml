@@ -131,6 +131,12 @@
   </Style>
 
   <Style TargetType="{x:Type ComboBox}">
+      <!-- Scrolling moves by pixels rather than by whole items. With item scrolling the
+           virtualising panel re-anchors on item boundaries, so anything that asks for a
+           partly visible row to be shown, and resting the pointer on the last, half-cut row
+           does exactly that, jumps the list by several rows at once and then stops.
+           Per-pixel scrolling turns the same request into a small adjustment. -->
+      <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel"/>
     <Setter Property="Height" Value="{DynamicResource ThemeControlHeight}"/>
     <Setter Property="Padding" Value="10,4"/>
     <Setter Property="IsEditable" Value="False"/>
@@ -347,6 +353,12 @@
   </Style>
 
   <Style TargetType="{x:Type ListBox}">
+      <!-- Scrolling moves by pixels rather than by whole items. With item scrolling the
+           virtualising panel re-anchors on item boundaries, so anything that asks for a
+           partly visible row to be shown, and resting the pointer on the last, half-cut row
+           does exactly that, jumps the list by several rows at once and then stops.
+           Per-pixel scrolling turns the same request into a small adjustment. -->
+      <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel"/>
     <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/><Setter Property="BorderThickness" Value="1"/>
     <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
