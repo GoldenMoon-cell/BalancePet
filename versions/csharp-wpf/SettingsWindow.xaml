@@ -156,7 +156,12 @@
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="Height" Value="40"/>
       <Setter Property="Padding" Value="14,9,14,9"/>
-      <Setter Property="Margin" Value="6,2,6,2"/>
+      <!-- Horizontal gap only. The vertical gap used to be here as well, and a TabPanel
+           hands each item a slot the height of its Height property, so the margin came out
+           of that slot rather than sitting outside it: the item drew four pixels shorter
+           than it declared and the bottom corners of the selection were sliced off. The gap
+           lives on the border inside the template now, where it costs the slot nothing. -->
+      <Setter Property="Margin" Value="6,0,6,0"/>
       <Setter Property="HorizontalContentAlignment" Value="Left"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
@@ -171,7 +176,7 @@
                       HorizontalAlignment="Left" VerticalAlignment="Center"
                       CornerRadius="{DynamicResource ThemeCornerRadius}"
                       Background="{DynamicResource SurfaceStrongBrush}" Visibility="Collapsed"/>
-              <Border x:Name="TabBorder" Background="Transparent" CornerRadius="{DynamicResource ThemeCornerRadius}" Padding="{TemplateBinding Padding}">
+              <Border x:Name="TabBorder" Background="Transparent" CornerRadius="{DynamicResource ThemeCornerRadius}" Padding="{TemplateBinding Padding}" Margin="0,1">
                 <Grid>
                   <Border x:Name="SelectionIndicator" Width="3" Height="16" Margin="-9,0,0,0"
                           HorizontalAlignment="Left" VerticalAlignment="Center" CornerRadius="2"
