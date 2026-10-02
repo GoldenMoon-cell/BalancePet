@@ -19,6 +19,13 @@ public sealed class PetSettings
     [JsonPropertyName("refresh_seconds")] public int RefreshSeconds { get; set; } = 60;
     [JsonPropertyName("auto_refresh_enabled")] public bool AutoRefreshEnabled { get; set; } = true;
     [JsonPropertyName("low_threshold")] public double LowThreshold { get; set; } = 5;
+    // Deliberately still DeepSeek, and not the placeholder. A settings file written
+    // before appearances became packages has no pet_style key, so this default is what
+    // those installations load -- and the appearance it names is the one they have been
+    // looking at. Their folder is converted into a package on first launch, so it still
+    // resolves. Changing this to the placeholder would silently swap the pet on every
+    // upgrade that never touched the setting. A fresh installation has nothing named
+    // deepseek, and there the name resolution falls back on its own.
     [JsonPropertyName("pet_style")] public string PetStyle { get; set; } = "deepseek";
     [JsonPropertyName("interaction_mode")] public string InteractionMode { get; set; } = "free";
     [JsonPropertyName("pet_scale")] public double Scale { get; set; } = 1;

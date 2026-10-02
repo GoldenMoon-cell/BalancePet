@@ -1298,6 +1298,10 @@ public partial class MainWindow : Window
     private void UpdatePetStyleMenuChecks()
     {
         var style = NormalizePetStyle(_settings.PetStyle);
+        // Rebuilt before the checks are applied, because the checks are applied to the
+        // items this creates. Doing it the other way round would clear the tick that was
+        // just set.
+        RebuildStyleMenus();
         foreach (var item in EnumerateStyleMenuItems(ContextStyleMenuItem))
         {
             if (item.Tag is string id)
@@ -1312,7 +1316,6 @@ public partial class MainWindow : Window
 
     private void UpdatePetStyleAvailability()
     {
-        RefreshExtensionStyleMenus();
         foreach (var item in EnumerateStyleMenuItems(ContextStyleMenuItem))
         {
             if (item.Tag is string id)
@@ -1330,59 +1333,51 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Fills both appearance menus from the appearances this installation can draw.
+    /// </summary>
+    /// <remarks>
+    /// One source for all three surfaces. The menus used to be written out in XAML and
+    /// then repaired after the fact by deleting the entries that were not installed and
+    /// appending the ones that were, which meant the repair had to recognise every kind
+    /// of appearance to keep it. It could not: an appearance that still has its folder
+    /// from an older release but has not been converted to a package yet is in neither
+    /// "provided by the program" nor "installed package", so the repair deleted it from
+    /// the menu while the window went on drawing it.
+    /// </remarks>
+    private void RebuildStyleMenus()
+    {
+        ContextStyleMenuItem.Items.Clear();
+        foreach (var available in PetStyleCatalog.GetAvailableStyles())
+        {
+            var item = new MenuItem
+            {
+                Header = PetStyleDisplayName(available.Id),
+                Tag = available.Id,
+                IsCheckable = true
+            };
+            item.Click += OnPetStyleClick;
+            ContextStyleMenuItem.Items.Add(item);
+        }
+
+        if (_trayStyleMenuItem is null) return;
+        _trayStyleMenuItem.DropDownItems.Clear();
+        _trayStyleItems.Clear();
+        foreach (var available in PetStyleCatalog.GetAvailableStyles())
+        {
+            var entry = new Forms.ToolStripMenuItem(PetStyleDisplayName(available.Id)) { Tag = available.Id };
+            entry.Click += (_, _) => ChangePetStyle(available.Id);
+            _trayStyleItems[available.Id] = entry;
+            _trayStyleMenuItem.DropDownItems.Add(entry);
+        }
+    }
+
     private static IEnumerable<MenuItem> EnumerateStyleMenuItems(ItemsControl parent)
     {
         foreach (var item in parent.Items.OfType<MenuItem>())
         {
             if (item.Tag is string) yield return item;
             foreach (var nested in EnumerateStyleMenuItems(item)) yield return nested;
-        }
-    }
-
-    private static void RemoveUnavailableExtensionStyleItems(ItemsControl parent, IReadOnlySet<string> builtInIds, IReadOnlySet<string> availableIds)
-    {
-        foreach (var item in parent.Items.OfType<MenuItem>().ToArray())
-        {
-            if (item.Tag is string id && !builtInIds.Contains(id) && !availableIds.Contains(id))
-            {
-                parent.Items.Remove(item);
-                continue;
-            }
-            RemoveUnavailableExtensionStyleItems(item, builtInIds, availableIds);
-        }
-    }
-
-    private void RefreshExtensionStyleMenus()
-    {
-        var extensionStyles = PetStyleCatalog.GetAvailableExtensionStyles();
-        var availableExtensionIds = extensionStyles.Select(definition => definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var builtInIds = PetStyleCatalog.All.Select(definition => definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        RemoveUnavailableExtensionStyleItems(ContextStyleMenuItem, builtInIds, availableExtensionIds);
-        var contextIds = EnumerateStyleMenuItems(ContextStyleMenuItem)
-            .Select(item => item.Tag?.ToString())
-            .Where(id => !string.IsNullOrWhiteSpace(id))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var definition in extensionStyles)
-        {
-            if (!contextIds.Add(definition.Id)) continue;
-            var item = new MenuItem { Header = PetStyleDisplayName(definition.Id), Tag = definition.Id, IsCheckable = true };
-            item.Click += OnPetStyleClick;
-            ContextStyleMenuItem.Items.Add(item);
-        }
-
-        if (_trayStyleMenuItem is null) return;
-        foreach (var item in _trayStyleItems.Where(pair => !builtInIds.Contains(pair.Key) && !availableExtensionIds.Contains(pair.Key)).ToArray())
-        {
-            _trayStyleMenuItem.DropDownItems.Remove(item.Value);
-            _trayStyleItems.Remove(item.Key);
-        }
-        foreach (var definition in extensionStyles)
-        {
-            if (_trayStyleItems.ContainsKey(definition.Id)) continue;
-            var item = new Forms.ToolStripMenuItem(PetStyleDisplayName(definition.Id)) { Tag = definition.Id };
-            item.Click += (_, _) => ChangePetStyle(definition.Id);
-            _trayStyleItems[definition.Id] = item;
-            _trayStyleMenuItem.DropDownItems.Add(item);
         }
     }
 
@@ -1471,11 +1466,9 @@ public partial class MainWindow : Window
         ContextNotificationMenuItem.Header = AppLocalization.Text(_settings.Language, "消息中心", "Messages");
         ContextHideMenuItem.Header = AppLocalization.Text(_settings.Language, "隐藏桌宠", "Hide pet");
         ContextExitMenuItem.Header = AppLocalization.Text(_settings.Language, "退出", "Exit");
-        DeepSeekStyleMenuItem.Header = PetStyleDisplayName("deepseek");
-        ChatGptStyleMenuItem.Header = PetStyleDisplayName("chatgpt");
-        MiniMaxStyleMenuItem.Header = PetStyleDisplayName("minimax");
-        GeminiStyleMenuItem.Header = PetStyleDisplayName("gemini");
-        GrokStyleMenuItem.Header = PetStyleDisplayName("grok");
+        // Named generically from the menus themselves, not one line per appearance. A
+        // line per appearance is a list again, and it would stop labelling any package
+        // the program has never heard of.
         foreach (var item in EnumerateStyleMenuItems(ContextStyleMenuItem))
             if (item.Tag is string id) item.Header = PetStyleDisplayName(id);
         if (_trayShowItem is not null) _trayShowItem.Text = AppLocalization.Text(_settings.Language, "显示桌宠", "Show pet");
@@ -1490,8 +1483,6 @@ public partial class MainWindow : Window
         // Renamed from the dictionary the menu was built from, so a package with its own
         // name is labelled correctly too.
         foreach (var pair in _trayStyleItems) pair.Value.Text = PetStyleDisplayName(pair.Key);
-        foreach (var item in _trayStyleItems.Values)
-            if (item.Tag is string id) item.Text = PetStyleDisplayName(id);
         if (_trayIcon is not null) _trayIcon.Text = AppLocalization.Text(_settings.Language, "小余额", "BalancePet");
     }
 
@@ -1622,20 +1613,12 @@ public partial class MainWindow : Window
         menu.Items.Add(_traySettingsItem);
         var styleMenu = new Forms.ToolStripMenuItem();
         _trayStyleMenuItem = styleMenu;
-        // Built from what this installation can actually draw, not from a written list.
-        // Appearances are packages now, so a fixed menu would offer entries for
+        menu.Items.Add(styleMenu);
+        // Fills this menu and the context menu from what this installation can actually
+        // draw. Appearances are packages now, so a written list would offer entries for
         // appearances the machine has never had and would miss the ones it does have,
         // including any package the program has never heard of.
-        _trayStyleItems.Clear();
-        styleMenu.DropDownItems.Clear();
-        foreach (var available in PetStyleCatalog.GetAvailableStyles())
-        {
-            var entry = new Forms.ToolStripMenuItem(PetStyleDisplayName(available.Id)) { Tag = available.Id };
-            entry.Click += (_, _) => ChangePetStyle(available.Id);
-            _trayStyleItems[available.Id] = entry;
-            styleMenu.DropDownItems.Add(entry);
-        }
-        menu.Items.Add(styleMenu);
+        RebuildStyleMenus();
         _trayMonitorMenu = new Forms.ToolStripMenuItem();
         menu.Items.Add(_trayMonitorMenu);
         _trayUpdateItem = new Forms.ToolStripMenuItem();
@@ -2016,7 +1999,6 @@ public partial class MainWindow : Window
 
         _trayMenu?.Dispose();
         _trayMenu = null;
-        _trayStyleItems.Clear();
         _trayStyleItems.Clear();
         _trayMonitorMenu = null;
         _trayShowItem = null;
