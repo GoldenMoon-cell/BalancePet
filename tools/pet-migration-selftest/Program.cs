@@ -186,6 +186,17 @@ internal static class Program
             // never finish, so the partial file has to survive and the next request has
             // to ask only for the rest. These use a stub that really does cut the first
             // response in half, because the interesting part is what lands on disk.
+            //
+            // The download lands wherever Path.GetTempPath() points, and the test has to
+            // redirect that for the same reason the scratch directories above are not
+            // under %TEMP%: started from this workspace the process runs at low integrity,
+            // and a low-integrity process is refused when it writes to a medium-integrity
+            // location. Pointing the variable at the test's own scratch directory keeps
+            // the assertion about resuming rather than about where the file may be
+            // written, and it leaves the caller's %TEMP% alone.
+            Environment.SetEnvironmentVariable("TEMP", workspace);
+            Environment.SetEnvironmentVariable("TMP", workspace);
+
             var payload = new byte[200_000];
             Random.Shared.NextBytes(payload);
             var digest = "sha256:" + Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant();
@@ -218,7 +229,23 @@ internal static class Program
             var pluginJson = File.ReadAllText(Path.Combine(repoRoot, "plugin-catalog.json"));
 
             var appearances = PluginCatalogService.ParseAppearances(appearanceJson);
-            Check("形象目录解析出 12 条", appearances.Count == 12, $"实际 {appearances.Count}");
+            // The expected set is derived from the artwork rather than pinned to a
+            // number. A hard-coded count fails every time an appearance is added, and
+            // the fix is always to bump it -- which is exactly how a catalog that
+            // silently *lost* an entry gets waved through by the same edit that adds
+            // one. Comparing the two sets says which appearance is missing instead.
+            var publishable = Directory.EnumerateDirectories(realPets)
+                .Where(directory => !Path.GetFileName(directory).StartsWith('_'))
+                .Where(directory => RequiredStates.All(state => File.Exists(Path.Combine(directory, state))))
+                .Select(directory => $"pet.{Path.GetFileName(directory)}")
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .ToArray();
+            var catalogued = appearances.Select(item => item.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+            var notPublished = publishable.Except(catalogued, StringComparer.Ordinal).ToArray();
+            var notOnDisk = catalogued.Except(publishable, StringComparer.Ordinal).ToArray();
+            Check($"形象目录覆盖全部 {publishable.Length} 套有素材的形象",
+                notPublished.Length == 0 && notOnDisk.Length == 0,
+                $"未收录 {string.Join(",", notPublished)}；多余 {string.Join(",", notOnDisk)}");
             Check("形象条目都是 pet 类型", appearances.All(item => item.Type == "pet"));
             Check("形象条目可安装", appearances.All(item => item.Id.StartsWith("pet.", StringComparison.Ordinal)
                 && item.Sha256.Length == 64 && item.DownloadUrl.EndsWith(".zip", StringComparison.Ordinal)));

@@ -1,8 +1,23 @@
 {
   "catalog": "balancepet.appearances",
   "schema_version": 1,
-  "updated_at": "2026-10-02T06:07:20Z",
+  "updated_at": "2026-10-02T07:24:08Z",
   "appearances": [
+    {
+      "id": "pet.chatgpt",
+      "type": "pet",
+      "name": "ChatGPT 小白龙「霁珑」",
+      "name_en": "ChatGPT White Dragon \"Jilong\"",
+      "version": "1.1.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.chatgpt-1.1.0.zip",
+      "sha256": "e327f86d19e62f43d8b9b07bb5cf421625d10bbdd7dc69665f6b4f198e1b3d8e",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "categories": [
+        "appearance"
+      ]
+    },
     {
       "id": "pet.claude",
       "type": "pet",
@@ -12,6 +27,21 @@
       "min_core_version": "0.5.0",
       "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.claude-1.1.0.zip",
       "sha256": "17fae8434d35bd86eca386615ca096222f32c6e1a7a8fdc3a089e4a556788efa",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.deepseek",
+      "type": "pet",
+      "name": "DeepSeek 小鲸鱼「澜汐」",
+      "name_en": "DeepSeek Whale \"Lanxi\"",
+      "version": "1.1.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.deepseek-1.1.0.zip",
+      "sha256": "dc39ed16e323e4e6ebab9a77ad556e903a5c25310892a9a581065410aabe6e65",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
       "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
       "categories": [
