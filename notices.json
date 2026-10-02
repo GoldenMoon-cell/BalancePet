@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "notices": [
+    {
+      "seq": 3,
+      "date": "2026-10-02",
+      "area": "规范",
+      "title": "补充形象仓库文档规范",
+      "summary": "形象目录 catalog.json 与在线台词 lines.json 此前只有实现、没有规范，现已补齐两份 schema，并新增一个校验脚本来防止生成器与规范分叉。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/appearance-v1/README.md"
+    },
+    {
+      "seq": 2,
+      "date": "2026-10-02",
+      "area": "在线内容",
+      "title": "台词改为在线读取",
+      "summary": "形象的台词不再只存在于安装包里，形象仓库新增 lines.json。更正一句台词现在是一次小提交，不需要重新发布形象包，也不会让任何人为几百字节重下几兆。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/blob/main/lines.json"
+    },
+    {
+      "seq": 1,
+      "date": "2026-10-02",
+      "area": "文档",
+      "title": "更正四份过期文档",
+      "summary": "升级说明补齐 1.4.0 之后的全部变更；素材要求去掉一处自相矛盾的建议并补上漏掉的文件类型；名册与规范之间不再各留一份会分叉的名单。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/UPGRADE.md"
+    }
+  ]
+}
