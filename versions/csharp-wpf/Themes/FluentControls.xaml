@@ -300,14 +300,20 @@
     <Setter Property="Focusable" Value="False"/><Setter Property="IsTabStop" Value="False"/>
     <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="{x:Type RepeatButton}"><Border Background="Transparent"/></ControlTemplate></Setter.Value></Setter>
   </Style>
+  <!-- The simplest thumb that can be drawn. It used to carry an inset margin and a low
+       opacity, and the pill inside it came out roughly half the height of the thumb and
+       flat-bottomed in both the running program and an off-screen render, while the element
+       itself measured full height. Rather than spend another round establishing which of the
+       three was clipping it, there is now nothing on it to clip: no margin, no opacity, one
+       border filling the thumb. -->
   <Style x:Key="ScrollBarThumb" TargetType="{x:Type Thumb}">
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="{x:Type Thumb}">
-          <Border x:Name="Thumb" Background="{DynamicResource MutedBrush}" CornerRadius="3" Opacity="0.42"/>
+          <Border x:Name="Thumb" Background="{DynamicResource MutedBrush}" CornerRadius="3"/>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Thumb" Property="Opacity" Value="0.7"/></Trigger>
-            <Trigger Property="IsDragging" Value="True"><Setter TargetName="Thumb" Property="Opacity" Value="0.9"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Thumb" Property="Background" Value="{DynamicResource TextBrush}"/></Trigger>
+            <Trigger Property="IsDragging" Value="True"><Setter TargetName="Thumb" Property="Background" Value="{DynamicResource AccentBrush}"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
@@ -317,7 +323,7 @@
     <Grid Background="Transparent">
       <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="Vertical">
         <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="{x:Static ScrollBar.PageUpCommand}"/></Track.DecreaseRepeatButton>
-        <Track.Thumb><Thumb MinHeight="32" Margin="2" Style="{StaticResource ScrollBarThumb}"/></Track.Thumb>
+        <Track.Thumb><Thumb MinHeight="28" Margin="2" Style="{StaticResource ScrollBarThumb}"/></Track.Thumb>
         <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="{x:Static ScrollBar.PageDownCommand}"/></Track.IncreaseRepeatButton>
       </Track>
     </Grid>
@@ -326,7 +332,7 @@
     <Grid Background="Transparent">
       <Track x:Name="PART_Track" Orientation="Horizontal">
         <Track.DecreaseRepeatButton><RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="{x:Static ScrollBar.PageLeftCommand}"/></Track.DecreaseRepeatButton>
-        <Track.Thumb><Thumb MinWidth="32" Margin="2" Style="{StaticResource ScrollBarThumb}"/></Track.Thumb>
+        <Track.Thumb><Thumb MinWidth="28" Margin="2" Style="{StaticResource ScrollBarThumb}"/></Track.Thumb>
         <Track.IncreaseRepeatButton><RepeatButton Style="{StaticResource ScrollBarPageButton}" Command="{x:Static ScrollBar.PageRightCommand}"/></Track.IncreaseRepeatButton>
       </Track>
     </Grid>

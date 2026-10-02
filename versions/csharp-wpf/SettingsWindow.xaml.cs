@@ -340,6 +340,11 @@ public partial class SettingsWindow : Window
         Update();
         box.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.DataBind, Update);
         box.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, Update);
+        // Loaded, not Render. Changing the font resource re-templates every control, and a
+        // template is applied during layout, which runs after Render priority. Filling the
+        // text in before that means filling in a TextBlock that is about to be thrown away,
+        // which is why the box went blank for every face except the one already in use.
+        box.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, Update);
     }
 
     private void SyncAllComboDisplays()

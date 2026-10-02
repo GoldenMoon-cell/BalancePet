@@ -33,6 +33,15 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        // A screen recording of the UI is only useful if its frames can be looked at one at a
+        // time, and there is no video tool on this machine to do it with.
+        if (Array.IndexOf(args, "--video-frames") is var vt && vt >= 0 && vt + 1 < args.Length)
+        {
+            var howMany = Array.IndexOf(args, "--frames") is var fc && fc >= 0 && fc + 1 < args.Length
+                && int.TryParse(args[fc + 1], out var parsed) ? parsed : 8;
+            return SaveVideoFrames(args[vt + 1], howMany);
+        }
+
         var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var store = new SettingsStore();
         var settings = store.Load();
@@ -187,6 +196,61 @@ internal static class Program
     /// space, and flags any item that does not fit. An item wider than the space it has, or
     /// flush against another item, is what makes a rounded highlight read as cut off.
     /// </remarks>
+    /// <summary>
+    /// Saves still frames from a video, so a screen recording can be read like a screenshot.
+    /// </summary>
+    /// <remarks>
+    /// MediaPlayer plus RenderTargetBitmap rather than a decoder dependency: WPF already has
+    /// one. Scrubbing has to be on and the seek needs a moment to land, or every frame comes
+    /// back as the first one.
+    /// </remarks>
+    private static int SaveVideoFrames(string path, int count)
+    {
+        var player = new System.Windows.Media.MediaPlayer { ScrubbingEnabled = true, Volume = 0 };
+        var opened = false;
+        player.MediaOpened += (_, _) => opened = true;
+        player.MediaFailed += (_, e) => Console.WriteLine($"open failed: {e.ErrorException?.Message}");
+        player.Open(new Uri(Path.GetFullPath(path)));
+        player.Play();
+        player.Pause();
+
+        var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+        for (var spin = 0; spin < 300 && !opened; spin++)
+        {
+            dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+            Thread.Sleep(20);
+        }
+        if (!opened) { Console.WriteLine("video did not open"); return 2; }
+
+        var duration = player.NaturalDuration.HasTimeSpan ? player.NaturalDuration.TimeSpan : TimeSpan.Zero;
+        Console.WriteLine($"duration {duration.TotalSeconds:0.##}s  {player.NaturalVideoWidth}x{player.NaturalVideoHeight}");
+        if (duration <= TimeSpan.Zero) return 2;
+
+        for (var index = 0; index < count; index++)
+        {
+            var at = TimeSpan.FromTicks(duration.Ticks * (index * 2 + 1) / (count * 2));
+            player.Position = at;
+            for (var spin = 0; spin < 50; spin++)
+            {
+                dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                Thread.Sleep(20);
+            }
+
+            var visual = new System.Windows.Media.DrawingVisual();
+            using (var context = visual.RenderOpen())
+                context.DrawVideo(player, new Rect(0, 0, player.NaturalVideoWidth, player.NaturalVideoHeight));
+            var bitmap = new RenderTargetBitmap(player.NaturalVideoWidth, player.NaturalVideoHeight, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(visual);
+            var target = Path.Combine(AppContext.BaseDirectory, $"frame-{index:00}.png");
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using (var stream = File.Create(target)) encoder.Save(stream);
+            Console.WriteLine($"  {at.TotalSeconds,6:0.##}s  {target}");
+        }
+        player.Close();
+        return 0;
+    }
+
     private static int ReportPopupLayout(FrameworkElement window, string comboName)
     {
         if (window.FindName(comboName) is not System.Windows.Controls.ComboBox combo)
