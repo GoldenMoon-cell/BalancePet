@@ -20,7 +20,10 @@
       "required": ["id", "type", "name", "version", "download_url", "sha256", "repository_url", "release_url"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,94}[a-z0-9])?$" },
-        "type": { "enum": ["feature", "pet", "theme"] },
+        "type": {
+          "description": "A browser entry is a pointer to someone else's repository rather than something the host installs, so it carries no download_url and no sha256. Its id must begin with balancepet.browser., and a feature's with balancepet.ext. Both rules are checked by the host; they are described here rather than encoded because a per-type pattern would need a conditional this schema avoids.",
+          "enum": ["feature", "pet", "theme", "browser"]
+        },
         "name": { "type": "string", "minLength": 1, "maxLength": 120 },
         "name_en": { "type": "string", "maxLength": 120 },
         "description": { "type": "string", "maxLength": 500 },
@@ -28,9 +31,21 @@
         "author": { "type": "string", "maxLength": 120 },
         "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$" },
         "min_core_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$" },
-        "update_url": { "type": "string", "format": "uri", "pattern": "^https://api\\.github\\.com/repos/[^/]+/[^/]+/releases/latest$" },
-        "download_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/.+/releases/download/.+\\.zip$" },
-        "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+        "update_url": {
+          "description": "Empty for an entry that is not updated through the GitHub API, which is every browser entry.",
+          "type": "string",
+          "pattern": "^(|https://api\\.github\\.com/repos/[^/]+/[^/]+/releases/latest)$"
+        },
+        "download_url": {
+          "description": "Empty for a browser entry, which the host never downloads.",
+          "type": "string",
+          "pattern": "^(|https://github\\.com/.+/releases/download/.+\\.zip)$"
+        },
+        "sha256": {
+          "description": "Empty for a browser entry, which the host never verifies.",
+          "type": "string",
+          "pattern": "^(|[A-Fa-f0-9]{64})$"
+        },
         "repository_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/.+" },
         "release_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/.+/releases/tag/.+" },
         "categories": { "type": "array", "maxItems": 6, "items": { "type": "string", "maxLength": 32 } }

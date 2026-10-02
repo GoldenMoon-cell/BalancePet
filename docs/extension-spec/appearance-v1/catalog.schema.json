@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BalancePet appearance catalog v1",
+  "description": "The index of installable appearance packages, published from the appearance repository. Its identity field is what distinguishes it from the main repository's plugin catalog, which is otherwise the same shape.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["catalog", "schema_version", "appearances"],
+  "properties": {
+    "catalog": { "const": "balancepet.appearances" },
+    "schema_version": { "const": 1 },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "appearances": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/appearance" }
+    }
+  },
+  "$defs": {
+    "appearance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "name", "version", "download_url", "sha256", "repository_url", "release_url"],
+      "properties": {
+        "id": {
+          "description": "Package id. The appearance identifier a saved setting stores is the package's style, not this value.",
+          "type": "string",
+          "pattern": "^pet\\.[a-z0-9](?:[a-z0-9.-]{0,90}[a-z0-9])?$"
+        },
+        "type": { "const": "pet" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "name_en": { "type": "string", "maxLength": 120 },
+        "description": { "type": "string", "maxLength": 500 },
+        "description_en": { "type": "string", "maxLength": 500 },
+        "author": { "type": "string", "maxLength": 120 },
+        "version": {
+          "description": "The package's own version; an installed copy is compared against it to decide whether an update is offered.",
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+        },
+        "min_core_version": {
+          "description": "An entry newer than the running program is listed but not installable.",
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+        },
+        "download_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://github\\.com/.+/releases/download/.+\\.zip$"
+        },
+        "sha256": {
+          "description": "Digest of the artifact at download_url, verified after the download and before the install. Lower-case hexadecimal.",
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        },
+        "repository_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/.+" },
+        "release_url": { "type": "string", "format": "uri", "pattern": "^https://github\\.com/.+/releases/tag/.+" },
+        "categories": {
+          "description": "The selector groups by category, so an entry says which it belongs to rather than leaving the reader to infer it from the name.",
+          "type": "array",
+          "maxItems": 6,
+          "items": { "type": "string", "maxLength": 32 }
+        }
+      }
+    }
+  }
+}

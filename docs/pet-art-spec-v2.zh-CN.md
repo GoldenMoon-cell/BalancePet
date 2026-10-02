@@ -96,6 +96,6 @@ python tools/prepare-pet-assets.py --remove-checkerboard --apply
 
 ## 相关文件
 
-- 剩余 6 个形象的九状态提示词：`docs/pet-generation-prompts-remaining-6.zh-CN.md`
-- 已交付 12 套的九状态清单：`docs/csharp-art-pipeline.md`
+- 全部 18 个形象的名册、命名说明与素材状态：`docs/pet-roster.zh-CN.md`
+- 九状态提示词：`docs/pet-generation-prompts-remaining-6.zh-CN.md`（覆盖六个身份锚点：`seedance`、`mimo`、`opencode`、`perplexity`、`mistral`、`rwkv`。其中前两个已经交付，**实际剩下 4 套**：`opencode`、`perplexity`、`mistral`、`rwkv`。文件名里的 6 是撰写时的数量，未改名。名册中标为「尚未制作」的即未交付的那几套）
 - 状态图存放目录：`versions/csharp-wpf/assets/pets/<id>/`

@@ -4,6 +4,12 @@
 folder holds the material that gets published to the separate appearance
 repository, so that publishing is a copy rather than a second authoring step.
 
+The documents published from here are specified in
+[`docs/extension-spec/appearance-v1/README.md`](../docs/extension-spec/appearance-v1/README.md).
+`tools/validate-spec-documents.py` checks the generated files against those schemas, and
+is worth running for the same reason the schemas exist: a generator that has drifted from
+the format it claims to produce looks exactly like one that has not.
+
 ## What is here
 
 | Path | Purpose |
