@@ -96,6 +96,12 @@ public static class Diagnostics
                 : $"SelectionText.Text=<{text.Text}>  绑定={(binding is null ? "无（已被代码赋值覆盖）" : "在")}";
             Write("combo", $"{label}: {header}");
             Write("combo", $"{label}: {shown}");
+            if (text is not null)
+            {
+                Write("combo", $"{label}: 显示字体=<{text.FontFamily}> 字号={text.FontSize} " +
+                               $"前景={Describe(text.Foreground)} 可见={text.IsVisible} " +
+                               $"尺寸={text.ActualWidth:0.##}x{text.ActualHeight:0.##}");
+            }
         }
         catch (Exception error) { Write("combo", $"{label}: 读取失败 {error.Message}"); }
     }

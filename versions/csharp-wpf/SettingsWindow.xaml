@@ -708,7 +708,7 @@
                  font names all set in one font says nothing about any of them. -->
             <StackPanel Margin="0,0,0,16">
               <TextBlock Text="界面字体" FontWeight="SemiBold"/>
-              <ComboBox x:Name="UiFontBox" SelectionChanged="OnUiFontChanged" DropDownClosed="OnComboDropDownClosed"
+              <ComboBox x:Name="UiFontBox" SelectionChanged="OnUiFontChanged" DropDownOpened="OnComboDroppedDown" DropDownClosed="OnComboDropDownClosed"
                         Margin="0,6,0,0" MaxDropDownHeight="320"
                         ToolTip="设置窗口、提示气泡和更新记录使用的字体。">
                 <ComboBox.ItemTemplate>

@@ -14,7 +14,7 @@
     <VersionSuffix>diag</VersionSuffix>
     <AssemblyVersion>1.4.7.0</AssemblyVersion>
     <FileVersion>1.4.7.0</FileVersion>
-    <InformationalVersion>1.4.7-diag</InformationalVersion>
+    <InformationalVersion>1.4.7-diag2</InformationalVersion>
     <ApplicationIcon>assets\balance-pet.ico</ApplicationIcon>
     <!-- User-facing packages do not need debugger files or local source paths. -->
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>

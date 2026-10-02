@@ -498,6 +498,25 @@ public partial class SettingsWindow : Window
         return family.Source;
     }
 
+    /// <summary>
+    /// Reports whatever scrollbars a combo's dropdown has, at the only moment they exist.
+    /// </summary>
+    /// <remarks>
+    /// The earlier dump ran with the dropdown shut and therefore only ever saw the window's own
+    /// scrollbar, which measured clean and told us nothing about the one being reported.
+    /// </remarks>
+    private void DumpOpenDropdown(string label, System.Windows.Controls.ComboBox? box)
+    {
+        if (box?.Template?.FindName("PART_Popup", box) is not System.Windows.Controls.Primitives.Popup popup
+            || popup.Child is not FrameworkElement chrome) return;
+        Diagnostics.Thumbs($"{label}（下拉打开时）", chrome);
+    }
+
+    private void OnComboDroppedDown(object sender, EventArgs e)
+    {
+        if (ReferenceEquals(sender, UiFontBox)) DumpOpenDropdown("界面字体", UiFontBox);
+    }
+
     private void OnUiFontChanged(object sender, SelectionChangedEventArgs e)
     {
         var choice = UiFontBox?.SelectedItem as FontChoice;
@@ -540,7 +559,15 @@ public partial class SettingsWindow : Window
         //
         // A request is allowed through when the target is genuinely out of view, which is what
         // keeps keyboard navigation working: arrowing past the edge still scrolls.
-        if (e.TargetObject is FrameworkElement target && IsMostlyInView(target)) e.Handled = true;
+        if (e.TargetObject is FrameworkElement target && IsMostlyInView(target))
+        {
+            e.Handled = true;
+            Diagnostics.Write("bring", $"窗口: 已拦下（目标已露出 90% 以上）");
+        }
+        else
+        {
+            Diagnostics.Write("bring", $"窗口: 放行（目标大部分在视野外）");
+        }
     }
 
     /// <summary>Whether an element is already far enough inside its viewport to be readable.</summary>
