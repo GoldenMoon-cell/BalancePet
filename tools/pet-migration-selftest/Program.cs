@@ -51,17 +51,17 @@ internal static class Program
             // --- 1. Two shipped appearances become packages -------------------
             Stage(appDirectory, realPets, "qwen");
             Stage(appDirectory, realPets, "gemini");
-            // A distribution appearance sits in the same folder and must be left alone.
-            // Converting it cannot succeed -- the manager refuses a package whose style
-            // collides with a built-in id -- and that failure stops the completion
-            // marker from ever being written, so every launch would stage an archive
-            // for it and throw it away again.
+            // DeepSeek used to ship with the program, and conversion was refused for it.
+            // It is a package now, so an installation upgrading from that version has its
+            // folder converted like any other -- which is how an existing user keeps the
+            // appearance without downloading anything.
             Stage(appDirectory, realPets, "deepseek");
             var result = ShippedPetMigration.Run(appDirectory, extensionsRoot);
-            Check("迁移数量 = 2", result.Migrated == 2, $"实际 {result.Migrated}");
+            Check("迁移数量 = 3", result.Migrated == 3, $"实际 {result.Migrated}");
             Check("无失败", result.Failed.Count == 0, string.Join("；", result.Failed));
-            Check("随程序提供的形象不被转换", Directory.Exists(Path.Combine(appDirectory, "assets", "pets", "deepseek")));
-            Check("随程序提供的形象没有装成包", !InstalledStyles(extensionsRoot).Contains("deepseek"));
+            Check("原随程序提供的形象也被转换",
+                !Directory.Exists(Path.Combine(appDirectory, "assets", "pets", "deepseek"))
+                && InstalledStyles(extensionsRoot).Contains("deepseek"));
             Check("完成后写下标记", File.Exists(Path.Combine(workspace, "pet-migration.v1.done")),
                 Path.Combine(workspace, "pet-migration.v1.done"));
             Check("qwen 原目录已删除", !Directory.Exists(Path.Combine(appDirectory, "assets", "pets", "qwen")));

@@ -17,8 +17,10 @@
 param(
     [string] $OutputDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'dist\pets'),
     [string] $Version = '1.0.0',
-    # Appearances that stay in the distribution and therefore get no package.
-    [string[]] $Keep = @('deepseek', 'chatgpt'),
+    # Appearances that stay in the distribution and therefore get no package. Only the
+    # placeholder: it is the one shape that must never be missing, so it cannot be
+    # something the user has to download.
+    [string[]] $Keep = @('_placeholder'),
     # Package only these ids; empty means every appearance that is not kept. A first
     # publication wants all of them, but republishing one redrawn appearance should
     # not rebuild the other eleven: their packages have not changed, and a new

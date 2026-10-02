@@ -255,31 +255,54 @@ public partial class SettingsWindow : Window
         finally { _suppressLanguageChange = false; }
     }
 
+    /// <summary>
+    /// Fills the appearance selector with what this installation can actually draw.
+    /// </summary>
+    /// <remarks>
+    /// Rebuilt rather than topped up, and from the catalogue rather than from a list in
+    /// the XAML. Appearances arrive as packages now, so a written-out list offers every
+    /// appearance ever published -- almost all of them disabled -- on an installation
+    /// that has none of them, which is exactly the state a fresh installation starts in.
+    ///
+    /// The name comes from the catalogue or the installed package's manifest, so a
+    /// package the program has never heard of still shows the name its author chose.
+    /// </remarks>
     private void AddInstalledPetStyles()
     {
         if (PetStyleBox is null) return;
-        var builtInIds = PetStyleCatalog.All.Select(definition => definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var availableIds = PetStyleCatalog.GetAvailableExtensionStyles().Select(definition => definition.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in PetStyleBox.Items.OfType<ComboBoxItem>().ToArray())
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        var english = AppLocalization.IsEnglish(language);
+        var previous = SelectedTag(PetStyleBox, "");
+        PetStyleBox.Items.Clear();
+        foreach (var definition in PetStyleCatalog.GetAvailableStyles())
         {
-            if (item.Tag is string id && !builtInIds.Contains(id) && !availableIds.Contains(id))
-                PetStyleBox.Items.Remove(item);
-        }
-        var existing = PetStyleBox.Items.OfType<ComboBoxItem>()
-            .Select(item => item.Tag?.ToString())
-            .Where(id => !string.IsNullOrWhiteSpace(id))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var definition in PetStyleCatalog.GetAvailableExtensionStyles())
-        {
-            if (!existing.Add(definition.Id)) continue;
+            var installed = PetStyleCatalog.GetExtensionStyleId(definition.Id);
             PetStyleBox.Items.Add(new ComboBoxItem
             {
                 Tag = definition.Id,
-                Content = definition.ChineseName,
-                ToolTip = $"{AppLocalization.Text(_settings.Language, "资源扩展：", "Resource extension: ")}{definition.Id}"
+                Content = english ? definition.EnglishName : definition.ChineseName,
+                ToolTip = string.IsNullOrWhiteSpace(installed)
+                    ? AppLocalization.Text(language, "随主程序提供的形象", "Ships with the program")
+                    : $"{AppLocalization.Text(language, "形象包：", "Appearance package: ")}{installed}"
             });
         }
+        // Restoring the selection keeps the panel showing the same appearance across an
+        // install or uninstall, which is when this runs.
+        if (previous.Length > 0) SelectByTag(PetStyleBox, previous);
         RefreshPetPreview();
+    }
+
+    /// <summary>
+    /// Moves the selection off an appearance that is no longer installed.
+    /// </summary>
+    /// <remarks>
+    /// Any installed appearance will do; there is no default one any more, and the
+    /// built-in placeholder guarantees the list is never empty.
+    /// </remarks>
+    private void SelectFirstAvailablePetStyle()
+    {
+        var next = PetStyleCatalog.GetAvailableStyles().FirstOrDefault();
+        SelectByTag(PetStyleBox, next?.Id ?? PetStyleCatalog.FallbackId);
     }
 
     private static void SelectByTag(System.Windows.Controls.ComboBox box, string tag)
@@ -557,7 +580,7 @@ public partial class SettingsWindow : Window
     {
         if (PetPreviewGrid is null || !_trackChanges) return;
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
-        var style = SelectedTag(PetStyleBox, "deepseek");
+        var style = SelectedTag(PetStyleBox, PetStyleCatalog.FallbackId);
         var directory = PetStyleCatalog.ResolveAssetDirectory(style);
         // Lets a decode that finishes late recognise that it has been superseded.
         var generation = ++_previewGeneration;
@@ -733,7 +756,7 @@ public partial class SettingsWindow : Window
         // The removed appearance is still what the selector shows, and it can no
         // longer be drawn. Move to the default, which the fallback chain in the pet
         // window would have used anyway.
-        SelectByTag(PetStyleBox, "deepseek");
+        SelectFirstAvailablePetStyle();
         RefreshPetPreview();
     }
 
@@ -1302,8 +1325,8 @@ public partial class SettingsWindow : Window
         if (!changed) return;
         if (enabled && selected.Feature is not null)
             StartBackgroundFeatureIfNeeded(selected.Feature);
-        if (selected.Pet is PetExtensionInfo petSelected && !enabled && string.Equals(SelectedTag(PetStyleBox, "deepseek"), petSelected.StyleId, StringComparison.OrdinalIgnoreCase))
-            SelectByTag(PetStyleBox, "deepseek");
+        if (selected.Pet is PetExtensionInfo petSelected && !enabled && string.Equals(SelectedTag(PetStyleBox, PetStyleCatalog.FallbackId), petSelected.StyleId, StringComparison.OrdinalIgnoreCase))
+            SelectFirstAvailablePetStyle();
         if (selected.Pet is not null)
         {
             AddInstalledPetStyles();
@@ -1370,8 +1393,8 @@ public partial class SettingsWindow : Window
                 ? _featureExtensions.Uninstall(selected.Feature.Manifest.Id)
                 : selected.Theme is not null && _themes.Uninstall(selected.Theme.Manifest.Id);
         if (!removed) return;
-        if (selected.Pet is PetExtensionInfo petSelected && string.Equals(SelectedTag(PetStyleBox, "deepseek"), petSelected.StyleId, StringComparison.OrdinalIgnoreCase))
-            SelectByTag(PetStyleBox, "deepseek");
+        if (selected.Pet is PetExtensionInfo petSelected && string.Equals(SelectedTag(PetStyleBox, PetStyleCatalog.FallbackId), petSelected.StyleId, StringComparison.OrdinalIgnoreCase))
+            SelectFirstAvailablePetStyle();
         if (selected.Pet is not null)
         {
             AddInstalledPetStyles();
@@ -1878,7 +1901,7 @@ public partial class SettingsWindow : Window
                 refresh_seconds = selected.RefreshSeconds,
                 auto_refresh_enabled = selected.AutoRefreshEnabled,
                 low_threshold = selected.LowThreshold,
-                pet_style = SelectedTag(PetStyleBox, "deepseek"),
+                pet_style = SelectedTag(PetStyleBox, PetStyleCatalog.FallbackId),
                 interaction_mode = SelectedTag(InteractionBox, "free"),
                 update_check_mode = SelectionTag(UpdateCheckBox, "daily"),
                 extension_update_check_mode = SelectionTag(ExtensionUpdateCheckBox, "daily"),
@@ -1972,8 +1995,8 @@ public partial class SettingsWindow : Window
         try
         {
             var startupEnabled = StartupBox.IsChecked == true;
-            var selectedPetStyle = SelectedTag(PetStyleBox, "deepseek");
-            if (!PetStyleCatalog.IsAvailable(selectedPetStyle)) selectedPetStyle = "deepseek";
+            var selectedPetStyle = SelectedTag(PetStyleBox, PetStyleCatalog.FallbackId);
+            if (!PetStyleCatalog.IsAvailable(selectedPetStyle)) selectedPetStyle = PetStyleCatalog.FallbackId;
             var updated = new PetSettings
             {
                 // Preserve the current schema so SettingsStore does not treat

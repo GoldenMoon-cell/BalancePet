@@ -41,20 +41,19 @@ public static class PetStyleCatalog
     /// Appearances that remain part of the distribution.
     /// </summary>
     /// <remarks>
-    /// Deliberately short. Every appearance here adds its artwork to the installer
-    /// and to every download, and the artwork is what dominates both, so the rest
-    /// are published as resource-extension packages instead. This list is only
-    /// "what is guaranteed to arrive with the program"; anything that needs "what
+    /// Deliberately short — one entry. Every appearance in the distribution adds its
+    /// artwork to the installer and to every download, and the artwork is what dominates
+    /// both, so every other appearance is published as a package instead. This list is
+    /// only "what is guaranteed to arrive with the program"; anything that needs "what
     /// can be drawn right now" wants <see cref="GetAvailableStyles"/>.
     /// </remarks>
     public static readonly IReadOnlyList<PetStyleDefinition> All = new[]
     {
-        new PetStyleDefinition("deepseek", "DeepSeek 小鲸鱼「澜汐」", "DeepSeek Whale \"Lanxi\"", "DeepSeek 小鲸鱼", "DeepSeek Whale"),
-        new PetStyleDefinition("chatgpt", "ChatGPT 小白龙「霁珑」", "ChatGPT White Dragon \"Jilong\"", "ChatGPT 小白龙", "ChatGPT White Dragon"),
-        // Never published as artwork, and not something to choose on purpose. It is
-        // the shape the window draws when no appearance is installed yet, which is a
-        // real state now that appearances arrive as packages: without it a fresh
-        // installation that cannot reach the network would have an empty window.
+        // Never published as artwork, and not something to choose on purpose. It is the
+        // shape the window draws when no appearance is installed yet, which is the state
+        // a fresh installation starts in now that every other appearance is a package.
+        // Keeping it in the distribution is what makes the move safe: it is the one
+        // appearance that cannot be missing, so a window always has something to draw.
         new PetStyleDefinition(FallbackId, "内置占位形象", "Built-in Placeholder", "占位形象", "Placeholder"),
     };
 
@@ -72,6 +71,14 @@ public static class PetStyleCatalog
     /// </remarks>
     public static readonly IReadOnlyList<PetStyleDefinition> Extractable = new[]
     {
+        // The two the program used to carry. They are packages now like the rest, which
+        // is what makes them removable -- a shipped folder could not be, because the
+        // next upgrade would put it back. An installation upgrading from a version that
+        // still had these folders keeps them: the migration converts them, which it
+        // could not do while the manager refused a package whose style collided with a
+        // built-in id.
+        new PetStyleDefinition("deepseek", "DeepSeek 小鲸鱼「澜汐」", "DeepSeek Whale \"Lanxi\"", "DeepSeek 小鲸鱼", "DeepSeek Whale"),
+        new PetStyleDefinition("chatgpt", "ChatGPT 小白龙「霁珑」", "ChatGPT White Dragon \"Jilong\"", "ChatGPT 小白龙", "ChatGPT White Dragon"),
         new PetStyleDefinition("minimax", "MiniMax 小海螺「绯音」", "MiniMax Shell \"Feiyin\"", "MiniMax 小海螺", "MiniMax Shell"),
         new PetStyleDefinition("gemini", "Gemini 小星猫「星璃」", "Gemini Star Cat \"Xingli\"", "Gemini 小星猫", "Gemini Star Cat"),
         new PetStyleDefinition("grok", "Grok 小恶魔「烬斧」", "Grok Little Demon \"Jinfu\"", "Grok 小恶魔", "Grok Little Demon"),
@@ -110,7 +117,10 @@ public static class PetStyleCatalog
         "perplexity" => "perplexity",
         "rwkv" => "rwkv",
         "seedance" => "seedance",
-        _ => IsExtensionStyleId(value) ? value!.Trim().ToLowerInvariant() : "deepseek"
+        // The built-in placeholder, not DeepSeek: naming an appearance that is only
+        // installed on some machines would resolve an unknown id to something the
+        // window cannot draw on the machines that lack it.
+        _ => IsExtensionStyleId(value) ? value!.Trim().ToLowerInvariant() : FallbackId
     };
 
     public static PetStyleDefinition Get(string? value)
@@ -258,6 +268,22 @@ public static class PetStyleCatalog
         // copy, and it is the one the user can see and manage.
         foreach (var definition in GetAvailableExtensionStyles()) styles[definition.Id] = definition;
         return styles.Values.ToArray();
+    }
+
+    /// <summary>
+    /// The id of the installed package supplying an appearance, or empty when the
+    /// appearance ships with the program or is not installed at all.
+    /// </summary>
+    /// <remarks>
+    /// For labelling only. A user who has installed several packages from different
+    /// sources benefits from seeing which one is in use.
+    /// </remarks>
+    public static string GetExtensionStyleId(string? value)
+    {
+        var style = NormalizeId(value);
+        return Extensions.GetLatestEnabled()
+            .FirstOrDefault(info => string.Equals(info.StyleId, style, StringComparison.OrdinalIgnoreCase))
+            ?.Manifest.Id ?? "";
     }
 
     /// <summary>

@@ -25,7 +25,7 @@
          on; nothing else should.
          Keep this list in step with PetStyleCatalog.Extractable: a folder that is
          excluded here but not listed there would simply vanish for new users. -->
-    <PetPackageExcludeGlob Condition="'$(ExcludePackagedPets)' == 'true'">assets\pets\minimax\**;assets\pets\gemini\**;assets\pets\grok\**;assets\pets\claude\**;assets\pets\kimi\**;assets\pets\qwen\**;assets\pets\ernie\**;assets\pets\glm\**;assets\pets\gpt-image2\**;assets\pets\llama\**;assets\pets\mimo\**;assets\pets\seedance\**</PetPackageExcludeGlob>
+    <PetPackageExcludeGlob Condition="'$(ExcludePackagedPets)' == 'true'">assets\pets\deepseek\**;assets\pets\chatgpt\**;assets\pets\minimax\**;assets\pets\gemini\**;assets\pets\grok\**;assets\pets\claude\**;assets\pets\kimi\**;assets\pets\qwen\**;assets\pets\ernie\**;assets\pets\glm\**;assets\pets\gpt-image2\**;assets\pets\llama\**;assets\pets\mimo\**;assets\pets\seedance\**</PetPackageExcludeGlob>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />

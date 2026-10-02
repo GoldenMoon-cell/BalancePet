@@ -396,24 +396,11 @@
                 <TextBlock Text="宠物形象"/>
                 <Grid Margin="0,5,0,12">
                   <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <ComboBox x:Name="PetStyleBox" SelectionChanged="OnComboSelectionChanged" DropDownClosed="OnComboDropDownClosed">
-                  <ComboBoxItem Tag="deepseek" ToolTip="DeepSeek 小鲸鱼 / Whale-chan / 澜汐">DeepSeek 小鲸鱼「澜汐」</ComboBoxItem>
-                  <ComboBoxItem Tag="chatgpt" ToolTip="ChatGPT 小白龙 / ChatGPT White Dragon / 霁珑">ChatGPT 小白龙「霁珑」</ComboBoxItem>
-                  <ComboBoxItem Tag="minimax" ToolTip="MiniMax 小海螺 / 绯音">MiniMax 小海螺「绯音」</ComboBoxItem>
-                  <ComboBoxItem Tag="gemini" ToolTip="Gemini 小星猫 / 星璃">Gemini 小星猫「星璃」</ComboBoxItem>
-                  <ComboBoxItem Tag="grok" ToolTip="Grok 小恶魔 / Grok Little Demon / 烬斧">Grok 小恶魔「烬斧」</ComboBoxItem>
-                  <ComboBoxItem Tag="claude" ToolTip="Claude 小书灵 / Little Book Spirit / 丹笺">Claude 小书灵「丹笺」</ComboBoxItem>
-                  <ComboBoxItem Tag="kimi" ToolTip="Kimi 小棱镜 / Little Prism / 虹谱">Kimi 小棱镜「虹谱」</ComboBoxItem>
-                  <ComboBoxItem Tag="qwen" ToolTip="Qwen 小折扇 / Folding Fan / 绀华">Qwen 小折扇「绀华」</ComboBoxItem>
-                  <ComboBoxItem Tag="ernie">Ernie 小病书灵「青绡」</ComboBoxItem>
-                  <ComboBoxItem Tag="glm">GLM 小方灵「青棱」</ComboBoxItem>
-                  <ComboBoxItem Tag="gpt-image2">GPT Image 2 小墨龙「玄珏」</ComboBoxItem>
-                  <ComboBoxItem Tag="llama">Llama 小羊驼「绒眠」</ComboBoxItem>
-                  <!-- The built-in fallback: plain by design, but it is the one shape
-                       that is always present, so it belongs in the list rather than
-                       being reachable only when everything else is missing. -->
-                  <ComboBoxItem Tag="_placeholder" ToolTip="内置占位形象 / Built-in placeholder：未安装其他形象时使用">内置占位形象</ComboBoxItem>
-                </ComboBox>
+            <!-- Filled from PetStyleCatalog.GetAvailableStyles in the constructor: the
+                 appearances are packages now, so a list written here would offer every
+                 appearance ever published, almost all of them disabled, on an
+                 installation that has none of them. -->
+            <ComboBox x:Name="PetStyleBox" SelectionChanged="OnComboSelectionChanged" DropDownClosed="OnComboDropDownClosed"/>
                   <Button Grid.Column="1" x:Name="PetStyleUninstallButton" Content="卸载形象" Click="OnUninstallSelectedAppearance" ToolTip="卸载当前形象；随主程序提供的形象与最后一套可用形象不能卸载" Padding="10,5" Margin="6,0,0,0"/>
                 </Grid>
               </StackPanel>

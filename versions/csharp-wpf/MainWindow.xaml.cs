@@ -76,11 +76,6 @@ public partial class MainWindow : Window
     private readonly System.Windows.Media.MediaPlayer _releaseSound = new();
     private Forms.NotifyIcon? _trayIcon;
     private Forms.ContextMenuStrip? _trayMenu;
-    private Forms.ToolStripMenuItem? _trayDeepSeekStyleItem;
-    private Forms.ToolStripMenuItem? _trayChatGptStyleItem;
-    private Forms.ToolStripMenuItem? _trayMiniMaxStyleItem;
-    private Forms.ToolStripMenuItem? _trayGeminiStyleItem;
-    private Forms.ToolStripMenuItem? _trayGrokStyleItem;
     private readonly Dictionary<string, Forms.ToolStripMenuItem> _trayStyleItems = new(StringComparer.OrdinalIgnoreCase);
     private Forms.ToolStripMenuItem? _trayMonitorMenu;
     private Forms.ToolStripMenuItem? _trayShowItem;
@@ -867,8 +862,10 @@ public partial class MainWindow : Window
             _ => state.ToString().ToLowerInvariant()
         };
         var styleDirectory = PetStyleCatalog.ResolveAssetDirectory(style);
-        var baseName = style == "chatgpt" ? "chatgpt-dragon.png" : "pet.png";
-        var basePath = System.IO.Path.Combine(AppContext.BaseDirectory, "assets", baseName);
+        // Last resort: the built-in placeholder, the one appearance the program always
+        // has. The old single-image fallbacks named DeepSeek and ChatGPT, which are
+        // packages now and may not be installed at all.
+        var basePath = System.IO.Path.Combine(PetStyleCatalog.ResolveAssetDirectory(PetStyleCatalog.FallbackId), "idle.png");
         // A state that publishes extra frames animates; one that does not is exactly
         // the still image it has always been, because one frame is a whole sequence.
         var frames = PetStyleCatalog.ResolveStateFrames(style, stateName);
@@ -1254,7 +1251,7 @@ public partial class MainWindow : Window
 
     private void OnPetStyleClick(object sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem item) ChangePetStyle(item.Tag?.ToString() ?? "deepseek");
+        if (sender is MenuItem item) ChangePetStyle(item.Tag?.ToString() ?? PetStyleCatalog.FallbackId);
     }
 
     private void ChangePetStyle(string style)
@@ -1306,12 +1303,10 @@ public partial class MainWindow : Window
             if (item.Tag is string id)
                 item.IsChecked = string.Equals(PetStyleCatalog.NormalizeId(id), style, StringComparison.OrdinalIgnoreCase);
         }
-        if (_trayDeepSeekStyleItem is not null) _trayDeepSeekStyleItem.Checked = style == "deepseek";
-        if (_trayChatGptStyleItem is not null) _trayChatGptStyleItem.Checked = style == "chatgpt";
-        if (_trayMiniMaxStyleItem is not null) _trayMiniMaxStyleItem.Checked = style == "minimax";
-        if (_trayGeminiStyleItem is not null) _trayGeminiStyleItem.Checked = style == "gemini";
-        if (_trayGrokStyleItem is not null) _trayGrokStyleItem.Checked = style == "grok";
-        foreach (var item in _trayStyleItems.Values) item.Checked = style == item.Tag?.ToString();
+        // Driven by the dictionary the menu was built from, so it stays right for any
+        // appearance including one the program has never heard of.
+        foreach (var item in _trayStyleItems.Values)
+            item.Checked = string.Equals(item.Tag?.ToString(), style, StringComparison.OrdinalIgnoreCase);
         UpdatePetStyleAvailability();
     }
 
@@ -1492,11 +1487,9 @@ public partial class MainWindow : Window
         if (_trayUsageItem is not null) _trayUsageItem.Text = AppLocalization.Text(_settings.Language, "用量统计", "Usage");
         if (_trayNotificationItem is not null) _trayNotificationItem.Text = AppLocalization.Text(_settings.Language, "消息中心", "Messages");
         if (_trayExitItem is not null) _trayExitItem.Text = AppLocalization.Text(_settings.Language, "退出", "Exit");
-        if (_trayDeepSeekStyleItem is not null) _trayDeepSeekStyleItem.Text = PetStyleDisplayName("deepseek");
-        if (_trayChatGptStyleItem is not null) _trayChatGptStyleItem.Text = PetStyleDisplayName("chatgpt");
-        if (_trayMiniMaxStyleItem is not null) _trayMiniMaxStyleItem.Text = PetStyleDisplayName("minimax");
-        if (_trayGeminiStyleItem is not null) _trayGeminiStyleItem.Text = PetStyleDisplayName("gemini");
-        if (_trayGrokStyleItem is not null) _trayGrokStyleItem.Text = PetStyleDisplayName("grok");
+        // Renamed from the dictionary the menu was built from, so a package with its own
+        // name is labelled correctly too.
+        foreach (var pair in _trayStyleItems) pair.Value.Text = PetStyleDisplayName(pair.Key);
         foreach (var item in _trayStyleItems.Values)
             if (item.Tag is string id) item.Text = PetStyleDisplayName(id);
         if (_trayIcon is not null) _trayIcon.Text = AppLocalization.Text(_settings.Language, "小余额", "BalancePet");
@@ -1629,40 +1622,19 @@ public partial class MainWindow : Window
         menu.Items.Add(_traySettingsItem);
         var styleMenu = new Forms.ToolStripMenuItem();
         _trayStyleMenuItem = styleMenu;
-        _trayDeepSeekStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("deepseek")) { Tag = "deepseek" };
-        _trayChatGptStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("chatgpt")) { Tag = "chatgpt" };
-        _trayMiniMaxStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("minimax")) { Tag = "minimax" };
-        _trayGeminiStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("gemini")) { Tag = "gemini" };
-        _trayGrokStyleItem = new Forms.ToolStripMenuItem(PetStyleDisplayName("grok")) { Tag = "grok" };
-        _trayDeepSeekStyleItem.Click += (_, _) => ChangePetStyle("deepseek");
-        _trayChatGptStyleItem.Click += (_, _) => ChangePetStyle("chatgpt");
-        _trayMiniMaxStyleItem.Click += (_, _) => ChangePetStyle("minimax");
-        _trayGeminiStyleItem.Click += (_, _) => ChangePetStyle("gemini");
-        _trayGrokStyleItem.Click += (_, _) => ChangePetStyle("grok");
+        // Built from what this installation can actually draw, not from a written list.
+        // Appearances are packages now, so a fixed menu would offer entries for
+        // appearances the machine has never had and would miss the ones it does have,
+        // including any package the program has never heard of.
         _trayStyleItems.Clear();
-        _trayStyleItems["deepseek"] = _trayDeepSeekStyleItem;
-        _trayStyleItems["chatgpt"] = _trayChatGptStyleItem;
-        _trayStyleItems["minimax"] = _trayMiniMaxStyleItem;
-        _trayStyleItems["gemini"] = _trayGeminiStyleItem;
-        _trayStyleItems["grok"] = _trayGrokStyleItem;
-        foreach (var definition in PetStyleCatalog.All.Where(definition => PetStyleCatalog.IsAvailable(definition.Id)))
+        styleMenu.DropDownItems.Clear();
+        foreach (var available in PetStyleCatalog.GetAvailableStyles())
         {
-            if (definition.Id is "deepseek" or "chatgpt" or "minimax" or "gemini" or "grok") continue;
-            var item = new Forms.ToolStripMenuItem(PetStyleDisplayName(definition.Id))
-            {
-                Tag = definition.Id,
-                Enabled = PetStyleCatalog.IsAvailable(definition.Id)
-            };
-            if (item.Enabled) item.Click += (_, _) => ChangePetStyle(definition.Id);
-            _trayStyleItems[definition.Id] = item;
+            var entry = new Forms.ToolStripMenuItem(PetStyleDisplayName(available.Id)) { Tag = available.Id };
+            entry.Click += (_, _) => ChangePetStyle(available.Id);
+            _trayStyleItems[available.Id] = entry;
+            styleMenu.DropDownItems.Add(entry);
         }
-        styleMenu.DropDownItems.Add(_trayDeepSeekStyleItem);
-        styleMenu.DropDownItems.Add(_trayChatGptStyleItem);
-        styleMenu.DropDownItems.Add(_trayMiniMaxStyleItem);
-        styleMenu.DropDownItems.Add(_trayGeminiStyleItem);
-        styleMenu.DropDownItems.Add(_trayGrokStyleItem);
-        foreach (var item in _trayStyleItems.Values.Where(item => item.Tag?.ToString() is not ("deepseek" or "chatgpt" or "minimax" or "gemini" or "grok")))
-            styleMenu.DropDownItems.Add(item);
         menu.Items.Add(styleMenu);
         _trayMonitorMenu = new Forms.ToolStripMenuItem();
         menu.Items.Add(_trayMonitorMenu);
@@ -2044,11 +2016,7 @@ public partial class MainWindow : Window
 
         _trayMenu?.Dispose();
         _trayMenu = null;
-        _trayDeepSeekStyleItem = null;
-        _trayChatGptStyleItem = null;
-        _trayMiniMaxStyleItem = null;
-        _trayGeminiStyleItem = null;
-        _trayGrokStyleItem = null;
+        _trayStyleItems.Clear();
         _trayStyleItems.Clear();
         _trayMonitorMenu = null;
         _trayShowItem = null;
@@ -2292,17 +2260,12 @@ public partial class MainWindow : Window
     {
         var normalized = PetStyleCatalog.NormalizeId(style);
         if (PetStyleCatalog.IsAvailable(normalized)) return normalized;
-        // DeepSeek could be named unconditionally while it was part of the
-        // distribution. It arrives as a package now, so returning it here would hand
-        // back an id nothing can draw on an installation that has not downloaded it.
-        // Prefer it while it is present, then take whatever actually is, and land on
-        // the built-in placeholder rather than on nothing at all.
+        // No appearance is more likely to be present than another now that they all
+        // arrive the same way, so an id that is not installed falls to whatever is, and
+        // finally to the built-in placeholder, which is always there.
         var available = PetStyleCatalog.GetAvailableStyles();
-        if (available.Any(item => string.Equals(item.Id, "deepseek", StringComparison.OrdinalIgnoreCase))) return "deepseek";
         return available.Count > 0 ? available[0].Id : PetStyleCatalog.FallbackId;
     }
-
-    private bool IsDragonStyle() => NormalizePetStyle(_settings.PetStyle) == "chatgpt";
 
     private void AnimateBubble()
     {
