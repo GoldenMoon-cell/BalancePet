@@ -139,7 +139,7 @@ public static class Diagnostics
             // recorded alongside them: render size, both kinds of clip, transform, and the
             // bounds the visual tree actually occupies.
             var pillForBounds = Descendants<Border>(thumb).FirstOrDefault();
-            Write("thumb", $"{label}:   Render 尺寸={thumb.RenderSize} 布局裁剪={System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(thumb)} Clip={Describe(thumb.Clip)} 变换={thumb.RenderTransform}");
+            Write("thumb", $"{label}:   Render 尺寸={thumb.RenderSize} 布局裁剪={(System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(thumb) as System.Windows.Media.RectangleGeometry)?.Rect.ToString() ?? "none"} Clip={Describe(thumb.Clip)} 变换={thumb.RenderTransform}");
             if (pillForBounds is not null)
             {
                 Write("thumb", $"{label}:   Border Render 尺寸={pillForBounds.RenderSize} 布局裁剪={System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(pillForBounds)} Clip={Describe(pillForBounds.Clip)} 变换={pillForBounds.RenderTransform}");
