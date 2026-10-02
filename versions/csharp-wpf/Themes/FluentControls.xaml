@@ -193,6 +193,16 @@
   </Style>
 
   <Style TargetType="{x:Type ComboBoxItem}">
+    <!-- Keyboard focus is what made the dropdown scroll under a moving pointer. WPF's ComboBox
+         focuses the item the mouse enters, focus raises RequestBringIntoView, and the
+         ScrollViewer satisfies it by scrolling the row fully into sight. Intercepting the
+         request is too late: the ScrollViewer's own class handler runs before any handler
+         outside it. Removing the focus removes the request at its source.
+         Arrow keys and Enter still work, because a ComboBox moves its selection and its
+         highlight rather than focus, so the items never needed to be focusable. ListBoxItem is
+         deliberately left alone: there, focus really does move between items. -->
+    <Setter Property="Focusable" Value="False"/>
+    <Setter Property="IsTabStop" Value="False"/>
     <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Padding" Value="10,7"/>

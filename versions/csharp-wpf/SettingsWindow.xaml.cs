@@ -510,6 +510,12 @@ public partial class SettingsWindow : Window
         if (box?.Template?.FindName("PART_Popup", box) is not System.Windows.Controls.Primitives.Popup popup
             || popup.Child is not FrameworkElement chrome) return;
         Diagnostics.Thumbs($"{label}（下拉打开时）", chrome);
+        Diagnostics.Write("thumb", $"{label}: 弹出层 Render 尺寸={chrome.RenderSize} " +
+                                   $"布局裁剪={System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(chrome)} " +
+                                   $"Clip={chrome.Clip} 允许透明={popup.AllowsTransparency} " +
+                                   $"实际占位={System.Windows.Media.VisualTreeHelper.GetDescendantBounds(chrome)}");
+        if (chrome is System.Windows.Controls.Border chromeBorder)
+            Diagnostics.Write("thumb", $"{label}: 弹出层 CornerRadius={chromeBorder.CornerRadius} Padding={chromeBorder.Padding}");
     }
 
     private void OnComboDroppedDown(object sender, EventArgs e)
@@ -603,7 +609,9 @@ public partial class SettingsWindow : Window
         {
             if (node is System.Windows.Controls.Primitives.Selector)
                 return true;
-            if (node is ScrollViewer) return false;
+            // No early exit on ScrollViewer. The requests that were being allowed all had a
+            // ScrollViewer as their target, so treating one as proof of "not a list" excluded
+            // exactly the cases that mattered.
         }
         return false;
     }
