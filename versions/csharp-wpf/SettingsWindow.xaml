@@ -505,8 +505,18 @@
           </Grid>
         </TabItem.Header>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-          <StackPanel Margin="2">
-            <Grid Margin="0,0,0,8">
+          <!-- Rows, not a stack. A StackPanel hands its children infinite height, so the
+               lists below could never be told to fill what is left and had to be given a
+               fixed Height instead. That is why this page had a large empty region under a
+               218 px list, and why that list scrollbar thumb shrank to 23 px. MinHeight is
+               bound to the viewport so the star rows have a real height to divide, while a
+               window too short to fit everything still scrolls. -->
+          <Grid Margin="2" MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0" Margin="0,0,0,8">
               <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
               <StackPanel>
                 <TextBlock x:Name="ExtensionManagementTitleText" Text="扩展管理" FontWeight="SemiBold" FontSize="16"/>
@@ -517,16 +527,23 @@
                  is a different activity from managing what is already on the disk,
                  and mixing them buried the local list under a catalog that can be
                  arbitrarily long. -->
-            <TabControl x:Name="ExtensionTabs" Style="{x:Null}" Background="Transparent" BorderThickness="0" Padding="0">
+            <TabControl Grid.Row="1" x:Name="ExtensionTabs" Style="{x:Null}" Background="Transparent" BorderThickness="0" Padding="0">
               <TabItem Style="{StaticResource SectionTab}">
                 <TabItem.Header><TextBlock x:Name="OnlineLibraryTabText" Text="在线插件库"/></TabItem.Header>
-                <StackPanel Margin="0,12,0,0">
-                <Grid Margin="0,0,0,7">
+                <Grid Margin="0,12,0,0">
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                <Grid Grid.Row="0" Margin="0,0,0,7">
                   <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <TextBlock x:Name="PluginCatalogHintText" Text="从 BalancePet 官方目录发现插件；下载后仍会执行本地安全校验。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,10,0"/>
                   <Button x:Name="PluginCatalogRefreshButton" Grid.Column="1" Content="刷新目录" Click="OnRefreshPluginCatalog" ToolTip="刷新在线插件目录" Padding="10,5"/>
                 </Grid>
-                <Grid Margin="0,0,0,7">
+                <Grid Grid.Row="1" Margin="0,0,0,7">
                   <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <TextBox x:Name="PluginCatalogSearchBox" Height="29" ToolTip="搜索插件名称、作者或分类" TextChanged="OnPluginCatalogSearchChanged"/>
                   <TextBlock Grid.Column="1" x:Name="PluginCatalogCountText" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
@@ -534,15 +551,15 @@
                 <!-- Filtering by kind, because the catalog mixes plugins, appearances,
                      themes and browser extensions, and the useful question is usually
                      about only one of them. -->
-                <TabControl x:Name="PluginCatalogCategoryTabs" Style="{x:Null}" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,4" SelectionChanged="OnPluginCatalogCategoryChanged">
+                <TabControl Grid.Row="2" x:Name="PluginCatalogCategoryTabs" Style="{x:Null}" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,4" SelectionChanged="OnPluginCatalogCategoryChanged">
                   <TabItem Style="{StaticResource ChipTab}" Tag=""><TabItem.Header><TextBlock x:Name="CatalogCategoryAllText" Text="全部"/></TabItem.Header></TabItem>
                   <TabItem Style="{StaticResource ChipTab}" Tag="feature"><TabItem.Header><TextBlock x:Name="CatalogCategoryFeatureText" Text="功能"/></TabItem.Header></TabItem>
                   <TabItem Style="{StaticResource ChipTab}" Tag="pet"><TabItem.Header><TextBlock x:Name="CatalogCategoryPetText" Text="形象"/></TabItem.Header></TabItem>
                   <TabItem Style="{StaticResource ChipTab}" Tag="theme"><TabItem.Header><TextBlock x:Name="CatalogCategoryThemeText" Text="主题"/></TabItem.Header></TabItem>
                   <TabItem Style="{StaticResource ChipTab}" Tag="browser"><TabItem.Header><TextBlock x:Name="CatalogCategoryBrowserText" Text="浏览器"/></TabItem.Header></TabItem>
                 </TabControl>
-                <Grid>
-                <ListBox x:Name="PluginCatalogListBox" Height="218" BorderThickness="0" Background="Transparent" Padding="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <Grid Grid.Row="3">
+                <ListBox x:Name="PluginCatalogListBox" MinHeight="120" BorderThickness="0" Background="Transparent" Padding="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                   <ListBox.ItemTemplate>
                     <DataTemplate>
                       <Border Padding="8" Margin="0,2" Background="{DynamicResource SurfaceStrongBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="7">
@@ -573,8 +590,8 @@
                              MaxWidth="330" TextWrapping="Wrap" FontSize="12"
                              Foreground="{DynamicResource MutedBrush}"/>
                 </Grid>
-                <TextBlock x:Name="PluginCatalogStatusText" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                </StackPanel>
+                <TextBlock Grid.Row="4" x:Name="PluginCatalogStatusText" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                </Grid>
               </TabItem>
               <TabItem Style="{StaticResource SectionTab}">
                 <TabItem.Header><TextBlock x:Name="LocalExtensionsTabText" Text="本地扩展功能"/></TabItem.Header>
@@ -617,7 +634,7 @@
                 </StackPanel>
               </TabItem>
             </TabControl>
-          </StackPanel>
+          </Grid>
         </ScrollViewer>
       </TabItem>
 
