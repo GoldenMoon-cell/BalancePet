@@ -238,6 +238,75 @@ internal static class Program
             catch (InvalidDataException error) { anonymous = error.Message; }
             Check("没有标识的文档被拒绝", anonymous.Contains("不是形象目录", StringComparison.Ordinal), anonymous);
 
+            // --- 11. Each appearance's lines travel with its artwork --------------
+            // The program keeps only a neutral fallback, so an appearance with no lines
+            // of its own must never be handed another character's name.
+            //
+            // Read from the repository rather than through PetLineCatalog for the sets
+            // that are published as packages: resolution deliberately prefers an
+            // installed package, and on a machine where those packages predate this file
+            // they would answer with the fallback, which says nothing about the files.
+            // The two shipped appearances and the placeholder cannot be shadowed, so
+            // they exercise the lookup itself.
+            var neutralInactive = PetLineCatalog.Resolve("_placeholder", "inactive").Select(line => line.Label).ToArray();
+            Check("中性文案可用", neutralInactive.Length >= 3, $"{neutralInactive.Length} 条");
+            Check("中性文案不提任何角色名",
+                neutralInactive.All(label => !label.Contains("汐") && !label.Contains("霁珑")
+                    && !label.Contains("澄芽") && !label.Contains("橙析")),
+                string.Join(" / ", neutralInactive));
+            Check("随程序提供的形象读到自己的文案",
+                PetLineCatalog.Resolve("chatgpt", "inactive").Select(line => line.Label).FirstOrDefault()?.Contains("霁珑") == true,
+                string.Join(" / ", PetLineCatalog.Resolve("chatgpt", "inactive").Select(line => line.Label)));
+
+            var withArt = new[] { "chatgpt", "claude", "deepseek", "ernie", "gemini", "glm", "gpt-image2",
+                                  "grok", "kimi", "llama", "mimo", "minimax", "qwen", "seedance" };
+            var problems = new List<string>();
+            foreach (var style in withArt)
+            {
+                var path = Path.Combine(appRoot, "assets", "pets", style, "lines.json");
+                if (!File.Exists(path)) { problems.Add($"{style}：没有 lines.json"); continue; }
+                try
+                {
+                    using var document = JsonDocument.Parse(File.ReadAllText(path));
+                    var root = document.RootElement;
+                    if (root.GetProperty("schema_version").GetInt32() != 1) problems.Add($"{style}：schema_version 不是 1");
+
+                    var labels = new List<string>();
+                    foreach (var key in new[] { "inactive", "bubble", "streak" })
+                    {
+                        if (!root.TryGetProperty(key, out var section) || section.GetArrayLength() == 0)
+                        {
+                            problems.Add($"{style}：缺少 {key}");
+                            continue;
+                        }
+                        foreach (var entry in section.EnumerateArray()) labels.Add(entry.GetProperty("label").GetString() ?? "");
+                    }
+                    if (!root.TryGetProperty("touch", out var touch)) problems.Add($"{style}：缺少 touch");
+                    else
+                    {
+                        foreach (var zone in new[] { "hair", "mouth", "body" })
+                        {
+                            if (!touch.TryGetProperty(zone, out var entries) || entries.GetArrayLength() == 0) problems.Add($"{style}：touch 缺少 {zone}");
+                            else foreach (var entry in entries.EnumerateArray()) labels.Add(entry.GetProperty("label").GetString() ?? "");
+                        }
+                    }
+                    // A set that is byte-for-byte the fallback means the file is there but
+                    // empty in effect, which is worse than not shipping one.
+                    if (labels.Count > 0 && labels.SequenceEqual(neutralInactive)) problems.Add($"{style}：与中性文案相同");
+                }
+                catch (JsonException error) { problems.Add($"{style}：JSON 解析失败 {error.Message}"); }
+            }
+            Check($"有美术的形象都带自己的文案（{withArt.Length} 套 × 4 类）", problems.Count == 0, string.Join("；", problems));
+
+            Check("澄芽说的是自己的话", ReadLabels(appRoot, "seedance").Any(label => label.Contains("澄芽")));
+            Check("橙析说的是自己的话", ReadLabels(appRoot, "mimo").Any(label => label.Contains("橙析")));
+
+            // A file the program cannot parse must fall back rather than fail: a package
+            // authored against a future schema still has to draw.
+            Check("未知 schema 回落到中性文案", PetLineCatalog.IsReadable("""{"schema_version":99,"inactive":[]}""") == false);
+            Check("空文件回落到中性文案", PetLineCatalog.IsReadable("") == false);
+            Check("正常文件可读", PetLineCatalog.IsReadable(File.ReadAllText(Path.Combine(appRoot, "assets", "pets", "chatgpt", "lines.json"))));
+
             // The digest is what makes resuming safe: bytes appended from a source that
             // answered the wrong range would otherwise be installed as an update.
             var corrupted = "";
@@ -261,9 +330,30 @@ internal static class Program
         Console.WriteLine($"  FAIL  {what}{(detail.Length == 0 ? "" : $"  ({detail})")}");
     }
 
-    /// <summary>A 200 response carrying a JSON body, as the update endpoints answer.</summary>
+    /// <summary>A response carrying a JSON body, as the update endpoints answer.</summary>
     private static HttpResponseMessage Json(string body)
         => new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+
+    /// <summary>Every label in an appearance's lines file, read straight from the repository.</summary>
+    private static List<string> ReadLabels(string appRoot, string style)
+    {
+        var labels = new List<string>();
+        var path = Path.Combine(appRoot, "assets", "pets", style, "lines.json");
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        var root = document.RootElement;
+        foreach (var key in new[] { "inactive", "bubble", "streak" })
+        {
+            if (!root.TryGetProperty(key, out var section)) continue;
+            foreach (var entry in section.EnumerateArray()) labels.Add(entry.GetProperty("label").GetString() ?? "");
+        }
+        if (root.TryGetProperty("touch", out var touch))
+        {
+            foreach (var zone in touch.EnumerateObject())
+                foreach (var entry in zone.Value.EnumerateArray())
+                    labels.Add(entry.GetProperty("label").GetString() ?? "");
+        }
+        return labels;
+    }
 
     /// <summary>
     /// Answers every request with whatever the test asks for, including by throwing,

@@ -18,6 +18,7 @@ assets/pets/<style>/codex-working.png
 assets/pets/<style>/codex-done.png
 assets/pets/<style>/inactive.png
 assets/pets/<style>/<state>-<n>.png  (optional: extra animation frames)
+assets/pets/<style>/lines.json       (optional: what the appearance says)
 README.md                         (optional)
 LICENSE                           (recommended)
 ```
@@ -43,6 +44,46 @@ Rules:
 - Every frame must use the same canvas size as the first frame of that state.
 
 Playback is the host's decision and is not part of the contract: v1 cycles at about 140 ms per frame. Frames are drawn in place, so movement has to be drawn into the artwork rather than applied as a transform, and a loop that starts and ends on the same pose avoids a visible jump. States are independent: `idle` may animate while `error` stays a single image.
+
+## Optional lines
+
+An appearance can carry the things it says. Without this file the host uses a neutral
+set that names nobody, so a package is never handed another character's name — but
+those lines are generic, and a character with its own voice should say so.
+
+```json
+{
+  "schema_version": 1,
+  "inactive": [ { "label": "在等你", "amount": "慢慢来", "hint": "需要时再喊我就好" } ],
+  "bubble":   [ { "label": "在看着", "amount": "放心吧", "hint": "余额变动会告诉你" } ],
+  "streak":   [ { "label": "被发现了", "amount": "眨眨眼", "hint": "连续互动彩蛋" } ],
+  "touch": {
+    "hair":  [ { "label": "耳朵被碰到", "amount": "有点痒", "hint": "轻轻躲开了" } ],
+    "mouth": [ { "label": "脸颊被碰到", "amount": "唔", "hint": "有点害羞" } ],
+    "body":  [ { "label": "被戳到了", "amount": "在呢", "hint": "点击可以刷新余额" } ]
+  }
+}
+```
+
+Rules:
+
+- Every category is independent and optional. A category the file omits, a part with no
+  lines of its own, and a file the host cannot read all fall back to the neutral set.
+  Nothing fails and the pet keeps drawing.
+- Each line is three short strings. `label` is the headline and `amount` the one under
+  it, so both stay short — a few characters each. `hint` is the smaller line beneath
+  them, and is where an explanation belongs. Lines are shown as written; v1 defines no
+  translation of them, so a package serving several languages has to pick one.
+- A line with neither `label` nor `amount` is dropped rather than shown as an empty
+  bubble.
+- `touch` is keyed by the part that was touched: `hair`, `mouth`, and `body` for
+  everything else. One part's lines are never reused for another part, because hair
+  copy on an arm reads as a mistake.
+- At most 24 lines are read per category. Beyond that the file is not being used as
+  intended, and the extra entries are ignored rather than shown.
+- `schema_version` must be `1`. A file declaring another version is not read at all:
+  guessing at an unknown shape would put the wrong words in a character's mouth, while
+  the neutral lines are merely generic.
 
 ## Manifest
 

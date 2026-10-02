@@ -992,21 +992,7 @@ public partial class MainWindow : Window
         SetVisualState(PetVisualState.Inactive);
         if (!_settings.RandomEasterEggs || Random.Shared.Next(100) >= 35) return;
         var style = NormalizePetStyle(_settings.PetStyle);
-        var lines = style switch
-        {
-            "chatgpt" => new[] { new EasterEggLine("霁珑在等你", "慢慢来", "需要时再喊我就好"), new EasterEggLine("龙鳞亮了一片", "我还醒着", "回来后我会继续守着余额"), new EasterEggLine("安静值班中", "嘘", "今天也要记得给自己留一点电量") },
-            "minimax" => new[] { new EasterEggLine("绯音在这里", "小憩一下", "回来后我还会继续守着余额"), new EasterEggLine("螺音轻轻响", "听见了吗", "余额和心情都在慢慢恢复"), new EasterEggLine("小海螺待机中", "不打扰", "需要时敲一下桌面就好") },
-            "gemini" => new[] { new EasterEggLine("星璃在等你", "慢慢来", "需要时再喊我就好"), new EasterEggLine("星光没有熄灭", "我在呢", "回来后继续陪你看数据"), new EasterEggLine("星轨缓慢转动", "小憩一下", "今天的余额也要好好守住") },
-            "grok" => new[] { new EasterEggLine("烬斧在这里", "小憩一下", "回来后我还会继续守着余额"), new EasterEggLine("小尖牙收好了", "暂时和平", "回来时记得带点好消息"), new EasterEggLine("蝙蝠发饰睡着了", "嘘", "我会替你盯着下一次刷新") },
-            "claude" => new[] { new EasterEggLine("丹笺翻到下一页", "先歇会儿", "需要时再回来，我会记得上下文"), new EasterEggLine("书签轻轻晃动", "我在值班", "余额变化会替你留下标记"), new EasterEggLine("墨香还没散", "慢慢来", "不用一直盯着屏幕") },
-            "kimi" => new[] { new EasterEggLine("虹谱在发光", "小憩一下", "回来后继续陪你看余额"), new EasterEggLine("棱镜折出彩虹", "我还醒着", "每一次刷新都不会错过"), new EasterEggLine("光谱安静排列", "先休息", "需要时点我一下就好") },
-            "qwen" => new[] { new EasterEggLine("绀华收起折扇", "小憩一下", "回来后我还会继续守着余额"), new EasterEggLine("扇面写了新字", "稍后见", "有变化时我会提醒你"), new EasterEggLine("风从扇边经过", "慢慢来", "别让自己比余额更快见底") },
-            "ernie" => new[] { new EasterEggLine("青绡翻到下一页", "先歇会儿", "回来后我还会继续守着余额"), new EasterEggLine("蓝色书签轻轻晃动", "我在值班", "余额变化会替你留下一页记录"), new EasterEggLine("护理手册合上了", "慢慢来", "不用一直盯着屏幕") },
-            "glm" => new[] { new EasterEggLine("青棱抱着书打盹", "安静待机", "回来后再一起核对余额"), new EasterEggLine("方晶发饰闪了一下", "我还醒着", "下一次刷新不会错过"), new EasterEggLine("猫耳听见了风声", "嘘", "先让思路也休息一会儿") },
-            "gpt-image2" => new[] { new EasterEggLine("玄珏收起画笔", "稍后再画", "回来后继续陪你看余额"), new EasterEggLine("黑玉画板微微发亮", "灵感待机", "下一次状态变化我会告诉你"), new EasterEggLine("墨色龙角安静下来", "慢慢来", "好画面和好预算都值得等待") },
-            "llama" => new[] { new EasterEggLine("绒眠缩进软绒里", "小憩一下", "回来后我还会继续守着余额"), new EasterEggLine("无限发夹亮了一点", "我还在呢", "下一次刷新不会错过"), new EasterEggLine("白色耳朵轻轻垂下", "晚安片刻", "你也记得让眼睛休息一下") },
-            _ => new[] { new EasterEggLine("澜汐在等你", "慢慢来", "需要时再喊我就好"), new EasterEggLine("耳鳍轻轻摆动", "我还醒着", "回来后我会继续守着余额"), new EasterEggLine("水面暂时平静", "小憩一下", "需要时敲一下桌面就好") }
-        };
+        var lines = ToEasterEggLines(PetLineCatalog.Resolve(style, "inactive"));
         var line = PickEasterEggLine($"inactive|{style}", lines);
         ShowEasterEggBubble(line.Label, line.Amount, line.Hint, TimeSpan.FromSeconds(4.2));
     }
@@ -2245,81 +2231,7 @@ public partial class MainWindow : Window
         e.Handled = true;
         ResetInactiveTimer();
         var style = NormalizePetStyle(_settings.PetStyle);
-        var lines = style switch
-        {
-            "chatgpt" => new[]
-            {
-                new EasterEggLine("霁珑在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("龙角有点痒", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("尾巴晃了一下", "抓到啦", "今天也要记得看一眼消耗"), new EasterEggLine("龙鳞闪了一片", "在呢", "完成后会显示本次消耗"),
-                new EasterEggLine("被你找到啦", "嗯哼", "再点一下也不会立刻变强哦")
-            },
-            "minimax" => new[]
-            {
-                new EasterEggLine("绯音在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("耳坠晃了一下", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("螺纹亮了一圈", "听见啦", "点击角色可以刷新余额"), new EasterEggLine("小海螺转了转", "继续工作", "完成后会显示本次消耗"),
-                new EasterEggLine("被你戳中啦", "叮", "余额下降时我会先提醒你")
-            },
-            "gemini" => new[]
-            {
-                new EasterEggLine("星璃在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("星星耳饰闪了一下", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("星轨偏了一格", "找到我了", "点击角色可以刷新余额"), new EasterEggLine("小猫尾巴亮了", "喵呜", "完成后会显示本次消耗"),
-                new EasterEggLine("星光落在你手边", "在呢", "今天的请求也要量力而行")
-            },
-            "grok" => new[]
-            {
-                new EasterEggLine("烬斧在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("蝙蝠发饰晃了一下", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("小尖牙露出来了", "嘿", "点击角色可以刷新余额"), new EasterEggLine("X 形武器一闪", "警告解除", "完成后会显示本次消耗"),
-                new EasterEggLine("今天也别乱花", "听见了吗", "余额见底前我会提醒你")
-            },
-            "claude" => new[]
-            {
-                new EasterEggLine("丹笺在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("书页被碰响了", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("书签向你点头", "找到啦", "我会继续看着余额"), new EasterEggLine("墨迹晕开一小圈", "嗯", "完成后会显示本次消耗"),
-                new EasterEggLine("这一页写着节制", "收到", "余额和灵感都要慢慢用")
-            },
-            "kimi" => new[]
-            {
-                new EasterEggLine("虹谱在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("棱镜被碰亮了", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("彩虹折了一角", "抓到啦", "我会继续看着余额"), new EasterEggLine("光谱换了个方向", "在呢", "完成后会显示本次消耗"),
-                new EasterEggLine("今天的颜色是稳住", "收到", "先看余额，再继续工作")
-            },
-            "qwen" => new[]
-            {
-                new EasterEggLine("绀华在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("扇骨被碰到了", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("折扇开了一线", "找到啦", "我会继续看着余额"), new EasterEggLine("扇面落下一笔墨", "在呢", "完成后会显示本次消耗"),
-                new EasterEggLine("风来时再刷新", "慢慢来", "别把今日预算一下用完")
-            },
-            "ernie" => new[]
-            {
-                new EasterEggLine("青绡在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("蓝色书签被碰响了", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("护理手册翻了一页", "找到啦", "我会继续看着余额"), new EasterEggLine("青色丝带绕了一圈", "在呢", "完成后会显示本次消耗"),
-                new EasterEggLine("今天也要照顾好预算", "收到", "别忘了给自己留一点余量")
-            },
-            "glm" => new[]
-            {
-                new EasterEggLine("青棱在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("猫耳听见你了", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("方晶发饰闪了一格", "找到啦", "我会继续看着余额"), new EasterEggLine("黑色小书翻开了", "在呢", "完成后会显示本次消耗"),
-                new EasterEggLine("模块已经对齐", "可以继续", "先确认余额，再开始下一项任务")
-            },
-            "gpt-image2" => new[]
-            {
-                new EasterEggLine("玄珏在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("墨色龙角被碰到了", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("画笔在画板上点了一下", "找到啦", "我会继续看着余额"), new EasterEggLine("黑玉边框亮了一圈", "在呢", "完成后会显示本次消耗"),
-                new EasterEggLine("灵感也要留白", "慢慢画", "预算够用，画面才有余地")
-            },
-            "llama" => new[]
-            {
-                new EasterEggLine("绒眠在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("白色耳朵抖了一下", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("无限发夹亮起来了", "找到啦", "我会继续看着余额"), new EasterEggLine("绒球轻轻碰在一起", "在呢", "完成后会显示本次消耗"),
-                new EasterEggLine("今天也软乎乎地稳住", "收到", "别让额度一下子跑光")
-            },
-            _ => new[]
-            {
-                new EasterEggLine("澜汐在看着", "放心吧", "余额变动会告诉你"), new EasterEggLine("耳鳍动了一下", "轻一点", "点击角色可以刷新余额"),
-                new EasterEggLine("水花跳了一下", "找到啦", "点击角色可以刷新余额"), new EasterEggLine("尾鳍藏到后面", "在呢", "完成后会显示本次消耗"),
-                new EasterEggLine("今天也要稳住", "收到", "余额和心情都别见底")
-            }
-        };
+        var lines = ToEasterEggLines(PetLineCatalog.Resolve(style, "bubble"));
         var line = PickEasterEggLine($"bubble|{style}", lines);
         ShowEasterEggBubble(line.Label, line.Amount, line.Hint, TimeSpan.FromSeconds(4.5));
     }
@@ -2336,21 +2248,7 @@ public partial class MainWindow : Window
             _interactionStreak = 0;
             if (_settings.InteractionEffects) SetVisualState(PetVisualState.Success, 1100);
             var style = NormalizePetStyle(_settings.PetStyle);
-            var surprise = style switch
-            {
-                "chatgpt" => new[] { new EasterEggLine("被发现了", "霁珑笑了一下", "连续互动彩蛋"), new EasterEggLine("龙角亮起来了", "四连击", "这次真的被你抓到了"), new EasterEggLine("霁珑申请暂停", "先喘口气", "连续互动太快啦") },
-                "minimax" => new[] { new EasterEggLine("被发现了", "绯音眨了眨眼", "连续互动彩蛋"), new EasterEggLine("螺音连成一串", "四连击", "小海螺也会记仇哦"), new EasterEggLine("绯音摇摇耳坠", "再一下", "然后就要认真工作啦") },
-                "gemini" => new[] { new EasterEggLine("被发现了", "星璃眨了眨眼", "连续互动彩蛋"), new EasterEggLine("星光连成一线", "四连击", "这颗星星属于你"), new EasterEggLine("小猫尾巴打结了", "稍等", "互动太密集啦") },
-                "grok" => new[] { new EasterEggLine("被发现了", "烬斧露出了小尖牙", "连续互动彩蛋"), new EasterEggLine("发饰发出警报", "四连击", "但今天先不咬人"), new EasterEggLine("烬斧把武器收好", "暂时休战", "去看看余额吧") },
-                "claude" => new[] { new EasterEggLine("被发现了", "丹笺合上了书", "连续互动彩蛋"), new EasterEggLine("书签跳了出来", "四连击", "这一页专门写给你"), new EasterEggLine("丹笺轻敲书脊", "先暂停", "连续互动太快啦") },
-                "kimi" => new[] { new EasterEggLine("被发现了", "虹谱折出一束光", "连续互动彩蛋"), new EasterEggLine("棱镜连闪四次", "四连击", "彩虹也记住你了"), new EasterEggLine("光谱请求冷却", "等一下", "让颜色重新排列") },
-                "qwen" => new[] { new EasterEggLine("被发现了", "绀华轻摇折扇", "连续互动彩蛋"), new EasterEggLine("扇面写下四笔", "四连击", "这一笔送给你"), new EasterEggLine("绀华收扇提醒", "先停一下", "连续互动太快啦") },
-                "ernie" => new[] { new EasterEggLine("被发现了", "青绡从书后探出头", "连续互动彩蛋"), new EasterEggLine("书页连翻四次", "四连击", "这一页专门留给你"), new EasterEggLine("青绡按住书签", "先缓一缓", "护理助手也需要翻页时间") },
-                "glm" => new[] { new EasterEggLine("被发现了", "青棱的猫耳竖起来了", "连续互动彩蛋"), new EasterEggLine("方晶连续闪烁", "四连击", "这一组输入已经记住了"), new EasterEggLine("青棱合上小书", "稍等一下", "模块正在重新对齐") },
-                "gpt-image2" => new[] { new EasterEggLine("被发现了", "玄珏偷偷笑了一下", "连续互动彩蛋"), new EasterEggLine("画笔连点四下", "四连击", "这一笔就画给你"), new EasterEggLine("玄珏护住画板", "先留点白", "灵感也需要一点呼吸空间") },
-                "llama" => new[] { new EasterEggLine("被发现了", "绒眠的耳朵竖起来了", "连续互动彩蛋"), new EasterEggLine("绒球连晃四次", "四连击", "这份软乎乎送给你"), new EasterEggLine("绒眠缩进袖口", "让我缓缓", "连续互动太快啦") },
-                _ => new[] { new EasterEggLine("被发现了", "澜汐眨了眨眼", "连续互动彩蛋"), new EasterEggLine("水花连跳四次", "四连击", "这次真的抓到我啦"), new EasterEggLine("澜汐躲进水面", "缓一缓", "连续互动太快啦") }
-            };
+            var surprise = ToEasterEggLines(PetLineCatalog.Resolve(style, "streak"));
             var surpriseLine = PickEasterEggLine($"streak|{style}", surprise);
             ShowEasterEggBubble(surpriseLine.Label, surpriseLine.Amount, surpriseLine.Hint, TimeSpan.FromSeconds(4.2));
             return _settings.InteractionEffects;
@@ -2363,128 +2261,18 @@ public partial class MainWindow : Window
     }
 
     private EasterEggLine[] GetInteractionLines(string kind)
-    {
-        var style = NormalizePetStyle(_settings.PetStyle);
-        if (style == "chatgpt")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("龙角被碰到", "有点痒", "霁珑轻轻躲开了"), new EasterEggLine("不要戳角角", "哎呀", "发型会乱掉的"), new EasterEggLine("龙角闪了一下", "抓到啦", "今天的好运先分你一点") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "霁珑有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("脸颊鼓起来了", "哼", "再戳就要记账啦") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("龙尾晃了一下", "收到", "余额变化会及时告诉你"), new EasterEggLine("今天也要稳住", "嗯哼", "别忘了看看今日消耗") }
-            };
-        }
+        => ToEasterEggLines(PetLineCatalog.Resolve(_settings.PetStyle, "touch", kind));
 
-        if (style == "minimax")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("发梢被碰到", "有点痒", "绯音轻轻躲开了"), new EasterEggLine("不要拽头发", "轻一点", "发型会乱掉的"), new EasterEggLine("螺旋发饰响了", "叮", "绯音听见你的动静了") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "绯音有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("小海螺鼓起脸", "哼哼", "再一下就要收费啦") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("耳坠摆了摆", "收到", "余额变化会及时告诉你"), new EasterEggLine("绯音转了一圈", "继续吧", "完成后会显示本次消耗") }
-            };
-        }
-
-        if (style == "gemini")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("耳朵被碰到", "有点痒", "星璃轻轻晃了晃耳朵"), new EasterEggLine("不要戳耳朵", "轻一点", "星星耳饰都要摇晃了"), new EasterEggLine("星星耳饰偏了一格", "亮啦", "今天的运气不错") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "星璃有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("小猫脸颊鼓鼓的", "喵", "别把今日额度也戳鼓了") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("星光落下来", "收到", "余额变化会及时告诉你"), new EasterEggLine("尾巴扫过屏幕", "继续吧", "完成后会显示本次消耗") }
-            };
-        }
-
-        if (style == "grok")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("发饰被碰到", "有点痒", "烬斧轻轻晃了晃蝙蝠发饰"), new EasterEggLine("不要戳发饰", "轻一点", "小心她的 X 形武器"), new EasterEggLine("蝙蝠翅膀抖了一下", "嘿", "今天暂时不发出警报") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "烬斧有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("小尖牙碰到手指", "咔", "别把余额也咬掉了") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("武器亮了一下", "收到", "余额变化会及时告诉你"), new EasterEggLine("烬斧挑了挑眉", "继续吧", "完成后会显示本次消耗") }
-            };
-        }
-
-        if (style == "claude")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("书签被碰到", "有点痒", "丹笺轻轻合上了书"), new EasterEggLine("不要拽书页", "轻一点", "墨水会晕开的"), new EasterEggLine("羽毛笔动了一下", "记下啦", "这一笔先替你留着") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "丹笺有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("书灵鼓起脸", "哼", "再戳就要翻页了") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("墨迹闪了一下", "收到", "余额变化会及时告诉你"), new EasterEggLine("丹笺记下这一刻", "继续吧", "完成后会显示本次消耗") }
-            };
-        }
-
-        if (style == "kimi")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("棱镜边缘被碰到", "有点痒", "虹谱折出了一点光"), new EasterEggLine("不要戳棱角", "轻一点", "彩虹会被折歪的"), new EasterEggLine("光谱跳了一格", "亮啦", "这一束光送给你") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "虹谱有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("棱镜偷偷变色", "嘿", "别把额度也变没了") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("彩虹闪了一下", "收到", "余额变化会及时告诉你"), new EasterEggLine("光谱朝你偏转", "继续吧", "完成后会显示本次消耗") }
-            };
-        }
-
-        if (style == "qwen")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("扇骨被碰到", "有点痒", "绀华轻轻收了收折扇"), new EasterEggLine("不要拽扇面", "轻一点", "墨迹还没有干"), new EasterEggLine("流苏晃了一下", "记下啦", "这一笔先写在账上") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "绀华有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("折扇遮住半张脸", "哎呀", "别让今日额度也害羞消失") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("扇面翻过一页", "收到", "余额变化会及时告诉你"), new EasterEggLine("绀华点了点扇柄", "继续吧", "完成后会显示本次消耗") }
-            };
-        }
-
-        if (style == "ernie")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("蓝色发饰被碰到", "有点痒", "青绡轻轻偏了偏头"), new EasterEggLine("不要拽书签", "轻一点", "长发会和丝带缠在一起"), new EasterEggLine("青色丝带晃了一圈", "记下啦", "这一页先替你留着") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "青绡有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("护理助手鼓起脸", "要听话", "再忙也要记得休息") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("手册翻过一页", "收到", "余额变化会及时告诉你"), new EasterEggLine("青绡握紧了书签", "继续吧", "完成后会显示本次消耗") }
-            };
-        }
-
-        if (style == "glm")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("猫耳被碰到", "听见啦", "青棱的耳朵轻轻抖了一下"), new EasterEggLine("不要戳睡帽", "轻一点", "方晶挂饰会歪掉的"), new EasterEggLine("蓝色吊坠响了一声", "叮", "模块已经收到你的信号") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "青棱有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("猫耳助手抿起嘴", "哼", "再戳就把这一项记进小书") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("黑色小书亮了一下", "收到", "余额变化会及时告诉你"), new EasterEggLine("青棱对齐了方晶", "继续吧", "完成后会显示本次消耗") }
-            };
-        }
-
-        if (style == "gpt-image2")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("龙角被碰到", "有点痒", "玄珏轻轻偏开了头"), new EasterEggLine("不要碰角尖", "轻一点", "金色耳饰会跟着晃"), new EasterEggLine("墨紫长发亮了一缕", "灵感来了", "这一点光先留给你") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "玄珏有点意外"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("小墨龙眯起眼睛", "看准了", "别把预算也涂出边界") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("画笔点亮了黑玉", "收到", "余额变化会及时告诉你"), new EasterEggLine("玄珏扶稳画板", "继续画吧", "完成后会显示本次消耗") }
-            };
-        }
-
-        if (style == "llama")
-        {
-            return kind switch
-            {
-                "hair" => new[] { new EasterEggLine("白色耳朵被碰到", "有点痒", "绒眠轻轻甩了甩耳朵"), new EasterEggLine("不要拽卷发", "轻一点", "无限发夹会掉下来的"), new EasterEggLine("绒毛蓬起来了", "软乎乎", "今天的好运也分你一点") },
-                "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "绒眠有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("绒眠把脸藏进袖口", "哎呀", "别把额度也藏没了") },
-                _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("胸前绒球晃了晃", "收到", "余额变化会及时告诉你"), new EasterEggLine("绒眠伸了个小懒腰", "继续吧", "完成后会显示本次消耗") }
-            };
-        }
-
-        return kind switch
-        {
-            "hair" => new[] { new EasterEggLine("呆毛被提起", "哎呀", "澜汐的发型要乱啦"), new EasterEggLine("不要拽呆毛", "轻一点", "会痒的"), new EasterEggLine("耳鳍抖了一下", "抓到啦", "今天的水花很配合") },
-            "mouth" => new[] { new EasterEggLine("脸颊被碰到", "唔", "澜汐有点害羞"), new EasterEggLine("轻一点嘛", "在呢", "我会继续看着余额"), new EasterEggLine("澜汐把脸藏起来", "哎呀", "别把余额也碰掉了") },
-            _ => new[] { new EasterEggLine("被戳到了", "在呢", "点击可以刷新余额"), new EasterEggLine("水花跳了一下", "收到", "余额变化会及时告诉你"), new EasterEggLine("尾鳍摆了摆", "继续吧", "完成后会显示本次消耗") }
-        };
-    }
+    /// <summary>
+    /// Adapts the appearance's own lines to the shape the bubble picker works in.
+    /// </summary>
+    private static EasterEggLine[] ToEasterEggLines(IReadOnlyList<PetLine> lines)
+        => lines.Select(line => new EasterEggLine(line.Label, line.Amount, line.Hint)).ToArray();
 
     private EasterEggLine PickEasterEggLine(string context, IReadOnlyList<EasterEggLine> candidates)
     {
+        // Still reachable when every candidate was blank and got dropped, so the empty
+        // case keeps its own answer rather than returning nothing to show.
         if (candidates.Count == 0) return new EasterEggLine("在呢", "收到", "余额变化会及时告诉你");
         if (!_easterEggHistory.TryGetValue(context, out var recent))
             _easterEggHistory[context] = recent = new Queue<string>();
