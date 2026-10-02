@@ -15,14 +15,18 @@ without touching the application itself.
 
 No restart is needed. The appearance appears in the selector immediately.
 
-Removing an appearance works the same way, from the same page. The last remaining
-appearance cannot be removed: the character *is* the window, so removing the final
-one would leave nothing to draw and no way back through the interface.
+Removing an appearance works the same way, from the same page. The built-in
+placeholder cannot be removed: the character *is* the window, so an installation
+with nothing left to draw would show a blank window with no way back through the
+interface. Removing every appearance you installed is fine — the placeholder is
+what remains, and it is what the window shows before anything is installed.
 
 ## Available appearances
 
 | Package | Appearance | Artwork |
 | --- | --- | --- |
+| `pet.deepseek` | DeepSeek 小鲸鱼「澜汐」 | DeepSeek Whale "Lanxi" |
+| `pet.chatgpt` | ChatGPT 小白龙「霁珑」 | ChatGPT White Dragon "Jilong" |
 | `pet.minimax` | MiniMax 小海螺「绯音」 | MiniMax Shell "Feiyin" |
 | `pet.gemini` | Gemini 小星猫「星璃」 | Gemini Star Cat "Xingli" |
 | `pet.grok` | Grok 小恶魔「烬斧」 | Grok Little Demon "Jinfu" |
@@ -36,13 +40,16 @@ one would leave nothing to draw and no way back through the interface.
 | `pet.mimo` | MiMo 小兔码师「橙析」 | MiMo Bunny Coder "Chengxi" |
 | `pet.seedance` | Seedance 小星晶「澄芽」 | Seedance Little Star Crystal "Chengya" |
 
-DeepSeek 小鲸鱼「澜汐」 and ChatGPT 小白龙「霁珑」 ship inside BalancePet and are
-not published here.
+Every appearance BalancePet draws is published here, including DeepSeek 小鲸鱼「澜汐」
+and ChatGPT 小白龙「霁珑」, which the application carried inside its own installer
+until v1.4.3. The only appearance that is not published is the built-in placeholder:
+it is the shape the window draws when nothing is installed, so it has to be the one
+appearance that cannot be missing.
 
-These are the appearances BalancePet used to bundle. They are published unchanged
-so that an installation which upgrades keeps the character it was using: the
-`style` value in each package is the same identifier the application has always
-stored, which is what lets the setting keep resolving.
+Appearances the application used to bundle are published unchanged so that an
+installation which upgrades keeps the character it was using: the `style` value in
+each package is the same identifier the application has always stored, which is what
+lets the setting keep resolving.
 
 ## Package format
 
