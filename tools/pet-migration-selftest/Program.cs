@@ -56,14 +56,23 @@ internal static class Program
             // folder converted like any other -- which is how an existing user keeps the
             // appearance without downloading anything.
             Stage(appDirectory, realPets, "deepseek");
+            // Planted before the run on purpose. This is the file a previous release left
+            // behind after a migration run found nothing to convert -- true at the time,
+            // because DeepSeek and ChatGPT were built-ins and were skipped. Moving them
+            // out of the built-in list is precisely what makes them convertible, so a
+            // marker that outlives that change must not block it. Every installation
+            // upgrading across that release has this file, so the conversions asserted
+            // just below are also the assertion that it no longer stops anything.
+            File.WriteAllText(Path.Combine(workspace, "pet-migration.v1.done"), "2026-01-01T00:00:00+00:00");
             var result = ShippedPetMigration.Run(appDirectory, extensionsRoot);
             Check("迁移数量 = 3", result.Migrated == 3, $"实际 {result.Migrated}");
             Check("无失败", result.Failed.Count == 0, string.Join("；", result.Failed));
             Check("原随程序提供的形象也被转换",
                 !Directory.Exists(Path.Combine(appDirectory, "assets", "pets", "deepseek"))
                 && InstalledStyles(extensionsRoot).Contains("deepseek"));
-            Check("完成后写下标记", File.Exists(Path.Combine(workspace, "pet-migration.v1.done")),
-                Path.Combine(workspace, "pet-migration.v1.done"));
+            // Left where it is rather than swept away: nothing reads it, and deleting a
+            // file in a directory the program shares with the user is not free.
+            Check("遗留的完成标记原样保留", File.Exists(Path.Combine(workspace, "pet-migration.v1.done")));
             Check("qwen 原目录已删除", !Directory.Exists(Path.Combine(appDirectory, "assets", "pets", "qwen")));
             Check("gemini 原目录已删除", !Directory.Exists(Path.Combine(appDirectory, "assets", "pets", "gemini")));
             Check("qwen 包已安装", InstalledStyles(extensionsRoot).Contains("qwen"));

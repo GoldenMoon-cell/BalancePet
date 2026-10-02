@@ -31,12 +31,6 @@ public static class ShippedPetMigration
         "clicked.png", "codex-working.png", "codex-done.png", "inactive.png"
     ];
 
-    /// <summary>
-    /// Written next to the extension store once a conversion finds nothing left to
-    /// do. Versioned so that a future change to the conversion can ask for it again.
-    /// </summary>
-    private const string MarkerFileName = "pet-migration.v1.done";
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -74,20 +68,24 @@ public static class ShippedPetMigration
         }
         catch (IOException) { return Result.Nothing; }
 
-        // A run that converted everything it found is remembered, because the work is
-        // hundreds of megabytes of copying and compressing and repeating it on every
-        // launch to discover there is nothing to do would be felt. A run that had
-        // failures is deliberately not remembered, so a transient problem heals on
-        // the next launch instead of leaving an appearance unmanaged forever.
+        // There is deliberately no "already migrated" marker gating the conversion, and
+        // there used to be one. It recorded "a run found nothing left to convert", which
+        // is not the same question as "there is nothing to convert now": the set of
+        // appearances that qualify is defined by PetStyleCatalog, and moving an appearance
+        // out of the built-in list is exactly what makes it qualify. So the marker written
+        // while DeepSeek and ChatGPT were still built-ins -- when the answer really was
+        // "nothing to do" -- silently blocked the conversion that moving them out was
+        // meant to enable. Every installation upgrading across that change kept folders
+        // that drew correctly but could never become packages: not removable, never
+        // updatable, and still occupying the installation directory.
         //
-        // The marker gates the conversion only. Reclaiming a duplicate is cheap — a
-        // directory listing — and has to keep happening, because repairing or
-        // reinstalling the application puts the shipped folders back and a leftover
-        // folder shadows the installed package when the asset path is resolved.
-        var marker = Path.Combine(Path.GetDirectoryName(manager.RootDirectory) ?? manager.RootDirectory, MarkerFileName);
-        var canConvert = true;
-        try { canConvert = !File.Exists(marker); }
-        catch (IOException) { }
+        // Nothing needs the gate. A converted appearance deletes its own folder, so the
+        // next launch has nothing to find and costs one directory listing; and a failed
+        // conversion never wrote the marker anyway, so it was never what made retries
+        // happen. Removing it takes away a cache that can disagree with the thing it
+        // describes. An installation that still has the old marker file is unaffected:
+        // nothing reads it, and it is left where it is rather than deleted on the chance
+        // that someone is looking at it.
 
         // An appearance that is already installed under the same style needs no
         // package built; the shipping folder is then only a stale duplicate.
@@ -130,8 +128,6 @@ public static class ShippedPetMigration
                 continue;
             }
 
-            if (!canConvert) continue;
-
             try
             {
                 InstallFrom(directory, definition, manager);
@@ -145,13 +141,6 @@ public static class ShippedPetMigration
                 // user nothing but a retry on the next launch.
                 failed.Add($"{style}：{error.Message}");
             }
-        }
-
-        if (failed.Count == 0)
-        {
-            try { File.WriteAllText(marker, DateTimeOffset.UtcNow.ToString("O")); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
         }
 
         return new Result(migrated, reclaimed, failed);
