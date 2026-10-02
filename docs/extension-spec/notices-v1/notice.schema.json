@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "BalancePet changelog notices v1",
-  "description": "Changes published outside a release: a specification gaining a section, a document being corrected, published content being rewritten. An entry never announces a new version -- that is the update check's job.",
+  "description": "Changes published outside a release. Every file-type change uploaded to GitHub gets an entry here: a specification gaining a section, a document being corrected, published content being rewritten. Titles stay within twelve characters because the speech bubble shows one. An entry never announces a new version -- a specification gaining a section, a document being corrected, published content being rewritten. An entry never announces a new version -- that is the update check's job.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "notices"],
@@ -35,7 +35,12 @@
           "minLength": 1,
           "maxLength": 16
         },
-        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12,
+              "description": "Kept to twelve characters because this is the line the pet's speech bubble shows, next to a count and a pointer to the changelog window. A longer title pushes that pointer out. The summary is where the explanation goes."
+            },
         "summary": {
           "description": "Where \"what changed\" is answered. A title alone rarely does.",
           "type": "string",
