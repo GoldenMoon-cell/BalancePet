@@ -75,7 +75,6 @@ public partial class SettingsWindow : Window
         _selectedThemeMode = SelectedTag(ThemeModeBox, "system");
         _selectedThemeBackdrop = SelectedTag(ThemeBackdropBox, "mica");
         _selectedThemeId = SelectedTag(ThemeBox, ThemeExtensionManager.BundledThemeId);
-        ThemeCompactBox.IsChecked = settings.ThemeCompact;
         ApplySelectedTheme();
         _profiles = settings.Monitors is { Count: > 0 }
             ? settings.Monitors.Select(CloneProfile).ToList()
@@ -396,8 +395,7 @@ public partial class SettingsWindow : Window
         var theme = SelectedTheme();
         if (theme is null) return;
         var mode = _selectedThemeMode;
-        var compact = ThemeCompactBox?.IsChecked ?? _settings.ThemeCompact;
-        WindowThemeService.ApplyResources(this, theme, mode, compact);
+        WindowThemeService.ApplyResources(this, theme, mode);
         if (IsInitialized)
         {
             var backdrop = _selectedThemeBackdrop;
@@ -457,13 +455,6 @@ public partial class SettingsWindow : Window
             if (ReferenceEquals(box, ThemeModeBox) && !string.IsNullOrWhiteSpace(selectedTag)) _selectedThemeMode = selectedTag;
             if (ReferenceEquals(box, ThemeBackdropBox) && !string.IsNullOrWhiteSpace(selectedTag)) _selectedThemeBackdrop = selectedTag;
         }
-        if (!_trackChanges) return;
-        ApplySelectedTheme();
-        MarkSettingsDirty();
-    }
-
-    private void OnThemeCompactChanged(object sender, RoutedEventArgs e)
-    {
         if (!_trackChanges) return;
         ApplySelectedTheme();
         MarkSettingsDirty();
@@ -929,6 +920,69 @@ public partial class SettingsWindow : Window
             SyncAllComboDisplays();
         }
         finally { _suppressChangeTracking = false; }
+        AnimatePageChange();
+    }
+
+    /// <summary>
+    /// Shows or hides an element, fading it in when the animation switch is on.
+    /// </summary>
+    /// <remarks>
+    /// Hiding is instant on purpose. Sliding something out keeps it in the layout while it
+    /// animates, so everything below it moves twice -- once when it starts and once when the
+    /// collapse finally lands. Appearing has no such problem, and appearing is the half a
+    /// person actually notices.
+    /// </remarks>
+    private void RevealElement(UIElement element, bool visible)
+    {
+        if (element is null) return;
+        if (!visible)
+        {
+            element.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        element.Visibility = Visibility.Visible;
+        if (NavigationAnimationsBox?.IsChecked != true || element is not FrameworkElement target) return;
+
+        target.Opacity = 0;
+        target.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(170))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        });
+    }
+
+    /// <summary>
+    /// Fades the page in and slides it a few pixels, in the direction the sidebar reads.
+    /// </summary>
+    /// <remarks>
+    /// This is the same switch the sidebar collapse already answers to. Before it, that
+    /// switch controlled exactly one animation in the whole window, which made it look
+    /// redundant rather than optional -- a setting that turns off a single effect is not
+    /// worth its own row.
+    ///
+    /// A short slide rather than a long one: the content is a form, and moving a form far
+    /// enough to be noticed is long enough to be in the way when switching pages to compare
+    /// two values.
+    /// </remarks>
+    private void AnimatePageChange()
+    {
+        if (SettingsContentHost is null || SettingsContentShift is null) return;
+        if (NavigationAnimationsBox?.IsChecked != true)
+        {
+            SettingsContentHost.BeginAnimation(OpacityProperty, null);
+            SettingsContentShift.BeginAnimation(TranslateTransform.XProperty, null);
+            SettingsContentHost.Opacity = 1;
+            SettingsContentShift.X = 0;
+            return;
+        }
+
+        var slide = new DoubleAnimation(10, 0, TimeSpan.FromMilliseconds(190))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150));
+        SettingsContentShift.BeginAnimation(TranslateTransform.XProperty, slide);
+        SettingsContentHost.BeginAnimation(OpacityProperty, fade);
     }
 
     private void OnScanExtensionLibrary(object sender, RoutedEventArgs e)
@@ -1720,10 +1774,9 @@ public partial class SettingsWindow : Window
         var usesSiteUrl = BalancePresetCatalog.UsesSiteUrl(presetId);
         var fixedEndpoint = BalancePresetCatalog.HasFixedEndpoint(presetId);
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
-        var visibility = usesSiteUrl ? Visibility.Visible : Visibility.Collapsed;
-        SiteUrlLabel.Visibility = visibility;
-        SiteUrlBox.Visibility = visibility;
-        SiteUrlHint.Visibility = visibility;
+        RevealElement(SiteUrlLabel, usesSiteUrl);
+        RevealElement(SiteUrlBox, usesSiteUrl);
+        RevealElement(SiteUrlHint, usesSiteUrl);
         EndpointBox.IsReadOnly = usesSiteUrl || fixedEndpoint;
         AuthModeBox.IsEnabled = !usesSiteUrl;
         PathBox.IsReadOnly = usesSiteUrl || fixedEndpoint;
@@ -1790,7 +1843,7 @@ public partial class SettingsWindow : Window
     private void UpdateRefreshModeVisibility()
     {
         var custom = string.Equals(SelectedTag(RefreshBox, "off"), "custom", StringComparison.OrdinalIgnoreCase);
-        RefreshCustomBox.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
+        RevealElement(RefreshCustomBox, custom);
     }
 
     private bool ValidateRefreshInput()
@@ -1860,8 +1913,7 @@ public partial class SettingsWindow : Window
             _selectedThemeMode = SelectedTag(ThemeModeBox, "system");
             _selectedThemeBackdrop = SelectedTag(ThemeBackdropBox, "mica");
             _selectedThemeId = SelectedTag(ThemeBox, ThemeExtensionManager.BundledThemeId);
-            ThemeCompactBox.IsChecked = imported.ThemeCompact;
-            ApplySelectedTheme();
+                ApplySelectedTheme();
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
  SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; NavigationAnimationsBox.IsChecked = imported.NavigationAnimations; EasterEggsBox.IsChecked = imported.RandomEasterEggs; FollowCodexBox.IsChecked = imported.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = imported.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = imported.GeminiTaskIntegration; FollowQwenBox.IsChecked = imported.QwenTaskIntegration; FollowClaudeBox.IsChecked = imported.ClaudeTaskIntegration; FollowOtherBox.IsChecked = imported.OtherTaskIntegration; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
@@ -1893,7 +1945,6 @@ public partial class SettingsWindow : Window
                 theme_id = SelectedTag(ThemeBox, ThemeExtensionManager.BundledThemeId),
                 theme_mode = _selectedThemeMode,
                 theme_backdrop = _selectedThemeBackdrop,
-                theme_compact = ThemeCompactBox.IsChecked == true,
                 auth_mode = selected.AuthMode,
                 header_name = selected.HeaderName,
                 balance_path = selected.BalancePath,
@@ -2008,7 +2059,6 @@ public partial class SettingsWindow : Window
                 ThemeId = _selectedThemeId,
                 ThemeMode = _selectedThemeMode,
                 ThemeBackdrop = _selectedThemeBackdrop,
-                ThemeCompact = ThemeCompactBox.IsChecked == true,
                 AuthMode = selected.AuthMode,
                 HeaderName = selected.HeaderName,
                 TokenBlob = selected.TokenBlob,
@@ -2083,7 +2133,6 @@ public partial class SettingsWindow : Window
             _settings.ThemeId = updated.ThemeId;
             _settings.ThemeMode = updated.ThemeMode;
             _settings.ThemeBackdrop = updated.ThemeBackdrop;
-            _settings.ThemeCompact = updated.ThemeCompact;
             _settings.NavigationAnimations = updated.NavigationAnimations;
             _settings.NavigationCollapsed = updated.NavigationCollapsed;
             _settings.UpdateCheckMode = updated.UpdateCheckMode;

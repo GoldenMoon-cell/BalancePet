@@ -9,7 +9,6 @@ public sealed class PetSettings
     [JsonPropertyName("theme_id")] public string ThemeId { get; set; } = "balancepet.theme.mica";
     [JsonPropertyName("theme_mode")] public string ThemeMode { get; set; } = "system";
     [JsonPropertyName("theme_backdrop")] public string ThemeBackdrop { get; set; } = "mica";
-    [JsonPropertyName("theme_compact")] public bool ThemeCompact { get; set; }
     [JsonPropertyName("endpoint")] public string Endpoint { get; set; } = "https://ai.websee.top/api/v1/auth/me?timezone=Asia%2FShanghai";
     [JsonPropertyName("auth_mode")] public string AuthMode { get; set; } = "authorization";
     [JsonPropertyName("header_name")] public string HeaderName { get; set; } = "Authorization";

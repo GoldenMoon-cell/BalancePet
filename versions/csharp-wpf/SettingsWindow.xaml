@@ -30,7 +30,6 @@
     <SolidColorBrush x:Key="WarningTextBrush" Color="#785123"/>
     <SolidColorBrush x:Key="FocusBrush" Color="#6613766F"/>
     <CornerRadius x:Key="ThemeCornerRadius">8</CornerRadius>
-    <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="ThemeSectionSpacing">18</system:Double>
     <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="ThemeControlHeight">32</system:Double>
     <Style TargetType="TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
@@ -661,27 +660,14 @@
               <StackPanel Grid.Column="1" Margin="8,0,0,0">
                 <TextBlock Text="窗口材质" FontWeight="SemiBold"/>
                 <ComboBox x:Name="ThemeBackdropBox" SelectionChanged="OnThemeOptionChanged" DropDownClosed="OnComboDropDownClosed" Margin="0,6,0,0">
-                  <ComboBoxItem Tag="mica" ToolTip="Windows 11 主窗口材质，背景更柔和。">云母（推荐）</ComboBoxItem>
-                  <ComboBoxItem Tag="mica-alt" ToolTip="更浓、更有层次，适合侧栏和标签式窗口。">云母 Alt（更浓）</ComboBoxItem>
-                  <ComboBoxItem Tag="acrylic" ToolTip="半透明亚克力玻璃效果。">亚克力</ComboBoxItem>
-                  <ComboBoxItem Tag="solid" ToolTip="关闭透明材质，使用主题的纯色背景。">实色</ComboBoxItem>
+                  <ComboBoxItem Tag="mica" ToolTip="跟随桌面壁纸取色，窗口会随壁纸变化。">云母</ComboBoxItem>
+                  <ComboBoxItem Tag="solid" ToolTip="不使用任何系统材质，窗口完全不透明。">实色</ComboBoxItem>
                 </ComboBox>
               </StackPanel>
             </Grid>
 
-            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,1" Padding="0,14" Margin="0,0,0,14">
-              <Grid>
-                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                <StackPanel>
-                  <TextBlock Text="紧凑布局" FontWeight="SemiBold"/>
-                  <TextBlock Text="在相同窗口中显示更多设置项。" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,3,0,0"/>
-                </StackPanel>
-                <CheckBox x:Name="ThemeCompactBox" Grid.Column="1" VerticalAlignment="Center" Checked="OnThemeCompactChanged" Unchecked="OnThemeCompactChanged"/>
-              </Grid>
-            </Border>
-
             <Border Background="{DynamicResource WarningSurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,14">
-              <TextBlock Text="Windows 11 使用云母，Windows 10 使用 Acrylic；高对比度或关闭透明效果时自动回退为实色。" Foreground="{DynamicResource WarningTextBrush}" FontSize="11" TextWrapping="Wrap"/>
+              <TextBlock Text="云母会让窗口跟随桌面壁纸取色；Windows 10 上没有云母，改用系统自带的亚克力。高对比度或关闭系统透明效果时一律回退为实色。" Foreground="{DynamicResource WarningTextBrush}" FontSize="11" TextWrapping="Wrap"/>
             </Border>
 
             <StackPanel Orientation="Horizontal">
@@ -729,8 +715,15 @@
         <Grid x:Name="SettingsContentGrid">
           <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <Border Grid.Row="0" Background="{DynamicResource WindowBackgroundBrush}" Padding="16,2,2,2">
-      <ContentPresenter Content="{Binding SelectedContent, ElementName=SettingsTabs}"
-                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+      <ContentPresenter x:Name="SettingsContentHost" Content="{Binding SelectedContent, ElementName=SettingsTabs}"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="1">
+        <!-- Named so the page transition can move the content without disturbing layout:
+             a RenderTransform does not re-measure, so a sliding page cannot make the
+             scrollbar jump while it moves. -->
+        <ContentPresenter.RenderTransform>
+          <TranslateTransform x:Name="SettingsContentShift" X="0"/>
+        </ContentPresenter.RenderTransform>
+      </ContentPresenter>
     </Border>
     <TextBlock x:Name="MessageText" Grid.Row="1" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" MinHeight="28" Margin="0,0,0,6"/>
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">

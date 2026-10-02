@@ -27,7 +27,6 @@
       <SolidColorBrush x:Key="AccentBrush" Color="#13766F"/>
       <SolidColorBrush x:Key="AccentSoftBrush" Color="#1F13766F"/>
       <SolidColorBrush x:Key="FocusBrush" Color="#6613766F"/>
-      <sys:Double x:Key="ThemeSectionSpacing">18</sys:Double>
       <sys:Double x:Key="ThemeControlHeight">32</sys:Double>
       <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>

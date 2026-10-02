@@ -132,8 +132,7 @@ public static class AppLocalization
         ("账户与接口", "Accounts & API"), ("桌宠与交互", "Pet & interaction"), ("AI 联动", "AI integration"), ("扩展", "Extensions"), ("外观", "Appearance"), ("高级与迁移", "Advanced & migration"),
         ("设置", "Settings"), ("主题插件", "Theme plugin"), ("让设置窗口融入 Windows，同时保持信息清晰、操作安静。", "Blend the settings window into Windows while keeping information clear and interactions calm."),
         ("当前主题", "Current theme"), ("颜色模式", "Color mode"), ("跟随系统", "Use system setting"), ("浅色", "Light"), ("深色", "Dark"),
-        ("窗口材质", "Window material"), ("云母（推荐）", "Mica (recommended)"), ("云母 Alt（更浓）", "Mica Alt (stronger)"), ("亚克力", "Acrylic"), ("实色", "Solid"),
-        ("紧凑布局", "Compact layout"), ("在相同窗口中显示更多设置项。", "Show more settings in the same window."),
+        ("窗口材质", "Window material"), ("云母", "Mica"), ("实色", "Solid"),
         // The changelog window. Its list is built in code rather than declared, so these
         // only cover the shell around it -- the entries themselves are translated where
         // they are created.
@@ -145,7 +144,7 @@ public static class AppLocalization
         ("还没有读到更新记录。首次联网后会自动获取；如果一直为空，可以用下面的「刷新」重试。", "No entries have been read yet. They are fetched once the program can reach the network; if this stays empty, try Refresh below."),
         ("打开", "Open"), ("获取中…", "Fetching…"), ("最小化", "Minimize"),
         ("条新内容", "new"),
-        ("Windows 11 使用云母，Windows 10 使用 Acrylic；高对比度或关闭透明效果时自动回退为实色。", "Windows 11 uses Mica and Windows 10 uses Acrylic; high contrast or disabled transparency falls back to a solid background."),
+        ("云母会让窗口跟随桌面壁纸取色；Windows 10 上没有云母，改用系统自带的亚克力。高对比度或关闭系统透明效果时一律回退为实色。", "Mica lets the window take its tint from the desktop wallpaper. Windows 10 has no Mica and uses the system acrylic instead. High contrast or disabled transparency always falls back to solid."),
         ("打开主题目录", "Open theme folder"), ("导入主题 ZIP", "Import theme ZIP"), ("已启用", "Enabled"),
         ("系统云母底层、Fluent 控件与 BalancePet 青绿色强调色。", "System Mica, Fluent controls, and BalancePet's teal accent."),
         ("外观与操作", "Appearance & interaction"), ("交互开关", "Interaction switches"), ("扩展管理", "Extension management"), ("应用偏好", "Application preferences"), ("设置迁移", "Settings migration"),

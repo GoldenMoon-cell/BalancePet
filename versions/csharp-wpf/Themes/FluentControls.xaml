@@ -184,7 +184,14 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="{x:Type ComboBoxItem}">
-          <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+          <!-- The margin is what keeps a highlight whole. Items were laid out flush, so the
+               selected row's 5 px corners were overlapped by the next row's background and
+               the highlight read as cut off at the bottom; the same happened against the
+               popup's own rounded edge. A 2 px inset on every side is all it takes, and it
+               has to be on the item rather than on the popup, because the popup's padding
+               does not separate two adjacent rows from each other. -->
+          <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="5"
+                  Padding="{TemplateBinding Padding}" Margin="2,1">
             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
           </Border>
           <ControlTemplate.Triggers>
@@ -197,6 +204,10 @@
     </Setter>
   </Style>
 
+  <!-- A switch rather than a tick box. Every CheckBox in the application is an on/off
+       setting, which is what a switch is for; a tick box is for selecting items in a set,
+       and there are none. The track and thumb both animate, because a control that snaps
+       while the rest of the window moves reads as a rendering fault rather than as speed. -->
   <Style TargetType="{x:Type CheckBox}">
     <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
@@ -207,16 +218,46 @@
         <ControlTemplate TargetType="{x:Type CheckBox}">
           <Grid Background="Transparent">
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <Border x:Name="Box" Width="18" Height="18" CornerRadius="4" Background="{DynamicResource ControlBrush}"
-                    BorderBrush="{DynamicResource MutedBrush}" BorderThickness="1" VerticalAlignment="Center">
-              <Path x:Name="Check" Data="M 3.5,8.5 L 7,12 L 14.5,4.5" Stroke="White" StrokeThickness="2"
-                    StrokeStartLineCap="Round" StrokeEndLineCap="Round" Visibility="Collapsed"/>
+            <Border x:Name="Track" Width="40" Height="20" CornerRadius="10" VerticalAlignment="Center"
+                    Background="{DynamicResource ControlBrush}" BorderBrush="{DynamicResource MutedBrush}" BorderThickness="1">
+              <Ellipse x:Name="Thumb" Width="12" Height="12" HorizontalAlignment="Left" Margin="3,0,0,0"
+                       Fill="{DynamicResource MutedBrush}">
+                <Ellipse.RenderTransform><TranslateTransform x:Name="ThumbShift" X="0"/></Ellipse.RenderTransform>
+              </Ellipse>
             </Border>
             <ContentPresenter Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True"/>
           </Grid>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsChecked" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource AccentBrush}"/><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter TargetName="Check" Property="Visibility" Value="Visible"/></Trigger>
-            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}"/>
+              <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+              <Setter TargetName="Thumb" Property="Fill" Value="White"/>
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <!-- 20 px: the track's 38 px inner width, minus the 3 px inset at each
+                         end, minus the 12 px thumb. -->
+                    <DoubleAnimation Storyboard.TargetName="ThumbShift" Storyboard.TargetProperty="X"
+                                     To="20" Duration="0:0:0.16">
+                      <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="ThumbShift" Storyboard.TargetProperty="X"
+                                     To="0" Duration="0:0:0.16">
+                      <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            </Trigger>
             <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.42"/></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>

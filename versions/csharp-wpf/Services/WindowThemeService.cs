@@ -23,7 +23,7 @@ public static class WindowThemeService
             ?? themes.GetLatestEnabled(ThemeExtensionManager.BundledThemeId)
             ?? themes.GetLatestEnabled().FirstOrDefault();
         if (theme is null) return;
-        ApplyResources(window, theme, settings.ThemeMode, settings.ThemeCompact);
+        ApplyResources(window, theme, settings.ThemeMode);
         window.SourceInitialized += (_, _) => ApplyBackdropOrFallback(window, settings.ThemeBackdrop, settings.ThemeMode);
     }
 
@@ -39,7 +39,7 @@ public static class WindowThemeService
         catch (Exception error) when (error is UnauthorizedAccessException or IOException) { return false; }
     }
 
-    public static void ApplyResources(Window window, ThemeExtensionInfo theme, string mode, bool compact)
+    public static void ApplyResources(Window window, ThemeExtensionInfo theme, string mode)
     {
         var dark = ResolveDarkMode(mode);
         var palette = dark ? theme.Theme.Dark : theme.Theme.Light;
@@ -57,23 +57,52 @@ public static class WindowThemeService
         SetBrush(window, "WarningSurfaceBrush", palette.WarningSurface);
         SetBrush(window, "WarningTextBrush", palette.WarningText);
         window.Resources["ThemeCornerRadius"] = new CornerRadius(theme.Theme.CornerRadius);
-        window.Resources["ThemeSectionSpacing"] = compact ? 12d : 18d;
-        window.Resources["ThemeControlHeight"] = compact ? 28d : 32d;
+        // One control height, not a compact and a regular one. There was a 紧凑布局 switch
+        // that chose between 28 and 32; it changed the height of the two ComboBoxes on the
+        // page and nothing else, while promising "show more settings in the same window".
+        // The spacing half of it was written by this method and read by nothing at all.
+        window.Resources["ThemeControlHeight"] = 32d;
     }
 
+    /// <summary>
+    /// Applies one of the two materials the user can choose, or makes the window genuinely
+    /// opaque.
+    /// </summary>
+    /// <remarks>
+    /// There used to be four choices. Only one of them worked: Mica Alt and Acrylic were
+    /// both routed through <see cref="ApplyBackdropOverlay"/>, which raises the content to
+    /// 95-99% opacity to stop those two compositor surfaces going too dark — and at that
+    /// opacity the difference between a wallpaper-sampled material and a blur-behind one
+    /// is invisible. So three of the four looked identical, and the honest fix is to offer
+    /// the two that genuinely differ rather than to describe a choice that is not there.
+    ///
+    /// A settings file that still names a removed mode falls through to Mica. It is not
+    /// worth rejecting: the value is a display preference, and the closest thing to what
+    /// they picked is the material it was modelled on.
+    /// </remarks>
     public static bool ApplyBackdrop(Window window, string backdrop, string mode)
     {
         var handle = new WindowInteropHelper(window).Handle;
         if (handle == IntPtr.Zero) return false;
+
+        var solid = string.Equals(backdrop, "solid", StringComparison.OrdinalIgnoreCase)
+            || SystemParameters.HighContrast || !IsTransparencyEnabled();
+
+        // Set before the material, and to Transparent only when there is going to be one.
+        // Leaving it transparent in solid mode is what made "solid" translucent: the window
+        // was told to composite against nothing and then painted with brushes that the theme
+        // makes translucent on purpose.
         if (HwndSource.FromHwnd(handle) is HwndSource source)
-            source.CompositionTarget.BackgroundColor = System.Windows.Media.Colors.Transparent;
+        {
+            source.CompositionTarget.BackgroundColor = solid
+                ? System.Windows.Media.Colors.White
+                : System.Windows.Media.Colors.Transparent;
+        }
 
         var dark = ResolveDarkMode(mode) ? 1 : 0;
         if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763))
             _ = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkMode, ref dark, sizeof(int));
 
-        var solid = string.Equals(backdrop, "solid", StringComparison.OrdinalIgnoreCase)
-            || SystemParameters.HighContrast || !IsTransparencyEnabled();
         if (solid)
         {
             DisableLegacyBackdrop(handle);
@@ -94,101 +123,54 @@ public static class WindowThemeService
         if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22621))
         {
             DisableLegacyBackdrop(handle);
-            var backdropType = string.Equals(backdrop, "mica-alt", StringComparison.OrdinalIgnoreCase)
-                ? 4
-                : string.Equals(backdrop, "acrylic", StringComparison.OrdinalIgnoreCase) ? 3 : 2;
+            // DWMSBT_MAINWINDOW. The TabbedWindow and TransientWindow variants are gone from
+            // the picker; a file naming them lands here, which is the right answer anyway.
+            var backdropType = 2;
             if (DwmSetWindowAttribute(handle, DwmwaSystemBackdropType, ref backdropType, sizeof(int)) == 0) return true;
         }
 
-        // Windows 10 has no Mica compositor. Acrylic is its native Fluent
-        // material and provides the equivalent OS-aware background treatment.
-        return OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763)
-            && EnableLegacyAcrylic(handle, ResolveDarkMode(mode), string.Equals(backdrop, "mica-alt", StringComparison.OrdinalIgnoreCase) || string.Equals(backdrop, "acrylic", StringComparison.OrdinalIgnoreCase));
+        // Windows 10 has no Mica compositor. Acrylic is its native Fluent material and is
+        // the closest equivalent, so the one choice still means "the system's material".
+        return OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763) && EnableLegacyAcrylic(handle, ResolveDarkMode(mode));
     }
 
+    /// <summary>
+    /// Applies the material, and when there is none, makes the window actually opaque.
+    /// </summary>
+    /// <remarks>
+    /// The theme paints its surfaces translucent on purpose, because they are meant to sit
+    /// over a material. With no material underneath, "translucent" resolves against the
+    /// desktop instead, which is not what someone choosing 实色 is asking for. So every
+    /// surface layer is resolved to opaque, not only the page: leaving the sidebar and the
+    /// cards translucent is what made a solid window still look like a material.
+    /// </remarks>
     public static void ApplyBackdropOrFallback(Window window, string backdrop, string mode)
     {
-        ApplyBackdropOverlay(window, backdrop, mode);
         if (ApplyBackdrop(window, backdrop, mode)) return;
-        if (window.Resources["WindowBackgroundBrush"] is not System.Windows.Media.SolidColorBrush current) return;
-        var color = current.Color;
-        window.Resources["WindowBackgroundBrush"] = new System.Windows.Media.SolidColorBrush(
-            System.Windows.Media.Color.FromArgb(byte.MaxValue, color.R, color.G, color.B));
+        foreach (var key in OpaqueSurfaceKeys)
+        {
+            if (window.Resources[key] is not System.Windows.Media.SolidColorBrush brush) continue;
+            var color = brush.Color;
+            window.Resources[key] = new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromArgb(byte.MaxValue, color.R, color.G, color.B));
+        }
     }
 
-    private static void ApplyBackdropOverlay(Window window, string backdrop, string mode)
-    {
-        if (!string.Equals(backdrop, "mica-alt", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(backdrop, "acrylic", StringComparison.OrdinalIgnoreCase)) return;
-
-        // Mica Alt and Acrylic can produce a much darker compositor surface
-        // than regular Mica. Use one shared, high-opacity page layer for the
-        // sidebar and content area, then ensure text tokens remain readable on
-        // that resolved surface. The normal Mica palette is left untouched.
-        var dark = ResolveDarkMode(mode);
-        var compositorBase = dark ? MediaColor.FromRgb(0x1C, 0x24, 0x25) : Colors.White;
-        var page = Composite(ReadColor(window, "WindowBackgroundBrush"), compositorBase);
-        var surface = Composite(ReadColor(window, "SurfaceBrush"), page);
-        var surfaceStrong = Composite(ReadColor(window, "SurfaceStrongBrush"), page);
-        var control = Composite(ReadColor(window, "ControlBrush"), page);
-        var border = Composite(ReadColor(window, "BorderBrush"), page);
-
-        SetColor(window, "WindowBackgroundBrush", Opaque(page, 0xF2));
-        SetColor(window, "SidebarBrush", Opaque(page, 0xF2));
-        SetColor(window, "SurfaceBrush", Opaque(surface, 0xF8));
-        SetColor(window, "SurfaceStrongBrush", Opaque(surfaceStrong, 0xFA));
-        SetColor(window, "ControlBrush", Opaque(control, 0xFC));
-        SetColor(window, "BorderBrush", Opaque(border, 0xB0));
-        SetColor(window, "TextBrush", EnsureContrast(ReadColor(window, "TextBrush"), page, 4.5, dark));
-        SetColor(window, "MutedBrush", EnsureContrast(ReadColor(window, "MutedBrush"), page, 3.0, dark));
-    }
+    /// <summary>
+    /// The layers that make up a window's surface, in painting order. Foreground, border
+    /// and accent colours are deliberately absent: their transparency is a drawing choice
+    /// that reads correctly on an opaque background.
+    /// </summary>
+    private static readonly string[] OpaqueSurfaceKeys =
+    [
+        "WindowBackgroundBrush", "SidebarBrush", "SurfaceBrush",
+        "SurfaceStrongBrush", "ControlBrush", "WarningSurfaceBrush"
+    ];
 
     private static void SetBrush(Window window, string key, string value)
         => window.Resources[key] = new System.Windows.Media.SolidColorBrush(
             (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(value));
 
-    private static MediaColor ReadColor(Window window, string key)
-        => window.Resources[key] is SolidColorBrush brush ? brush.Color : Colors.Transparent;
-
-    private static void SetColor(Window window, string key, MediaColor color)
-        => window.Resources[key] = new SolidColorBrush(color);
-
-    private static MediaColor Opaque(MediaColor color, byte alpha)
-        => MediaColor.FromArgb(alpha, color.R, color.G, color.B);
-
-    private static MediaColor Composite(MediaColor foreground, MediaColor background)
-    {
-        var alpha = foreground.A / 255.0;
-        return MediaColor.FromRgb(
-            (byte)Math.Round(foreground.R * alpha + background.R * (1 - alpha)),
-            (byte)Math.Round(foreground.G * alpha + background.G * (1 - alpha)),
-            (byte)Math.Round(foreground.B * alpha + background.B * (1 - alpha)));
-    }
-
-    private static MediaColor EnsureContrast(MediaColor candidate, MediaColor background, double minimumRatio, bool dark)
-    {
-        var resolved = MediaColor.FromRgb(candidate.R, candidate.G, candidate.B);
-        if (ContrastRatio(resolved, background) >= minimumRatio) return resolved;
-        return dark ? MediaColor.FromRgb(0xF2, 0xF7, 0xF6) : MediaColor.FromRgb(0x1C, 0x29, 0x2B);
-    }
-
-    private static double ContrastRatio(MediaColor first, MediaColor second)
-    {
-        var light = Math.Max(RelativeLuminance(first), RelativeLuminance(second));
-        var dark = Math.Min(RelativeLuminance(first), RelativeLuminance(second));
-        return (light + 0.05) / (dark + 0.05);
-    }
-
-    private static double RelativeLuminance(MediaColor color)
-    {
-        static double Channel(byte value)
-        {
-            var normalized = value / 255.0;
-            return normalized <= 0.03928 ? normalized / 12.92 : Math.Pow((normalized + 0.055) / 1.055, 2.4);
-        }
-
-        return 0.2126 * Channel(color.R) + 0.7152 * Channel(color.G) + 0.0722 * Channel(color.B);
-    }
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int valueSize);
@@ -203,9 +185,9 @@ public static class WindowThemeService
         catch (Exception error) when (error is UnauthorizedAccessException or IOException) { return true; }
     }
 
-    private static bool EnableLegacyAcrylic(IntPtr handle, bool dark, bool strongerTint)
+    private static bool EnableLegacyAcrylic(IntPtr handle, bool dark)
     {
-        var alpha = strongerTint ? 0xDD : 0xC2;
+        var alpha = 0xC2;
         var red = dark ? 0x20 : 0xF1;
         var green = dark ? 0x29 : 0xF5;
         var blue = dark ? 0x2A : 0xF3;

@@ -54,7 +54,7 @@ public partial class NoticeWindow : Window
             ?? _themes.GetLatestEnabled(ThemeExtensionManager.BundledThemeId)
             ?? _themes.GetLatestEnabled().FirstOrDefault();
         if (theme is null) return;
-        WindowThemeService.ApplyResources(this, theme, _settings.ThemeMode, _settings.ThemeCompact);
+        WindowThemeService.ApplyResources(this, theme, _settings.ThemeMode);
         if (IsInitialized) WindowThemeService.ApplyBackdropOrFallback(this, _settings.ThemeBackdrop, _settings.ThemeMode);
     }
 
@@ -128,9 +128,24 @@ public partial class NoticeWindow : Window
         // Newest first, and only the ones published after the last time this window was
         // opened are marked. Marking by age would drift; marking by the recorded watermark
         // means the mark matches what the bubble was about.
+        var index = 0;
         foreach (var item in items)
         {
-            NoticeList.Children.Add(BuildEntry(item, item.Seq > _settings.NoticesSeenSeq));
+            var entry = BuildEntry(item, item.Seq > _settings.NoticesSeenSeq);
+            // Staggered, because a list that fades in as one block reads as the window
+            // flickering rather than as entries arriving. Capped so a long history does not
+            // take a second and a half to appear.
+            if (_settings.NavigationAnimations)
+            {
+                entry.Opacity = 0;
+                entry.BeginAnimation(OpacityProperty, new System.Windows.Media.Animation.DoubleAnimation(0, 1,
+                    TimeSpan.FromMilliseconds(180))
+                {
+                    BeginTime = TimeSpan.FromMilliseconds(Math.Min(index, 8) * 35)
+                });
+            }
+            NoticeList.Children.Add(entry);
+            index++;
         }
     }
 

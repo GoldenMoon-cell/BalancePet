@@ -103,9 +103,15 @@ internal static class Program
             }
             window.UpdateLayout();
 
+            // A ComboBox popup lives in its own window, so RenderTargetBitmap cannot capture
+            // it however far off-screen the owner is. Measuring it is the alternative: the
+            // digits say whether a highlight sits inside the popup, which is the question a
+            // screenshot of a clipped corner would have been asked to answer anyway.
+            if (Array.IndexOf(args, "--combo") is var ct && ct >= 0 && ct + 1 < args.Length)
+                return ReportPopupLayout(window, args[ct + 1]);
+
             var width = (int)Math.Ceiling(window.ActualWidth);
-            var height = (int)Math.Ceiling(window.ActualHeight);
-            if (width <= 0 || height <= 0)
+            var height = (int)Math.Ceiling(window.ActualHeight);            if (width <= 0 || height <= 0)
             {
                 Console.WriteLine("窗口没有布局尺寸，无法截图。");
                 return 2;
@@ -128,6 +134,87 @@ internal static class Program
             // path, and this tool must not write to the user's settings.
             window.Hide();
             application.Shutdown();
+        }
+    }
+
+    /// <summary>
+    /// Opens a named ComboBox and reports where its items actually landed.
+    /// </summary>
+    /// <remarks>
+    /// Prints the popup's inner rectangle and each item's, in the popup's own coordinate
+    /// space, and flags any item that does not fit. An item wider than the space it has, or
+    /// flush against another item, is what makes a rounded highlight read as cut off.
+    /// </remarks>
+    private static int ReportPopupLayout(FrameworkElement window, string comboName)
+    {
+        if (window.FindName(comboName) is not System.Windows.Controls.ComboBox combo)
+        {
+            Console.WriteLine($"找不到 ComboBox：{comboName}");
+            return 2;
+        }
+
+        combo.IsDropDownOpen = true;
+        for (var pass = 0; pass < 4; pass++)
+        {
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+            window.UpdateLayout();
+        }
+
+        var popup = FindDescendant<System.Windows.Controls.Primitives.Popup>(combo);
+        if (popup?.Child is not FrameworkElement chrome)
+        {
+            Console.WriteLine("下拉没有打开或找不到弹出层。");
+            return 2;
+        }
+
+        var padding = chrome is System.Windows.Controls.Border { Padding: var p } ? p : default;
+        Console.WriteLine($"弹出层 {chrome.ActualWidth:0.##} x {chrome.ActualHeight:0.##}，内边距 L{padding.Left} T{padding.Top} R{padding.Right} B{padding.Bottom}");
+        Console.WriteLine($"可用内部宽度 {chrome.ActualWidth - padding.Left - padding.Right:0.##}");
+        Console.WriteLine();
+
+        var problems = 0;
+        var previousBottom = double.NaN;
+        foreach (var item in FindDescendants<System.Windows.Controls.ComboBoxItem>(chrome))
+        {
+            // The highlight is the Border inside the item, not the item itself: the inset
+            // that keeps two adjacent highlights apart lives on that Border, so measuring
+            // the item reports a flush edge that the user never sees.
+            var target = item.Template?.FindName("Chrome", item) as FrameworkElement ?? item;
+            var origin = target.TransformToAncestor(chrome).Transform(new Point(0, 0));
+            var left = origin.X;
+            var right = origin.X + target.ActualWidth;
+            var top = origin.Y;
+            var bottom = origin.Y + target.ActualHeight;
+            var overflowsRight = right > chrome.ActualWidth - padding.Right + 0.5;
+            var flush = !double.IsNaN(previousBottom) && Math.Abs(top - previousBottom) < 0.01;
+            if (overflowsRight || flush) problems++;
+            Console.WriteLine(
+                $"  {Describe(item),-14} 左 {left,6:0.##}  右 {right,6:0.##}  上 {top,6:0.##}  下 {bottom,6:0.##}" +
+                $"{(overflowsRight ? "   ← 超出右边界" : "")}{(flush ? "   ← 与上一项贴合" : "")}");
+            previousBottom = bottom;
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(problems == 0
+            ? "高亮完整落在弹出层内，且相邻高亮之间有空隙。"
+            : $"{problems} 处问题：超出右边界或与相邻项贴合。");
+        return problems == 0 ? 0 : 1;
+    }
+
+    private static string Describe(System.Windows.Controls.ComboBoxItem item)
+        => item.Content?.ToString() ?? "(空)";
+
+    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+        => FindDescendants<T>(root).FirstOrDefault();
+
+    private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var index = 0; index < count; index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is T match) yield return match;
+            foreach (var nested in FindDescendants<T>(child)) yield return nested;
         }
     }
 
