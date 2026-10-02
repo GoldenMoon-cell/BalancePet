@@ -1,6 +1,10 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="clr-namespace:BalancePet.Wpf.Controls">
+  <!-- The interface font, embedded in the assembly so it cannot go missing and does not
+       depend on what the machine has installed. Nothing here is special-cased per theme:
+       the window swaps this one resource when the user picks a different font. -->
+  <FontFamily x:Key="UiFontFamily">pack://application:,,,/assets/fonts/#霞鸜新晰黑, Microsoft YaHei UI</FontFamily>
   <Style x:Key="FluentFocusVisual">
     <Setter Property="Control.Template">
       <Setter.Value>
@@ -20,7 +24,7 @@
     <Setter Property="SelectionBrush" Value="{DynamicResource AccentSoftBrush}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
+    <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
     <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
     <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Hidden"/>
@@ -83,7 +87,7 @@
     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-    <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
+    <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}"/>
     <Setter Property="HorizontalContentAlignment" Value="Center"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
     <Setter Property="FocusVisualStyle" Value="{StaticResource FluentFocusVisual}"/>
@@ -134,7 +138,7 @@
     <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
+    <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
     <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
@@ -212,7 +216,7 @@
        switch looks half-dragged rather than snapping. -->
   <Style TargetType="{x:Type local:ToggleSwitch}">
     <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-    <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
+    <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
     <Setter Property="FocusVisualStyle" Value="{StaticResource FluentFocusVisual}"/>
     <Setter Property="Cursor" Value="Hand"/>

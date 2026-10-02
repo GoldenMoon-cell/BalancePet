@@ -75,6 +75,8 @@ public partial class SettingsWindow : Window
         _selectedThemeMode = SelectedTag(ThemeModeBox, "system");
         _selectedThemeBackdrop = SelectedTag(ThemeBackdropBox, "mica");
         _selectedThemeId = SelectedTag(ThemeBox, ThemeExtensionManager.BundledThemeId);
+        _selectedUiFont = settings.UiFont ?? "";
+        PopulateUiFonts();
         ApplySelectedTheme();
         _profiles = settings.Monitors is { Count: > 0 }
             ? settings.Monitors.Select(CloneProfile).ToList()
@@ -355,6 +357,7 @@ public partial class SettingsWindow : Window
         SyncComboDisplay(ThemeModeBox);
         SyncComboDisplay(ThemeBackdropBox);
         SyncComboDisplay(BrowserSessionBrowserBox);
+        SyncComboDisplay(UiFontBox, (UiFontBox?.SelectedItem as FontChoice)?.Label);
     }
 
     private void RefreshThemeList(string? selectedId = null)
@@ -390,12 +393,117 @@ public partial class SettingsWindow : Window
         return _themes.GetLatestEnabled(id) ?? _themes.GetLatestEnabled(ThemeExtensionManager.BundledThemeId) ?? _themes.GetLatestEnabled().FirstOrDefault();
     }
 
+    /// <summary>One entry in the interface-font list.</summary>
+    /// <remarks>
+    /// Preview is a live FontFamily so each row can be drawn in the face it names. A list of
+    /// font names all rendered in the same font tells the reader nothing about any of them,
+    /// which is the entire reason someone opens this list.
+    /// </remarks>
+    public sealed record FontChoice(string Label, string Family, System.Windows.Media.FontFamily Preview);
+
+    private string _selectedUiFont = "";
+    private bool _fillingFonts;
+
+    /// <summary>
+    /// Fills the font list: the embedded face first, then everything the machine has.
+    /// </summary>
+    /// <remarks>
+    /// Reads the installed families every time rather than caching them, because a font can be
+    /// installed or removed while the program is running and a stale list would offer a face
+    /// that no longer exists.
+    /// </remarks>
+    private void PopulateUiFonts()
+    {
+        if (UiFontBox is null) return;
+        _fillingFonts = true;
+        try
+        {
+            var bundled = new FontChoice(
+                AppLocalization.Text(_settings.Language, "内置字体（霞鹜新晰黑）", "Bundled (LXGW Neo XiHei)"),
+                "",
+                new System.Windows.Media.FontFamily(WindowThemeService.BundledFontFamily));
+
+            var names = new SortedSet<string>(StringComparer.CurrentCulture);
+            foreach (var family in System.Windows.Media.Fonts.SystemFontFamilies)
+            {
+                if (IsSymbolOnly(family)) continue;
+                var name = PreferredName(family);
+                if (!string.IsNullOrWhiteSpace(name)) names.Add(name);
+            }
+
+            var choices = new List<FontChoice> { bundled };
+            choices.AddRange(names.Select(name => new FontChoice(
+                name, name, new System.Windows.Media.FontFamily(name))));
+
+            UiFontBox.ItemsSource = choices;
+            var selected = choices.FirstOrDefault(choice =>
+                string.Equals(choice.Family, _selectedUiFont, StringComparison.OrdinalIgnoreCase)) ?? bundled;
+            UiFontBox.SelectedItem = selected;
+            SyncComboDisplay(UiFontBox, selected.Label);
+        }
+        finally { _fillingFonts = false; }
+    }
+
+    /// <summary>
+    /// Whether a family is a symbol font, and so offers nothing to write an interface in.
+    /// </summary>
+    /// <remarks>
+    /// Wingdings and its relatives map ordinary letters onto pictures rather than leaving them
+    /// alone, so choosing one turns the whole window -- including the list this choice is made
+    /// in -- into glyphs, with no readable way back. They are left out rather than offered and
+    /// regretted. Icon fonts are not excluded: they simply lack the letters, so the ordinary
+    /// fallback covers them and the window stays legible.
+    /// </remarks>
+    private static bool IsSymbolOnly(System.Windows.Media.FontFamily family)
+    {
+        try
+        {
+            var faces = family.GetTypefaces().ToList();
+            return faces.Count > 0 && faces.All(face => face.TryGetGlyphTypeface(out var glyphs) && glyphs.Symbol);
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException or System.IO.FileFormatException)
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// The name to show for an installed family: the one matching the interface language when
+    /// the font carries it, otherwise the font's own name.
+    /// </summary>
+    private static string PreferredName(System.Windows.Media.FontFamily family)
+    {
+        foreach (var tag in new[] { "zh-Hans", "zh-CN", "zh" })
+        {
+            if (family.FamilyNames.TryGetValue(
+                    System.Windows.Markup.XmlLanguage.GetLanguage(tag), out var localized)
+                && !string.IsNullOrWhiteSpace(localized)) return localized;
+        }
+        return family.Source;
+    }
+
+    private void OnUiFontChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var choice = UiFontBox?.SelectedItem as FontChoice;
+        // This window's combo template does not bind its selection text; every combo here has
+        // to fill it in, and an item that is not a ComboBoxItem has nothing for the shared
+        // helper to read, so the label is handed over explicitly.
+        SyncComboDisplay(UiFontBox, choice?.Label);
+        if (_fillingFonts || !_trackChanges) return;
+        _selectedUiFont = choice?.Family ?? "";
+        // Applied straight away, because the point of choosing a font is seeing it, and the
+        // window the choice affects is the one the choice is being made in.
+        WindowThemeService.ApplyFont(this, _selectedUiFont);
+        MarkSettingsDirty();
+    }
+
     private void ApplySelectedTheme()
     {
         var theme = SelectedTheme();
         if (theme is null) return;
         var mode = _selectedThemeMode;
         WindowThemeService.ApplyResources(this, theme, mode);
+        WindowThemeService.ApplyFont(this, _selectedUiFont);
         if (IsInitialized)
         {
             var backdrop = _selectedThemeBackdrop;
@@ -2083,6 +2191,7 @@ public partial class SettingsWindow : Window
                 ThemeId = _selectedThemeId,
                 ThemeMode = _selectedThemeMode,
                 ThemeBackdrop = _selectedThemeBackdrop,
+            UiFont = _selectedUiFont,
                 AuthMode = selected.AuthMode,
                 HeaderName = selected.HeaderName,
                 TokenBlob = selected.TokenBlob,

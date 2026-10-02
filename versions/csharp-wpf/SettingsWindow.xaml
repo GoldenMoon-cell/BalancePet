@@ -6,7 +6,7 @@
         Title="小余额设置" Width="760" Height="720" MinWidth="700" MinHeight="640"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize" WindowStyle="None" AllowDrop="True" Drop="OnExtensionDrop" DragOver="OnExtensionDragOver"
         Background="Transparent"
-        FontFamily="Segoe UI, Microsoft YaHei UI" SnapsToDevicePixels="True" UseLayoutRounding="True"
+        FontFamily="{DynamicResource UiFontFamily}" SnapsToDevicePixels="True" UseLayoutRounding="True"
         Loaded="OnWindowLoaded" SourceInitialized="OnWindowSourceInitialized">
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
@@ -34,7 +34,7 @@
     <system:Double xmlns:system="clr-namespace:System;assembly=mscorlib" x:Key="ThemeControlHeight">32</system:Double>
     <Style TargetType="TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-      <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
+      <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}"/>
     </Style>
     <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
       <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
@@ -113,7 +113,7 @@
          inheriting it. ChipTab is the same idea one size down, for filtering. -->
     <Style x:Key="SectionTab" TargetType="TabItem">
       <Setter Property="Foreground" Value="{DynamicResource MutedBrush}"/>
-      <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
+      <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Padding" Value="14,6,14,6"/>
       <Setter Property="Margin" Value="0"/>
@@ -169,7 +169,7 @@
       <Setter Property="HorizontalContentAlignment" Value="Left"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-      <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
+      <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}"/>
       <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
       <Setter Property="Template">
@@ -702,6 +702,22 @@
                 </ComboBox>
               </StackPanel>
             </Grid>
+
+            <!-- Full width, because font names are long and the Chinese and English ones have
+                 to be told apart at a glance. Each entry is drawn in its own face: a list of
+                 font names all set in one font says nothing about any of them. -->
+            <StackPanel Margin="0,0,0,16">
+              <TextBlock Text="界面字体" FontWeight="SemiBold"/>
+              <ComboBox x:Name="UiFontBox" SelectionChanged="OnUiFontChanged" DropDownClosed="OnComboDropDownClosed"
+                        Margin="0,6,0,0" MaxDropDownHeight="320"
+                        ToolTip="设置窗口、提示气泡和更新记录使用的字体。">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Label}" FontFamily="{Binding Preview}"/>
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </StackPanel>
 
             <Border Background="{DynamicResource WarningSurfaceBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,14">
               <TextBlock Text="云母会让窗口跟随桌面壁纸取色；Windows 10 上没有云母，改用系统自带的亚克力。高对比度或关闭系统透明效果时一律回退为实色。" Foreground="{DynamicResource WarningTextBrush}" FontSize="11" TextWrapping="Wrap"/>

@@ -7,7 +7,7 @@
         Title="小余额更新记录" Width="580" Height="620" MinWidth="460" MinHeight="380"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize" WindowStyle="None"
         Background="Transparent"
-        FontFamily="Segoe UI, Microsoft YaHei UI" SnapsToDevicePixels="True" UseLayoutRounding="True"
+        FontFamily="{DynamicResource UiFontFamily}" SnapsToDevicePixels="True" UseLayoutRounding="True"
         SourceInitialized="OnWindowSourceInitialized">
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
@@ -31,7 +31,7 @@
       <sys:Double x:Key="ThemeControlHeight">32</sys:Double>
       <Style TargetType="TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
-        <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/>
+        <Setter Property="FontFamily" Value="{DynamicResource UiFontFamily}"/>
       </Style>
       <Style x:Key="CaptionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Width" Value="46"/><Setter Property="Height" Value="48"/><Setter Property="MinHeight" Value="0"/>

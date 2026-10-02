@@ -116,6 +116,39 @@ internal static class Program
             if (Array.IndexOf(args, "--type") is var tt2 && tt2 >= 0 && tt2 + 1 < args.Length)
                 return ReportType(window, args[tt2 + 1]);
 
+            // Renders the real window in a candidate font. The window's own font does not
+            // cascade to its children, because the shared styles set FontFamily explicitly, so
+            // every text-bearing element is set individually. That is the point: a font has to
+            // be judged on the labels it will actually be used for, at the sizes they are
+            // actually drawn at, not on a specimen line.
+            if (Array.IndexOf(args, "--font") is var ft && ft >= 0 && ft + 1 < args.Length)
+            {
+                // Either an installed family name, or "<file>|<family>" to render straight out
+                // of a downloaded file. The second form is what makes a candidate judgeable
+                // before anyone decides to install it.
+                var spec = args[ft + 1];
+                var bar = spec.IndexOf('|');
+                var family = bar > 0
+                    ? new System.Windows.Media.FontFamily(
+                        new Uri("file:///" + System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(spec[..bar]))!.Replace('\\', '/') + "/"),
+                        "./#" + spec[(bar + 1)..])
+                    : new System.Windows.Media.FontFamily(spec);
+
+                foreach (var element in EnumerateAll(window))
+                {
+                    switch (element)
+                    {
+                        case System.Windows.Controls.TextBlock text: text.FontFamily = family; break;
+                        case System.Windows.Controls.Control control: control.FontFamily = family; break;
+                    }
+                }
+                for (var pass = 0; pass < 3; pass++)
+                {
+                    window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+                    window.UpdateLayout();
+                }
+            }
+
             var width = (int)Math.Ceiling(window.ActualWidth);
             var height = (int)Math.Ceiling(window.ActualHeight);            if (width <= 0 || height <= 0)
             {

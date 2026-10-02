@@ -9,6 +9,10 @@ public sealed class PetSettings
     [JsonPropertyName("theme_id")] public string ThemeId { get; set; } = "balancepet.theme.mica";
     [JsonPropertyName("theme_mode")] public string ThemeMode { get; set; } = "system";
     [JsonPropertyName("theme_backdrop")] public string ThemeBackdrop { get; set; } = "mica";
+    // Empty means the face embedded in the assembly. A name rather than a flag, because
+    // the interesting states are "the bundled one" and "this particular installed one",
+    // and a font that is later uninstalled has to fall back rather than fail.
+    [JsonPropertyName("ui_font")] public string UiFont { get; set; } = "";
     [JsonPropertyName("endpoint")] public string Endpoint { get; set; } = "https://ai.websee.top/api/v1/auth/me?timezone=Asia%2FShanghai";
     [JsonPropertyName("auth_mode")] public string AuthMode { get; set; } = "authorization";
     [JsonPropertyName("header_name")] public string HeaderName { get; set; } = "Authorization";

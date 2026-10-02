@@ -133,6 +133,8 @@ public static class AppLocalization
         ("设置", "Settings"), ("主题插件", "Theme plugin"), ("让设置窗口融入 Windows，同时保持信息清晰、操作安静。", "Blend the settings window into Windows while keeping information clear and interactions calm."),
         ("当前主题", "Current theme"), ("颜色模式", "Color mode"), ("跟随系统", "Use system setting"), ("浅色", "Light"), ("深色", "Dark"),
         ("窗口材质", "Window material"), ("云母", "Mica"), ("实色", "Solid"),
+        ("界面字体", "Interface font"),
+        ("设置窗口、提示气泡和更新记录使用的字体。", "The face used by the settings window, the speech bubble, and the changelog."),
         // The changelog window. Its list is built in code rather than declared, so these
         // only cover the shell around it -- the entries themselves are translated where
         // they are created.

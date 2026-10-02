@@ -31,7 +31,12 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
     <!-- _backup-* holds local pre-resize copies of pet art and is gitignored;
          without this exclusion the glob ships ~91 MB of duplicates. -->
-    <Content Include="assets\**\*" Exclude="assets\**\_backup-*\**;$(PetPackageExcludeGlob)" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="assets\**\*" Exclude="assets\**\_backup-*\**;assets\fonts\**;$(PetPackageExcludeGlob)" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The interface font is a Resource rather than Content: WPF resolves an embedded
+         font by pack URI, so it works wherever the program is installed and cannot go
+         missing beside a moved executable. Excluded from the Content glob above because
+         the same file in both lists is embedded twice. -->
+    <Resource Include="assets\fonts\*.ttf" />
     <None Include="..\..\plugin-catalog.json" Link="plugin-catalog.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- The AI-integration switches run these scripts from tools\ next to the
          executable. Copying them here keeps a development build behaving like a

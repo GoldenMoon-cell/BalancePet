@@ -27,6 +27,29 @@ public static class WindowThemeService
         window.SourceInitialized += (_, _) => ApplyBackdropOrFallback(window, settings.ThemeBackdrop, settings.ThemeMode);
     }
 
+    /// <summary>The face embedded in the assembly, used when nothing else is chosen.</summary>
+    public const string BundledFontFamily = "pack://application:,,,/assets/fonts/#霞鸜新晰黑, Microsoft YaHei UI";
+
+    /// <summary>
+    /// Points the window at a face. Nothing else changes: every control binds UiFontFamily
+    /// as a DynamicResource, so replacing the one entry restyles the whole window.
+    /// </summary>
+    /// <remarks>
+    /// A name that no longer resolves falls back to the bundled face rather than throwing.
+    /// Fonts get uninstalled, and a settings file is not the place to discover that.
+    /// </remarks>
+    public static void ApplyFont(Window window, string? font)
+    {
+        var wanted = string.IsNullOrWhiteSpace(font) ? BundledFontFamily : font.Trim();
+        if (window.Resources["UiFontFamily"] is System.Windows.Media.FontFamily current
+            && string.Equals(current.Source, wanted, StringComparison.OrdinalIgnoreCase)) return;
+        try { window.Resources["UiFontFamily"] = new System.Windows.Media.FontFamily(wanted); }
+        catch (Exception error) when (error is ArgumentException or UriFormatException)
+        {
+            window.Resources["UiFontFamily"] = new System.Windows.Media.FontFamily(BundledFontFamily);
+        }
+    }
+
     public static bool ResolveDarkMode(string mode)
     {
         if (string.Equals(mode, "dark", StringComparison.OrdinalIgnoreCase)) return true;
