@@ -248,17 +248,21 @@ internal static class Program
             // they would answer with the fallback, which says nothing about the files.
             // The two shipped appearances and the placeholder cannot be shadowed, so
             // they exercise the lookup itself.
-            var neutralInactive = PetLineCatalog.Resolve("_placeholder", "inactive").Select(line => line.Label).ToArray();
+            // The fallback is checked with an id that cannot exist, because the placeholder
+            // has its own lines now and would answer from its file instead.
+            var neutralInactive = PetLineCatalog.Resolve("no-such-appearance", "inactive").Select(line => line.Label).ToArray();
             Check("中性文案可用", neutralInactive.Length >= 3, $"{neutralInactive.Length} 条");
             Check("中性文案不提任何角色名",
                 neutralInactive.All(label => !label.Contains("汐") && !label.Contains("霁珑")
                     && !label.Contains("澄芽") && !label.Contains("橙析")),
                 string.Join(" / ", neutralInactive));
+            Check("未安装的形象回落到中性文案",
+                PetLineCatalog.Resolve("mistral", "inactive").Select(line => line.Label).SequenceEqual(neutralInactive));
             Check("随程序提供的形象读到自己的文案",
                 PetLineCatalog.Resolve("chatgpt", "inactive").Select(line => line.Label).FirstOrDefault()?.Contains("霁珑") == true,
                 string.Join(" / ", PetLineCatalog.Resolve("chatgpt", "inactive").Select(line => line.Label)));
 
-            var withArt = new[] { "chatgpt", "claude", "deepseek", "ernie", "gemini", "glm", "gpt-image2",
+            var withArt = new[] { "_placeholder", "chatgpt", "claude", "deepseek", "ernie", "gemini", "glm", "gpt-image2",
                                   "grok", "kimi", "llama", "mimo", "minimax", "qwen", "seedance" };
             var problems = new List<string>();
             foreach (var style in withArt)
@@ -300,6 +304,9 @@ internal static class Program
 
             Check("澄芽说的是自己的话", ReadLabels(appRoot, "seedance").Any(label => label.Contains("澄芽")));
             Check("橙析说的是自己的话", ReadLabels(appRoot, "mimo").Any(label => label.Contains("橙析")));
+            // The placeholder is what a fresh offline install shows, so it says what it is
+            // rather than borrowing a character's voice.
+            Check("占位形象说的是占位的话", ReadLabels(appRoot, "_placeholder").Any(label => label.Contains("占位")));
 
             // A file the program cannot parse must fall back rather than fail: a package
             // authored against a future schema still has to draw.

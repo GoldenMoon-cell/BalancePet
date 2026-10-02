@@ -78,6 +78,13 @@ try {
         $assets = Join-Path $package "assets\pets\$($definition.Id)"
         New-Item -ItemType Directory -Path $assets -Force | Out-Null
         Copy-Item (Join-Path $source '*.png') $assets -Force
+        # Optional sidecars travel with the artwork. Copying only the images would ship
+        # an appearance that draws correctly but speaks the neutral lines, which looks
+        # like the file was ignored rather than never packed.
+        foreach ($sidecar in 'lines.json') {
+            $file = Join-Path $source $sidecar
+            if (Test-Path $file) { Copy-Item $file $assets -Force }
+        }
 
         $manifest = [ordered]@{
             id              = "pet.$($definition.Id)"
