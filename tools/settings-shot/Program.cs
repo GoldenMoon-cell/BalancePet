@@ -46,6 +46,9 @@ internal static class Program
         var waitSeconds = Array.IndexOf(args, "--wait") is var wt && wt >= 0 && wt + 1 < args.Length && int.TryParse(args[wt + 1], out var seconds)
             ? seconds
             : 0;
+        // Timed because the window is built on the UI thread: whatever the constructor
+        // spends is time the user spends looking at nothing after clicking 设置.
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var window = new SettingsWindow(store, new DpapiTokenStore(), settings)
         {
             WindowStartupLocation = WindowStartupLocation.Manual,
@@ -54,11 +57,16 @@ internal static class Program
             ShowInTaskbar = false,
             Topmost = false
         };
+        stopwatch.Stop();
+        Console.WriteLine($"构造耗时 {stopwatch.ElapsedMilliseconds} ms");
 
         try
         {
+            stopwatch.Restart();
             window.Show();
             window.UpdateLayout();
+            stopwatch.Stop();
+            Console.WriteLine($"首次布局耗时 {stopwatch.ElapsedMilliseconds} ms");
             SelectTabContaining(window, tabElement);
             // Selecting a tab builds its content, and a tab nested inside it builds
             // its own content one pass later, so a single UpdateLayout can capture a

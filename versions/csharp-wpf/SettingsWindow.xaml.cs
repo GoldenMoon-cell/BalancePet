@@ -96,6 +96,10 @@ public partial class SettingsWindow : Window
         UpdateAccountSummary();
         ApplyNavigationState();
         _trackChanges = true;
+        // The one preview build that counts: earlier requests were refused while the
+        // window was still being assembled, and the artwork itself is decoded off the
+        // UI thread so the window can open without waiting for nine PNGs.
+        RefreshPetPreview();
     }
 
     private void OnToggleNavigation(object sender, RoutedEventArgs e)
@@ -543,13 +547,28 @@ public partial class SettingsWindow : Window
     /// artwork failed to arrive show up here instead of only in the pet window. A
     /// state that publishes extra frames is labelled with the count, so the animation
     /// contract is visible without having to wait for the pet to cycle.
+    ///
+    /// Building the window asks for this several times -- the style list, the
+    /// availability pass and the selector each refresh it -- and every run decodes nine
+    /// images on the UI thread. Only the last of those runs can be seen, so the ones
+    /// before the window is ready are skipped and one is drawn at the end.
     /// </remarks>
     private void RefreshPetPreview()
     {
-        if (PetPreviewGrid is null) return;
+        if (PetPreviewGrid is null || !_trackChanges) return;
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
         var style = SelectedTag(PetStyleBox, "deepseek");
+        var directory = PetStyleCatalog.ResolveAssetDirectory(style);
+        // Lets a decode that finishes late recognise that it has been superseded.
+        var generation = ++_previewGeneration;
+        if (!string.Equals(_previewCacheDirectory, directory, StringComparison.OrdinalIgnoreCase))
+        {
+            _previewCache.Clear();
+            _previewCacheDirectory = directory;
+        }
+
         PetPreviewGrid.Children.Clear();
+        var pending = new List<(System.Windows.Controls.Image Target, string Path)>();
         foreach (var (state, chinese, english) in PetPreviewStates)
         {
             var frames = PetStyleCatalog.ResolveStateFrames(style, state);
@@ -565,7 +584,7 @@ public partial class SettingsWindow : Window
             };
             RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
             if (frames.Count == 0) image.Opacity = 0.2;
-            else image.Source = DecodePreviewFrame(frames[0]);
+            else pending.Add((image, frames[0]));
 
             var text = new StackPanel { Margin = new Thickness(8, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
             text.Children.Add(new TextBlock
@@ -593,11 +612,44 @@ public partial class SettingsWindow : Window
             cell.Children.Add(text);
             PetPreviewGrid.Children.Add(cell);
         }
+
+        // The cells are laid out before their artwork exists, so the window can open
+        // without waiting for nine 1024-pixel PNGs to be decoded. A frozen bitmap is
+        // safe to build on a worker and hand to the UI thread afterwards.
+        if (pending.Count == 0) return;
+        var cache = _previewCache;
+        _ = Task.Run(() =>
+        {
+            var decoded = pending
+                .Select(item => (item.Target, Source: DecodePreviewFrame(item.Path, cache)))
+                .ToArray();
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // A newer refresh has already replaced these cells; assigning now would
+                // paint the previous appearance over the current one.
+                if (generation != _previewGeneration) return;
+                foreach (var (target, source) in decoded)
+                {
+                    if (source is not null) target.Source = source;
+                }
+            }));
+        });
     }
 
-    /// <summary>Decodes one preview thumbnail at roughly the size it is drawn.</summary>
-    private static System.Windows.Media.Imaging.BitmapImage? DecodePreviewFrame(string path)
+    /// <summary>
+    /// Decodes one preview thumbnail at roughly the size it is drawn, reusing it while
+    /// the same appearance is on screen.
+    /// </summary>
+    /// <remarks>
+    /// Switching between appearances would otherwise decode the same nine images again
+    /// each time. Called from a worker thread, which is why the cache is concurrent and
+    /// the result has to be frozen.
+    /// </remarks>
+    private static System.Windows.Media.Imaging.BitmapImage? DecodePreviewFrame(
+        string path,
+        System.Collections.Concurrent.ConcurrentDictionary<string, System.Windows.Media.Imaging.BitmapImage> cache)
     {
+        if (cache.TryGetValue(path, out var cached)) return cached;
         try
         {
             var source = new System.Windows.Media.Imaging.BitmapImage();
@@ -609,6 +661,7 @@ public partial class SettingsWindow : Window
             source.UriSource = new Uri(path, UriKind.Absolute);
             source.EndInit();
             source.Freeze();
+            cache[path] = source;
             return source;
         }
         catch (IOException) { return null; }
@@ -882,6 +935,16 @@ public partial class SettingsWindow : Window
     }
 
     private readonly HashSet<string> _pluginCatalogBusyIds = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Decoded preview thumbnails, dropped when the appearance changes.</summary>
+    /// <remarks>
+    /// Concurrent because the decoding happens on a worker: building nine frozen
+    /// bitmaps takes about a quarter of a second, which is time the window would
+    /// otherwise spend not being on screen.
+    /// </remarks>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Windows.Media.Imaging.BitmapImage> _previewCache = new(StringComparer.OrdinalIgnoreCase);
+    private string? _previewCacheDirectory;
+    private int _previewGeneration;
 
     /// <summary>Empty for "all", otherwise the record <c>type</c> being shown.</summary>
     private string _pluginCatalogCategory = "";
