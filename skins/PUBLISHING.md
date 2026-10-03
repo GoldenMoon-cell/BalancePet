@@ -17,21 +17,39 @@ the format it claims to produce looks exactly like one that has not.
 | `README.md` | The appearance repository's front page. Written to be read there, so its links point at the main repository rather than at files beside it. |
 | `catalog.json` | Generated. The index the online extension library reads, so an appearance can be installed from Settings instead of downloaded by hand. |
 | `lines.json` | Generated. Every appearance's lines in one document, so what a character says can be corrected without republishing its artwork. The application prefers it when it can reach the network and falls back to the copy inside the package when it cannot. |
+| `appearance-copy.json` | Authored. One line about each appearance, published as its catalog entry's `description`. |
+| `previews/<style>.png` | Generated. The picture the store draws for an appearance nobody has installed yet. |
 
-## Animating an appearance
+## The picture the store draws
 
-A state may publish extra frames beside it: `idle.png` is frame one, `idle-2.png`
-is frame two, and so on up to `idle-8.png`. A gap ends the sequence, so frames
-are read in order and the loop stops at the first missing number. Nothing is
-required here — a state with no extra frames is drawn as a still image — and the
-contract is written out in
-[`docs/extension-spec/v1/README.md`](../docs/extension-spec/v1/README.md).
+The online library lists appearances that are not on this machine, and the artwork is
+inside a twelve megabyte package, so a list row has nothing of its own to draw. Each
+catalog entry therefore carries an `icon_url` pointing at a preview.
 
-Movement has to be drawn into the artwork. The host cycles the frames in place
-and applies no transform of its own, so an appearance cannot express a bounce or
-a tilt by publishing one frame and a motion. `tools/generate-placeholder-pet.py`
-is a worked example: it draws `idle` like a slow breath and `inactive` like a
-sinking doze, both as ordinary frames.
+A preview is **a crop of the appearance's own `idle.png`, not a second drawing**:
+
+```powershell
+python tools\make-appearance-previews.py
+```
+
+It reads the built packages (not the folders, so a preview cannot disagree with what
+installing the package actually puts on the desktop), cuts one square out of `idle.png`
+and scales it to 128 × 128. The square is centred on the face, because these portraits
+are full-figure busts: shrunk whole, the face is a seventh of a 32 px tile and the
+character is a coloured smudge.
+
+One rule covers every appearance; the two in `OVERRIDES` are the ones whose face the
+default square lands beside. **The application crops the same square, by the same
+numbers, out of the artwork of an appearance that is installed**, so a row looks the
+same whether its picture came over the network or off the disk — the numbers are in
+`PluginIconService.cs` and the two have to be changed together.
+
+Then regenerate the catalog, which refuses to run without a preview and a description
+for every appearance:
+
+```powershell
+.\tools\build-skin-catalog.ps1 -Repository GoldenMoon-cell/BalancePet-Pets
+```
 
 ## Regenerating the catalog
 
@@ -52,6 +70,21 @@ all rebuilt together.
 
 Regenerate it after rebuilding any package. A stale hash is worse than a missing
 entry: the install downloads the whole archive and then fails.
+
+## Animating an appearance
+
+A state may publish extra frames beside it: `idle.png` is frame one, `idle-2.png`
+is frame two, and so on up to `idle-8.png`. A gap ends the sequence, so frames
+are read in order and the loop stops at the first missing number. Nothing is
+required here — a state with no extra frames is drawn as a still image — and the
+contract is written out in
+[`docs/extension-spec/v1/README.md`](../docs/extension-spec/v1/README.md).
+
+Movement has to be drawn into the artwork. The host cycles the frames in place
+and applies no transform of its own, so an appearance cannot express a bounce or
+a tilt by publishing one frame and a motion. `tools/generate-placeholder-pet.py`
+is a worked example: it draws `idle` like a slow breath and `inactive` like a
+sinking doze, both as ordinary frames.
 
 ## Changing what an appearance says
 

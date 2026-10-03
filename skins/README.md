@@ -61,6 +61,24 @@ application prefers when it can reach it — a package is mostly artwork, so cor
 a word by republishing one would push every installation through a download of
 megabytes to deliver a few hundred bytes.
 
+Each appearance also has one line describing it, carried by its catalog entry and
+shown under its name in the store. Those are authored in
+[`appearance-copy.json`](appearance-copy.json) in the main repository, because a
+sentence about a character should not live inside twelve megabytes of artwork.
+
+## The picture the store shows
+
+The online library lists appearances that are not on this machine yet, so it has no
+artwork to draw. Each entry therefore points at a small preview in
+[`previews/`](previews), which is **a crop of the appearance's own `idle.png` rather
+than a second drawing** — cut square around the face, because a full-figure portrait
+shrunk to a 32 px row leaves the face a seventh of the tile.
+
+An appearance that *is* installed is drawn from its own artwork instead, so the
+preview is what the store needs and nothing else. Both are cropped by the same rule,
+which is what keeps a preview from disagreeing with the desktop pet it claims to show;
+`tools/make-appearance-previews.py` in the main repository is what produces them.
+
 ## Package format
 
 The format is defined by the

@@ -1287,6 +1287,19 @@ public partial class SettingsWindow : Window
 
     private readonly HashSet<string> _pluginCatalogBusyIds = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The pictures the catalog entries point at, fetched once each.</summary>
+    private readonly PluginIconService _pluginIcons = new();
+
+    /// <summary>The rows currently on screen, so a picture that arrives can reach them.</summary>
+    /// <remarks>
+    /// Rebuilding the list when an icon lands would be simpler and wrong: the catalog
+    /// holds twenty entries and sixteen pictures arrive one after another, so the list
+    /// would be rebuilt sixteen times and jump back to the top each time. The rows are
+    /// made observable instead, and the fetch fills them in place.
+    /// </remarks>
+    private readonly Dictionary<string, PluginCatalogItemView> _pluginIconRows = new(StringComparer.OrdinalIgnoreCase);
+    private bool _pluginIconsLoading;
+
     /// <summary>Decoded preview thumbnails, dropped when the appearance changes.</summary>
     /// <remarks>
     /// Concurrent because the decoding happens on a worker: building nine frozen
@@ -1352,6 +1365,9 @@ public partial class SettingsWindow : Window
             var result = await _pluginCatalog.LoadAsync(_pluginCatalogCancellation.Token);
             if (_pluginCatalogCancellation.IsCancellationRequested) return;
             _pluginCatalogEntries = result.Entries;
+            // Read before the list is built, so the rows that can be drawn from the
+            // disk cache are drawn in the first paint rather than a frame later.
+            _pluginIcons.LoadFromDisk(_pluginCatalogEntries);
             RebuildPluginCatalogItems();
             if (result.FromRemote)
             {
@@ -1386,6 +1402,69 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>
+    /// Starts fetching the pictures the rows on screen are waiting for.
+    /// </summary>
+    /// <remarks>
+    /// One at a time and in list order, so the rows at the top fill in first and a
+    /// catalog of twenty costs twenty small requests rather than twenty at once. The
+    /// pass is not restarted while one is running; the pump asks again when it
+    /// finishes, which is what covers a row that appeared mid-fetch, such as after
+    /// switching the category filter.
+    /// </remarks>
+    private void QueuePluginIconFetch()
+    {
+        if (_pluginIconsLoading || !HasPendingPluginIcons()) return;
+        _ = FetchPluginIconsAsync();
+    }
+
+    private bool HasPendingPluginIcons()
+        => _pluginIconRows.Values.Any(view => _pluginIcons.NeedsWork(view.Record, view.InstalledStyle));
+
+    /// <summary>
+    /// Maps each installed appearance's package id to its appearance id.
+    /// </summary>
+    /// <remarks>
+    /// Built once per rebuild rather than asked per row. The answer comes from the
+    /// installed packages — the appearance id a package supplies is its manifest's
+    /// <c>style</c>, and the convention that a package is called <c>pet.&lt;style&gt;</c>
+    /// is not a guarantee — and asking is not cheap: it enumerates the package
+    /// directories and reads their manifests, which is not something to repeat for
+    /// every one of twenty rows.
+    /// </remarks>
+    private static Dictionary<string, string> InstalledStyleByPackage()
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in PetStyleCatalog.GetAvailableStyles())
+        {
+            var packageId = PetStyleCatalog.GetExtensionStyleId(definition.Id);
+            if (!string.IsNullOrWhiteSpace(packageId)) map[packageId] = definition.Id;
+        }
+        return map;
+    }
+
+    private async Task FetchPluginIconsAsync()
+    {
+        _pluginIconsLoading = true;
+        try
+        {
+            while (!_pluginCatalogCancellation.IsCancellationRequested)
+            {
+                var view = _pluginIconRows.Values.FirstOrDefault(row => _pluginIcons.NeedsWork(row.Record, row.InstalledStyle));
+                if (view is null) break;
+                var image = await _pluginIcons.ResolveAsync(_extensionUpdateHttpClient, view.Record, view.InstalledStyle, _pluginCatalogCancellation.Token);
+                if (_pluginIconRows.TryGetValue(view.Id, out var current)) current.SetIcon(image);
+            }
+        }
+        finally
+        {
+            _pluginIconsLoading = false;
+            // A row that arrived while this pass was running was never in the list it
+            // walked, and nothing else would come back for it: it would turn forever.
+            if (HasPendingPluginIcons()) QueuePluginIconFetch();
+        }
+    }
+
     private void RebuildPluginCatalogItems()
     {
         if (PluginCatalogListBox is null) return;
@@ -1395,6 +1474,7 @@ public partial class SettingsWindow : Window
             .GroupBy(entry => entry.Id, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var query = PluginCatalogSearchBox?.Text?.Trim() ?? "";
+        var styleByPackage = InstalledStyleByPackage();
         var views = _pluginCatalogEntries
             .Where(record => _pluginCatalogCategory.Length == 0
                 || string.Equals(record.Type, _pluginCatalogCategory, StringComparison.OrdinalIgnoreCase))
@@ -1403,11 +1483,21 @@ public partial class SettingsWindow : Window
             .Select(record =>
             {
                 installed.TryGetValue(record.Id, out var local);
-                var view = new PluginCatalogItemView(record, local, english) { IsBusy = _pluginCatalogBusyIds.Contains(record.Id) };
+                var style = styleByPackage.TryGetValue(record.Id, out var found) ? found : null;
+                var view = new PluginCatalogItemView(record, local, english, style) { IsBusy = _pluginCatalogBusyIds.Contains(record.Id) };
+                // A picture already on the disk is shown straight away, so a second
+                // visit to this page has nothing turning in it. An appearance that is
+                // installed here answers from its own artwork in the same pass.
+                var icon = _pluginIcons.Cached(record);
+                if (icon is not null) view.SetIcon(icon);
+                else view.SetIconBusy(true);
                 return view;
             })
             .ToArray();
+        _pluginIconRows.Clear();
+        foreach (var view in views) _pluginIconRows[view.Id] = view;
         PluginCatalogListBox.ItemsSource = views;
+        QueuePluginIconFetch();
         // Two true numbers that read as a contradiction when a category is selected,
         // so the count says which is which rather than leaving the user to guess.
         PluginCatalogCountText.Text = views.Length == _pluginCatalogEntries.Count

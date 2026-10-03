@@ -6,6 +6,14 @@
 # packages the first time one is rebuilt, and a catalog whose hash is wrong is
 # worse than no catalog, because the install fails after the download.
 #
+# Two things an entry carries are authored rather than derived -- the one-line
+# description and the preview picture the store draws before anything is installed
+# -- and both are read from files in this repository rather than from the packages.
+# A package is megabytes of artwork, so putting a sentence inside one would make
+# correcting that sentence a download of megabytes for every installation. The
+# build refuses to run when either is missing, so an appearance cannot reach the
+# catalog without a face and a line.
+#
 # The repository name is a parameter because it is the one thing that cannot be
 # derived. Everything else comes from the packages themselves.
 #
@@ -23,19 +31,26 @@ param(
     [string] $ReleaseTag = '',
     [string] $TagPrefix = 'skins-',
     [string] $PackagesDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'dist\pets'),
-    [string] $OutputPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'skins\catalog.json')
+    [string] $OutputPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'skins\catalog.json'),
+    [string] $CopyPath = (Join-Path (Split-Path $PSScriptRoot -Parent) 'skins\appearance-copy.json'),
+    [string] $PreviewsDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'skins\previews')
 )
 
 $ErrorActionPreference = 'Stop'
 
 if ($Repository -notmatch '^[^/]+/[^/]+$') { throw "仓库应为 owner/name 形式：$Repository" }
 if (-not (Test-Path $PackagesDirectory)) { throw "找不到皮肤包目录：$PackagesDirectory" }
+if (-not (Test-Path $CopyPath)) { throw "找不到形象文案：$CopyPath" }
+
+$copy = (Get-Content $CopyPath -Raw | ConvertFrom-Json).descriptions
+if (-not $copy) { throw "$CopyPath 里没有 descriptions。" }
 
 $packages = Get-ChildItem $PackagesDirectory -Filter '*.zip' | Sort-Object Name
 if ($packages.Count -eq 0) { throw "皮肤包目录里没有 ZIP：$PackagesDirectory" }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $releaseRoot = "https://github.com/$Repository/releases"
+$rawRoot = "https://raw.githubusercontent.com/$Repository/main/previews"
 $appearances = @()
 $seenIds = @{}
 
@@ -64,15 +79,35 @@ foreach ($package in $packages) {
 
     $tag = if ($ReleaseTag) { $ReleaseTag } else { "$TagPrefix$($manifest.version)" }
 
+    # The style is what the store keys the preview and the copy by, and what a saved
+    # setting stores. It is not the package id: a package is pet.<style> by
+    # convention, and a convention is not something to build a published file on.
+    $style = $manifest.style
+    if (-not $style) { throw "$($package.Name)：manifest 里没有 style，无法对上文案与预览图。" }
+
+    $line = $copy.$style
+    if (-not $line -or -not $line.zh) { throw "$CopyPath 里缺少 $style 的一句话介绍。" }
+
+    $preview = Join-Path $PreviewsDirectory "$style.png"
+    if (-not (Test-Path $preview)) {
+        throw "缺少预览图 $preview。先生成：python tools\make-appearance-previews.py"
+    }
+
     $appearances += [ordered]@{
         id              = $manifest.id
         type            = 'pet'
         name            = $manifest.name
         name_en         = $manifest.name_en
+        description     = $line.zh
+        description_en  = $line.en
         version         = $manifest.version
         min_core_version = $manifest.min_core_version
         download_url    = "$releaseRoot/download/$tag/$($package.Name)"
         sha256          = (Get-FileHash $package.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        # What the store draws for an appearance nobody has installed yet. A host that
+        # does not know the field ignores it, and an appearance without a preview is
+        # refused above rather than published as a row with no face.
+        icon_url        = "$rawRoot/$style.png"
         repository_url  = "https://github.com/$Repository"
         release_url     = "$releaseRoot/tag/$tag"
         # The selector groups by provider, so the entry says which one it is rather

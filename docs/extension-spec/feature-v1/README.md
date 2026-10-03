@@ -155,6 +155,24 @@ window layout. Plugin authors keep their own repository and GitHub Releases;
 the catalog only makes compatible packages easier to find. Local ZIP import
 remains available for offline and development installs.
 
+### Icons
+
+A list row draws one of the host's own line drawings, chosen for the extension's
+kind, unless the entry names a picture in `icon_url`. The field is optional, and a
+value the host will not fetch costs the picture rather than the entry: an extension
+whose icon is malformed is still an extension that installs. It is also the one
+catalog field that may be dropped on its own — every other unusable value refuses
+the entry, because an entry that cannot be installed is worse than one that cannot
+be drawn.
+
+- `https://raw.githubusercontent.com/...png` or `https://github.com/...png`, nothing
+  else. A document that arrived over the network does not get to choose the host the
+  program fetches from.
+- A square PNG, drawn at 32 px on a soft accent chip. Keep it small and keep the
+  subject filling the frame: it is fetched once per entry, on the screen where the
+  user is deciding what to install, and a picture with wide margins is drawn
+  smaller than the row it sits in.
+
 To propose a plugin for the shared directory, publish the plugin in its own
 GitHub repository and Release first, then submit a pull request that adds one
 entry to the main repository's `plugin-catalog.json`. The entry must match the

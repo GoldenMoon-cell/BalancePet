@@ -50,6 +50,11 @@ internal static class Program
         // captured without editing the user's settings file.
         if (Array.IndexOf(args, "--style") is var at && at >= 0 && at + 1 < args.Length)
             settings.PetStyle = args[at + 1];
+        // The palette, for the same reason: a list row draws in one of two palettes at a
+        // time, and a review that only ever looks at one of them has not looked at half
+        // of it. Anything but "dark" leaves the stored choice alone.
+        if (Array.IndexOf(args, "--theme") is var mt && mt >= 0 && mt + 1 < args.Length)
+            settings.ThemeMode = args[mt + 1];
         // The page to capture, named by any element it contains.
         var tabElement = Array.IndexOf(args, "--tab") is var tt && tt >= 0 && tt + 1 < args.Length
             ? args[tt + 1]
@@ -82,8 +87,23 @@ internal static class Program
         window.Top = -32000;
         window.ShowInTaskbar = false;
         window.Topmost = false;
+        // A window is 720 px tall and a list of twenty shows four of them. Sizing it is
+        // how a page whose whole point is the list gets looked at as a list.
+        if (Array.IndexOf(args, "--size") is var st && st >= 0 && st + 1 < args.Length)
+        {
+            var parts = args[st + 1].Split('x', 'X');
+            if (parts.Length == 2 && double.TryParse(parts[0], out var shotWidth) && double.TryParse(parts[1], out var shotHeight))
+            {
+                window.Width = shotWidth;
+                window.Height = shotHeight;
+            }
+        }
         stopwatch.Stop();
         Console.WriteLine($"构造耗时 {stopwatch.ElapsedMilliseconds} ms");
+        // A capture that silently ignored --theme would be a picture of the other palette
+        // with nothing to say so, and the two are the same layout.
+        if (window.Resources["TextBrush"] is System.Windows.Media.SolidColorBrush paletteText)
+            Console.WriteLine($"调色板 {(paletteText.Color.R > 128 ? "深色" : "浅色")}  TextBrush #{paletteText.Color.R:X2}{paletteText.Color.G:X2}{paletteText.Color.B:X2}");
 
         try
         {
@@ -159,7 +179,10 @@ internal static class Program
             }
 
             var width = (int)Math.Ceiling(window.ActualWidth);
-            var height = (int)Math.Ceiling(window.ActualHeight);            if (width <= 0 || height <= 0)
+            var height = (int)Math.Ceiling(window.ActualHeight);
+            if (window.Resources["TextBrush"] is System.Windows.Media.SolidColorBrush finalText)
+                Console.WriteLine($"截图时调色板 {(finalText.Color.R > 128 ? "深色" : "浅色")}  TextBrush #{finalText.Color.R:X2}{finalText.Color.G:X2}{finalText.Color.B:X2}");
+            if (width <= 0 || height <= 0)
             {
                 Console.WriteLine("窗口没有布局尺寸，无法截图。");
                 return 2;

@@ -21,6 +21,42 @@
     </Setter>
   </Style>
 
+  <!-- A wait that has no progress to report, for a row whose picture is still being
+       fetched. An arc rather than a full ring, because a closed circle turning looks
+       like a control that is broken rather than one that is working. The storyboard
+       names no target: a storyboard inside a style's template triggers is started
+       outside the template's namescope and cannot resolve one, so it animates the
+       element it is declared on instead. -->
+  <Style x:Key="BusySpinner" TargetType="{x:Type ContentControl}">
+    <Setter Property="Width" Value="18"/>
+    <Setter Property="Height" Value="18"/>
+    <Setter Property="IsHitTestVisible" Value="False"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type ContentControl}">
+          <Grid RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform>
+              <RotateTransform/>
+            </Grid.RenderTransform>
+            <Grid.Triggers>
+              <EventTrigger RoutedEvent="Loaded">
+                <BeginStoryboard>
+                  <Storyboard RepeatBehavior="Forever">
+                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                     From="0" To="360" Duration="0:0:1.1"/>
+                  </Storyboard>
+                </BeginStoryboard>
+              </EventTrigger>
+            </Grid.Triggers>
+            <Path Data="M 9,2 A 7,7 0 1 1 2,9"
+                  Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.8"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <Style TargetType="{x:Type TextBox}">
     <Setter Property="Height" Value="{DynamicResource ThemeControlHeight}"/>
     <Setter Property="Padding" Value="10,5"/>

@@ -2,6 +2,7 @@ using System.IO;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Windows.Media;
 
 namespace BalancePet.Wpf.Services;
 
@@ -47,6 +48,13 @@ public sealed class PluginCatalogRecord
     [JsonPropertyName("sha256")] public string Sha256 { get; set; } = "";
     [JsonPropertyName("repository_url")] public string RepositoryUrl { get; set; } = "";
     [JsonPropertyName("release_url")] public string ReleaseUrl { get; set; } = "";
+    /// <summary>
+    /// A small picture of what the entry is, served from the repository that publishes
+    /// it. Optional, and the only reason it exists is the list: a row that has to draw
+    /// an appearance it has not downloaded, or an extension whose subject is not
+    /// obvious from a name, has nothing else to draw from.
+    /// </summary>
+    [JsonPropertyName("icon_url")] public string IconUrl { get; set; } = "";
     [JsonPropertyName("categories")] public List<string> Categories { get; set; } = new();
 }
 
@@ -257,6 +265,7 @@ public sealed class PluginCatalogService
         item.Sha256 = (item.Sha256 ?? "").Trim().ToLowerInvariant().Replace("sha256:", "", StringComparison.OrdinalIgnoreCase);
         item.RepositoryUrl = (item.RepositoryUrl ?? "").Trim();
         item.ReleaseUrl = (item.ReleaseUrl ?? "").Trim();
+        item.IconUrl = SanitizeIconUrl(item.IconUrl);
         item.Categories = (item.Categories ?? new List<string>()).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Take(6).ToList();
     }
 
@@ -305,6 +314,29 @@ public sealed class PluginCatalogService
 
     private static bool IsHex(char value) => value is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F';
 
+    /// <summary>
+    /// Keeps an icon reference only when it is a picture on a host the catalog is
+    /// already trusted to name, and drops it otherwise.
+    /// </summary>
+    /// <remarks>
+    /// Dropped rather than rejected, which is the opposite of how every other field is
+    /// treated. A catalog entry with a wrong download URL is an entry that cannot be
+    /// installed, so refusing it loses nothing; an entry whose icon is unusable is
+    /// still perfectly installable, and hiding a working extension because its
+    /// thumbnail is malformed would be the wrong trade.
+    /// </remarks>
+    private static string SanitizeIconUrl(string? value)
+    {
+        var trimmed = (value ?? "").Trim();
+        if (trimmed.Length == 0 || trimmed.Length > 300) return "";
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps) return "";
+        var host = uri.Host;
+        if (!host.Equals("raw.githubusercontent.com", StringComparison.OrdinalIgnoreCase) &&
+            !host.Equals("github.com", StringComparison.OrdinalIgnoreCase)) return "";
+        if (!uri.AbsolutePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) return "";
+        return trimmed;
+    }
+
     private static void SaveCache(string path, string json)
     {
         try
@@ -319,8 +351,114 @@ public sealed class PluginCatalogService
     }
 }
 
-public sealed class PluginCatalogItemView
+public sealed class PluginCatalogItemView : System.ComponentModel.INotifyPropertyChanged
 {
+    private ImageSource? _iconImage;
+    private bool _iconBusy;
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    public PluginCatalogItemView(PluginCatalogRecord record, ExtensionCatalogEntry? installed, bool isEnglish,
+        string? installedStyle = null, PluginIcon? icon = null)
+    {
+        Record = record;
+        IsEnglish = isEnglish;
+        IsInstalled = installed?.IsInstalled == true;
+        InstalledVersion = installed?.InstalledVersion ?? "";
+        HasUpdate = IsInstalled && ExtensionCatalogEntry.CompareVersions(record.Version, InstalledVersion) > 0;
+        IsCompatible = string.IsNullOrWhiteSpace(record.MinCoreVersion) ||
+                       Version.TryParse(record.MinCoreVersion.Split('-', '+')[0], out var minimum) && CoreVersion.Current >= minimum;
+        InstalledStyle = installedStyle;
+
+        var drawing = icon ?? PluginIconCatalog.Resolve(record.Type, record.Id);
+        IconStroke = drawing.Stroked;
+        IconFill = drawing.Filled;
+    }
+
+    /// <summary>The drawn glyph, used when the entry has no picture to show.</summary>
+    public Geometry IconStroke { get; }
+
+    public Geometry? IconFill { get; }
+
+    /// <summary>
+    /// The appearance id this entry supplies, when it is an appearance that is
+    /// installed here. Its artwork is then a picture of the entry, on the disk.
+    /// </summary>
+    public string? InstalledStyle { get; }
+
+    /// <summary>
+    /// Whether the row has any picture to show, from the network or from the disk.
+    /// </summary>
+    /// <remarks>
+    /// The three states that are not a picture are told apart by this. An entry with
+    /// no picture source at all is drawn as its kind and is complete; an entry that has
+    /// one is waiting, and waiting has to look like waiting.
+    /// </remarks>
+    public bool HasPictureSource => PluginIconService.CanHaveIcon(Record) || !string.IsNullOrWhiteSpace(InstalledStyle);
+
+    /// <summary>
+    /// The picture, once it is here. Set through <see cref="SetIcon"/> so the three
+    /// states of the tile cannot be put into an impossible combination.
+    /// </summary>
+    public ImageSource? IconImage
+    {
+        get => _iconImage;
+        private set
+        {
+            _iconImage = value;
+            Raise(nameof(IconImage), nameof(IconImageVisibility), nameof(IconFallbackVisibility));
+        }
+    }
+
+    public bool IconBusy
+    {
+        get => _iconBusy;
+        private set
+        {
+            _iconBusy = value;
+            Raise(nameof(IconBusy), nameof(IconBusyVisibility), nameof(IconFallbackVisibility));
+        }
+    }
+
+    /// <summary>The glyph is for entries that have no picture at all, and only those.</summary>
+    public System.Windows.Visibility IconGlyphVisibility
+        => HasPictureSource ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+
+    public System.Windows.Visibility IconImageVisibility
+        => _iconImage is null ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+
+    public System.Windows.Visibility IconBusyVisibility
+        => _iconBusy ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+
+    /// <summary>
+    /// The program's own mark: a row that has a picture somewhere and does not have it
+    /// yet. Not the glyph, because the glyph says which kind of thing the row is, and
+    /// the row is already saying that in the line under its name.
+    /// </summary>
+    public System.Windows.Visibility IconFallbackVisibility
+        => HasPictureSource && !_iconBusy && _iconImage is null
+            ? System.Windows.Visibility.Visible
+            : System.Windows.Visibility.Collapsed;
+
+    /// <summary>Called when the fetch settles, with null for a picture that never came.</summary>
+    /// <remarks>
+    /// The picture is assigned before the animation is stopped, so the two are never
+    /// both absent: the other order puts the fallback mark on screen for the instant
+    /// between the two, which on a list of sixteen rows is sixteen flickers.
+    /// </remarks>
+    public void SetIcon(ImageSource? image)
+    {
+        IconImage = image;
+        IconBusy = false;
+    }
+
+    public void SetIconBusy(bool busy) => IconBusy = busy && HasPictureSource && _iconImage is null;
+
+    private void Raise(params string[] names)
+    {
+        foreach (var name in names) PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+    }
+
     public PluginCatalogRecord Record { get; }
     public bool IsEnglish { get; }
     public bool IsInstalled { get; }
@@ -375,15 +513,4 @@ public sealed class PluginCatalogItemView
         ? RepositoryText
         : CanInstall ? (IsEnglish ? "Download, verify, and install" : "下载、校验并安装") : StatusText;
     public string RepositoryText => IsEnglish ? "Open repository" : "打开仓库";
-
-    public PluginCatalogItemView(PluginCatalogRecord record, ExtensionCatalogEntry? installed, bool isEnglish)
-    {
-        Record = record;
-        IsEnglish = isEnglish;
-        IsInstalled = installed?.IsInstalled == true;
-        InstalledVersion = installed?.InstalledVersion ?? "";
-        HasUpdate = IsInstalled && ExtensionCatalogEntry.CompareVersions(record.Version, InstalledVersion) > 0;
-        IsCompatible = string.IsNullOrWhiteSpace(record.MinCoreVersion) ||
-                       Version.TryParse(record.MinCoreVersion.Split('-', '+')[0], out var minimum) && CoreVersion.Current >= minimum;
-    }
 }

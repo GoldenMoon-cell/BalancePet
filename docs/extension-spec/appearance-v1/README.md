@@ -27,10 +27,13 @@ document has to be recognisable as wrong rather than silently believed.
       "type": "pet",
       "name": "DeepSeek 小鲸鱼「澜汐」",
       "name_en": "DeepSeek Whale \"Lanxi\"",
+      "description": "深蓝长发的小鲸鱼，戴着白色水手帽，安静地守在桌面一角。",
+      "description_en": "A deep-blue whale girl in a white sailor cap, keeping quiet watch from a corner of the desktop.",
       "version": "1.1.0",
       "min_core_version": "0.5.0",
       "download_url": "https://github.com/OWNER/REPO/releases/download/skins-1.1.0/pet.deepseek-1.1.0.zip",
       "sha256": "dc39ed16e323e4e6ebab9a77ad556e903a5c25310892a9a581065410aabe6e65",
+      "icon_url": "https://raw.githubusercontent.com/OWNER/REPO/main/previews/deepseek.png",
       "repository_url": "https://github.com/OWNER/REPO",
       "release_url": "https://github.com/OWNER/REPO/releases/tag/skins-1.1.0",
       "categories": ["appearance"]
@@ -68,6 +71,36 @@ and `update_url` when present; see
 [the catalog schema](catalog.schema.json) for their bounds. `update_url` is not used for
 appearances — an installed appearance is updated from this catalog, because the catalog
 already carries a newer version and its digest.
+
+### `icon_url`
+
+The store lists appearances that are not installed, and the artwork is inside a package of
+twelve megabytes, so a list has nothing of its own to draw. `icon_url` is where it looks
+instead.
+
+- **Optional, and the only field a host may drop rather than refuse the entry over.** An
+  appearance whose thumbnail is unusable is still an appearance that installs, so a
+  malformed value costs the picture and not the package.
+- `https://raw.githubusercontent.com/...png` or `https://github.com/...png`. Any other host
+  is refused: the field is a URL from a document that arrived over the network, and a list
+  is not a reason to fetch from wherever a document says.
+- A square PNG. 128 × 128 is what this project publishes; the store draws it at 32 px, so
+  a larger one is only paid for on the wire and in memory.
+- **It is a crop of the appearance's own artwork, not a second drawing.** The nine state
+  images are full-figure portraits on a shared canvas, so a whole-figure thumbnail leaves
+  the face a seventh of the tile and the character a coloured smudge.
+  `tools/make-appearance-previews.py` cuts one square out of `idle.png` and scales it,
+  which is what keeps a preview from disagreeing with the desktop pet it claims to show.
+- **An installed appearance is drawn from its own artwork, not from here.** The picture is
+  fetched for appearances the user has not downloaded, which is exactly the case where the
+  network may be the reason nothing is drawn at all; a host that has the artwork on disk
+  has no reason to ask for a smaller copy of it.
+
+### `description`
+
+One line saying what the appearance is, shown under its name. It is the only place a
+reader is told anything about the character before downloading it, which is why the
+generator refuses to build a catalog without one.
 
 ## `lines.json`
 
@@ -120,5 +153,17 @@ never reached the network reads.
 
 Neither document is authored by hand. `tools/build-skin-catalog.ps1` derives the catalog
 from the built packages, so an entry cannot disagree with the artifact it points at, and
-`tools/build-appearance-lines.ps1` collects the lines from the per-appearance files. See
+`tools/build-appearance-lines.ps1` collects the lines from the per-appearance files.
+
+Two parts of an entry are authored rather than derived, and both live in this repository
+rather than inside the packages, because a package is megabytes of artwork and correcting
+a sentence or a crop should not put every installation through a download of it:
+
+| Part | Authored in | Built by |
+| --- | --- | --- |
+| `description`, `description_en` | `skins/appearance-copy.json` | read by `build-skin-catalog.ps1` |
+| `icon_url` and the picture it names | the packages' own `idle.png` | `tools/make-appearance-previews.py` → `skins/previews/` |
+
+The catalog generator refuses to run without both, so a new appearance cannot reach the
+catalog as a row with no face and no line. See
 [skins/PUBLISHING.md](../../../skins/PUBLISHING.md) for the release cycle.

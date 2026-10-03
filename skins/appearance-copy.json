@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "note": "One line per appearance, published as the catalog entry's description. Keyed by the appearance id a saved setting stores, which is the style in the package manifest. Kept beside the catalog rather than inside the packages: a package is megabytes of artwork, and correcting a sentence should not put every installation through a download. tools/build-skin-catalog.ps1 refuses to build without an entry here, so a new appearance cannot reach the catalog without one.",
+  "descriptions": {
+    "deepseek": {
+      "zh": "深蓝长发的小鲸鱼，戴着白色水手帽，安静地守在桌面一角。",
+      "en": "A deep-blue whale girl in a white sailor cap, keeping quiet watch from a corner of the desktop."
+    },
+    "chatgpt": {
+      "zh": "银白长发的小白龙，头上一对小角，神情干净利落。",
+      "en": "A silver-white dragon girl with a pair of small horns and an unruffled look."
+    },
+    "minimax": {
+      "zh": "橙发卷毛的小海螺，戴着白色贝雷帽，手里握着一支话筒。",
+      "en": "An orange-haired conch girl in a white beret, microphone in hand."
+    },
+    "gemini": {
+      "zh": "紫发小星猫，一对猫耳，发间别着一颗星。",
+      "en": "A purple star cat with cat ears and a star pinned in her hair."
+    },
+    "grok": {
+      "zh": "金发双马尾的小恶魔，黑角黑翼，笑得张扬。",
+      "en": "A blonde twin-tailed little demon with black horns and wings, grinning wide."
+    },
+    "claude": {
+      "zh": "橙发小书灵，怀里总抱着一本书。",
+      "en": "An orange-haired book spirit who is always holding a book."
+    },
+    "kimi": {
+      "zh": "银白卷发的小棱镜，系着蓝色蝴蝶结。",
+      "en": "A silver-curled little prism with a blue ribbon."
+    },
+    "qwen": {
+      "zh": "青蓝长发的小折扇，手里握着一把折扇。",
+      "en": "A blue-green little folding fan, with a fan in her hand."
+    },
+    "ernie": {
+      "zh": "紫发小病书灵，坐在轮椅上，身边带着书和输液架。",
+      "en": "A purple book spirit who is unwell, in a wheelchair with a book and a drip stand."
+    },
+    "glm": {
+      "zh": "黑发小方灵，戴着白色蕾丝头饰。",
+      "en": "A black-haired little square spirit in a white lace headdress."
+    },
+    "gpt-image2": {
+      "zh": "黑发金瞳的小墨龙，头上生着一对黑角。",
+      "en": "An ink dragon with black hair, gold eyes and a pair of dark horns."
+    },
+    "llama": {
+      "zh": "奶白色的小羊驼，毛茸茸的耳朵，看起来还没睡醒。",
+      "en": "A cream-coloured alpaca with fluffy ears who looks only half awake."
+    },
+    "mimo": {
+      "zh": "银白长发的小兔码师，戴着兔耳发箍。",
+      "en": "A silver-haired bunny coder wearing a rabbit-ear headband."
+    },
+    "opencode": {
+      "zh": "黑长直发的小码灵，头顶一对机械猫耳。",
+      "en": "A long black-haired code sprite with a pair of mechanical cat ears."
+    },
+    "perplexity": {
+      "zh": "青绿长发的小探灯，戴着耳机，手里提着一盏灯。",
+      "en": "A teal-haired lantern bearer with headphones and a lamp in hand."
+    },
+    "seedance": {
+      "zh": "淡紫渐变长发的小星晶，发梢卷起一缕青色。",
+      "en": "A star crystal with lavender gradient hair and a curl of cyan at the tips."
+    }
+  }
+}

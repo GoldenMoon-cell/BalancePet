@@ -578,7 +578,44 @@
                         <Grid>
                           <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <Border Width="32" Height="32" Background="{DynamicResource AccentSoftBrush}" CornerRadius="8" VerticalAlignment="Top">
-                            <Image Source="pack://siteoforigin:,,,/assets/balance-pet.ico" Width="22" Height="22" Stretch="Uniform"/>
+                            <!-- One tile, four things that can be inside it. A row that
+                                 publishes a picture shows it; while it is being fetched
+                                 the tile turns; a picture that never arrived leaves the
+                                 program's mark; and a row that publishes none — every
+                                 extension whose subject is not a character — gets the
+                                 drawing for its kind. -->
+                            <Grid>
+                              <!-- A picture of the entry. Inset by one pixel and drawn
+                                   as a Border background rather than an Image, because a
+                                   Border clips its background to its own rounded corners
+                                   while a Border does not clip a child: a square picture
+                                   in a rounded tile showed four square corners over it. -->
+                              <Border Margin="1" CornerRadius="7"
+                                      RenderOptions.BitmapScalingMode="HighQuality"
+                                      Visibility="{Binding IconImageVisibility}">
+                                <Border.Background>
+                                  <ImageBrush ImageSource="{Binding IconImage}" Stretch="UniformToFill"/>
+                                </Border.Background>
+                              </Border>
+                              <Viewbox Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding IconGlyphVisibility}">
+                                <!-- The glyphs are authored on a 24 unit grid and scaled
+                                     as a whole, so every icon in the set has the same
+                                     stroke weight; fitting each to its own bounds would
+                                     give the small drawings a heavier line. -->
+                                <Canvas Width="24" Height="24">
+                                  <Path Data="{Binding IconFill}" Fill="{DynamicResource AccentBrush}"/>
+                                  <Path Data="{Binding IconStroke}" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5"
+                                        StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                                </Canvas>
+                              </Viewbox>
+                              <ContentControl Style="{StaticResource BusySpinner}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Visibility="{Binding IconBusyVisibility}"/>
+                              <Image Source="pack://siteoforigin:,,,/assets/balance-pet.ico" Width="22" Height="22" Stretch="Uniform"
+                                     RenderOptions.BitmapScalingMode="HighQuality"
+                                     Visibility="{Binding IconFallbackVisibility}"/>
+                            </Grid>
                           </Border>
                           <StackPanel Grid.Column="1" Margin="9,0,8,0" VerticalAlignment="Center">
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap"/>

@@ -29,7 +29,11 @@
         "type": { "const": "pet" },
         "name": { "type": "string", "minLength": 1, "maxLength": 120 },
         "name_en": { "type": "string", "maxLength": 120 },
-        "description": { "type": "string", "maxLength": 500 },
+        "description": {
+          "description": "One line saying what the appearance is. Shown under its name in the store, which is where a reader decides whether to download twelve megabytes.",
+          "type": "string",
+          "maxLength": 500
+        },
         "description_en": { "type": "string", "maxLength": 500 },
         "author": { "type": "string", "maxLength": 120 },
         "version": {
@@ -46,6 +50,11 @@
           "type": "string",
           "format": "uri",
           "pattern": "^https://github\\.com/.+/releases/download/.+\\.zip$"
+        },
+        "icon_url": {
+          "description": "A small square picture of the appearance, which the store draws for an entry nobody has installed yet: the artwork is inside a twelve megabyte package, so a list cannot preview it any other way. Optional, and a host that does not know the field ignores it. It is the only field that can be dropped rather than refusing the entry, because an appearance with an unusable thumbnail is still an appearance that installs.",
+          "type": "string",
+          "pattern": "^(|https://raw\\.githubusercontent\\.com/.+\\.png|https://github\\.com/.+\\.png)$"
         },
         "sha256": {
           "description": "Digest of the artifact at download_url, verified after the download and before the install. Lower-case hexadecimal.",

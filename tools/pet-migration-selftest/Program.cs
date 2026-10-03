@@ -454,6 +454,172 @@ internal static class Program
             try { await Download(new RangeServer(payload, dropAfter: 50_000) { CorruptResume = true }); }
             catch (InvalidDataException error) { corrupted = error.Message; }
             Check("续传拼错的文件被校验拦下", corrupted.Contains("校验失败", StringComparison.Ordinal), corrupted);
+
+            // --- 14. The pictures the catalog points at --------------------------
+            // The list has to draw an appearance nobody has downloaded, so a catalog
+            // entry may name a picture and the program fetches it. Nothing here is
+            // allowed to be load-bearing: a picture that never arrives leaves a row
+            // that still installs, which is why a failure is a null rather than an
+            // exception the caller has to remember to catch.
+            var iconWorkspace = Path.Combine(workspace, "icons");
+            var iconBytes = File.ReadAllBytes(Path.Combine(realPets, "_placeholder", "idle.png"));
+
+            PluginCatalogRecord IconRecord(string id, string version, string url)
+                => new() { Id = id, Type = "pet", Name = id, Version = version, IconUrl = url };
+
+            var iconUrl = "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet/main/previews/ok.png";
+            var iconRecord = IconRecord("pet.ok", "1.0.0", iconUrl);
+
+            // A host the catalog is not trusted to name is the one shape the validator
+            // has to refuse, and it has to refuse it without losing the entry: an
+            // extension whose thumbnail is malformed is still an extension.
+            var iconKept = PluginCatalogService.Parse("""
+                {"schema_version":1,"plugins":[
+                  {"id":"balancepet.ext.feature.probe","type":"feature","name":"探针","version":"1.0.0",
+                   "download_url":"https://github.com/o/r/releases/download/v1/p.zip","sha256":"0000000000000000000000000000000000000000000000000000000000000000",
+                   "repository_url":"https://github.com/o/r","release_url":"https://github.com/o/r/releases/tag/v1",
+                   "icon_url":"https://example.com/not-allowed.png"},
+                  {"id":"balancepet.ext.feature.probe2","type":"feature","name":"探针二","version":"1.0.0",
+                   "download_url":"https://github.com/o/r/releases/download/v1/p.zip","sha256":"0000000000000000000000000000000000000000000000000000000000000000",
+                   "repository_url":"https://github.com/o/r","release_url":"https://github.com/o/r/releases/tag/v1",
+                   "icon_url":"https://raw.githubusercontent.com/o/r/main/ok.png"}]}
+                """);
+            Check("来源不可信的图示被丢掉而不是丢掉条目",
+                iconKept.Count == 2 && iconKept[0].IconUrl.Length == 0 && iconKept[1].IconUrl.EndsWith("ok.png", StringComparison.Ordinal),
+                $"{iconKept.Count} 条 / '{iconKept[0].IconUrl}' / '{iconKept[1].IconUrl}'");
+
+            var iconRequests = 0;
+            var iconFetcher = new PluginIconService(iconWorkspace);
+            var iconReloader = new PluginIconService(iconWorkspace);
+            using (var iconClient = new HttpClient(new StubHandler(_ =>
+            {
+                iconRequests++;
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(iconBytes) };
+            })))
+            {
+                var fetched = await iconFetcher.FetchAsync(iconClient, iconRecord);
+                Check("图示能取回来并解码", fetched is not null, "取回为 null");
+                Check("只请求一次", iconRequests == 1, $"实际 {iconRequests} 次");
+                Check("内存里已缓存", iconFetcher.Cached(iconRecord) is not null);
+                Check("落盘的文件名带版本", File.Exists(iconFetcher.CachePath(iconRecord)) && Path.GetFileName(iconFetcher.CachePath(iconRecord)) == "pet.ok-1.0.0.png",
+                    Path.GetFileName(iconFetcher.CachePath(iconRecord)));
+
+                await iconFetcher.FetchAsync(iconClient, iconRecord);
+                Check("第二次不再请求", iconRequests == 1, $"实际 {iconRequests} 次");
+
+                // A new instance is what the next launch is: it has the file and none of
+                // the memory, which is the state the first paint has to be able to draw.
+                iconReloader.LoadFromDisk(new[] { iconRecord });
+                Check("下次启动直接读磁盘", iconReloader.Cached(iconRecord) is not null);
+
+                // A different version is a different picture: a republished appearance
+                // has redrawn art, and reusing the old file would keep showing the old
+                // face after the update that changed it.
+                var iconNext = IconRecord("pet.ok", "1.1.0", iconUrl);
+                Check("换了版本就是另一张图", iconReloader.Cached(iconNext) is null, "沿用了旧版本的图示");
+                Check("两个版本的缓存文件不互相覆盖", iconReloader.CachePath(iconNext) != iconReloader.CachePath(iconRecord));
+            }
+
+            using (var iconOffline = new HttpClient(new StubHandler(_ => throw new HttpRequestException("no network"))))
+            {
+                var iconUnavailable = new PluginIconService(iconWorkspace);
+                var iconAnswer = await iconUnavailable.FetchAsync(iconOffline, IconRecord("pet.down", "1.0.0", iconUrl));
+                Check("取不到时返回空而不是抛出", iconAnswer is null);
+                Check("失败被记住，不逐行重试", iconUnavailable.HasFailed(IconRecord("pet.down", "1.0.0", iconUrl)));
+
+                var iconJunk = new PluginIconService(iconWorkspace);
+                using var iconNotAnImage = new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(Encoding.UTF8.GetBytes("this is not a png"))
+                }));
+                var iconUndecodable = await iconJunk.FetchAsync(iconNotAnImage, IconRecord("pet.junk", "1.0.0", iconUrl));
+                Check("不是图片的内容被拒绝", iconUndecodable is null);
+            }
+
+            // Every kind has a drawing, and an id nobody has heard of still gets one:
+            // that is what makes this table not a list of which extensions exist.
+            foreach (var iconKind in new[] { "pet", "feature", "theme", "browser" })
+            {
+                var kindDrawing = PluginIconCatalog.Resolve(iconKind, "");
+                Check($"{iconKind} 有兜底图示", !kindDrawing.Stroked.IsEmpty());
+            }
+            var iconUnregistered = PluginIconCatalog.Resolve("feature", "balancepet.ext.feature.something-new");
+            Check("没登记过的扩展也有图示", !iconUnregistered.Stroked.IsEmpty());
+            var iconThemed = PluginIconCatalog.Resolve("theme", "balancepet.theme.mica");
+            Check("主题图标额外有一块实心", iconThemed.Filled is not null, "缺少实心部分");
+            Check("图示是冻结的，可安全共用", iconThemed.Stroked.IsFrozen && iconUnregistered.Stroked.IsFrozen);
+
+            // --- 15. The mirror of a declared address ---------------------------
+            // GitHub's raw host is refused on some networks while a public mirror of
+            // the same repository answers, so a picture is looked for at both. The
+            // second address is derived rather than declared, which is what keeps a
+            // catalog from aiming the program at a host of its choosing.
+            Check("raw 地址能推出镜像",
+                PluginIconService.MirrorOf("https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/qwen.png")
+                    == "https://cdn.jsdelivr.net/gh/GoldenMoon-cell/BalancePet-Pets@main/previews/qwen.png",
+                PluginIconService.MirrorOf("https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/qwen.png") ?? "null");
+            Check("其它主机不推镜像",
+                PluginIconService.MirrorOf("https://cdn.jsdelivr.net/gh/o/r@main/x.png") is null
+                && PluginIconService.MirrorOf("https://example.com/x.png") is null
+                && PluginIconService.MirrorOf("not a url") is null);
+            Check("路径里带目录也能推",
+                PluginIconService.MirrorOf("https://raw.githubusercontent.com/o/r/v1.2.3/a/b/c.png")
+                    == "https://cdn.jsdelivr.net/gh/o/r@v1.2.3/a/b/c.png");
+            Check("候选地址按顺序给出，镜像在后",
+                PluginIconService.CandidateUrls("https://raw.githubusercontent.com/o/r/main/a.png").Count == 2);
+            Check("推不出镜像时只有原地址",
+                PluginIconService.CandidateUrls("https://example.com/a.png").Count == 1);
+
+            // The first address failing is the whole point of the list, so the stub
+            // refuses the raw host and answers the mirror.
+            var mirrorRequests = new List<string>();
+            using (var viaMirror = new HttpClient(new StubHandler(request =>
+            {
+                mirrorRequests.Add(request.RequestUri!.Host);
+                if (request.RequestUri.Host.Contains("raw.githubusercontent", StringComparison.Ordinal))
+                    throw new HttpRequestException("connection refused");
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(iconBytes) };
+            })))
+            {
+                var service = new PluginIconService(iconWorkspace);
+                var throughMirror = await service.FetchAsync(viaMirror, IconRecord("pet.mirror", "1.0.0", iconUrl));
+                Check("原地址被拒后走镜像取到图", throughMirror is not null && mirrorRequests.Count == 2,
+                    $"{mirrorRequests.Count} 次：{string.Join(",", mirrorRequests)}");
+            }
+
+            // --- 16. The four states one tile can be in ---------------------------
+            // These are the states a machine with everything installed never shows, so
+            // they are exactly the ones worth pinning down here. A row with no picture
+            // anywhere is finished as it is; a row with one is waiting, and waiting has
+            // to be told apart from failed, or a row that is still loading would wear
+            // the mark that means it never will.
+            static string States(PluginCatalogItemView view) => string.Join(",", new[]
+            {
+                view.IconGlyphVisibility == System.Windows.Visibility.Visible ? "glyph" : "",
+                view.IconImageVisibility == System.Windows.Visibility.Visible ? "image" : "",
+                view.IconBusyVisibility == System.Windows.Visibility.Visible ? "busy" : "",
+                view.IconFallbackVisibility == System.Windows.Visibility.Visible ? "mark" : ""
+            }.Where(value => value.Length > 0));
+
+            var plain = new PluginCatalogItemView(
+                new PluginCatalogRecord { Id = "balancepet.ext.feature.plain", Type = "feature", Version = "1.0.0" }, null, false);
+            plain.SetIconBusy(true);
+            Check("没有图源的行直接画图示", States(plain) == "glyph", States(plain));
+
+            var waiting = new PluginCatalogItemView(
+                new PluginCatalogRecord { Id = "pet.remote", Type = "pet", Version = "1.0.0", IconUrl = iconUrl }, null, false);
+            waiting.SetIconBusy(true);
+            Check("有图源的行先转圈", States(waiting) == "busy", States(waiting));
+            waiting.SetIcon(null);
+            Check("取不到之后才是程序标记", States(waiting) == "mark", States(waiting));
+
+            var arrived = new PluginCatalogItemView(
+                new PluginCatalogRecord { Id = "pet.here", Type = "pet", Version = "1.0.0" }, null, false, "qwen");
+            Check("本机已安装的形象算有图源", arrived.HasPictureSource);
+            arrived.SetIconBusy(true);
+            Check("本机形象没有图源也能立刻画", States(arrived) != "glyph", States(arrived));
+            arrived.SetIcon(iconFetcher.Cached(iconRecord));
+            Check("拿到图之后只剩图", States(arrived) == "image", States(arrived));
         }
         finally
         {

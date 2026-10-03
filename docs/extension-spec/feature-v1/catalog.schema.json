@@ -28,6 +28,11 @@
         "name_en": { "type": "string", "maxLength": 120 },
         "description": { "type": "string", "maxLength": 500 },
         "description_en": { "type": "string", "maxLength": 500 },
+        "icon_url": {
+          "description": "A small square picture of what the entry is, shown in the store instead of the drawing the host keeps for the entry's kind. Optional, and the host falls back to that drawing when it is absent or cannot be fetched, so an entry is never worse off for omitting it. Empty is allowed for the same reason download_url is: a browser entry points at someone else's repository and has nothing to draw of its own.",
+          "type": "string",
+          "pattern": "^(|https://raw\\.githubusercontent\\.com/.+\\.png|https://github\\.com/.+\\.png)$"
+        },
         "author": { "type": "string", "maxLength": 120 },
         "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$" },
         "min_core_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$" },
