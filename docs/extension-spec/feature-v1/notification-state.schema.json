@@ -72,6 +72,39 @@
       "type": "string",
       "maxLength": 12,
       "description": "Currency code for spent, upper case."
+    },
+    "appearance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the host's own windows look like, so an extension's windows can match them. Resolved values rather than the name of a theme: a consumer that had to find and parse a theme package would break the first time that format changed, and would still have to guess which of several installed themes is the active one. Omitted entirely when the host could not resolve a theme, and a consumer that sees no appearance should keep its own colours rather than fall back to black.",
+      "properties": {
+        "theme_mode": {
+          "type": "string",
+          "enum": ["light", "dark"],
+          "description": "Which of the host's two palettes is on screen, after the user's setting and the system's have been resolved."
+        },
+        "font": {
+          "type": "string",
+          "maxLength": 96,
+          "description": "The interface face the host is using, as a WPF font family string: a name, or a comma-separated fallback stack. Empty when the host is using its default."
+        },
+        "window": { "$ref": "#/$defs/colour", "description": "Window background." },
+        "sidebar": { "$ref": "#/$defs/colour", "description": "Navigation surface, slightly apart from the window." },
+        "surface": { "$ref": "#/$defs/colour", "description": "Cards and content surfaces." },
+        "control": { "$ref": "#/$defs/colour", "description": "Hover and pressed state for controls." },
+        "text": { "$ref": "#/$defs/colour", "description": "Primary text." },
+        "muted": { "$ref": "#/$defs/colour", "description": "Secondary text." },
+        "border": { "$ref": "#/$defs/colour", "description": "Dividers and outlines." },
+        "accent": { "$ref": "#/$defs/colour", "description": "Selection, emphasis, and the one action a row may have." },
+        "accent_soft": { "$ref": "#/$defs/colour", "description": "A wash of the accent, for selected rows and tags." }
+      }
+    }
+  },
+  "$defs": {
+    "colour": {
+      "type": "string",
+      "pattern": "^(#[0-9A-Fa-f]{6})?$",
+      "description": "A colour as #RRGGBB, or an empty string meaning the host had nothing to say about this slot and a consumer should keep its own colour there."
     }
   }
 }

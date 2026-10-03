@@ -144,6 +144,21 @@ Switch integration that supplied them was removed to be rebuilt as a plugin;
 treat that as "no live observation" and fall back to your own recorded events
 rather than as "the user is logged out".
 
+It also carries an optional `appearance`: the mode, the interface face and the
+eight colours the host's own windows are using, so an extension's windows can be
+the same program to look at. Resolved values rather than the name of a theme, on
+purpose — a consumer that had to find and parse a theme package would break the
+first time that format changed, and would still have to guess which of several
+installed themes is active, while the host knows because it is drawing with them.
+
+Two rules for consumers. A colour the host did not send is a slot it has nothing
+to say about: keep your own value there rather than defaulting to black. And an
+absent `appearance` altogether means the same thing for all of it — an older host,
+or one that could not resolve a theme — which is a state to tolerate quietly and
+not to report. The extension that ships with this repository applies the palette
+when it changes rather than on every read: replacing ten brushes redraws a window,
+and the snapshot is read twice a second.
+
 The host may install multiple versions of the same extension ID side by side,
 but launches the highest installed semantic version when that ID is enabled.
 The `.disabled` marker applies to the ID as a whole; v1 has no per-version

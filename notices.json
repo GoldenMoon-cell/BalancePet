@@ -2,6 +2,13 @@
   "schema_version": 1,
   "notices": [
     {
+      "seq": 7,
+      "date": "2026-10-04",
+      "area": "规范",
+      "title": "消息中心跟随主题",
+      "summary": "功能扩展的状态快照新增可选的 appearance 字段：主程序把自己窗口正在用的明暗模式、界面字体与八个颜色报出来，扩展据此让自己的窗口与主程序一致，不必去找主题包、也不必猜哪套主题是激活的。缺哪个颜色就沿用扩展自己的颜色，整个字段缺失则一切照旧。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/feature-v1/notification-state.schema.json"
+    },    {
       "seq": 6,
       "date": "2026-10-03",
       "area": "在线内容",
