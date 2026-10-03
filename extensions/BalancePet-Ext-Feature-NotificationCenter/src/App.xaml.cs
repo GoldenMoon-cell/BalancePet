@@ -27,6 +27,14 @@ public partial class App : Application
         }
 
         // A sketch of this window, redrawn in the plates' language, for review.
+        // The gathering rule, checked against real geometry rather than watched in an
+        // animation: a transition can look right while gathering when it did not need to.
+        if (e.Args.Contains("--ring-rules", StringComparer.OrdinalIgnoreCase))
+        {
+            Shutdown(RingLayoutCheck.Run());
+            return;
+        }
+
         // The real window, rendered off-screen for review. Not a sketch: this is the actual
         // window object, so what it shows is what it will show.
         if (ValueAfter(e.Args, "--shot") is { Length: > 0 } shotPath)
