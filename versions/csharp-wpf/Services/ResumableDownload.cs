@@ -41,6 +41,70 @@ public static class ResumableDownload
     public const long AbsoluteMaxBytes = 1024L * 1024 * 1024;
 
     /// <summary>
+    /// Where a download waits while it is being fetched.
+    /// </summary>
+    /// <remarks>
+    /// Not the temp directory. A transfer that needs several attempts has to survive the
+    /// program being closed, and a system that cleans the temp directory decides for
+    /// itself when that happens — a seventy megabyte update that is four fifths complete
+    /// is not something to lose to a disk cleanup. Beside the program's own data it is
+    /// also the directory the user can find and delete.
+    /// </remarks>
+    public static string DefaultDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "BalancePet", "downloads");
+
+    /// <summary>
+    /// The path one artifact is fetched to, derived from its name so that it is the same
+    /// path every time.
+    /// </summary>
+    /// <remarks>
+    /// Stable on purpose. A name that changes per attempt is a name that cannot be
+    /// resumed, and on a link that drops every few seconds a seventy megabyte file needs
+    /// more than one attempt to arrive — so the user pressing the button again, or
+    /// starting the program tomorrow, continues from what is already there instead of
+    /// beginning again.
+    /// </remarks>
+    public static string PathFor(string directory, string? name, string fallbackName)
+    {
+        var candidate = (name ?? "").Trim();
+        if (candidate.Length == 0) candidate = fallbackName;
+        var safe = new string(candidate
+            .Where(character => char.IsLetterOrDigit(character) || character is '.' or '-' or '_' or ' ')
+            .ToArray())
+            .Trim();
+        if (safe.Length == 0) safe = fallbackName;
+        return Path.Combine(directory, safe);
+    }
+
+    /// <summary>
+    /// Removes what an earlier download left behind and this one is not using.
+    /// </summary>
+    /// <remarks>
+    /// Kept for a day so that a download in progress is not deleted by another one that
+    /// happens to finish first: the update check and a skin install are separate actions
+    /// and can overlap. Beyond that a partial file is abandoned work, and the alternative
+    /// is a directory that only grows — a version that was superseded halfway through
+    /// would otherwise sit there for the life of the installation.
+    /// </remarks>
+    public static void PruneStale(string directory, string keep, TimeSpan? olderThan = null)
+    {
+        var age = olderThan ?? TimeSpan.FromDays(1);
+        try
+        {
+            if (!Directory.Exists(directory)) return;
+            foreach (var path in Directory.EnumerateFiles(directory))
+            {
+                if (string.Equals(path, keep, StringComparison.OrdinalIgnoreCase)) continue;
+                if (DateTime.UtcNow - File.GetLastWriteTimeUtc(path) < age) continue;
+                try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    /// <summary>
     /// Fetches <paramref name="uri"/> into <paramref name="path"/>, resuming as needed.
     /// </summary>
     /// <param name="maxBytes">Ceiling on the finished file; a larger answer is refused.</param>
@@ -60,6 +124,16 @@ public static class ResumableDownload
         IProgress<double>? progress = null)
     {
         var ceiling = Math.Min(maxBytes, AbsoluteMaxBytes);
+        // Created rather than assumed: a download directory is one of the things a fresh
+        // installation does not have, and the first update anybody runs is the one that
+        // would have discovered it.
+        var folder = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(folder))
+        {
+            try { Directory.CreateDirectory(folder); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
         // One handle for the whole download rather than reopening the file for each
         // attempt. Not because reopening failed — the updater reopened it per attempt for
         // two releases and the resume test passes — but because there is no reason to ask

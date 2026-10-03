@@ -13,7 +13,8 @@ public enum UpdateAssetKind
     Installer
 }
 
-public sealed record UpdateAsset(UpdateAssetKind Kind, string Name, Uri DownloadUri, string? Digest);
+/// <param name="Tag">The release the asset belongs to, for naming its mirrored copy.</param>
+public sealed record UpdateAsset(UpdateAssetKind Kind, string Name, Uri DownloadUri, string? Digest, string Tag = "");
 
 public sealed record UpdateRelease(
     string TagName,
@@ -22,8 +23,9 @@ public sealed record UpdateRelease(
     UpdateAsset? PortableArchive,
     UpdateAsset? Installer);
 
-public sealed class UpdateService(HttpClient http)
+public sealed class UpdateService(HttpClient http, string? downloadDirectory = null)
 {
+    private readonly string _downloads = downloadDirectory ?? ResumableDownload.DefaultDirectory;
     private const string ReleasesEndpoint = "https://api.github.com/repos/GoldenMoon-cell/BalancePet/releases?per_page=20";
 
     public async Task<UpdateRelease?> CheckAsync(string currentVersion, CancellationToken cancellationToken = default)
@@ -47,9 +49,9 @@ public sealed class UpdateService(HttpClient http)
                 if (!Uri.TryCreate(urlText, UriKind.Absolute, out var downloadUri)) continue;
                 var digest = asset.TryGetProperty("digest", out var digestValue) ? digestValue.GetString() : null;
                 if (Matches(name, $"BalancePet-{tag}-win-x64.zip", $"BalancePet-{version}-win-x64.zip"))
-                    archive = new UpdateAsset(UpdateAssetKind.PortableArchive, name!, downloadUri, digest);
+                    archive = new UpdateAsset(UpdateAssetKind.PortableArchive, name!, downloadUri, digest, tag);
                 else if (Matches(name, $"BalancePet-{tag}-Setup.exe", $"BalancePet-{version}-Setup.exe"))
-                    installer = new UpdateAsset(UpdateAssetKind.Installer, name!, downloadUri, digest);
+                    installer = new UpdateAsset(UpdateAssetKind.Installer, name!, downloadUri, digest, tag);
             }
 
             if (archive is null && installer is null) continue;
@@ -158,7 +160,11 @@ public sealed class UpdateService(HttpClient http)
     public async Task<string> DownloadAsync(UpdateAsset asset, CancellationToken cancellationToken = default, IProgress<double>? progress = null)
     {
         var extension = asset.Kind == UpdateAssetKind.Installer ? ".exe" : ".zip";
-        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"BalancePet-update-{Guid.NewGuid():N}{extension}");
+        // One path per version, not one per attempt. A seventy megabyte package on a link
+        // that drops every few seconds needs more than one run to arrive, and a name that
+        // changes each time cannot be continued — the user pressing 重试 would begin again
+        // from nothing, which is how a slow download becomes one that never finishes.
+        var path = ResumableDownload.PathFor(_downloads, asset.Name, $"BalancePet-update{extension}");
         try
         {
             await DownloadToFileAsync(asset, path, cancellationToken, progress);
@@ -172,11 +178,21 @@ public sealed class UpdateService(HttpClient http)
                     throw new InvalidDataException("更新包校验失败，文件可能已损坏或被篡改。");
             }
 
+            ResumableDownload.PruneStale(_downloads, path);
             return path;
+        }
+        catch (InvalidDataException)
+        {
+            // The bytes are wrong, so this is not a partial download of the package — it
+            // is something else wearing its name. Keeping it would fail the digest on
+            // every later attempt.
+            try { File.Delete(path); } catch (IOException) { }
+            throw;
         }
         catch
         {
-            try { File.Delete(path); } catch (IOException) { }
+            // Anything else leaves the file: an interrupted transfer is what the next
+            // attempt resumes from, whether that is a second from now or tomorrow.
             throw;
         }
     }
@@ -188,19 +204,36 @@ public sealed class UpdateService(HttpClient http)
     /// The machinery lives in <see cref="ResumableDownload"/> because the extension
     /// installer needs exactly the same thing: one implementation of "keep what arrived
     /// and ask for the rest", rather than two that drift.
+    ///
+    /// The addresses are tried in the order <see cref="DownloadMirror"/> gives them, and
+    /// they share one target file on purpose: both name the same bytes, so a host that
+    /// gives up part way through costs the connection and not the transfer. The digest is
+    /// checked once, afterwards, over whatever the two of them together produced.
     /// </remarks>
     private async Task DownloadToFileAsync(UpdateAsset asset, string path, CancellationToken cancellationToken, IProgress<double>? progress)
     {
-        try
+        Exception? last = null;
+        foreach (var candidate in DownloadMirror.Candidates(asset.DownloadUri, asset.Tag))
         {
-            await ResumableDownload.DownloadAsync(
-                http, asset.DownloadUri, path, 512L * 1024 * 1024, "application/octet-stream",
-                "BalancePet-Updater/1.0", cancellationToken, progress);
+            try
+            {
+                await ResumableDownload.DownloadAsync(
+                    http, candidate, path, 512L * 1024 * 1024, "application/octet-stream",
+                    "BalancePet-Updater/1.0", cancellationToken, progress);
+                return;
+            }
+            catch (Exception error) when (ResumableDownload.IsInterrupted(error, cancellationToken)
+                || error is HttpRequestException)
+            {
+                // A mirror that is missing this release answers 404, which is an answer
+                // rather than a failure of the transfer: the next address is tried, and a
+                // mirror that is simply not there costs one request.
+                cancellationToken.ThrowIfCancellationRequested();
+                last = error;
+            }
         }
-        catch (Exception error) when (ResumableDownload.IsInterrupted(error, cancellationToken))
-        {
-            throw new HttpRequestException($"下载更新包时网络连接中断，请稍后重试。（{error.Message}）", error);
-        }
+
+        if (last is not null) throw new HttpRequestException($"下载更新包时网络连接中断，请稍后重试。（{last.Message}）", last);
     }
 
     private static bool Matches(string? name, params string[] expectedNames) =>

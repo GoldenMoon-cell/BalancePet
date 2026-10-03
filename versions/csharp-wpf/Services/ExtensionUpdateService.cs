@@ -26,9 +26,10 @@ public sealed record ExtensionUpdateCheckResult(
 /// Checks extension-owned GitHub Releases without sending settings, tokens, or
 /// usage data. Downloaded ZIPs are still validated by the normal installer.
 /// </summary>
-public sealed class ExtensionUpdateService(HttpClient http)
+public sealed class ExtensionUpdateService(HttpClient http, string? downloadDirectory = null)
 {
     private const long MaxPackageBytes = 500L * 1024 * 1024;
+    private readonly string _downloads = downloadDirectory ?? ResumableDownload.DefaultDirectory;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -93,13 +94,14 @@ public sealed class ExtensionUpdateService(HttpClient http)
         if (!Uri.TryCreate(release.DownloadUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
             throw new InvalidDataException("扩展更新下载地址无效。");
 
-        var path = Path.Combine(Path.GetTempPath(), $"BalancePet-extension-update-{Guid.NewGuid():N}.zip");
+        // A stable path rather than a fresh name per call, so an install that was cut
+        // short is continued by the next attempt instead of starting over. A package is
+        // twelve to seventeen megabytes and this network cuts a long transfer whenever it
+        // feels like it.
+        var fallback = Path.GetFileName(uri.AbsolutePath);
+        var path = ResumableDownload.PathFor(_downloads, release.PackageName, fallback);
         try
         {
-            // Through the resumable downloader, which keeps what it received and asks for
-            // the rest. An appearance package is twelve to seventeen megabytes and this
-            // network cuts a long transfer whenever it feels like it, so an install that
-            // started over on every drop was an install that never finished.
             await ResumableDownload.DownloadAsync(
                 http, uri, path, MaxPackageBytes, "application/octet-stream",
                 "BalancePet-Extension-Updater/1.0", cancellationToken);
@@ -114,11 +116,22 @@ public sealed class ExtensionUpdateService(HttpClient http)
                 if (!string.Equals(actual, release.Digest, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("扩展更新包校验失败，文件可能已损坏或被篡改。");
             }
+
+            ResumableDownload.PruneStale(_downloads, path);
             return path;
+        }
+        catch (InvalidDataException)
+        {
+            // Wrong bytes, so the file is not a partial download that can be continued —
+            // it is not this package at all. Kept, it would fail the digest on every
+            // later attempt and the user would have no way out of it.
+            try { File.Delete(path); } catch (IOException) { }
+            throw;
         }
         catch
         {
-            try { File.Delete(path); } catch (IOException) { }
+            // Everything else leaves the file alone: an interrupted transfer is exactly
+            // what the next attempt resumes from.
             throw;
         }
     }

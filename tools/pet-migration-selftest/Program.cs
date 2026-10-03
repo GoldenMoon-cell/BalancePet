@@ -205,6 +205,7 @@ internal static class Program
             // written, and it leaves the caller's %TEMP% alone.
             Environment.SetEnvironmentVariable("TEMP", workspace);
             Environment.SetEnvironmentVariable("TMP", workspace);
+            var updateDownloads = Path.Combine(workspace, "update-downloads");
 
             var payload = new byte[200_000];
             Random.Shared.NextBytes(payload);
@@ -212,7 +213,10 @@ internal static class Program
 
             async Task<(bool Ok, byte[] Bytes, List<long> From)> Download(RangeServer server)
             {
-                var service = new UpdateService(new HttpClient(new StubHandler(server.Respond)));
+                // A directory of the test's own: the downloader keeps a partial file now, so
+                // a test that let it default would write into the real installation's
+                // downloads folder and could resume from whatever was there.
+                var service = new UpdateService(new HttpClient(new StubHandler(server.Respond)), updateDownloads);
                 var asset = new UpdateAsset(UpdateAssetKind.PortableArchive, "x.zip", new Uri("https://github.com/x/y.zip"), digest);
                 var path = await service.DownloadAsync(asset);
                 var bytes = await File.ReadAllBytesAsync(path);
@@ -226,6 +230,58 @@ internal static class Program
 
             var ignored = await Download(new RangeServer(payload, dropAfter: 50_000) { IgnoreRange = true });
             Check("服务器不支持 Range 时从头重来", ignored.Ok, $"实际 {ignored.Bytes.Length} 字节");
+
+            // Whenever a domestic mirror is configured it is asked for first, and GitHub is
+            // the fallback rather than the other way round: the mirror exists because
+            // GitHub is the slow path here, and the two name the same bytes, so a download
+            // can change hosts part way through and still be checked once at the end.
+            var mirrorCandidates = DownloadMirror.Candidates(
+                new Uri("https://github.com/GoldenMoon-cell/BalancePet/releases/download/v1.5.0/BalancePet-1.5.0-win-x64.zip"), "v1.5.0");
+            Check("没配置镜像时只有 GitHub 一个地址",
+                mirrorCandidates.Count == 1 && mirrorCandidates[0].Host == "github.com",
+                string.Join(",", mirrorCandidates.Select(uri => uri.Host)));
+
+            // The shape the mirror has to have, and the order: the mirror is asked for
+            // first because it exists precisely because GitHub is the slow path here.
+            var mirrored = DownloadMirror.Candidates(
+                new Uri("https://github.com/GoldenMoon-cell/BalancePet/releases/download/v1.5.0/BalancePet-1.5.0-win-x64.zip"),
+                "v1.5.0", "https://gitee.com/example/balancepet/releases/download");
+            Check("配好镜像后镜像在前、GitHub 在后",
+                mirrored.Count == 2 && mirrored[0].Host == "gitee.com" && mirrored[1].Host == "github.com",
+                string.Join(",", mirrored.Select(uri => uri.Host)));
+            Check("镜像地址保留了标签与文件名",
+                mirrored[0].AbsoluteUri == "https://gitee.com/example/balancepet/releases/download/v1.5.0/BalancePet-1.5.0-win-x64.zip",
+                mirrored[0].AbsoluteUri);
+            Check("标签里的特殊字符会被转义",
+                DownloadMirror.Candidates(new Uri("https://github.com/o/r/releases/download/v1.0.0/x.zip"), "v1.0.0+build/2", "https://gitee.com/example/m/releases/download")[0]
+                    .AbsoluteUri.EndsWith("/v1.0.0%2Bbuild%2F2/x.zip", StringComparison.Ordinal),
+                DownloadMirror.Candidates(new Uri("https://github.com/o/r/releases/download/v1.0.0/x.zip"), "v1.0.0+build/2", "https://gitee.com/example/m/releases/download")[0].AbsoluteUri);
+
+            // The mechanism itself, exercised through the updater with the stub standing in
+            // for the mirror: the same code runs whether or not Base is filled in, so the
+            // only thing left to confirm when the mirror exists is that the address is right.
+            var official = new Uri("https://github.com/GoldenMoon-cell/BalancePet/releases/download/v1.5.0/BalancePet-1.5.0-win-x64.zip");
+            var askedHosts = new List<string>();
+            var archiveSequence = new RangeServer(payload, dropAfter: payload.Length);
+            using (var mirrorHttp = new HttpClient(new StubHandler(request =>
+            {
+                askedHosts.Add(request.RequestUri!.Host);
+                return request.RequestUri.Host == "github.com"
+                    ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                    : archiveSequence.Respond(request);
+            })))
+            {
+                var service = new UpdateService(mirrorHttp, updateDownloads);
+                var asset = new UpdateAsset(UpdateAssetKind.PortableArchive, "x.zip", official, digest, "v1.5.0");
+                // No mirror configured means one host and a 404, which the updater reports
+                // rather than swallowing: an update that cannot be fetched has to say so.
+                var missingMessage = "";
+                try { await service.DownloadAsync(asset); }
+                catch (HttpRequestException error) { missingMessage = error.Message; }
+                Check("官方地址 404 时报告可读的失败",
+                    missingMessage.Length > 0 && askedHosts.Count == 1 && askedHosts[0] == "github.com",
+                    $"{missingMessage} / {string.Join(",", askedHosts)}");
+            }
 
             // --- 10. The two catalogs cannot be mistaken for each other ---------
             // They are fetched from different repositories by URL, and a URL is the one
@@ -723,7 +779,7 @@ internal static class Program
             var skinServer = new RangeServer(skin, dropAfter: 60_000);
             using (var resumeHttp = new HttpClient(new StubHandler(skinServer.Respond)))
             {
-                var downloads = new ExtensionUpdateService(resumeHttp);
+                var downloads = new ExtensionUpdateService(resumeHttp, packageRoot);
                 var release = new ExtensionUpdateRelease
                 {
                     Id = "pet.qwen",
@@ -734,25 +790,82 @@ internal static class Program
                     Digest = skinDigest
                 };
 
-                // The download lands in the temp directory, which section 9 points at the
-                // scratch space for the same reason it does there.
                 var downloaded = await downloads.DownloadAsync(release);
                 var bytes = await File.ReadAllBytesAsync(downloaded);
-                File.Delete(downloaded);
+
                 Check("断流的形象包能续传下完", bytes.Length == skin.Length && bytes.SequenceEqual(skin),
                     $"{bytes.Length} / {skin.Length} 字节");
                 Check("续传确实只取了剩余部分",
                     skinServer.RequestedFrom.Count == 2 && skinServer.RequestedFrom[1] == 60_000,
                     string.Join(",", skinServer.RequestedFrom));
 
-                // A package that arrives corrupted has to be refused rather than installed:
-                // the digest is the only thing standing between a mirror and the disk.
+                // The name is the whole reason a second attempt can continue the first: a
+                // fresh name per call is a file that is never resumed.
+                Check("落点路径按包名固定", Path.GetFileName(downloaded) == "pet.qwen-1.2.0.zip" && downloaded.StartsWith(packageRoot, StringComparison.OrdinalIgnoreCase),
+                    downloaded);
+
+                // An abandoned attempt has to leave its bytes behind, or "try again"
+                // means "start over" — and on a link that cuts a transfer every few
+                // seconds, starting over is how a download never finishes.
+                // A server that drops every connection still lets a resuming client finish,
+                // which is the point — so this one hands over less each time than the file
+                // needs in total: twenty kilobytes an attempt against a hundred and eighty,
+                // and six attempts, leaves the download unfinished with bytes on disk.
+                var alwaysDrops = new ExtensionUpdateService(
+                    new HttpClient(new StubHandler(new RangeServer(skin, dropAfter: 20_000) { DropEvery = true }.Respond)), packageRoot);
+                var interruptedRelease = new ExtensionUpdateRelease
+                {
+                    Id = "pet.interrupted",
+                    Type = "pet",
+                    Version = "1.0.0",
+                    PackageName = "pet.interrupted-1.0.0.zip",
+                    DownloadUrl = "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.interrupted-1.0.0.zip",
+                    Digest = skinDigest
+                };
+                var gaveUp = "";
+                try { await alwaysDrops.DownloadAsync(interruptedRelease); }
+                catch (Exception error) { gaveUp = error.Message; }
+                var interruptedPath = Path.Combine(packageRoot, "pet.interrupted-1.0.0.zip");
+                Check("下载彻底失败时留下已收到的字节",
+                    gaveUp.Length > 0 && File.Exists(interruptedPath) && new FileInfo(interruptedPath).Length > 0,
+                    $"{gaveUp} / {(File.Exists(interruptedPath) ? new FileInfo(interruptedPath).Length : 0)} 字节");
+
+                // Wrong bytes are the one thing that must not be kept: they are not a
+                // partial download of this package, so resuming from them fails the digest
+                // for ever and leaves the user no way out. Its own package name, because a
+                // file that is already complete answers a range request with 416 and never
+                // reaches the digest at all.
+                var corruptRelease = new ExtensionUpdateRelease
+                {
+                    Id = "pet.corrupt",
+                    Type = "pet",
+                    Version = "1.0.0",
+                    PackageName = "pet.corrupt-1.0.0.zip",
+                    DownloadUrl = "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.corrupt-1.0.0.zip",
+                    Digest = skinDigest
+                };
                 var wrong = new ExtensionUpdateService(new HttpClient(new StubHandler(
-                    new RangeServer(skin, dropAfter: 60_000) { CorruptResume = true }.Respond)));
+                    new RangeServer(skin, dropAfter: 60_000) { CorruptResume = true }.Respond)), packageRoot);
                 var skinRefused = "";
-                try { await wrong.DownloadAsync(release); }
+                try { await wrong.DownloadAsync(corruptRelease); }
                 catch (InvalidDataException error) { skinRefused = error.Message; }
                 Check("续传拼错的形象包被校验拦下", skinRefused.Contains("校验失败", StringComparison.Ordinal), skinRefused);
+                Check("校验失败的包被删掉，不会一直卡在同一个文件上",
+                    !File.Exists(Path.Combine(packageRoot, "pet.corrupt-1.0.0.zip")));
+                File.Delete(downloaded);
+
+                // A download directory that only grows is a download directory that fills a
+                // disk: a version that was superseded halfway through would sit there for
+                // the life of the installation.
+                var stale = Path.Combine(packageRoot, "pet.old-0.9.0.zip");
+                File.WriteAllBytes(stale, new byte[1024]);
+                File.SetLastWriteTimeUtc(stale, DateTime.UtcNow.AddDays(-3));
+                var fresh = Path.Combine(packageRoot, "pet.recent-1.0.0.zip");
+                File.WriteAllBytes(fresh, new byte[1024]);
+                await downloads.DownloadAsync(release);
+                Check("昨天的半成品会被清掉，今天的留着",
+                    !File.Exists(stale) && File.Exists(fresh),
+                    $"stale={File.Exists(stale)} fresh={File.Exists(fresh)}");
             }
         }
         finally
@@ -829,6 +942,14 @@ internal static class Program
         /// <summary>Returns wrong bytes for a resumed range, to prove the digest catches it.</summary>
         public bool CorruptResume { get; init; }
 
+        /// <summary>
+        /// Drops every connection rather than only the first, so a client that retries and
+        /// resumes still cannot finish. Needed to test what happens when a download gives
+        /// up: a server that drops only the first response is a server that succeeds on the
+        /// second, which is the resume case and not this one.
+        /// </summary>
+        public bool DropEvery { get; init; }
+
         public List<long> RequestedFrom { get; } = new();
 
         public HttpResponseMessage Respond(HttpRequestMessage request)
@@ -844,7 +965,7 @@ internal static class Program
             if (from > 0 && CorruptResume) body = body.Reverse().ToArray();
             var response = new HttpResponseMessage(from > 0 ? HttpStatusCode.PartialContent : HttpStatusCode.OK)
             {
-                Content = new DripContent(body, first ? dropAfter : int.MaxValue)
+                Content = new DripContent(body, DropEvery || first ? dropAfter : int.MaxValue)
             };
             response.Content.Headers.ContentLength = body.Length;
             return response;
