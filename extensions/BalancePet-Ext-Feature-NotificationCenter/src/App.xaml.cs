@@ -28,6 +28,16 @@ public partial class App : Application
             return;
         }
 
+        // A sketch of this window, redrawn in the plates' language, for review.
+        if (ValueAfter(e.Args, "--panel") is { Length: > 0 } panelOutput)
+        {
+            Shutdown(WindowSketch.Run(
+                panelOutput,
+                string.Equals(ValueAfter(e.Args, "--theme"), "dark", StringComparison.OrdinalIgnoreCase),
+                ValueAfter(e.Args, "--pet-image")));
+            return;
+        }
+
         if (ValueAfter(e.Args, "--sketch") is { Length: > 0 } sketchOutput)
         {
             Shutdown(RingSketches.Run(
