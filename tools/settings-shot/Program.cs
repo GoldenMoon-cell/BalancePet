@@ -55,6 +55,12 @@ internal static class Program
         // of it. Anything but "dark" leaves the stored choice alone.
         if (Array.IndexOf(args, "--theme") is var mt && mt >= 0 && mt + 1 < args.Length)
             settings.ThemeMode = args[mt + 1];
+        // The window material, which is not visible in a capture: the rounded corners and
+        // the backdrop are applied by DWM when the window is composed, so a
+        // RenderTargetBitmap shows a square window whatever the material is. Forcing the
+        // choice is what lets --dwm report what the window actually asked for.
+        if (Array.IndexOf(args, "--backdrop") is var bt2 && bt2 >= 0 && bt2 + 1 < args.Length)
+            settings.ThemeBackdrop = args[bt2 + 1];
         // The page to capture, named by any element it contains.
         var tabElement = Array.IndexOf(args, "--tab") is var tt && tt >= 0 && tt + 1 < args.Length
             ? args[tt + 1]
@@ -190,6 +196,42 @@ internal static class Program
                 Console.WriteLine($"列表行数 {catalogList.Items.Count}");
             if (window.FindName("PluginCatalogStatusText") is System.Windows.Controls.TextBlock statusText)
                 Console.WriteLine($"目录来源 {statusText.Text}");
+
+            // What the window asked DWM for. A capture cannot show this: the material and
+            // the rounded corners are applied at composition, outside the WPF render, so a
+            // window that is square on screen renders identically here. Reading the values
+            // back is the only way to tell "the code did not ask" from "the code asked and
+            // Windows declined".
+            var shotHandle = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+            if (shotHandle != IntPtr.Zero)
+            {
+                var backdropType = -1;
+                var hasBackdrop = DwmGetWindowAttribute(shotHandle, 38, out backdropType, sizeof(int)) == 0;
+                var corner = -1;
+                var hasCorner = DwmGetWindowAttribute(shotHandle, 33, out corner, sizeof(int)) == 0;
+                var cornerLabel = corner switch
+                {
+                    0 => "0 default", 1 => "1 don't round", 2 => "2 round", 3 => "3 round small", _ => $"{corner} (other)"
+                };
+                Console.WriteLine($"窗口材质 backdrop={(hasBackdrop ? backdropType switch { 0 => "auto", 1 => "none", 2 => "Mica", 3 => "Acrylic", 4 => "Mica Alt", _ => backdropType.ToString() } : "读取失败")}"
+                                  + $"  圆角={(hasCorner ? cornerLabel : "读取失败")}");
+
+                // What this process is DPI aware of. The manifest carries no dpiAwareness
+                // entry, so the answer comes from the runtime rather than from a file, and
+                // it decides whether the window is resampled — visibly blurred — when it is
+                // dragged to a monitor with a different scale factor.
+                var context = GetThreadDpiAwarenessContext();
+                var awareness = GetAwarenessFromDpiAwarenessContext(context);
+                var awarenessLabel = awareness switch
+                {
+                    0 => "0 不感知（会被系统拉伸，模糊）",
+                    1 => "1 系统感知（跨显示器会被位图拉伸）",
+                    2 => "2 每显示器感知（PerMonitor，自己缩放）",
+                    3 => "3 每显示器感知 v2（PerMonitorV2，最好）",
+                    _ => $"{awareness} 未知"
+                };
+                Console.WriteLine($"DPI 感知 {awarenessLabel}");
+            }
             if (width <= 0 || height <= 0)
             {
                 Console.WriteLine("窗口没有布局尺寸，无法截图。");
@@ -557,4 +599,14 @@ internal static class Program
             node = LogicalTreeHelper.GetParent(node) ?? VisualTreeHelper.GetParent(node);
         }
     }
+
+    /// <summary>Reads a DWM window attribute. Used only to report, never to set.</summary>
+    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out int value, int valueSize);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetThreadDpiAwarenessContext();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern int GetAwarenessFromDpiAwarenessContext(IntPtr context);
 }

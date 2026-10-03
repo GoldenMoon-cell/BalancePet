@@ -132,6 +132,18 @@ public static class WindowThemeService
         if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 17763))
             _ = DwmSetWindowAttribute(handle, DwmwaUseImmersiveDarkMode, ref dark, sizeof(int));
 
+        // Asked for before the material is chosen, because it belongs to the window rather
+        // than to the material: a frameless window on Windows 11 defaults to square
+        // corners, so the preference has to be set whether or not there is a backdrop. It
+        // used to sit below the solid branch, which returns early — and the result was a
+        // settings window that was rounded with Mica and square the moment it was set to a
+        // solid colour, which reads as the program having fallen back to Windows 10.
+        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+        {
+            var rounded = 2;
+            _ = DwmSetWindowAttribute(handle, DwmwaWindowCornerPreference, ref rounded, sizeof(int));
+        }
+
         if (solid)
         {
             DisableLegacyBackdrop(handle);
@@ -141,12 +153,6 @@ public static class WindowThemeService
                 _ = DwmSetWindowAttribute(handle, DwmwaSystemBackdropType, ref none, sizeof(int));
             }
             return false;
-        }
-
-        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
-        {
-            var rounded = 2;
-            _ = DwmSetWindowAttribute(handle, DwmwaWindowCornerPreference, ref rounded, sizeof(int));
         }
 
         if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22621))

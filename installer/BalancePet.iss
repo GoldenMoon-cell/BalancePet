@@ -34,6 +34,13 @@ SetupIconFile={#SourceDir}\assets\balance-pet.ico
 UninstallDisplayIcon={app}\assets\balance-pet.ico
 UninstallDisplayName={#AppName}
 ArchitecturesAllowed=x64compatible
+; Windows 10 1809. Without this the wizard defaults to 6.1sp1 — Windows 7 SP1 — and
+; installs a program that cannot start, because a self-contained .NET 8 desktop app needs
+; Windows 10 1607 at the earliest. 1809 is the floor this program's own code is written
+; against: below it there is no window material at all (the DWM calls the material needs
+; begin at 17763), so an older system would get a working but plain window. Windows 11
+; satisfies this: it reports 10.0.22000 and later.
+MinVersion=10.0.17763
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
