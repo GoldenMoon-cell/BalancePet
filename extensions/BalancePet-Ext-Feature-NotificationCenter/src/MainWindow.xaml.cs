@@ -1,4 +1,8 @@
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Text.Json;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,23 +18,136 @@ public partial class MainWindow : Window
 {
     private readonly NotificationEventStore _store;
     private readonly ObservableCollection<NotificationRow> _rows = [];
+    private readonly ObservableCollection<NotificationSection> _sections = [];
     private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private readonly BubbleWindow _infoWindow = new();
-    private string _filter = "all";
+    private readonly TakeoverPreference _takeover;
+    private string _filter = "notice";
     private string _lastFingerprint = "";
     private string _coreVersion = "";
+
+    /// <summary>
+    /// How long each row waits before it starts arriving, and how long it takes.
+    /// </summary>
+    /// <remarks>
+    /// A list that appears all at once reads as a table being loaded; rows that set off one
+    /// after another read as something arriving, which is what a window belonging to a
+    /// desktop pet should feel like. The step is small enough that five rows are done in
+    /// well under a second.
+    /// </remarks>
+    private static readonly TimeSpan RowStep = TimeSpan.FromMilliseconds(80);
+    private static readonly Duration RowSlide = new(TimeSpan.FromMilliseconds(340));
+    private static readonly Duration RowFade = new(TimeSpan.FromMilliseconds(220));
 
     public MainWindow()
     {
         _store = new NotificationEventStore(ReadDataDirectory(Environment.GetCommandLineArgs()));
         InitializeComponent();
         ApplySystemTheme();
+        _takeover = new TakeoverPreference();
+        SectionList.ItemsSource = _sections;
         EventsList.ItemsSource = _rows;
+        TakeoverSwitch.IsChecked = _takeover.Enabled;
+        LoadPetAvatar();
         _refreshTimer.Tick += (_, _) => Refresh(false);
         Refresh();
         _refreshTimer.Start();
         Closed += (_, _) => _refreshTimer.Stop();
         Closed += (_, _) => _infoWindow.Close();
+    }
+
+    /// <summary>
+    /// The pet's own artwork, cropped to its head, in the title bar.
+    /// </summary>
+    /// <remarks>
+    /// The window is otherwise a list of text; this is what makes it the pet's window
+    /// rather than a generic one. Missing artwork is not an error — the round backing stays.
+    /// </remarks>
+    private void LoadPetAvatar()
+    {
+        var path = PreviewRenderer.FindInstalledPetArtwork();
+        if (path is null || !File.Exists(path)) return;
+        try
+        {
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.UriSource = new Uri(path);
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.EndInit();
+            // The head: the artwork is a full figure and a portrait wants the top of it.
+            var crop = new CroppedBitmap(image, new Int32Rect(
+                (int)(image.PixelWidth * 0.22), 0, (int)(image.PixelWidth * 0.56), (int)(image.PixelHeight * 0.42)));
+            PetAvatar.Source = crop;
+        }
+        catch (Exception)
+        {
+            // A portrait is decoration; a failure to load one must not stop the window.
+        }
+    }
+
+    /// <summary>
+    /// One row arriving: it slides in from the left and takes its body text a few frames
+    /// later, so a row assembles rather than arriving finished.
+    /// </summary>
+    private void RowLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement root || root.DataContext is not NotificationRow row) return;
+
+        // The transform is made here rather than declared in the template: a freezable in a
+        // template arrives frozen, and animating a frozen one throws — which is what happened
+        // the first time this ran, on every row of the real window. The offset is set first,
+        // so a row is already to the left when it starts arriving rather than jumping there.
+        var offset = new TranslateTransform(-46, 0);
+        root.RenderTransform = offset;
+
+        var delay = TimeSpan.FromMilliseconds(RowStep.TotalMilliseconds * row.Index);
+        offset.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, RowSlide)
+        {
+            BeginTime = delay,
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        });
+        root.BeginAnimation(OpacityProperty, new DoubleAnimation(1, RowFade) { BeginTime = delay });
+    }
+
+    /// <summary>Opens what an entry points at. Only https, and only through the shell.</summary>
+    private void RowActionClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string url } || url.Length == 0) return;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps) return;
+        try { Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true }); }
+        catch (Exception)
+        {
+            // Nothing to do about a shell that will not open a link; the address is on screen.
+        }
+    }
+
+    private void SectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (SectionList.SelectedItem is not NotificationSection section) return;
+        if (string.Equals(_filter, section.Key, StringComparison.Ordinal)) return;
+        _filter = section.Key;
+        Refresh(true);
+    }
+
+    /// <summary>
+    /// Takes over the pet's bubbles, or gives them back.
+    /// </summary>
+    /// <remarks>
+    /// The host decides whether to show its own bubble by looking for the presenter mutex,
+    /// so this switch is only a matter of holding it or letting it go — no message has to be
+    /// sent anywhere, and turning it off restores the host's own bubbles immediately.
+    /// </remarks>
+    private void TakeoverChanged(object sender, RoutedEventArgs e)
+    {
+        _takeover.Enabled = TakeoverSwitch.IsChecked == true;
+        Refresh(true);
+    }
+
+    /// <summary>Opens on a named section. Used by the screenshot mode, and by nothing else.</summary>
+    internal void ShowSection(string key)
+    {
+        _filter = key;
+        Refresh(true);
     }
 
     private void MinimizeClick(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -39,38 +156,101 @@ public partial class MainWindow : Window
 
     private void CloseClick(object sender, RoutedEventArgs e) => Hide();
 
-    private void FilterChecked(object sender, RoutedEventArgs e)
-    {
-        if (sender is RadioButton { Tag: string tag })
-        {
-            _filter = tag;
-            if (!IsLoaded) return;
-            Refresh(true);
-        }
-    }
-
     private void Refresh(bool force = true)
     {
         var all = _store.ReadAll();
         var liveState = NotificationLiveState.Read(_store.DirectoryPath);
         if (!string.IsNullOrWhiteSpace(liveState?.CoreVersion)) _coreVersion = liveState.CoreVersion;
         if (string.IsNullOrWhiteSpace(_coreVersion)) _coreVersion = ReadCoreVersion();
+        // The hover plates keep reading every kind of message: the list is what changed,
+        // not what the pet knows.
         _infoWindow.UpdateItems(CreateAroundPetItems(all, _coreVersion, liveState));
+
         var fingerprint = all.Count == 0 ? "empty" : $"{all.Count}:{all[0].EventId}:{_filter}";
         if (!force && string.Equals(fingerprint, _lastFingerprint, StringComparison.Ordinal)) return;
         _lastFingerprint = fingerprint;
-        var filtered = _filter == "all"
+
+        RebuildSections(all);
+        var filtered = string.Equals(_filter, "all", StringComparison.Ordinal)
             ? all
-            : all.Where(value => string.Equals(value.Category, _filter, StringComparison.OrdinalIgnoreCase)).ToArray();
+            : all.Where(value => string.Equals(SectionOf(value.Category), _filter, StringComparison.OrdinalIgnoreCase)).ToArray();
+
         _rows.Clear();
-        foreach (var row in filtered) _rows.Add(new NotificationRow(row));
-        SummaryText.Text = _filter == "all"
-            ? $"最近 {all.Count:N0} 条消息"
-            : $"{CategoryText(_filter)} · {filtered.Count:N0} 条消息";
+        for (var index = 0; index < filtered.Count; index++) _rows.Add(new NotificationRow(filtered[index], index));
+
+        var title = SectionName(_filter);
+        SectionTitle.Text = title;
+        SectionSubtitle.Text = filtered.Count == 0 ? "暂无内容" : $"共 {filtered.Count:N0} 条 · 由桌宠自动获取";
         EmptyState.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        EmptyText.Text = string.Equals(_filter, "notice", StringComparison.Ordinal)
+            ? "还没有更新记录。桌宠每次获取到新内容都会写在这里。"
+            : "这一类还没有内容。";
         EventsList.Visibility = _rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        StatusText.Text = "本地保存 · 自动随桌宠更新";
+        StatusText.Text = _takeover.Enabled
+            ? "本地保存 · 已接管气泡 · 关闭窗口后继续在后台"
+            : "本地保存 · 气泡仍由桌宠显示 · 关闭窗口后继续在后台";
     }
+
+    /// <summary>The sections, with the count each one currently holds.</summary>
+    private void RebuildSections(IReadOnlyList<NotificationEvent> all)
+    {
+        var desired = new (string Key, string Name)[]
+        {
+            ("notice", "更新记录"), ("system", "系统通知"), ("extension", "扩展"),
+            ("balance", "余额记录"), ("task", "任务"), ("account", "账户"), ("all", "全部消息")
+        };
+        var selected = _filter;
+        _sections.Clear();
+        foreach (var (key, name) in desired)
+        {
+            var count = string.Equals(key, "all", StringComparison.Ordinal)
+                ? all.Count
+                : all.Count(item => string.Equals(SectionOf(item.Category), key, StringComparison.OrdinalIgnoreCase));
+            // 全部消息 is always offered; a section with nothing in it is not, because a
+            // navigation rail full of empty rooms is worse than a short one.
+            // 更新记录 stays even when empty: it is what this window is for now, and a
+            // section that vanishes until the first entry arrives looks like a missing feature.
+            if (count == 0 && key is not ("all" or "notice")) continue;
+            _sections.Add(new NotificationSection(key, name, count));
+        }
+        if (_sections.All(section => !string.Equals(section.Key, selected, StringComparison.Ordinal)))
+        {
+            _filter = _sections.Count > 0 ? _sections[0].Key : "all";
+            selected = _filter;
+        }
+        SectionList.SelectedItem = _sections.FirstOrDefault(section => string.Equals(section.Key, selected, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Which section a category belongs to.
+    /// </summary>
+    /// <remarks>
+    /// Changelog entries have a section of their own; everything else is grouped the way the
+    /// messages already were. This is the mapping that makes the layout outlive a window
+    /// whose only content was the changelog.
+    /// </remarks>
+    private static string SectionOf(string category) => category.ToLowerInvariant() switch
+    {
+        "notice" => "notice",
+        "system" => "system",
+        "extension" => "extension",
+        "balance" => "balance",
+        "task" => "task",
+        "account" => "account",
+        _ => "system"
+    };
+
+    private static string SectionName(string key) => key switch
+    {
+        "notice" => "更新记录",
+        "system" => "系统通知",
+        "extension" => "扩展",
+        "balance" => "余额记录",
+        "task" => "任务",
+        "account" => "账户",
+        _ => "全部消息"
+    };
+
 
     private static IReadOnlyList<NotificationBubble> CreateAroundPetItems(
         IReadOnlyList<NotificationEvent> all,
@@ -268,25 +448,112 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
+    /// <summary>One section of the rail.</summary>
+    private sealed class NotificationSection(string key, string name, int count)
+    {
+        public string Key { get; } = key;
+        public string Name { get; } = name;
+        public string Count { get; } = count.ToString("N0");
+        public Visibility BadgeVisibility => count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Whether this extension is presenting the pet's bubbles, remembered between runs.
+    /// </summary>
+    /// <remarks>
+    /// Stored beside the extension rather than in the host's settings: it decides what the
+    /// extension does, and the host's own answer to "should I bubble" is unchanged — it
+    /// keeps looking for the presenter marker, which is what this setting holds or releases.
+    /// </remarks>
+    private sealed class TakeoverPreference
+    {
+        private readonly string _path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "BalancePet", "notification-center.json");
+
+        public TakeoverPreference()
+        {
+            try
+            {
+                if (!File.Exists(_path)) return;
+                using var document = JsonDocument.Parse(File.ReadAllText(_path));
+                if (document.RootElement.TryGetProperty("takeover", out var value)
+                    && value.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    Enabled = value.GetBoolean();
+            }
+            catch (Exception)
+            {
+                // An unreadable preference means the default, which is to take over.
+            }
+        }
+
+        private bool _enabled = true;
+        public bool Enabled
+        {
+            get => _enabled;
+            set
+            {
+                _enabled = value;
+                Save();
+            }
+        }
+
+        private void Save()
+        {
+            try
+            {
+                var directory = Path.GetDirectoryName(_path);
+                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+                File.WriteAllText(_path, JsonSerializer.Serialize(new { takeover = _enabled }));
+                PresenterMarker.Apply(_enabled);
+            }
+            catch (Exception)
+            {
+                // Remembering the choice matters less than acting on it.
+                PresenterMarker.Apply(_enabled);
+            }
+        }
+    }
+
+    /// <summary>The row as the list sees it.</summary>
     private sealed class NotificationRow
     {
         private readonly NotificationEvent _event;
-        public NotificationRow(NotificationEvent value) => _event = value;
+        public NotificationRow(NotificationEvent value, int index)
+        {
+            _event = value;
+            Index = index;
+        }
+
+        /// <summary>Position in the list, which is what staggers the arrival.</summary>
+        public int Index { get; }
         public string Title => string.IsNullOrWhiteSpace(_event.Title) ? "消息" : _event.Title;
         public string Amount => _event.Amount;
         public string Detail => _event.Detail;
-        public string CategoryText => MainWindow.CategoryText(_event.Category);
-        public string OccurredAtText => _event.OccurredAt.ToLocalTime().ToString("MM-dd HH:mm:ss");
+        public string Url => _event.Url ?? "";
+        public string CategoryText => MainWindow.SectionName(MainWindow.SectionOf(_event.Category));
+        public string OccurredAtText => _event.OccurredAt.ToLocalTime().ToString("MM-dd HH:mm");
         public Brush CategoryBrush => _event.Category switch
         {
-            "balance" => Brush("#078C82"),
+            "balance" or "notice" => Brush("#078C82"),
             "refresh" => Brush("#344F91"),
             "task" => Brush("#8A5CC7"),
             "account" => Brush("#D38A1A"),
             "system" => Brush("#71809D"),
             _ => Brush("#C43B52")
         };
-        public Visibility AmountVisibility => string.IsNullOrWhiteSpace(Amount) ? Visibility.Collapsed : Visibility.Visible;
+        public Brush CategorySoftBrush => _event.Category switch
+        {
+            "balance" or "notice" => Brush("#1A078C82"),
+            "refresh" => Brush("#1A344F91"),
+            "task" => Brush("#1A8A5CC7"),
+            "account" => Brush("#1AD38A1A"),
+            "system" => Brush("#1A71809D"),
+            _ => Brush("#1AC43B52")
+        };
+        public Visibility ActionVisibility => Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         private static Brush Brush(string value) => (Brush)new BrushConverter().ConvertFromString(value)!;
     }

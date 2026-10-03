@@ -5,9 +5,7 @@ namespace BalancePet.NotificationCenter;
 
 public partial class App : Application
 {
-    private const string PresenterMutexName = @"Local\BalancePet.NotificationPresenter.v1";
     private const string ShowPanelEventName = @"Local\BalancePet.NotificationCenter.ShowPanel.v1";
-    private Mutex? _presentationMutex;
     private EventWaitHandle? _showPanelEvent;
     private CancellationTokenSource? _showPanelCancellation;
 
@@ -29,6 +27,56 @@ public partial class App : Application
         }
 
         // A sketch of this window, redrawn in the plates' language, for review.
+        // The real window, rendered off-screen for review. Not a sketch: this is the actual
+        // window object, so what it shows is what it will show.
+        if (ValueAfter(e.Args, "--shot") is { Length: > 0 } shotPath)
+        {
+            var shotWindow = new MainWindow();
+            if (ValueAfter(e.Args, "--section") is { Length: > 0 } shotSection) shotWindow.ShowSection(shotSection);
+            // Shown outside the visible desktop so it is laid out and painted without
+            // appearing over whatever the user is doing.
+            shotWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+            shotWindow.Left = -32000;
+            shotWindow.Top = -32000;
+            shotWindow.Show();
+            shotWindow.UpdateLayout();
+            // Let the rows finish arriving before the picture is taken: their entrance is
+            // staggered, and a capture at layout time shows a window of invisible rows.
+            var settle = new System.Windows.Threading.DispatcherFrame();
+            var settleTimer = new System.Windows.Threading.DispatcherTimer(
+                TimeSpan.FromMilliseconds(900), System.Windows.Threading.DispatcherPriority.Background,
+                (_, _) => settle.Continue = false, System.Windows.Threading.Dispatcher.CurrentDispatcher);
+            settleTimer.Start();
+            System.Windows.Threading.Dispatcher.PushFrame(settle);
+            settleTimer.Stop();
+            var shotWidth = (int)Math.Ceiling(shotWindow.ActualWidth);
+            var shotHeight = (int)Math.Ceiling(shotWindow.ActualHeight);
+            var shot = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                shotWidth, shotHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            shot.Render(shotWindow);
+            var shotEncoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            shotEncoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(shot));
+            using (var shotStream = System.IO.File.Create(shotPath)) shotEncoder.Save(shotStream);
+            Console.WriteLine($"窗口实拍已写出 {shotPath}  {shotWidth}×{shotHeight}");
+            Shutdown(0);
+            return;
+        }
+
+        // Three ways the hover plates could arrive, as frames: the difference is entirely in
+        // the timing, so stills cannot answer it.
+        if (ValueAfter(e.Args, "--enter") is { Length: > 0 } entranceDirectory)
+        {
+            var entranceFrames = int.TryParse(ValueAfter(e.Args, "--frames"), out var parsedEntranceFrames) ? parsedEntranceFrames : 20;
+            Shutdown(EntranceSketches.Render(
+                entranceDirectory,
+                ValueAfter(e.Args, "--style") ?? "breathe",
+                entranceFrames,
+                ValueAfter(e.Args, "--pet") ?? "center",
+                ValueAfter(e.Args, "--pet-image"),
+                string.Equals(ValueAfter(e.Args, "--plate"), "dark", StringComparison.OrdinalIgnoreCase)));
+            return;
+        }
+
         // The entrance as frames: the rows arrive one after another from the left, and that
         // is a question about timing rather than about layout.
         if (ValueAfter(e.Args, "--panel-anim") is { Length: > 0 } panelAnimation)
@@ -96,6 +144,7 @@ public partial class App : Application
         }
         StopOlderInstances();
         base.OnStartup(e);
+        PresenterMarker.Apply(ReadTakeover());
         var window = new MainWindow();
         MainWindow = window;
         // Both of these create named objects, and both can be refused: an instance started
@@ -111,8 +160,12 @@ public partial class App : Application
         try
         {
             StartPanelListener(window);
-            // Publish takeover only after the event store and bubble listener are ready.
-            _presentationMutex = new Mutex(false, PresenterMutexName);
+            // Publish takeover only after the event store and bubble listener are ready, and
+            // honour the switch: the marker is what the host looks for, so holding it is the
+            // whole of the mechanism. A refusal is reported by PresenterMarker and is not a
+            // reason to stop.
+            // The marker follows the remembered preference, applied above before the window
+            // was built; nothing is forced here.
         }
         catch (Exception error) when (error is UnauthorizedAccessException or WaitHandleCannotBeOpenedException
             or System.IO.IOException or NotSupportedException or System.Security.SecurityException)
@@ -143,6 +196,21 @@ public partial class App : Application
         }
     }
 
+    /// <summary>The remembered choice, so the marker is held before the window opens.</summary>
+    private static bool ReadTakeover()
+    {
+        try
+        {
+            var path = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "BalancePet", "notification-center.json");
+            if (!System.IO.File.Exists(path)) return true;
+            using var document = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText(path));
+            return !document.RootElement.TryGetProperty("takeover", out var value) || value.GetBoolean();
+        }
+        catch (Exception) { return true; }
+    }
+
     /// <summary>The argument after a named switch, or null when the switch is absent.</summary>
     private static string? ValueAfter(string[] args, string name)
     {
@@ -158,8 +226,7 @@ public partial class App : Application
         _showPanelCancellation = null;
         _showPanelEvent?.Dispose();
         _showPanelEvent = null;
-        _presentationMutex?.Dispose();
-        _presentationMutex = null;
+        PresenterMarker.Release();
         base.OnExit(e);
     }
 

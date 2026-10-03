@@ -227,24 +227,28 @@ internal static class PreviewRenderer
     /// The artwork of the appearance the program is currently set to, so the review shows
     /// the ring beside the pet it will actually appear beside.
     /// </summary>
+    /// <summary>
+    /// The artwork of an appearance that is actually installed, for the window's portrait.
+    /// </summary>
+    /// <remarks>
+    /// Found by looking, rather than by reading which appearance is selected: the core's
+    /// settings file does not expose a key this extension can rely on, and a guess at one
+    /// would break silently. The newest installed package is the best available answer, and
+    /// for a thirty-pixel portrait it is a good enough one. Null when nothing is installed,
+    /// which the caller treats as "no portrait" rather than as an error.
+    /// </remarks>
     internal static string? FindInstalledPetArtwork()
     {
         try
         {
-            var root = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BalancePet");
-            var style = "deepseek";
-            var settingsPath = Path.Combine(root, "settings.json");
-            if (File.Exists(settingsPath))
-            {
-                using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(settingsPath));
-                if (document.RootElement.TryGetProperty("pet_style", out var value) && value.GetString() is { Length: > 0 } named)
-                    style = named;
-            }
-
-            var installed = Path.Combine(root, "extensions", $"pet.{style}", "idle.png");
-            if (File.Exists(installed)) return installed;
-            return null;
+            var extensions = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "BalancePet", "extensions");
+            if (!Directory.Exists(extensions)) return null;
+            return Directory.EnumerateFiles(extensions, "idle.png", SearchOption.AllDirectories)
+                .Where(path => path.Contains($"{Path.DirectorySeparatorChar}assets{Path.DirectorySeparatorChar}pets{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(File.GetLastWriteTimeUtc)
+                .FirstOrDefault();
         }
         catch (Exception)
         {
