@@ -7,11 +7,20 @@ using System.Windows.Media.Effects;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using Ellipse = System.Windows.Shapes.Ellipse;
 using System.Windows.Threading;
 
 namespace BalancePet.NotificationCenter;
 
-public sealed record NotificationBubble(string Text, string Detail, string Kind);
+/// <summary>
+/// One thing the ring has to say.
+/// </summary>
+/// <param name="Short">
+/// The value alone, for when the items gather into a caption row. A plate 450 pixels wide has
+/// no room for "当前登录方式 · 官方登录" four times over, and a row of values is what a caption
+/// is; the sentence belongs to the orbit, where each item has room to be one.
+/// </param>
+public sealed record NotificationBubble(string Text, string Detail, string Kind, string Short = "");
 
 public partial class BubbleWindow : Window
 {
@@ -39,6 +48,10 @@ public partial class BubbleWindow : Window
     private string? _coreSettingsPath;
     private DateTime _coreSettingsWriteUtc = DateTime.MinValue;
     private PetPlacement _cachedPetPlacement = new(false, 1);
+    private Border? _mergedPlate;
+    private double _mergeProgress;
+    private bool _mergeDark;
+    private Ellipse? _wave;
 
     public BubbleWindow()
     {
@@ -149,25 +162,43 @@ public partial class BubbleWindow : Window
 
     private FrameworkElement CreateInfoItem(NotificationBubble item)
     {
-        var root = new Grid { Width = InfoWidth, Height = InfoHeight, Opacity = 0, RenderTransform = new TranslateTransform(0, 8),
-            Effect = new DropShadowEffect { Color = (Color)ColorConverter.ConvertFromString("#66000000")!, BlurRadius = 3, ShadowDepth = 1, Opacity = 0.7 } };
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        // The plate is a sibling of the text, not its parent. Nesting the text inside the
+        // plate and fading the plate hides the text with it — which is what the first version
+        // of this did, and why every item vanished the moment the values gathered.
+        var root = new Border { Width = InfoWidth, Height = InfoHeight };
+        var layers = new Grid();
+        var plate = new Border
+        {
+            CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1),
+            Effect = new DropShadowEffect { Color = (Color)ColorConverter.ConvertFromString("#66000000")!, BlurRadius = 3, ShadowDepth = 1, Opacity = 0.7 }
+        };
+        var content = new Grid { Margin = new Thickness(12, 5, 12, 6) };
+        layers.Children.Add(plate);
+        layers.Children.Add(content);
+        root.Child = layers;
+        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        // The accent as a dot beside the title rather than a rule beneath it: it marks the
+        // kind without asking to be read as an underline, and it leaves the item short enough
+        // to sit inside the slot the layout was built around.
+        var dot = new Border { Width = 6, Height = 6, CornerRadius = new CornerRadius(3), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
         var primary = new TextBlock { Text = item.Text, Foreground = (Brush)Resources["InfoTextBrush"], FontSize = 13,
-            FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = InfoWidth };
-        root.Children.Add(primary);
+            FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = InfoWidth - 34 };
+        var title = new StackPanel { Orientation = Orientation.Horizontal };
+        title.Children.Add(dot);
+        title.Children.Add(primary);
+        content.Children.Add(title);
+
         TextBlock? detail = null;
         if (!string.IsNullOrWhiteSpace(item.Detail))
         {
             detail = new TextBlock { Text = item.Detail, Foreground = (Brush)Resources["InfoMutedBrush"], FontSize = 10.5,
-                TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = InfoWidth, Margin = new Thickness(0, 3, 0, 0) };
-            Grid.SetRow(detail, 1); root.Children.Add(detail);
+                TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = InfoWidth - 24, Margin = new Thickness(14, 3, 0, 0) };
+            Grid.SetRow(detail, 1); content.Children.Add(detail);
         }
-        var underline = new Border { Height = 2, Width = 146, CornerRadius = new CornerRadius(1), Background = AccentFor(item.Kind),
-            HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 4, 0, 0) };
-        Grid.SetRow(underline, 2); root.Children.Add(underline);
-        _visuals.Add(new InfoVisual(root, primary, detail, underline, item.Kind));
+        _visuals.Add(new InfoVisual(root, plate, primary, detail, dot, item.Kind,
+            string.IsNullOrWhiteSpace(item.Short) ? item.Text : item.Short));
         return root;
     }
 
@@ -213,7 +244,100 @@ public partial class BubbleWindow : Window
         _lastLayoutPetBounds = petBounds;
         _lastLayoutWorkArea = workArea;
         _hasPositionedItems = true;
+        GatherIfTheOrbitIsLost(petBounds, workArea, slots);
     }
+
+    /// <summary>
+    /// Moves the items between the two arrangements, by however much the orbit has been lost.
+    /// </summary>
+    /// <remarks>
+    /// Called on every tick rather than animated, because this is what follows a drag: the pet
+    /// moves a pixel, the measure changes a little, and the items move a little with it. An
+    /// animation here would still be running when the next tick arrived, and the two would
+    /// fight over the same position.
+    ///
+    /// The items keep their text the whole way and only trade their own plates for a shared
+    /// one. That is what makes it read as gathering rather than as one picture being replaced
+    /// by another: every value stays legible, and the detail line — which has no room in a
+    /// caption row — fades as the row closes up.
+    /// </remarks>
+    private void GatherIfTheOrbitIsLost(Rect petBounds, Rect workArea, IReadOnlyList<Rect> slots)
+    {
+        if (_visuals.Count == 0 || slots.Count < _visuals.Count) return;
+
+        var progress = RingLayout.MergeProgress(petBounds, workArea, slots);
+        _mergeProgress = progress;
+
+        // Measured from the text, so the gathered row is as wide as what it has to say rather
+        // than as wide as the slots happened to be.
+        // The gathered row shows values, not sentences: a caption has no room for prose, and
+        // four sentences side by side need a plate twice as wide as the pet. Each item swaps
+        // its text at the halfway point of the gathering, when the sentence has stopped being
+        // readable at that width anyway.
+        var gathered = progress > 0.5;
+        var widths = _visuals
+            .Select(visual => Math.Max(52, Measure(visual, gathered) + 20))
+            .ToArray();
+        var plateWidth = widths.Sum() + 24 * (widths.Length - 1) + 32;
+        var plate = RingLayout.MergedPlate(petBounds, workArea, plateWidth);
+
+        _mergedPlate ??= new Border
+        {
+            CornerRadius = new CornerRadius(13), BorderThickness = new Thickness(1), Opacity = 0
+        };
+        if (!BehindCanvas.Children.Contains(_mergedPlate)) BehindCanvas.Children.Add(_mergedPlate);
+        _mergedPlate.Width = plate.Width;
+        _mergedPlate.Height = plate.Height;
+        Canvas.SetLeft(_mergedPlate, plate.Left - workArea.Left);
+        Canvas.SetTop(_mergedPlate, plate.Top - workArea.Top);
+        // The plate arrives during the last part of the gathering, not from the first pixel of
+        // it: a wide, half-transparent band appearing behind a pet whose values are still
+        // scattered reads as a glitch rather than as something closing up.
+        _mergedPlate.Opacity = Math.Clamp((progress - 0.45) / 0.55, 0, 1);
+        // The shared plate takes the finish of whatever the items had, so the row does not
+        // change colour as it gathers.
+        _mergedPlate.Background = Brush(_mergeDark ? "#EE141C26" : "#F5FFFFFF");
+        _mergedPlate.BorderBrush = Brush(_mergeDark ? "#33FFFFFF" : "#220F172A");
+
+        for (var index = 0; index < _visuals.Count; index++)
+        {
+            var visual = _visuals[index];
+            var slot = slots[index];
+            var orbiting = new Rect(
+                slot.Left + (slot.Width - InfoWidth) / 2, slot.Top + (slot.Height - InfoHeight) / 2,
+                InfoWidth, InfoHeight);
+            var segment = RingLayout.SegmentInPlate(plate, widths, index);
+            var target = Interpolate(orbiting, segment, progress);
+
+            var wanted = gathered ? visual.Short : null;
+            if (wanted is not null && !string.Equals(visual.Primary.Text, wanted, StringComparison.Ordinal)) visual.Primary.Text = wanted;
+            visual.Root.Width = target.Width;
+            Canvas.SetLeft(visual.Root, target.Left - workArea.Left);
+            Canvas.SetTop(visual.Root, target.Top - workArea.Top);
+            // The item's own plate dissolves into the shared one; the text does not.
+            visual.Plate.Opacity = 1 - progress;
+            if (visual.Detail is not null) visual.Detail.Opacity = 1 - progress;
+        }
+    }
+
+    /// <summary>
+    /// How wide an item wants to be. Measured when the layout has run, estimated from the
+    /// character count when it has not — the previews lay items out before anything has been
+    /// arranged, and a width of zero there would collapse the whole row.
+    /// </summary>
+    private static double Measure(InfoVisual visual, bool gathered)
+    {
+        var text = gathered ? visual.Short : visual.Primary.Text;
+        return visual.Primary.ActualWidth > 1 && !gathered
+            ? visual.Primary.ActualWidth
+            : text.Sum(character => character > 0x2E80 ? 13.5 : 7.2) + 14;
+    }
+
+    private static Rect Interpolate(Rect from, Rect to, double amount) => new(
+        from.Left + (to.Left - from.Left) * amount,
+        from.Top + (to.Top - from.Top) * amount,
+        from.Width + (to.Width - from.Width) * amount,
+        from.Height + (to.Height - from.Height) * amount);
 
     /// <summary>
     /// Where the items go around the pet: a ring in open space, a fan towards the screen's
@@ -457,25 +581,94 @@ public partial class BubbleWindow : Window
         return first.IntersectsWith(second);
     }
 
+    /// <summary>
+    /// Brings the items in behind a wave that leaves the pet.
+    /// </summary>
+    /// <remarks>
+    /// Each item wakes when the wave reaches it rather than on a fixed schedule, so the order
+    /// is the order of the scene rather than the order of a list — and the ring says that what
+    /// appeared came from the pet, which a fade cannot say. A fixed stagger looked almost the
+    /// same in a still and quite different in motion: it reads as four things taking turns,
+    /// where this reads as one thing spreading.
+    /// </remarks>
     private async Task AnimateInAsync(CancellationToken cancellation)
     {
-        try { foreach (FrameworkElement item in InfoCanvas.Children) { Animate(item, 0, 1, 8, 0, EasingMode.EaseOut); await Task.Delay(StaggerMs, cancellation); } }
+        try
+        {
+            var centre = new Point(ActualWidth / 2, ActualHeight / 2);
+            if (TryGetPetBounds(out var petBounds, out _, out var workArea))
+                centre = new Point(
+                    petBounds.Left + petBounds.Width / 2 - workArea.Left,
+                    petBounds.Top + petBounds.Height / 2 - workArea.Top);
+
+            var elements = InfoCanvas.Children.OfType<FrameworkElement>().ToArray();
+            var distances = elements.Select(item => CentreDistance(item, centre)).ToArray();
+            var farthest = distances.Length == 0 ? 1 : Math.Max(1, distances.Max());
+            StartWave(centre, farthest);
+
+            for (var index = 0; index < elements.Length; index++)
+            {
+                var delay = (int)Math.Round(340 * distances[index] / farthest);
+                Animate(elements[index], 0, 1, 6, 0, EasingMode.EaseOut, delay);
+            }
+            await Task.Delay(560, cancellation);
+        }
         catch (OperationCanceledException) { }
     }
+
+    /// <summary>One ring leaving the pet, fading as it goes.</summary>
+    private void StartWave(Point centre, double farthest)
+    {
+        var diameter = (farthest + 70) * 2;
+        _wave = new Ellipse
+        {
+            Width = diameter,
+            Height = diameter,
+            StrokeThickness = 2,
+            Stroke = AccentFor("balance"),
+            Opacity = 0,
+            RenderTransformOrigin = new Point(0.5, 0.5),
+            RenderTransform = new ScaleTransform(0, 0)
+        };
+        Canvas.SetLeft(_wave, centre.X - diameter / 2);
+        Canvas.SetTop(_wave, centre.Y - diameter / 2);
+        BehindCanvas.Children.Add(_wave);
+
+        var grow = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(540)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+        var fade = new DoubleAnimation(0.55, 0, TimeSpan.FromMilliseconds(540)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+        if (_wave.RenderTransform is ScaleTransform transform)
+        {
+            transform.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
+            transform.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
+        }
+        _wave.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private static double CentreDistance(FrameworkElement element, Point centre)
+        => Math.Sqrt(
+            Math.Pow(Canvas.GetLeft(element) + element.ActualWidth / 2 - centre.X, 2)
+            + Math.Pow(Canvas.GetTop(element) + element.ActualHeight / 2 - centre.Y, 2));
 
     private async Task AnimateOutAsync(CancellationToken cancellation)
     {
         try { foreach (FrameworkElement item in InfoCanvas.Children) { Animate(item, item.Opacity, 0, 0, -6, EasingMode.EaseIn); await Task.Delay(StaggerMs, cancellation); }
-            await Task.Delay(TransitionMs, cancellation); if (!_requestedVisible) Hide(); }
+            await Task.Delay(TransitionMs, cancellation);
+            if (!_requestedVisible)
+            {
+                Hide();
+                if (_wave is not null) { BehindCanvas.Children.Remove(_wave); _wave = null; }
+                if (_mergedPlate is not null) _mergedPlate.Opacity = 0;
+            } }
         catch (OperationCanceledException) { }
     }
 
-    private static void Animate(FrameworkElement item, double fromOpacity, double toOpacity, double fromY, double toY, EasingMode mode)
+    private static void Animate(FrameworkElement item, double fromOpacity, double toOpacity, double fromY, double toY, EasingMode mode, int delayMs = 0)
     {
         var easing = new CubicEase { EasingMode = mode };
-        item.BeginAnimation(OpacityProperty, new DoubleAnimation(fromOpacity, toOpacity, TimeSpan.FromMilliseconds(TransitionMs)) { EasingFunction = easing });
+        var begin = TimeSpan.FromMilliseconds(delayMs);
+        item.BeginAnimation(OpacityProperty, new DoubleAnimation(fromOpacity, toOpacity, TimeSpan.FromMilliseconds(TransitionMs)) { EasingFunction = easing, BeginTime = begin });
         if (item.RenderTransform is TranslateTransform translate) translate.BeginAnimation(TranslateTransform.YProperty,
-            new DoubleAnimation(fromY, toY, TimeSpan.FromMilliseconds(TransitionMs)) { EasingFunction = easing });
+            new DoubleAnimation(fromY, toY, TimeSpan.FromMilliseconds(TransitionMs)) { EasingFunction = easing, BeginTime = begin });
     }
 
     private Brush AccentFor(string kind) => kind switch
@@ -513,8 +706,15 @@ public partial class BubbleWindow : Window
                 visual.Primary.Foreground = Brush(useLightText ? "#F7FAFF" : "#111827");
                 if (visual.Detail is not null)
                     visual.Detail.Foreground = Brush(useLightText ? "#DCE6F5" : "#334155");
-                visual.Underline.Background = AdaptiveAccent(visual.Kind, useLightText);
-                visual.Root.Effect = new DropShadowEffect
+                visual.Accent.Background = AdaptiveAccent(visual.Kind, useLightText);
+                // The plate, chosen from the same measurement as the text: a surface that
+                // carries its own contrast cannot be defeated by whatever is behind it.
+                // While the items are gathered, the shared plate takes its finish from the
+                // same measurement, so the row does not change colour as it closes up.
+                if (_mergeProgress > 0.5) _mergeDark = useLightText;
+                visual.Plate.Background = Brush(useLightText ? "#E6141C26" : "#F2FFFFFF");
+                visual.Plate.BorderBrush = Brush(useLightText ? "#33FFFFFF" : "#220F172A");
+                visual.Plate.Effect = new DropShadowEffect
                 {
                     Color = (Color)ColorConverter.ConvertFromString(useLightText ? "#E6000000" : "#CCFFFFFF")!,
                     BlurRadius = 2.2,
@@ -642,7 +842,7 @@ public partial class BubbleWindow : Window
     private void EnableMousePassthrough() { var handle = new WindowInteropHelper(this).Handle; var style = GetWindowLongPtr(handle, GwlExStyle).ToInt64(); SetWindowLongPtr(handle, GwlExStyle, new IntPtr(style | WsExTransparent | WsExToolWindow | WsExNoActivate)); }
     protected override void OnClosed(EventArgs e) { _animationCancellation?.Cancel(); _animationCancellation?.Dispose(); _triggerTimer.Stop(); base.OnClosed(e); }
 
-    private sealed record InfoVisual(Grid Root, TextBlock Primary, TextBlock? Detail, Border Underline, string Kind);
+    private sealed record InfoVisual(Border Root, Border Plate, TextBlock Primary, TextBlock? Detail, Border Accent, string Kind, string Short);
     private sealed record OrbitCandidate(Rect Rect, double Angle, double Scale);
     private sealed record OrbitState(Rect[] Slots, double Score);
     private sealed record PetPlacement(bool Flipped, double Scale);

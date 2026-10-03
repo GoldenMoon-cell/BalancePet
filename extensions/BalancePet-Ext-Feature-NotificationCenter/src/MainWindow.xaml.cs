@@ -278,7 +278,7 @@ public partial class MainWindow : Window
         {
             var mode = string.IsNullOrWhiteSpace(liveState.LoginMode) ? "未登录" : liveState.LoginMode;
             var detail = string.IsNullOrWhiteSpace(liveState.LoginDetail) ? "等待账户切换" : liveState.LoginDetail;
-            items.Add(new NotificationBubble($"当前登录方式 · {mode}", detail, "account"));
+            items.Add(new NotificationBubble($"当前登录方式 · {mode}", detail, "account", mode));
         }
         else
         {
@@ -289,7 +289,7 @@ public partial class MainWindow : Window
                     || login.Detail.StartsWith("官方 API", StringComparison.OrdinalIgnoreCase);
                 var detail = string.Join(" · ", new[] { login.Title, login.Amount }
                     .Where(value => !string.IsNullOrWhiteSpace(value) && !string.Equals(value.Trim(), "--", StringComparison.Ordinal)));
-                items.Add(new NotificationBubble($"当前登录方式 · {(official ? "官方登录" : "CC Switch")}", detail, "account"));
+                items.Add(new NotificationBubble($"当前登录方式 · {(official ? "官方登录" : "CC Switch")}", detail, "account", official ? "官方登录" : "CC Switch"));
             }
         }
 
@@ -299,7 +299,7 @@ public partial class MainWindow : Window
             var detail = liveState.TaskActive
                 ? liveState.TaskCount > 1 ? $"{liveState.TaskCount} 个任务" : "正在处理"
                 : "当前没有正在处理的任务";
-            items.Add(new NotificationBubble($"{provider} {(liveState.TaskActive ? "工作中" : "已停止")}", detail, "task"));
+            items.Add(new NotificationBubble($"{provider} {(liveState.TaskActive ? "工作中" : "已停止")}", detail, "task", liveState.TaskActive ? "工作中" : "已停止"));
         }
         else
         {
@@ -310,7 +310,7 @@ public partial class MainWindow : Window
         }
 
         if (!string.IsNullOrWhiteSpace(coreVersion))
-            items.Add(new NotificationBubble($"当前版本 · {coreVersion}", "BalancePet", "system"));
+            items.Add(new NotificationBubble($"当前版本 · {coreVersion}", "BalancePet", "system", $"v{coreVersion}"));
         return items;
     }
 
@@ -336,7 +336,7 @@ public partial class MainWindow : Window
 
         return string.IsNullOrWhiteSpace(primary)
             ? null
-            : new NotificationBubble(primary, detail, "balance");
+            : new NotificationBubble(primary, detail, "balance", current?.Amount ?? "");
     }
 
     private static NotificationBubble? CreateLiveBalanceBubble(NotificationLiveState state)
@@ -347,7 +347,7 @@ public partial class MainWindow : Window
         var detail = state.HasSpent
             ? $"本次消耗 {(state.Spent!.Value > 0 ? "-" : "")}{Math.Abs(state.Spent.Value):0.00} {(string.IsNullOrWhiteSpace(state.SpentCurrency) ? currency : state.SpentCurrency)}"
             : "等待下一次余额刷新";
-        return new NotificationBubble(primary, detail, "balance");
+        return new NotificationBubble(primary, detail, "balance", state.Balance is { } value ? $"{value:0.00}" : "");
     }
 
     private static NotificationBubble ToBubble(NotificationEvent item, string kind)

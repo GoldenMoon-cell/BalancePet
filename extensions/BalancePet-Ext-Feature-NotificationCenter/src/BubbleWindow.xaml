@@ -5,5 +5,11 @@
         ShowInTaskbar="False" ShowActivated="False" Topmost="True"
         Background="Transparent" IsHitTestVisible="False" Focusable="False"
         FontFamily="{DynamicResource UiFontFamily}" UseLayoutRounding="True">
-  <Canvas x:Name="InfoCanvas" />
+  <!-- Two layers: what sits behind the items, and the items themselves. The plate the values
+       gather into and the ring that wakes them both belong behind, and neither may be counted
+       as an item: the slot algorithm counts the children of the layer the items are in. -->
+  <Grid>
+    <Canvas x:Name="BehindCanvas" IsHitTestVisible="False" />
+    <Canvas x:Name="InfoCanvas" />
+  </Grid>
 </Window>

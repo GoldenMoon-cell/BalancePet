@@ -54,17 +54,24 @@ internal static class PreviewRenderer
         ring.BackdropLuminance = element => LuminanceBehind(backdrop, ring, element);
         ring.PreviewLayout(pet, workArea);
 
+        // Both layers: the plate the values gather into and the wave that wakes them live
+        // behind the items, and rendering only the items' layer is how the first preview came
+        // out with no plate under the gathered row.
         var overlay = new RenderTargetBitmap(
             (int)Math.Round(workArea.Width), (int)Math.Round(workArea.Height), 96, 96, PixelFormats.Pbgra32);
-        ring.InfoCanvas.Measure(new Size(workArea.Width, workArea.Height));
-        ring.InfoCanvas.Arrange(new Rect(0, 0, workArea.Width, workArea.Height));
-        ring.InfoCanvas.UpdateLayout();
+        foreach (var layer in new FrameworkElement[] { ring.BehindCanvas, ring.InfoCanvas })
+        {
+            layer.Measure(new Size(workArea.Width, workArea.Height));
+            layer.Arrange(new Rect(0, 0, workArea.Width, workArea.Height));
+            layer.UpdateLayout();
+        }
+        overlay.Render(ring.BehindCanvas);
         overlay.Render(ring.InfoCanvas);
 
         // A window around the pet and its ring, not the whole desktop: the point is to look
         // at the ring, and a 2048-pixel-wide picture of mostly wallpaper is not a review.
         var region = Rect.Intersect(
-            Rect.Union(pet, new Rect(pet.Left - 620, pet.Top - 430, pet.Width + 1240, pet.Height + 860)),
+            Rect.Union(pet, new Rect(pet.Left - 820, pet.Top - 420, pet.Width + 1560, pet.Height + 840)),
             workArea);
 
         var composed = new RenderTargetBitmap(
@@ -150,6 +157,12 @@ internal static class PreviewRenderer
                 workArea.Top + (workArea.Height - PetSurfaceSize) / 2,
                 PetSurfaceSize, PetSurfaceSize),
             "top-left" => new Rect(workArea.Left + margin, workArea.Top + margin, PetSurfaceSize, PetSurfaceSize),
+            // Against the right edge but not in a corner: the case where the orbit is only
+            // partly lost, which is the state a drag passes through.
+            "edge" => new Rect(
+                workArea.Right - PetSurfaceSize - margin,
+                workArea.Top + (workArea.Height - PetSurfaceSize) / 2,
+                PetSurfaceSize, PetSurfaceSize),
             // The usual place for a desktop pet, and the case the ring's corner fan exists
             // for: bottom right, with the taskbar below it.
             _ => new Rect(
