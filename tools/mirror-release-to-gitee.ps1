@@ -29,6 +29,11 @@ param(
     # assets are 119 MB and a free repository holds about a gigabyte: eight releases and
     # the quota is gone. Only the newest version is ever downloaded.
     [switch] $KeepOld,
+    # Which of the two assets to mirror. The installer alone is 49 MB against 120 MB for
+    # both, which is the lever to pull if the quota ever gets close — the cost is the
+    # portable archive coming from GitHub, slowly but with resume.
+    [ValidateSet('Both', 'Setup', 'Archive')]
+    [string] $Assets = 'Both',
     [switch] $DryRun
 )
 
@@ -45,10 +50,11 @@ $token = (Get-Content -LiteralPath $TokenPath -Raw).Trim()
 if ($token.Length -eq 0) { throw "令牌文件是空的：$TokenPath" }
 
 $version = $Tag.TrimStart('v', 'V')
-$wanted = @(
-    "BalancePet-$version-Setup.exe",
-    "BalancePet-$version-win-x64.zip"
-)
+$wanted = switch ($Assets) {
+    'Setup'   { @("BalancePet-$version-Setup.exe") }
+    'Archive' { @("BalancePet-$version-win-x64.zip") }
+    default   { @("BalancePet-$version-Setup.exe", "BalancePet-$version-win-x64.zip") }
+}
 
 # ---------------------------------------------------------------- the assets
 
@@ -62,11 +68,11 @@ foreach ($name in $wanted) {
     gh release download $Tag --repo "$Owner/BalancePet" --pattern $name --dir $AssetsDirectory --clobber
     if (-not (Test-Path $path)) { throw "取不到 $name" }
 }
-$assets = $wanted | ForEach-Object {
+$assetFiles = $wanted | ForEach-Object {
     $path = Join-Path $AssetsDirectory $_
     [pscustomobject]@{ Name = $_; Path = $path; Bytes = (Get-Item $path).Length }
 }
-foreach ($asset in $assets) {
+foreach ($asset in $assetFiles) {
     Write-Host ("  {0,-34} {1,8:N1} MB" -f $asset.Name, ($asset.Bytes / 1MB))
 }
 
@@ -146,13 +152,17 @@ function Send-Attachment {
     }
 }
 
-$existing = @()
+$existing = $null
 if ($release) {
-    try { $existing = @(Invoke-Gitee GET "$api/releases/$($release.id)/attach_files") } catch { $existing = @() }
+    try { $existing = Invoke-Gitee GET "$api/releases/$($release.id)/attach_files" } catch { $existing = $null }
 }
 
-foreach ($asset in $assets) {
-    $same = $existing | Where-Object { $_.name -eq $asset.Name }
+foreach ($asset in $assetFiles) {
+    # Piped rather than walked. This endpoint answers with an array, and PowerShell hands
+    # that back as a single object: @() around it produces one element that holds the array,
+    # and a foreach over that looks at the collection instead of at its members. The
+    # pipeline unrolls one level, which is what makes this comparison work.
+    $same = @($existing | Where-Object { $_.name -eq $asset.Name })
     if ($same) {
         if ($DryRun) { Write-Host "[dry-run] 会先删掉同名旧附件 $($asset.Name)"; continue }
         foreach ($old in $same) {
@@ -167,18 +177,41 @@ foreach ($asset in $assets) {
 
 # ---------------------------------------------------------------- old releases
 
+$attachmentCeiling = 1GB   # Gitee 社区版：单仓库附件总容量 1 GB，单文件 100 MB
 if (-not $KeepOld) {
-    $all = @(Invoke-Gitee GET "$api/releases?per_page=100")
+    # No @() here either, and this one matters: the reclaim is the only thing standing
+    # between the mirror and a full quota, and wrapping the array would have left it
+    # walking a one-element list that contains every release.
+    $all = Invoke-Gitee GET "$api/releases?per_page=100"
     foreach ($old in $all) {
         if ($old.tag_name -eq $Tag) { continue }
-        $attachments = @()
-        try { $attachments = @(Invoke-Gitee GET "$api/releases/$($old.id)/attach_files") } catch { }
+        $attachments = $null
+        try { $attachments = Invoke-Gitee GET "$api/releases/$($old.id)/attach_files" } catch { }
         foreach ($attachment in $attachments) {
             if ($DryRun) { Write-Host "[dry-run] 会回收 $($old.tag_name) 的附件 $($attachment.name)"; continue }
             Invoke-Gitee DELETE "$api/releases/$($old.id)/attach_files/$($attachment.id)" | Out-Null
             Write-Host "  回收旧版本附件 $($old.tag_name) / $($attachment.name)"
         }
     }
+}
+
+# ---------------------------------------------------------------- how full it is
+
+# Said out loud on every publish because the ceiling is the one thing that would make a
+# later release fail to mirror, and because the number is small and reassuring when the
+# pruning is working: one version is about a tenth of what the repository may hold.
+$used = 0
+foreach ($candidateRelease in (Invoke-Gitee GET "$api/releases?per_page=100")) {
+    try {
+        foreach ($attachment in (Invoke-Gitee GET "$api/releases/$($candidateRelease.id)/attach_files")) {
+            $used += [int64]$attachment.size
+        }
+    } catch { }
+}
+$percent = if ($attachmentCeiling -gt 0) { [math]::Round($used * 100 / $attachmentCeiling, 1) } else { 0 }
+Write-Host ("  附件占用 {0:N1} MB / {1:N0} MB（{2}%）" -f ($used / 1MB), ($attachmentCeiling / 1MB), $percent)
+if ($percent -ge 80) {
+    Write-Host "  ⚠️ 快满了。要么让本次运行把旧版本附件清掉，要么只镜像安装包：-Assets Setup" -ForegroundColor Yellow
 }
 
 # ---------------------------------------------------------------- verify
@@ -188,7 +221,7 @@ if (-not $KeepOld) {
 # whole reason a seventy megabyte download arrives at all on the network this is for.
 if ($DryRun) { Write-Host "[dry-run] 不验证"; return }
 
-foreach ($asset in $assets) {
+foreach ($asset in $assetFiles) {
     $url = "$web/$($asset.Name)"
     # -L because the published address is a redirect chain: the releases path, then the
     # attachment path, then a signed CDN address. Without it every check reads a 302 and
