@@ -238,6 +238,91 @@ internal static class Program
                 && forbiddenMessage.Contains("与你本机的网络是否通畅无关", StringComparison.Ordinal),
                 forbiddenMessage);
 
+            // Two faults in this program's own event log each killed it: a font family whose
+            // file is missing threw while the settings window built its font list, and a
+            // catalog load used an HTTP client the window had already disposed. The second
+            // is prevented rather than swallowed — a cancelled token stops the load before
+            // it reaches the next source, so the request that would touch the disposed
+            // client is never sent.
+            var catalogRequests = 0;
+            using (var closing = new HttpClient(new StubHandler(_ =>
+            {
+                Interlocked.Increment(ref catalogRequests);
+                return Json("{}");
+            })))
+            {
+                var catalog = new PluginCatalogService(closing);
+                using var cancelled = new CancellationTokenSource();
+                cancelled.Cancel();
+                var cancelledMessage = "";
+                try { await catalog.LoadAsync(cancelled.Token); }
+                catch (OperationCanceledException error) { cancelledMessage = error.GetType().Name; }
+                Check("窗口关掉后不再向已释放的客户端发请求",
+                    catalogRequests == 0 && cancelledMessage == "OperationCanceledException",
+                    $"请求 {catalogRequests} 次 / {cancelledMessage}");
+            }
+
+            // The font guard, which is what ended the process when a user opened the
+            // settings window. The throw itself cannot be reproduced on demand — a family
+            // naming a missing file reads back as no faces, and a hand-written registry
+            // entry pointing at a missing file is skipped by the font stack rather than
+            // surfaced, both measured — so what is pinned is the promise a later edit could
+            // quietly undo: whatever reading throws, the answer is "cannot be offered".
+            // The first exception below is the exact class from the event log, and the rest
+            // are the ones a narrowed catch would plausibly forget next.
+            // Wrapped, because the failure mode being tested for is an exception escaping
+            // the guard: without the wrapper that exception would end the whole run instead
+            // of reporting one failed check, which is a worse way to learn about it.
+            var guardSkipsEverything = false;
+            try
+            {
+                guardSkipsEverything =
+                    !BalancePet.Wpf.SettingsWindow.TryRead(() => throw new System.IO.FileNotFoundException("字体文件不在了"), out _)
+                    && !BalancePet.Wpf.SettingsWindow.TryRead(() => throw new System.IO.IOException("磁盘读不到"), out _)
+                    && !BalancePet.Wpf.SettingsWindow.TryRead(() => throw new System.Runtime.InteropServices.COMException("字体子系统拒绝"), out _)
+                    && !BalancePet.Wpf.SettingsWindow.TryRead(() => throw new UnauthorizedAccessException("没有权限"), out _);
+            }
+            catch (Exception)
+            {
+                guardSkipsEverything = false;
+            }
+            Check("读字体失败一律当作「跳过」，不挑异常类型",
+                guardSkipsEverything,
+                "有异常类没被拦下 —— 那正是崩溃的原因");
+
+            var readable = BalancePet.Wpf.SettingsWindow.TryReadFaces(
+                new System.Windows.Media.FontFamily("Segoe UI"), out var goodFaces);
+            Check("正常字体族仍然读得出来",
+                readable && goodFaces.Count > 0,
+                $"Segoe UI → {(readable ? $"{goodFaces.Count} 个字面" : "读取失败")}");
+
+            // The record a user can actually read afterwards. Written where the environment
+            // points it, because a process started from this workspace cannot write to the
+            // profile directory, and trimmed rather than left to grow: a fault that repeats
+            // on a timer must not fill a disk.
+            var crashPath = Path.Combine(workspace, "crash.log");
+            Environment.SetEnvironmentVariable("BALANCEPET_CRASH_LOG", crashPath);
+            try
+            {
+                CrashLog.Write("自测", new InvalidOperationException("连不上想象中的服务器"));
+                var written = File.ReadAllText(crashPath);
+                Check("崩溃会留下可读的记录",
+                    written.Contains("自测", StringComparison.Ordinal)
+                    && written.Contains("连不上想象中的服务器", StringComparison.Ordinal)
+                    && written.Contains(DateTime.Now.ToString("yyyy-MM-dd"), StringComparison.Ordinal),
+                    written.Length > 120 ? written[..120] : written);
+
+                File.WriteAllText(crashPath, new string('x', 600 * 1024));
+                CrashLog.Write("自测", new InvalidOperationException("第二次"));
+                Check("记录过大时重来而不是无限增长",
+                    new FileInfo(crashPath).Length < 512 * 1024,
+                    $"{new FileInfo(crashPath).Length / 1024} KB");
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("BALANCEPET_CRASH_LOG", null);
+            }
+
             // --- 9. A download cut short resumes instead of starting over -------
             // Restarting an 86 MB transfer on a connection that drops is what makes it
             // never finish, so the partial file has to survive and the next request has

@@ -144,6 +144,13 @@ public sealed class PluginCatalogService
 
         foreach (var source in Sources)
         {
+            // Checked before each source rather than only once at the top: a source can take
+            // seconds (two addresses, one of them asked after a hedge delay), and the window
+            // that asked for this closes in the meantime and disposes the client it handed
+            // in. Stopping here means the next source is never asked on a client that is
+            // gone, which is what threw ObjectDisposedException out of an event handler and
+            // ended the process.
+            cancellationToken.ThrowIfCancellationRequested();
             var loaded = await LoadSourceAsync(source, cancellationToken);
             entries.AddRange(loaded.Entries);
             if (!string.IsNullOrWhiteSpace(loaded.Error)) errors.Add(loaded.Error);

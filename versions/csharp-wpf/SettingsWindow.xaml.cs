@@ -441,9 +441,23 @@ public partial class SettingsWindow : Window
             var names = new SortedSet<string>(StringComparer.CurrentCulture);
             foreach (var family in System.Windows.Media.Fonts.SystemFontFamilies)
             {
-                if (IsSymbolOnly(family)) continue;
-                var name = PreferredName(family);
-                if (!string.IsNullOrWhiteSpace(name)) names.Add(name);
+                // One family at a time, and a family that cannot be read is skipped rather
+                // than fatal. The collection is system state: a font another program
+                // registered and then removed leaves an entry whose file is gone, and
+                // reading that entry throws from inside WPF's font layer. That is not a
+                // reason for opening the settings window to end the program, which is what
+                // it did -- measured, with the event log naming this method.
+                try
+                {
+                    if (IsSymbolOnly(family)) continue;
+                    var name = PreferredName(family);
+                    if (!string.IsNullOrWhiteSpace(name)) names.Add(name);
+                }
+                catch (Exception)
+                {
+                    // Same rule as TryReadFaces: a family that cannot be read is one that
+                    // cannot be offered, whatever the reason and whichever call found out.
+                }
             }
 
             var choices = new List<FontChoice> { followSystem };
@@ -472,14 +486,58 @@ public partial class SettingsWindow : Window
     /// </remarks>
     private static bool IsSymbolOnly(System.Windows.Media.FontFamily family)
     {
+        if (!TryReadFaces(family, out var faces)) return true;
+        return faces.Count > 0 && faces.All(face => face.TryGetGlyphTypeface(out var glyphs) && glyphs.Symbol);
+    }
+
+    /// <summary>
+    /// Reads a family's faces, saying so when it cannot instead of throwing.
+    /// </summary>
+    /// <remarks>
+    /// Every failure means the same thing here: this family cannot be offered, because it
+    /// cannot be read. That is why nothing is enumerated. An earlier version listed the
+    /// exceptions it expected — <see cref="ArgumentException"/>,
+    /// <see cref="NotSupportedException"/>, <see cref="System.IO.FileFormatException"/> —
+    /// and the one that arrived was a plain <see cref="System.IO.FileNotFoundException"/>
+    /// from the native font layer, for an installed family whose file is no longer there.
+    /// The exception left this method, left the window's constructor, and ended the
+    /// process: opening the settings window is what crashed, which is what a user
+    /// reported. A list of expected failures goes stale exactly the way the project file's
+    /// list of appearance names did; a rule does not.
+    ///
+    /// The body is two library calls and nothing of ours, so there is no bug of our own
+    /// for a broad catch to hide. Fatal exceptions are not caught this way in any case:
+    /// a stack overflow cannot be.
+    /// </remarks>
+    internal static bool TryReadFaces(System.Windows.Media.FontFamily family, out List<System.Windows.Media.Typeface> faces)
+        => TryRead(() => family.GetTypefaces(), out faces);
+
+    /// <summary>
+    /// The guard itself, separated so its contract can be tested without a broken font.
+    /// </summary>
+    /// <remarks>
+    /// Testing it through a font turned out not to be possible. A family naming a file that
+    /// does not exist reads back as no faces rather than as a throw, and a hand-written
+    /// registry entry pointing at a missing file is skipped by the font stack instead of
+    /// being surfaced — so the state that killed the process cannot be conjured up on
+    /// demand, and a test built on one would be testing the font stack.
+    ///
+    /// What can be pinned is the promise: whatever reading throws, the answer is "cannot be
+    /// offered". That is the thing a later edit could quietly undo, by narrowing the catch
+    /// back to a list of expected exceptions — which is exactly what it was, and the one
+    /// that arrived was not on it.
+    /// </remarks>
+    internal static bool TryRead(Func<IEnumerable<System.Windows.Media.Typeface>> read, out List<System.Windows.Media.Typeface> faces)
+    {
         try
         {
-            var faces = family.GetTypefaces().ToList();
-            return faces.Count > 0 && faces.All(face => face.TryGetGlyphTypeface(out var glyphs) && glyphs.Symbol);
-        }
-        catch (Exception error) when (error is ArgumentException or NotSupportedException or System.IO.FileFormatException)
-        {
+            faces = read().ToList();
             return true;
+        }
+        catch (Exception)
+        {
+            faces = [];
+            return false;
         }
     }
 
@@ -1391,8 +1449,15 @@ public partial class SettingsWindow : Window
                 PluginCatalogStatusText.Text = AppLocalization.Text(language, $"扩展目录加载失败：{result.Error ?? "暂无可用条目"}", $"Could not load the catalogs: {result.Error ?? "No entries are available."}");
             }
         }
-        catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or JsonException or TaskCanceledException)
+        catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or JsonException
+            or TaskCanceledException or OperationCanceledException or ObjectDisposedException)
         {
+            // OperationCanceledException and ObjectDisposedException are the two shapes this
+            // load takes when the window closed while it was still running: the first from
+            // the token being cancelled, the second from the client the window disposed
+            // under it. Both mean "nobody is waiting for this any more", and neither is
+            // worth ending the process for — which is what happened, with the event log
+            // pointing at this method and a disposed HttpClient.
             if (!_pluginCatalogCancellation.IsCancellationRequested)
             {
                 PluginCatalogStatusText.Text = AppLocalization.Text(language, $"扩展目录加载失败：{error.Message}", $"Could not load the catalogs: {error.Message}");

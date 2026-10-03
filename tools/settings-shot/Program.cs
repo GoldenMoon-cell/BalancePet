@@ -42,6 +42,50 @@ internal static class Program
             return SaveVideoFrames(args[vt + 1], howMany);
         }
 
+        // Enumerating installed fonts the way the settings window does, and reporting what
+        // throws. A family whose file is missing takes the whole process down when it is
+        // read, which is what happened to a user opening the settings window; this reports
+        // that state without needing to open one.
+        if (args.Contains("--fonts"))
+        {
+            var families = System.Windows.Media.Fonts.SystemFontFamilies.ToList();
+            var unreadable = new List<string>();
+            foreach (var family in families)
+            {
+                try { _ = family.GetTypefaces().ToList(); }
+                catch (Exception error) { unreadable.Add($"{family.Source} → {error.GetType().Name}: {error.Message}"); }
+            }
+            Console.WriteLine($"系统字体族 {families.Count} 个，读取失败 {unreadable.Count} 个");
+            foreach (var line in unreadable) Console.WriteLine($"  {line}");
+            return 0;
+        }
+
+        // Proves the top-level handler does what it claims, in a real WPF process running
+        // the application's own code: a fault raised on the dispatcher is recorded and
+        // survived rather than ending the process. Without it, this mode would not return.
+        if (Array.IndexOf(args, "--crash-net") is var cn && cn >= 0)
+        {
+            var logPath = cn + 1 < args.Length && !args[cn + 1].StartsWith("--", StringComparison.Ordinal)
+                ? args[cn + 1]
+                : Path.Combine(AppContext.BaseDirectory, "crash-net-probe.log");
+            if (File.Exists(logPath)) File.Delete(logPath);
+            Environment.SetEnvironmentVariable("BALANCEPET_CRASH_LOG", logPath);
+
+            var app = new App();
+            app.InstallCrashHandlers();
+            app.Dispatcher.BeginInvoke(new Action(() => throw new InvalidOperationException("自测注入的界面线程异常")));
+            // Lower priority than the fault, so processing the queue runs the fault first
+            // and this returns only if the handler kept the process alive.
+            app.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.SystemIdle);
+
+            var record = File.Exists(logPath) ? File.ReadAllText(logPath) : "";
+            Console.WriteLine($"注入异常后进程仍然存活：是");
+            Console.WriteLine($"记录文件存在：{(record.Length > 0 ? "是" : "否")}");
+            Console.WriteLine($"记录里含注入的异常：{(record.Contains("自测注入的界面线程异常", StringComparison.Ordinal) ? "是" : "否")}");
+            Console.WriteLine(record.Trim());
+            return record.Contains("自测注入的界面线程异常", StringComparison.Ordinal) ? 0 : 1;
+        }
+
         var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var store = new SettingsStore();
         var settings = store.Load();

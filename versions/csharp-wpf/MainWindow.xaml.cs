@@ -2162,6 +2162,20 @@ public partial class MainWindow : Window
     private void ShowAiIntegrationBubble(string label, string amount, string hint, TimeSpan? duration = null)
         => ShowNativeBubble(label, amount, hint, duration);
 
+    /// <summary>
+    /// Says that something went wrong and that the program is still here.
+    /// </summary>
+    /// <remarks>
+    /// Called by the application's top-level handler after it has recorded an exception and
+    /// decided to keep running. A pet that survives a fault silently is only slightly
+    /// better than one that vanishes: the user sees a glitch and has no way to know whether
+    /// it mattered. The label, amount and hint go through the same path as any other
+    /// bubble, which means the ordinary settings apply — somebody who turned bubbles off
+    /// still gets the record, and no bubble.
+    /// </remarks>
+    internal void MentionProblem()
+        => ShowBubble("遇到一个问题", "", "已继续运行，详情见 crash.log", TimeSpan.FromSeconds(8));
+
     private void ShowBubble(string label, string amount, string hint, TimeSpan? duration = null,
         bool allowExternalPresenter = true, bool preferNativePresentation = false)
     {

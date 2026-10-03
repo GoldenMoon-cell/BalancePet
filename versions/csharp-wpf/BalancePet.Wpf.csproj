@@ -26,6 +26,12 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+    <!-- The self-test pins behaviour that lives behind a private implementation: the font
+         guard whose narrow catch ended the process, and the download paths. Granting it
+         access is cheaper than widening the API of the program just to be able to test it.
+         Build-time only; nothing is exposed at run time. -->
+    <InternalsVisibleTo Include="PetMigrationSelfTest" />
+    <InternalsVisibleTo Include="SettingsShot" />
     <!-- Every asset that is not appearance artwork: the icon, and whatever else sits
          beside it. -->
     <Content Include="assets\**\*" Exclude="assets\pets\**" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
