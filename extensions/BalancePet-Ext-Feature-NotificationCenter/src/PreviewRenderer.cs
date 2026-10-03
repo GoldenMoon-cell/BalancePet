@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace BalancePet.NotificationCenter;
 
@@ -22,6 +23,123 @@ namespace BalancePet.NotificationCenter;
 internal static class PreviewRenderer
 {
     internal const double PetSurfaceSize = 238;
+
+    /// <summary>
+    /// Renders a sequence of frames from the real window: a drag, or the entrance.
+    /// </summary>
+    /// <remarks>
+    /// Frames rather than a still, because both of these are movements and a still of either
+    /// one is a picture of a moment nobody is meant to look at. The morph happens while the
+    /// pet is dragged, and the entrance happens in half a second; judging either from its end
+    /// state is how a transition that stutters or gathers too early survives review.
+    ///
+    /// The dispatcher is pumped between entrance frames rather than slept on: the animations
+    /// run on it, and a sleeping thread would photograph the same instant every time.
+    /// </remarks>
+    public static int RenderFrames(string directory, string mode, IReadOnlyList<NotificationBubble> items, string? petImagePath, int frameCount)
+    {
+        var workArea = new Rect(
+            SystemParameters.WorkArea.Left, SystemParameters.WorkArea.Top,
+            SystemParameters.WorkArea.Width, SystemParameters.WorkArea.Height);
+        if (workArea.Width < 400 || workArea.Height < 400)
+            workArea = new Rect(0, 0, 2048, 1123);
+
+        var start = PlacePet("center", workArea);
+        var end = PlacePet("bottom-right", workArea);
+        var entrance = string.Equals(mode, "enter", StringComparison.OrdinalIgnoreCase);
+        var moving = Rect.Union(start, end);
+
+        // One crop for the whole sequence, so the frames can be laid side by side or made into
+        // a GIF without the scene sliding under the camera.
+        var framed = entrance ? start : moving;
+        var region = Rect.Intersect(
+            Rect.Union(framed, new Rect(framed.Left - 420, framed.Top - 300, framed.Width + 840, framed.Height + 600)),
+            workArea);
+
+        Directory.CreateDirectory(directory);
+        BubbleWindow.Diagnose = true;
+        var ring = new BubbleWindow();
+        ring.UpdateItems(items);
+
+        for (var index = 0; index < frameCount; index++)
+        {
+            var t = frameCount == 1 ? 0 : index / (double)(frameCount - 1);
+            var pet = entrance ? start : new Rect(
+                start.Left + (end.Left - start.Left) * t,
+                start.Top + (end.Top - start.Top) * t,
+                start.Width, start.Height);
+
+            // The pet's own picture is part of what the items measure their contrast against,
+            // so the backdrop is rebuilt wherever the pet has got to.
+            var backdrop = new RenderTargetBitmap(
+                (int)Math.Round(workArea.Width), (int)Math.Round(workArea.Height), 96, 96, PixelFormats.Pbgra32);
+            var backdropDrawing = new DrawingVisual();
+            using (var context = backdropDrawing.RenderOpen())
+            {
+                DrawWallpaper(context, new Rect(0, 0, workArea.Width, workArea.Height));
+                DrawPet(context, pet, new Rect(0, 0, workArea.Width, workArea.Height), petImagePath);
+            }
+            backdrop.Render(backdropDrawing);
+
+            ring.PreviewWaveCentre = new Point(
+                pet.Left + pet.Width / 2 - workArea.Left, pet.Top + pet.Height / 2 - workArea.Top);
+            ring.BackdropLuminance = element => LuminanceBehind(backdrop, ring, element);
+            ring.PreviewLayout(pet, workArea);
+            if (entrance)
+            {
+                // Sampled, not animated: an off-screen window barely advances the animation
+                // clock, so pumping the dispatcher between captures photographed nothing
+                // fourteen times and the finished state once.
+                // Every frame, after the layout: the layout clears the layer the wave lives
+                // in, so preparing it once left the ring in the first frame only — at the size
+                // it starts from, which is nothing.
+                ring.PreviewPrepareWave();
+                ring.PreviewEntranceAt(index * 45.0);
+            }
+
+            var overlay = new RenderTargetBitmap(
+                (int)Math.Round(workArea.Width), (int)Math.Round(workArea.Height), 96, 96, PixelFormats.Pbgra32);
+            foreach (var layer in new FrameworkElement[] { ring.BehindCanvas, ring.InfoCanvas })
+            {
+                layer.Measure(new Size(workArea.Width, workArea.Height));
+                layer.Arrange(new Rect(0, 0, workArea.Width, workArea.Height));
+                layer.UpdateLayout();
+            }
+            ring.RefreshAdaptiveContrast();
+            overlay.Render(ring.BehindCanvas);
+            overlay.Render(ring.InfoCanvas);
+
+            var composed = new RenderTargetBitmap(
+                (int)Math.Round(region.Width), (int)Math.Round(region.Height), 96, 96, PixelFormats.Pbgra32);
+            var drawing = new DrawingVisual();
+            using (var context = drawing.RenderOpen())
+            {
+                context.DrawImage(backdrop, new Rect(-region.Left, -region.Top, workArea.Width, workArea.Height));
+                context.DrawImage(overlay, new Rect(-region.Left, -region.Top, workArea.Width, workArea.Height));
+            }
+            composed.Render(drawing);
+
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(composed));
+            using (var stream = File.Create(Path.Combine(directory, $"frame-{index:00}.png"))) encoder.Save(stream);
+        }
+
+        Console.WriteLine($"逐帧已写出 {frameCount} 张到 {directory}（{mode}）");
+        Console.WriteLine($"  裁切 {region.Width:0}×{region.Height:0}");
+        return 0;
+    }
+
+    /// <summary>Lets the dispatcher run for a while, so animations advance between frames.</summary>
+    private static void Pump(int milliseconds)
+    {
+        var frame = new DispatcherFrame();
+        var timer = new DispatcherTimer(
+            TimeSpan.FromMilliseconds(milliseconds), DispatcherPriority.Background,
+            (_, _) => frame.Continue = false, Dispatcher.CurrentDispatcher);
+        timer.Start();
+        Dispatcher.PushFrame(frame);
+        timer.Stop();
+    }
 
     public static int Run(string outputPath, string position, IReadOnlyList<NotificationBubble> items, string? petImagePath)
     {

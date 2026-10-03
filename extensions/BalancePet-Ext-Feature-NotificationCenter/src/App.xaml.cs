@@ -27,6 +27,16 @@ public partial class App : Application
         }
 
         // A sketch of this window, redrawn in the plates' language, for review.
+        // A movement captured as frames: the drag that gathers the values, or the entrance.
+        if (ValueAfter(e.Args, "--frames") is { Length: > 0 } framesDirectory)
+        {
+            var frameMode = e.Args.Contains("--enter", StringComparer.OrdinalIgnoreCase) ? "enter" : "track";
+            var count = int.TryParse(ValueAfter(e.Args, "--count"), out var wanted) ? Math.Clamp(wanted, 2, 60) : 14;
+            var petArt = ValueAfter(e.Args, "--pet-image");
+            Shutdown(PreviewRenderer.RenderFrames(framesDirectory, frameMode, PreviewItems.Current(), petArt, count));
+            return;
+        }
+
         // The gathering rule, checked against real geometry rather than watched in an
         // animation: a transition can look right while gathering when it did not need to.
         if (e.Args.Contains("--ring-rules", StringComparer.OrdinalIgnoreCase))

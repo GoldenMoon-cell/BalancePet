@@ -334,6 +334,95 @@ public partial class BubbleWindow : Window
         }
     }
 
+    /// <summary>Where the wave leaves from, when a preview is rendering instead of the screen.</summary>
+    internal Point? PreviewWaveCentre { get; set; }
+
+    /// <summary>
+    /// Puts the entrance at a moment in its course, for a frame-by-frame capture.
+    /// </summary>
+    /// <remarks>
+    /// Values rather than animations, sampled from the same curve the animation uses. With no
+    /// visible window the animation clock barely advances, so pumping the dispatcher between
+    /// captures produced fourteen frames of nothing and one of the finished state. Sampling
+    /// the motion directly makes every frame a fact about the design, which is what a review
+    /// needs; the live path still animates, with these same numbers.
+    /// </remarks>
+    /// <param name="elapsedMs">How far into the entrance, in milliseconds.</param>
+    internal void PreviewEntranceAt(double elapsedMs)
+    {
+        var elements = InfoCanvas.Children.OfType<FrameworkElement>().ToArray();
+        if (elements.Length == 0) return;
+
+        var centre = PreviewWaveCentre ?? new Point(ActualWidth / 2, ActualHeight / 2);
+        var distances = elements.Select(item => CentreDistance(item, centre)).ToArray();
+        var farthest = Math.Max(1, distances.Max());
+
+        // The wave: out to its full reach over 540 ms, fading as it goes.
+        if (_wave is not null)
+        {
+            var eased = 1 - Math.Pow(1 - Math.Clamp(elapsedMs / 540.0, 0, 1), 3);
+            if (_wave.RenderTransform is ScaleTransform transform)
+            {
+                transform.ScaleX = eased;
+                transform.ScaleY = eased;
+            }
+            _wave.Opacity = 0.55 * (1 - eased);
+        }
+
+        // Each item wakes when the wave reaches it, then fades and rises into place.
+        for (var index = 0; index < elements.Length; index++)
+        {
+            var reached = Math.Clamp((elapsedMs - 340 * distances[index] / farthest) / TransitionMs, 0, 1);
+            var eased = 1 - Math.Pow(1 - reached, 3);
+            elements[index].Opacity = eased;
+            if (elements[index].RenderTransform is TranslateTransform offset) offset.Y = 6 * (1 - eased);
+        }
+    }
+
+    /// <summary>Puts the wave in place for a capture, without animating it.</summary>
+    /// <remarks>
+    /// The ring has to exist before a sampled frame can move it, and the animation that would
+    /// normally create and grow it cannot be relied on off-screen.
+    /// </remarks>
+    internal void PreviewPrepareWave()
+    {
+        var centre = PreviewWaveCentre ?? new Point(ActualWidth / 2, ActualHeight / 2);
+        var farthest = InfoCanvas.Children.OfType<FrameworkElement>()
+            .Select(item => CentreDistance(item, centre))
+            .DefaultIfEmpty(1)
+            .Max();
+        if (_wave is not null) BehindCanvas.Children.Remove(_wave);
+        StartWave(centre, Math.Max(1, farthest));
+        if (_wave is not null)
+        {
+            _wave.BeginAnimation(OpacityProperty, null);
+            if (_wave.RenderTransform is ScaleTransform transform)
+            {
+                transform.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+                transform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Starts the entrance for a frame-by-frame capture.
+    /// </summary>
+    /// <remarks>
+    /// The items are hidden first because a preview lays them out in their settled state, and
+    /// capturing that would photograph the end of the animation over and over. Any animation
+    /// already on them is cleared, so the fade starts from zero rather than from wherever the
+    /// last capture left it.
+    /// </remarks>
+    internal void PreviewStartEntrance()
+    {
+        foreach (var item in InfoCanvas.Children.OfType<FrameworkElement>())
+        {
+            item.BeginAnimation(OpacityProperty, null);
+            item.Opacity = 0;
+        }
+        _ = AnimateInAsync(CancellationToken.None);
+    }
+
     /// <summary>Recolours the items once they have been laid out. Used by the preview.</summary>
     /// <remarks>
     /// The colours come from measuring each item against what is behind it, so they can only

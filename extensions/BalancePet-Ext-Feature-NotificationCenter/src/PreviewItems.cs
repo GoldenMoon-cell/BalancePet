@@ -43,7 +43,7 @@ internal static class PreviewItems
     }
 
     /// <summary>What the ring shows today: four fixed slots, with a plausible account.</summary>
-    private static IReadOnlyList<NotificationBubble> Current() =>
+    internal static IReadOnlyList<NotificationBubble> Current() =>
     [
         new NotificationBubble("余额 42.80 CNY", "上次余额 35.10 · 本次消耗 7.70", "balance", "42.80 CNY"),
         new NotificationBubble("当前登录方式 · 官方登录", "官方 API · DeepSeek", "account", "官方登录"),
