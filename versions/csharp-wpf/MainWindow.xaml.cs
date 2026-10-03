@@ -69,6 +69,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _trayRecoveryTimer;
     private readonly DispatcherTimer _updateTimer;
     private readonly DispatcherTimer _extensionUpdateTimer;
+    private readonly DispatcherTimer _noticeTimer;
     private readonly CancellationTokenSource _usageCostSyncCancellation = new();
     private int _usageCostSyncRunning;
     private readonly Dictionary<string, MonitorRuntime> _monitorStates = new(StringComparer.OrdinalIgnoreCase);
@@ -302,6 +303,14 @@ public partial class MainWindow : Window
         _updateTimer.Tick += async (_, _) => await CheckForAutomaticUpdatesAsync();
         _extensionUpdateTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(30) };
         _extensionUpdateTimer.Tick += async (_, _) => await CheckForExtensionUpdatesAsync(false);
+        // Half-hourly, like the update checks, and for the same reason: the point of the
+        // changelog is the bubble, and a bubble can only mention what has been fetched.
+        // Fetching once at launch meant a notice published while the program was running
+        // reached nobody until the next launch — and fetching when the window is opened is
+        // not a fix for that, it is the opposite of it: the bubble exists so that nobody
+        // has to open anything.
+        _noticeTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(30) };
+        _noticeTimer.Tick += async (_, _) => await MentionNoticesAfterRefreshAsync();
         SourceInitialized += (_, _) =>
         {
             HideFromTaskSwitcher();
@@ -421,6 +430,9 @@ public partial class MainWindow : Window
         // in the background so a slow network delays the notice rather than the launch.
         NoticeFeed.LoadCache();
         _ = MentionNoticesAfterRefreshAsync();
+        // and again every half hour, so a note published while this is running still
+        // reaches the bubble instead of waiting for the next launch.
+        _noticeTimer.Start();
         _usageEventBridge.Start();
         PublishNotificationState();
         SetupTray();
