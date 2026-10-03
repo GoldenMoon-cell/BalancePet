@@ -41,7 +41,7 @@ public partial class MainWindow : Window
     private readonly HttpClient _httpClient = CreateBalanceHttpClient();
     private readonly NewApiUsageProvider _newApiUsageProvider;
     private readonly ServerUsageSummaryProvider _serverUsageSummaryProvider;
-    private readonly HttpClient _updateHttpClient = new() { Timeout = TimeSpan.FromMinutes(2) };
+    private readonly HttpClient _updateHttpClient = Networking.CreateClient(TimeSpan.FromMinutes(2));
     private readonly UpdateService _updateService;
     private readonly ExtensionUpdateService _extensionUpdateService;
     private readonly ExtensionPackageCatalog _extensionLibrary = new();
@@ -193,7 +193,7 @@ public partial class MainWindow : Window
             PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
             ConnectTimeout = TimeSpan.FromSeconds(10)
         };
-        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(20) };
+        return Networking.CreateClient(TimeSpan.FromSeconds(20), handler);
     }
 
     private const uint SwpNoSize = 0x0001;

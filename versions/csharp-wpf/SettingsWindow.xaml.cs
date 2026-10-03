@@ -31,7 +31,7 @@ public partial class SettingsWindow : Window
     private readonly FeatureExtensionManager _featureExtensions;
     private readonly ThemeExtensionManager _themes = new();
     private readonly ExtensionPackageCatalog _extensionLibrary = new();
-    private readonly HttpClient _extensionUpdateHttpClient = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly HttpClient _extensionUpdateHttpClient = Networking.CreateClient(TimeSpan.FromSeconds(20));
     private readonly ExtensionUpdateService _extensionUpdates;
     private readonly PluginCatalogService _pluginCatalog;
     private readonly CancellationTokenSource _pluginCatalogCancellation = new();
@@ -2542,7 +2542,7 @@ public partial class SettingsWindow : Window
 
             try
             {
-                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+                using var client = Networking.CreateClient(TimeSpan.FromSeconds(15));
                 var snapshot = await new JsonBalanceProvider(client).FetchWithRetryAsync(selected, selectedToken);
                 MessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
                 var resolved = selected.PresetId == BalancePresetCatalog.Auto && !string.IsNullOrWhiteSpace(snapshot.ResolvedPresetId)
@@ -2693,7 +2693,7 @@ public partial class SettingsWindow : Window
         {
             var profile = CurrentProfile;
             if (profile is null) return;
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            using var client = Networking.CreateClient(TimeSpan.FromSeconds(20));
             var count = await new NewApiUsageProvider(client).ImportRawResponsesAsync(profile, responses);
             await Dispatcher.InvokeAsync(() =>
             {
@@ -2747,7 +2747,7 @@ public partial class SettingsWindow : Window
         BrowserSessionStatusText.Text = "正在测试余额接口和逐条费用明细……";
         try
         {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+            using var client = Networking.CreateClient(TimeSpan.FromSeconds(20));
             var balanceText = "余额接口未测试";
             if (!string.IsNullOrWhiteSpace(token))
             {
