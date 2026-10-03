@@ -597,7 +597,53 @@ public partial class MainWindow : Window
             selected?.HasBalance == true ? selected.LastBalance : null,
             selected?.Profile.Currency ?? _settings.Currency,
             selected?.LastSpent,
-            selected?.LastSpentCurrency ?? selected?.Profile.Currency ?? _settings.Currency);
+            selected?.LastSpentCurrency ?? selected?.Profile.Currency ?? _settings.Currency,
+            ResolveAppearanceSnapshot());
+    }
+
+    /// <summary>
+    /// The colours and face this program is actually using, for an extension to match.
+    /// </summary>
+    /// <remarks>
+    /// Read from the active theme package rather than from a name, and resolved the same way
+    /// the windows resolve it — so whichever theme is enabled, and whether dark mode comes
+    /// from the setting or from the system, the published values are the ones on screen.
+    /// Null when no theme resolves, which tells an extension to keep its own colours.
+    /// </remarks>
+    private NotificationStateStore.AppearanceSnapshot? ResolveAppearanceSnapshot()
+    {
+        try
+        {
+            var theme = _themeExtensions.GetLatestEnabled(_settings.ThemeId)
+                ?? _themeExtensions.GetLatestEnabled(ThemeExtensionManager.BundledThemeId)
+                ?? _themeExtensions.GetLatestEnabled().FirstOrDefault();
+            if (theme is null) return null;
+            var dark = WindowThemeService.ResolveDarkMode(_settings.ThemeMode);
+            var palette = dark ? theme.Theme.Dark : theme.Theme.Light;
+            return new NotificationStateStore.AppearanceSnapshot(
+                dark ? "dark" : "light",
+                string.IsNullOrWhiteSpace(_settings.UiFont) ? WindowThemeService.DefaultFontFamily : _settings.UiFont,
+                Hex(palette.Window), Hex(palette.Surface), Hex(palette.Control),
+                Hex(palette.Text), Hex(palette.Muted), Hex(palette.Border),
+                Hex(palette.Accent), Hex(palette.AccentSoft));
+        }
+        catch (Exception error) when (error is InvalidOperationException or IOException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Colours travel as #RRGGBB: an extension has no use for the alpha channel.</summary>
+    /// <summary>
+    /// Colours travel as #RRGGBB, which is how the theme file already writes them. Anything
+    /// that is not a colour becomes an empty string, and an extension reads that as "keep
+    /// your own colour for this slot" rather than as black.
+    /// </summary>
+    private static string Hex(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "";
+        var trimmed = value.Trim();
+        return trimmed.StartsWith('#') ? trimmed : "#" + trimmed;
     }
 
     private async Task RefreshAsync(bool manual, bool selectedOnly = false, bool force = false, bool suppressResultBubble = false)

@@ -33,6 +33,27 @@ public sealed class NotificationStateStore
 
     public static string GetDefaultPath() => Path.Combine(UsageEventBridge.GetDefaultDirectory(), FileName);
 
+    /// <summary>
+    /// What the host's own windows look like, so an extension's windows can match them.
+    /// </summary>
+    /// <remarks>
+    /// The resolved colours, not the name of a theme package: an extension that had to find
+    /// and parse someone else's theme file would break the first time that format changed,
+    /// and would still not know which of several installed themes is the active one. The
+    /// host knows both, so it says what it is actually using.
+    /// </remarks>
+    public sealed record AppearanceSnapshot(
+        string ThemeMode,
+        string Font,
+        string Window,
+        string Surface,
+        string Control,
+        string Text,
+        string Muted,
+        string Border,
+        string Accent,
+        string AccentSoft);
+
     public void Publish(
         string coreVersion,
         bool taskKnown,
@@ -45,7 +66,8 @@ public sealed class NotificationStateStore
         double? balance,
         string currency,
         double? spent,
-        string spentCurrency)
+        string spentCurrency,
+        AppearanceSnapshot? appearance = null)
     {
         var document = new NotificationStateDocument
         {
@@ -62,7 +84,20 @@ public sealed class NotificationStateStore
             Balance = ClampAmount(balance),
             Currency = CleanCurrency(currency),
             Spent = ClampAmount(spent),
-            SpentCurrency = CleanCurrency(spentCurrency)
+            SpentCurrency = CleanCurrency(spentCurrency),
+            Appearance = appearance is null ? null : new NotificationAppearanceDocument
+            {
+                ThemeMode = appearance.ThemeMode == "dark" ? "dark" : "light",
+                Font = Clean(appearance.Font, 96),
+                Window = Clean(appearance.Window, 16),
+                Surface = Clean(appearance.Surface, 16),
+                Control = Clean(appearance.Control, 16),
+                Text = Clean(appearance.Text, 16),
+                Muted = Clean(appearance.Muted, 16),
+                Border = Clean(appearance.Border, 16),
+                Accent = Clean(appearance.Accent, 16),
+                AccentSoft = Clean(appearance.AccentSoft, 16)
+            }
         };
 
         lock (_gate)
@@ -80,10 +115,27 @@ public sealed class NotificationStateStore
         }
     }
 
+    /// <summary>Absent when the host could not resolve a theme, which an extension treats
+    /// as "keep using your own colours".</summary>
+    private sealed class NotificationAppearanceDocument
+    {
+        [JsonPropertyName("theme_mode")] public string ThemeMode { get; set; } = "light";
+        [JsonPropertyName("font")] public string Font { get; set; } = "";
+        [JsonPropertyName("window")] public string Window { get; set; } = "";
+        [JsonPropertyName("surface")] public string Surface { get; set; } = "";
+        [JsonPropertyName("control")] public string Control { get; set; } = "";
+        [JsonPropertyName("text")] public string Text { get; set; } = "";
+        [JsonPropertyName("muted")] public string Muted { get; set; } = "";
+        [JsonPropertyName("border")] public string Border { get; set; } = "";
+        [JsonPropertyName("accent")] public string Accent { get; set; } = "";
+        [JsonPropertyName("accent_soft")] public string AccentSoft { get; set; } = "";
+    }
+
     private sealed class NotificationStateDocument
     {
         [JsonPropertyName("schema")] public string Schema { get; set; } = NotificationStateStore.Schema;
         [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; set; }
+        [JsonPropertyName("appearance")] public NotificationAppearanceDocument? Appearance { get; set; }
         [JsonPropertyName("core_version")] public string CoreVersion { get; set; } = "";
         [JsonPropertyName("task_known")] public bool TaskKnown { get; set; }
         [JsonPropertyName("task_active")] public bool TaskActive { get; set; }
