@@ -26,12 +26,33 @@ public sealed record UpdateRelease(
 public sealed class UpdateService(HttpClient http, string? downloadDirectory = null)
 {
     private readonly string _downloads = downloadDirectory ?? ResumableDownload.DefaultDirectory;
-    private const string ReleasesEndpoint = "https://api.github.com/repos/GoldenMoon-cell/BalancePet/releases?per_page=20";
+    /// <summary>
+    /// Where the newest release is read from.
+    /// </summary>
+    /// <remarks>
+    /// One request, not two. This used to list releases and then ask each one for its
+    /// assets, and an unauthenticated GitHub API allows sixty requests an hour for a whole
+    /// IP address — measured on this machine: a virtual private network's shared exit had
+    /// already spent all sixty, and every automatic check was answering 403. The release
+    /// endpoint carries the assets, digests and all, so the second request was never
+    /// needed.
+    ///
+    /// The endpoint returns the newest release that is neither a draft nor a pre-release,
+    /// which is the set the old loop picked out of the list anyway.
+    /// </remarks>
+    private const string ReleaseEndpoint = "https://api.github.com/repos/GoldenMoon-cell/BalancePet/releases/latest";
 
     public async Task<UpdateRelease?> CheckAsync(string currentVersion, CancellationToken cancellationToken = default)
     {
-        using var document = await GetJsonAsync(new Uri(ReleasesEndpoint), "更新检查", cancellationToken);
-        foreach (var release in document.RootElement.EnumerateArray())
+        using var document = await GetJsonAsync(new Uri(ReleaseEndpoint), "更新检查", cancellationToken);
+
+        // Tolerates a list as well as a single release: the endpoint answers with one
+        // object, but reverting the address should not silently stop finding updates.
+        var releases = document.RootElement.ValueKind == JsonValueKind.Array
+            ? document.RootElement.EnumerateArray().ToArray()
+            : [document.RootElement];
+
+        foreach (var release in releases)
         {
             if (release.TryGetProperty("draft", out var draft) && draft.GetBoolean()) continue;
             var tag = release.TryGetProperty("tag_name", out var tagValue) ? tagValue.GetString() : null;
@@ -63,8 +84,20 @@ public sealed class UpdateService(HttpClient http, string? downloadDirectory = n
         return null;
     }
 
+    /// <summary>
+    /// The release's assets: inline when the release endpoint supplied them, which it
+    /// does, and fetched separately only when it did not.
+    /// </summary>
+    /// <remarks>
+    /// The second request is what the check cannot afford to spend by default — it is the
+    /// reason a shared address runs out of its hourly allowance — so it is kept as a
+    /// fallback for a response that arrived without assets rather than as the normal path.
+    /// </remarks>
     private async Task<IReadOnlyList<JsonElement>> LoadCurrentAssetsAsync(JsonElement release, CancellationToken cancellationToken)
     {
+        if (release.TryGetProperty("assets", out var inline) && inline.ValueKind == JsonValueKind.Array && inline.GetArrayLength() > 0)
+            return inline.EnumerateArray().Select(asset => asset.Clone()).ToArray();
+
         if (!release.TryGetProperty("assets_url", out var assetsUrlValue) ||
             !Uri.TryCreate(assetsUrlValue.GetString(), UriKind.Absolute, out var assetsUri) ||
             assetsUri.Scheme != Uri.UriSchemeHttps ||
@@ -76,6 +109,36 @@ public sealed class UpdateService(HttpClient http, string? downloadDirectory = n
         using var document = await GetJsonAsync(builder.Uri, "更新资产读取", cancellationToken);
         if (document.RootElement.ValueKind != JsonValueKind.Array) return Array.Empty<JsonElement>();
         return document.RootElement.EnumerateArray().Select(asset => asset.Clone()).ToArray();
+    }
+
+    /// <summary>
+    /// What to tell the user about a failed request.
+    /// </summary>
+    /// <remarks>
+    /// A bare 403 is not something a person can act on, and this particular 403 has a
+    /// cause worth naming: GitHub's unauthenticated allowance is sixty requests an hour
+    /// for an entire IP address, so a shared address — an office, a mobile network, a
+    /// virtual private network's exit, as measured here — can be out of allowance through
+    /// nobody's fault in particular. It refills by itself within the hour, which is the
+    /// part that matters to somebody staring at an error.
+    /// </remarks>
+    private static string DescribeFailure(string what, HttpResponseMessage response)
+    {
+        var status = (int)response.StatusCode;
+        var reason = response.ReasonPhrase ?? "";
+        if (response.StatusCode == HttpStatusCode.Forbidden || status == 429)
+        {
+            var reset = response.Headers.TryGetValues("x-ratelimit-reset", out var values)
+                && long.TryParse(values.FirstOrDefault(), out var epoch)
+                    ? DateTimeOffset.FromUnixTimeSeconds(epoch).ToLocalTime().ToString("HH:mm")
+                    : null;
+            return $"GitHub {what}失败：HTTP {status} {reason}。"
+                 + "GitHub 未登录接口每小时只允许 60 次，共享网络或加速器的出口 IP 容易被用光"
+                 + (reset is null ? "。" : $"；配额将在 {reset} 重置，等待后重试即可。")
+                 + "这与你本机的网络是否通畅无关。";
+        }
+
+        return $"GitHub {what}失败：HTTP {status} {reason}";
     }
 
     /// <summary>
@@ -113,7 +176,7 @@ public sealed class UpdateService(HttpClient http, string? downloadDirectory = n
                     using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                     if (!response.IsSuccessStatusCode)
                         throw new HttpRequestException(
-                            $"GitHub {what}失败：HTTP {(int)response.StatusCode} {response.ReasonPhrase}",
+                            DescribeFailure(what, response),
                             inner: null,
                             statusCode: response.StatusCode);
 

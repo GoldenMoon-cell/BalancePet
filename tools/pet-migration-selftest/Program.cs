@@ -190,6 +190,54 @@ internal static class Program
             Check("HTTP 错误状态不重试", notFoundAttempts == 1, $"实际请求 {notFoundAttempts} 次");
             Check("HTTP 错误保留状态码", notFoundMessage.Contains("404", StringComparison.Ordinal), notFoundMessage);
 
+            // The budget is sixty requests an hour for a whole IP address, unauthenticated,
+            // and a shared address spends it through nobody's fault in particular — measured
+            // on this machine, a virtual private network's exit had spent all sixty and every
+            // automatic check was answering 403. So the check costs one request: the release
+            // endpoint carries its assets inline, digests and all, and asking for them
+            // separately doubled the price of the commonest thing this program does.
+            var checkCalls = new List<string>();
+            using (var oneCall = new HttpClient(new StubHandler(request =>
+            {
+                lock (checkCalls) checkCalls.Add(request.RequestUri!.AbsolutePath);
+                return Json("""
+                    {"tag_name":"v9.9.9","name":"9.9.9","draft":false,"prerelease":false,"body":"notes",
+                     "assets":[{"name":"BalancePet-9.9.9-win-x64.zip",
+                                "browser_download_url":"https://github.com/o/r/releases/download/v9.9.9/BalancePet-9.9.9-win-x64.zip",
+                                "digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}
+                    """);
+            })))
+            {
+                var service = new UpdateService(oneCall, workspace);
+                var release = await service.CheckAsync("1.5.0");
+                Check("更新检查只花一次请求", checkCalls.Count == 1, string.Join(",", checkCalls));
+                Check("内联资产里认得出更新包",
+                    release?.PortableArchive is not null && release.PortableArchive.Name == "BalancePet-9.9.9-win-x64.zip",
+                    release?.PortableArchive?.Name ?? "(没认出来)");
+                Check("内联资产的哈希被带上（下载仍会校验）",
+                    release?.PortableArchive?.Digest == "sha256:" + new string('a', 64),
+                    release?.PortableArchive?.Digest ?? "(没有)");
+            }
+
+            // 403 is not a network fault and must not read like one: the address is out of
+            // allowance, it refills by itself, and saying so is the difference between a
+            // user waiting an hour and a user reinstalling the program.
+            var forbidden = new UpdateService(new HttpClient(new StubHandler(_ =>
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.Forbidden) { ReasonPhrase = "rate limit exceeded" };
+                response.Headers.Add("x-ratelimit-reset", "1791041679");
+                return response;
+            })));
+            var forbiddenMessage = "";
+            try { await forbidden.CheckAsync("1.0.0"); }
+            catch (HttpRequestException error) { forbiddenMessage = error.Message; }
+            Check("403 说明是配额而不是网络故障",
+                forbiddenMessage.Contains("60", StringComparison.Ordinal)
+                && forbiddenMessage.Contains("出口 IP", StringComparison.Ordinal)
+                && forbiddenMessage.Contains("23:34", StringComparison.Ordinal)
+                && forbiddenMessage.Contains("与你本机的网络是否通畅无关", StringComparison.Ordinal),
+                forbiddenMessage);
+
             // --- 9. A download cut short resumes instead of starting over -------
             // Restarting an 86 MB transfer on a connection that drops is what makes it
             // never finish, so the partial file has to survive and the next request has
@@ -312,8 +360,7 @@ internal static class Program
             Check($"形象目录覆盖全部 {publishable.Length} 套有素材的形象",
                 notPublished.Length == 0 && notOnDisk.Length == 0,
                 $"未收录 {string.Join(",", notPublished)}；多余 {string.Join(",", notOnDisk)}");
-            Check("形象条目都是 pet 类型", appearances.All(item => item.Type == "pet"));
-            Check("形象条目可安装", appearances.All(item => item.Id.StartsWith("pet.", StringComparison.Ordinal)
+            Check("形象条目都是 pet 类型", appearances.All(item => item.Type == "pet"));            Check("形象条目可安装", appearances.All(item => item.Id.StartsWith("pet.", StringComparison.Ordinal)
                 && item.Sha256.Length == 64 && item.DownloadUrl.EndsWith(".zip", StringComparison.Ordinal)));
 
             // A release drops every appearance folder except the placeholder, and the only
