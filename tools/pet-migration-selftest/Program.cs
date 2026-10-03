@@ -316,6 +316,28 @@ internal static class Program
             Check("形象条目可安装", appearances.All(item => item.Id.StartsWith("pet.", StringComparison.Ordinal)
                 && item.Sha256.Length == 64 && item.DownloadUrl.EndsWith(".zip", StringComparison.Ordinal)));
 
+            // A release drops every appearance folder except the placeholder, and the only
+            // way an appearance reaches a user is being packed out of the folder it was
+            // dropped from. So a folder that the catalog does not know how to extract is
+            // artwork that disappears for everyone: it is not in the installer, and there
+            // is no package of it either. This is the direction the old hand-written
+            // exclusion list got wrong -- the list named fourteen folders, a fifteenth
+            // appearance arrived, and its artwork shipped inside the installer instead of
+            // being left out. Its replacement is a rule that cannot go stale, which makes
+            // this the half that still needs saying out loud.
+            var folders = Directory.EnumerateDirectories(realPets)
+                .Where(directory => !Path.GetFileName(directory).StartsWith('_'))
+                .Select(directory => Path.GetFileName(directory))
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+            var extractable = PetStyleCatalog.Extractable
+                .Select(style => style.Id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var unextractable = folders.Where(name => !extractable.Contains(name)).ToArray();
+            Check($"有素材的 {folders.Length} 套形象都能被发布构建打包出来",
+                unextractable.Length == 0,
+                $"发布构建会丢掉：{string.Join(",", unextractable)}（未列入 PetStyleCatalog.Extractable）");
+
             var plugins = PluginCatalogService.Parse(pluginJson);
             Check("插件目录仍解析出 4 条", plugins.Count == 4, $"实际 {plugins.Count}");
 

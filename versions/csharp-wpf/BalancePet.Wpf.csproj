@@ -18,20 +18,34 @@
     <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
   </PropertyGroup>
   <PropertyGroup>
-    <!-- Appearances are distributed as resource-extension packages, so the release
-         build leaves their artwork out and the installer carries only the built-in
-         placeholder. The developer build keeps every folder, because running the app
-         from source should not require installing packages first. The packer turns
-         this on; nothing else should.
-         Keep this list in step with PetStyleCatalog.Extractable: a folder that is
-         excluded here but not listed there would simply vanish for new users. -->
-    <PetPackageExcludeGlob Condition="'$(ExcludePackagedPets)' == 'true'">assets\pets\deepseek\**;assets\pets\chatgpt\**;assets\pets\minimax\**;assets\pets\gemini\**;assets\pets\grok\**;assets\pets\claude\**;assets\pets\kimi\**;assets\pets\qwen\**;assets\pets\ernie\**;assets\pets\glm\**;assets\pets\gpt-image2\**;assets\pets\llama\**;assets\pets\mimo\**;assets\pets\seedance\**</PetPackageExcludeGlob>
+    <!-- Appearances are distributed as resource-extension packages, so a release carries
+         only the built-in placeholder. The developer build keeps every folder, because
+         running the app from source should not require installing packages first. The
+         packer turns this on; nothing else should. -->
+    <PetPackageExcludeGlob Condition="'$(ExcludePackagedPets)' == 'true'">assets\pets\**\*</PetPackageExcludeGlob>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
-    <!-- _backup-* holds local pre-resize copies of pet art and is gitignored;
-         without this exclusion the glob ships ~91 MB of duplicates. -->
-    <Content Include="assets\**\*" Exclude="assets\**\_backup-*\**;$(PetPackageExcludeGlob)" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Every asset that is not appearance artwork: the icon, and whatever else sits
+         beside it. -->
+    <Content Include="assets\**\*" Exclude="assets\pets\**" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The one appearance that cannot be missing, so it ships in every build.
+         _backup-* holds local pre-resize copies of pet art and is gitignored; without
+         excluding it the glob ships ~91 MB of duplicates. -->
+    <Content Include="assets\pets\_placeholder\**" Exclude="assets\pets\_backup-*\**" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The packaged appearances. Left out by rule (everything under assets\pets except
+         the placeholder) rather than by a list of names. The list this replaced named
+         fourteen folders and went stale the moment a fifteenth appearance arrived, which
+         shipped that appearance's artwork inside the installer and inside every update
+         download: twenty-six megabytes of the one thing appearances-as-packages exist to
+         keep out. A rule cannot go stale; a name can.
+         The relationship that still needs watching is the other direction, and the
+         self-test pins it: an appearance with a folder here has to be listed in
+         PetStyleCatalog.Extractable, or a release would drop artwork that no package can
+         then supply. -->
+    <Content Include="assets\pets\**\*"
+             Exclude="$(PetPackageExcludeGlob);assets\pets\_placeholder\**;assets\pets\_backup-*\**"
+             LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\plugin-catalog.json" Link="plugin-catalog.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- The AI-integration switches run these scripts from tools\ next to the
          executable. Copying them here keeps a development build behaving like a
