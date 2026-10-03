@@ -25,7 +25,7 @@ internal static class RingSketches
     private static readonly Color Paper = Color.FromRgb(0xF8, 0xFA, 0xFC);
     private static readonly Color PaperMuted = Color.FromRgb(0xC7, 0xD2, 0xE0);
 
-    public static int Run(string outputPath, string variant, string position, string? petImagePath)
+    public static int Run(string outputPath, string variant, string position, string? petImagePath, bool forceDark = false)
     {
         var workArea = new Rect(0, 0, Math.Max(1200, SystemParameters.WorkArea.Width), Math.Max(760, SystemParameters.WorkArea.Height));
         var pet = PreviewRenderer.PlacePet(position, workArea);
@@ -54,7 +54,9 @@ internal static class RingSketches
             var localPet = new Rect(pet.Left - region.Left, pet.Top - region.Top, pet.Width, pet.Height);
             switch (variant)
             {
-                case "b": Strip(context, backdrop, region, localPet); break;
+                case "b":
+                case "b2":
+                case "b3": Strip(context, backdrop, region, localPet, variant, forceDark); break;
                 case "c": Pill(context, backdrop, region, localPet, "本次消耗 7.70 CNY", "balance"); break;
                 case "c-notice": Pill(context, backdrop, region, localPet, "有新的更新记录 · 2 条", "system"); break;
                 default: Cards(context, backdrop, region, localPet); break;
@@ -107,50 +109,77 @@ internal static class RingSketches
     }
 
     /// <summary>
-    /// B: one plate, attached to the side of the pet that faces the middle of the screen.
+    /// B: one plate, joined to the pet rather than scattered around it.
     /// </summary>
     /// <remarks>
-    /// Four sentences scattered around a character are four things that happen to be near
-    /// it; one plate joined to it is a caption, and a caption belongs to what it describes.
-    /// Values rather than sentences, because a caption has no room for prose -- and the
-    /// detail lines they replace were the least readable part of the current design.
+    /// Four sentences around a character are four things that happen to be near it; one
+    /// plate joined to it is a caption, and a caption belongs to what it describes. Values
+    /// rather than sentences, because a caption has no room for prose — and the detail lines
+    /// they replace were the least readable part of the current design.
+    ///
+    /// Three placements, because the first attempt put the plate level with the pet's face,
+    /// where it read as something in front of the character rather than attached to it, and
+    /// its connector was too faint to see.
     /// </remarks>
-    private static void Strip(DrawingContext context, RenderTargetBitmap backdrop, Rect region, Rect pet)
+    private static void Strip(DrawingContext context, RenderTargetBitmap backdrop, Rect region, Rect pet, string style, bool forceDark)
     {
-        const double height = 46;
-        const double width = 452;
-        var gap = 14.0;
-        var rect = new Rect(pet.Left - width - gap, pet.Top + (pet.Height - height) / 2, width, height);
-        var dark = PreviewRenderer.LuminanceAt(backdrop, new Rect(
-            rect.Left + region.Left, rect.Top + region.Top, rect.Width, rect.Height)) > 0.55;
-        var fill = new SolidColorBrush(dark ? Color.FromArgb(0xE8, 0x14, 0x1C, 0x26) : Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF));
-        var edge = new Pen(new SolidColorBrush(dark ? Color.FromArgb(0x30, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x1F, 0x0F, 0x17, 0x2A)), 1);
-        context.DrawRoundedRectangle(fill, edge, rect, 13, 13);
+        var side = style != "b3";
+        var height = side ? 52.0 : 40.0;
+        var width = side ? 452.0 : pet.Width + 76;
+        // Beside the body and low, level with the feet. The caption variant lies over the
+        // lower edge of the artwork on purpose, so the plate belongs to the pet's outline
+        // instead of hovering next to it.
+        var rect = side
+            ? new Rect(pet.Left - width - 20, pet.Bottom - height - 30, width, height)
+            : new Rect(pet.Left + (pet.Width - width) / 2, pet.Bottom - height - 14, width, height);
 
-        // A short connector: the plate is joined to the pet rather than floating near it.
-        var connector = Accent("balance", dark);
-        context.DrawRoundedRectangle(
-            new SolidColorBrush(Color.FromArgb(0x66, connector.R, connector.G, connector.B)),
-            null, new Rect(rect.Right, rect.Top + height / 2 - 1, gap + 2, 2), 1, 1);
+        var measured = PreviewRenderer.LuminanceAt(backdrop, new Rect(
+            rect.Left + region.Left, rect.Top + region.Top, rect.Width, rect.Height));
+        var dark = forceDark || measured > 0.55;
+        var fill = new SolidColorBrush(dark
+            ? Color.FromArgb(side ? (byte)0xEE : (byte)0xDC, 0x14, 0x1C, 0x26)
+            : Color.FromArgb(side ? (byte)0xF5 : (byte)0xE6, 0xFF, 0xFF, 0xFF));
+        var edge = new Pen(new SolidColorBrush(dark
+            ? Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)
+            : Color.FromArgb(0x22, 0x0F, 0x17, 0x2A)), 1);
+        context.DrawRoundedRectangle(fill, edge, rect, side ? 14 : 12, side ? 14 : 12);
+
+        if (side)
+        {
+            // The join, made visible this time: a bar from the plate to the pet and a dot
+            // where it lands, so the plate reads as attached rather than as nearby.
+            var accent = Accent("balance", dark);
+            var brush = new SolidColorBrush(Color.FromArgb(0xAA, accent.R, accent.G, accent.B));
+            var mid = rect.Top + height / 2;
+            context.DrawRoundedRectangle(brush, null,
+                new Rect(rect.Right, mid - 1.5, pet.Left - rect.Right + 6, 3), 1.5, 1.5);
+            context.DrawEllipse(brush, null, new Point(pet.Left + 6, mid), 4, 4);
+        }
 
         var segments = new (string Value, string Kind)[]
         {
             ("42.80 CNY", "balance"), ("官方登录", "account"), ("工作中", "task"), ("v1.5.1", "system")
         };
-        var cursor = rect.Left + 16;
+        var size = side ? 13.0 : 12.0;
+        var texts = segments
+            .Select(segment => Text(segment.Value, size, dark ? Paper : Ink, semibold: segment.Kind == "balance"))
+            .ToArray();
+        // Measured, not guessed: the row is centred as a whole and the dividers land between
+        // the groups rather than through them.
+        var needed = texts.Sum(text => 12 + text.Width) + 24 * (segments.Length - 1);
+        var cursor = rect.Left + Math.Max(16, (rect.Width - needed) / 2);
         for (var index = 0; index < segments.Length; index++)
         {
             if (index > 0)
             {
                 context.DrawRectangle(
                     new SolidColorBrush(dark ? Color.FromArgb(0x2E, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x1A, 0x0F, 0x17, 0x2A)),
-                    null, new Rect(cursor - 8, rect.Top + 13, 1, height - 26));
+                    null, new Rect(cursor - 12, rect.Top + 14, 1, height - 28));
             }
             context.DrawRoundedRectangle(new SolidColorBrush(Accent(segments[index].Kind, dark)),
                 null, new Rect(cursor, rect.Top + height / 2 - 3, 6, 6), 3, 3);
-            var text = Text(segments[index].Value, 12.5, dark ? Paper : Ink, semibold: index == 0);
-            context.DrawText(text, new Point(cursor + 12, rect.Top + (height - text.Height) / 2));
-            cursor += 12 + text.Width + 22;
+            context.DrawText(texts[index], new Point(cursor + 12, rect.Top + (height - texts[index].Height) / 2));
+            cursor += 12 + texts[index].Width + 24;
         }
     }
 

@@ -21,7 +21,8 @@ public partial class App : Application
                 sketchOutput,
                 ValueAfter(e.Args, "--style") ?? "a",
                 ValueAfter(e.Args, "--pet") ?? "bottom-right",
-                ValueAfter(e.Args, "--pet-image")));
+                ValueAfter(e.Args, "--pet-image"),
+                string.Equals(ValueAfter(e.Args, "--plate"), "dark", StringComparison.OrdinalIgnoreCase)));
             return;
         }
 
