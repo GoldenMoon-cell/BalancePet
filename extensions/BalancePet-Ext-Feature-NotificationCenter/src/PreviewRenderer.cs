@@ -90,11 +90,7 @@ internal static class PreviewRenderer
                 // Sampled, not animated: an off-screen window barely advances the animation
                 // clock, so pumping the dispatcher between captures photographed nothing
                 // fourteen times and the finished state once.
-                // Every frame, after the layout: the layout clears the layer the wave lives
-                // in, so preparing it once left the ring in the first frame only — at the size
-                // it starts from, which is nothing.
-                if (string.Equals(mode, "orbit", StringComparison.OrdinalIgnoreCase)) ring.PreviewOrbitOutAt(index * 45.0);
-                else { ring.PreviewPrepareWave(); ring.PreviewEntranceAt(index * 45.0); }
+                ring.PreviewOrbitOutAt(index * 45.0);
             }
 
             var overlay = new RenderTargetBitmap(

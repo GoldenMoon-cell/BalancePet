@@ -7,7 +7,7 @@ using System.Windows.Media.Effects;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using Ellipse = System.Windows.Shapes.Ellipse;
+
 using System.Windows.Threading;
 
 namespace BalancePet.NotificationCenter;
@@ -26,6 +26,8 @@ public partial class BubbleWindow : Window
 {
     private const int VkShift = 0x10;
     private const int TransitionMs = 180;
+    /// <summary>How long an item takes to travel from the pet to its place.</summary>
+    private const int TravelMs = 460;
     private const int LayoutTransitionMs = 260;
     private const int StaggerMs = 90;
     private const double PetSurfaceSize = 238;
@@ -51,7 +53,7 @@ public partial class BubbleWindow : Window
     private Border? _mergedPlate;
     private double _mergeProgress;
     private bool _mergeDark;
-    private Ellipse? _wave;
+
 
     public BubbleWindow()
     {
@@ -334,61 +336,8 @@ public partial class BubbleWindow : Window
         }
     }
 
-    /// <summary>Where the wave leaves from, when a preview is rendering instead of the screen.</summary>
+    /// <summary>Where the items leave from, when a preview is rendering instead of the screen.</summary>
     internal Point? PreviewWaveCentre { get; set; }
-
-    /// <summary>
-    /// Puts the entrance at a moment in its course, for a frame-by-frame capture.
-    /// </summary>
-    /// <remarks>
-    /// Values rather than animations, sampled from the same curve the animation uses. With no
-    /// visible window the animation clock barely advances, so pumping the dispatcher between
-    /// captures produced fourteen frames of nothing and one of the finished state. Sampling
-    /// the motion directly makes every frame a fact about the design, which is what a review
-    /// needs; the live path still animates, with these same numbers.
-    /// </remarks>
-    /// <param name="elapsedMs">How far into the entrance, in milliseconds.</param>
-    internal void PreviewEntranceAt(double elapsedMs)
-    {
-        var elements = InfoCanvas.Children.OfType<FrameworkElement>().ToArray();
-        if (elements.Length == 0) return;
-
-        var centre = PreviewWaveCentre ?? new Point(ActualWidth / 2, ActualHeight / 2);
-        var distances = elements.Select(item => CentreDistance(item, centre)).ToArray();
-        var farthest = Math.Max(1, distances.Max());
-
-        // The wave: out to its full reach over 540 ms, fading as it goes.
-        if (_wave is not null)
-        {
-            var eased = 1 - Math.Pow(1 - Math.Clamp(elapsedMs / 540.0, 0, 1), 3);
-            if (_wave.RenderTransform is ScaleTransform transform)
-            {
-                transform.ScaleX = eased;
-                transform.ScaleY = eased;
-            }
-            _wave.Opacity = 0.55 * (1 - eased);
-        }
-
-        // Printed when a preview asks. The wave not appearing in the captured frames is the
-        // one thing that could not be seen from the frames themselves, and guessing at why
-        // cost a round of changes that changed nothing.
-        if (Diagnose)
-        {
-            var scale = (_wave?.RenderTransform as ScaleTransform)?.ScaleX ?? -1;
-            Console.WriteLine($"  涟漪 存在={_wave is not null} 在层里={_wave is not null && BehindCanvas.Children.Contains(_wave)}"
-                + $" 不透明度={_wave?.Opacity ?? -1:F2} 缩放={scale:F2} 直径={_wave?.Width ?? -1:F0}"
-                + $" 描边={( _wave?.Stroke as SolidColorBrush)?.Color.ToString() ?? "无"} 层内元素={BehindCanvas.Children.Count}");
-        }
-
-        // Each item wakes when the wave reaches it, then fades and rises into place.
-        for (var index = 0; index < elements.Length; index++)
-        {
-            var reached = Math.Clamp((elapsedMs - 340 * distances[index] / farthest) / TransitionMs, 0, 1);
-            var eased = 1 - Math.Pow(1 - reached, 3);
-            elements[index].Opacity = eased;
-            if (elements[index].RenderTransform is TranslateTransform offset) offset.Y = 6 * (1 - eased);
-        }
-    }
 
     private readonly List<Point> _previewOrbitTargets = new();
 
@@ -434,34 +383,6 @@ public partial class BubbleWindow : Window
             Canvas.SetLeft(elements[index], start.X + (_previewOrbitTargets[index].X - start.X) * travelled);
             Canvas.SetTop(elements[index], start.Y + (_previewOrbitTargets[index].Y - start.Y) * travelled);
             elements[index].Opacity = travelled;
-        }
-    }
-
-    /// <summary>Puts the wave in place for a capture, without animating it.</summary>
-    /// <remarks>
-    /// The ring has to exist before a sampled frame can move it, and the animation that would
-    /// normally create and grow it cannot be relied on off-screen.
-    /// </remarks>
-    internal void PreviewPrepareWave()
-    {
-        var centre = PreviewWaveCentre ?? new Point(ActualWidth / 2, ActualHeight / 2);
-        var farthest = InfoCanvas.Children.OfType<FrameworkElement>()
-            .Select(item => CentreDistance(item, centre))
-            .DefaultIfEmpty(1)
-            .Max();
-        if (_wave is not null) BehindCanvas.Children.Remove(_wave);
-        StartWave(centre, Math.Max(1, farthest));
-        // Thicker for the capture only, to tell "not painted at all" apart from "too thin to
-        // be seen at this size". The live ring keeps its two pixels.
-        if (_wave is not null) _wave.StrokeThickness = 8;
-        if (_wave is not null)
-        {
-            _wave.BeginAnimation(OpacityProperty, null);
-            if (_wave.RenderTransform is ScaleTransform transform)
-            {
-                transform.BeginAnimation(ScaleTransform.ScaleXProperty, null);
-                transform.BeginAnimation(ScaleTransform.ScaleYProperty, null);
-            }
         }
     }
 
@@ -766,57 +687,63 @@ public partial class BubbleWindow : Window
     /// same in a still and quite different in motion: it reads as four things taking turns,
     /// where this reads as one thing spreading.
     /// </remarks>
+    /// <summary>
+    /// Brings the items out of the pet and into their places.
+    /// </summary>
+    /// <remarks>
+    /// They leave the pet rather than appearing where they will be, because that is what the
+    /// arrangement means: these values orbit the pet, so they come from it. A ring sweeping
+    /// past items that fade in on the spot says the opposite — that they were always there.
+    ///
+    /// The places are read before anything moves, since this is what moves them, and each item
+    /// is put at the pet's centre first: an item that starts at its destination and animates
+    /// from there would slide the wrong way for a frame.
+    /// </remarks>
     private async Task AnimateInAsync(CancellationToken cancellation)
     {
         try
         {
+            var elements = InfoCanvas.Children.OfType<FrameworkElement>().ToArray();
+            if (elements.Length == 0) return;
+
             var centre = new Point(ActualWidth / 2, ActualHeight / 2);
             if (TryGetPetBounds(out var petBounds, out _, out var workArea))
                 centre = new Point(
                     petBounds.Left + petBounds.Width / 2 - workArea.Left,
                     petBounds.Top + petBounds.Height / 2 - workArea.Top);
 
-            var elements = InfoCanvas.Children.OfType<FrameworkElement>().ToArray();
-            var distances = elements.Select(item => CentreDistance(item, centre)).ToArray();
-            var farthest = distances.Length == 0 ? 1 : Math.Max(1, distances.Max());
-            StartWave(centre, farthest);
+            var targets = elements.Select(item => new Point(Canvas.GetLeft(item), Canvas.GetTop(item))).ToArray();
+            var distances = targets
+                .Select(point => Math.Sqrt(
+                    Math.Pow(point.X + InfoWidth / 2 - centre.X, 2)
+                    + Math.Pow(point.Y + InfoHeight / 2 - centre.Y, 2)))
+                .ToArray();
+            var farthest = Math.Max(1, distances.Max());
 
             for (var index = 0; index < elements.Length; index++)
             {
-                var delay = (int)Math.Round(340 * distances[index] / farthest);
-                Animate(elements[index], 0, 1, 6, 0, EasingMode.EaseOut, delay);
+                var start = new Point(centre.X - InfoWidth / 2, centre.Y - InfoHeight / 2);
+                Canvas.SetLeft(elements[index], start.X);
+                Canvas.SetTop(elements[index], start.Y);
+                // A short stagger by distance: they all leave the same place, and waiting their
+                // turn would read as a queue rather than as a scattering.
+                var delay = 90 * distances[index] / farthest;
+                Travel(elements[index], start, targets[index], delay);
             }
-            await Task.Delay(560, cancellation);
+            await Task.Delay(620, cancellation);
         }
         catch (OperationCanceledException) { }
     }
 
-    /// <summary>One ring leaving the pet, fading as it goes.</summary>
-    private void StartWave(Point centre, double farthest)
+    /// <summary>Moves one item from the pet to its place, fading in on the way.</summary>
+    private static void Travel(FrameworkElement item, Point from, Point to, double delayMs)
     {
-        var diameter = (farthest + 70) * 2;
-        _wave = new Ellipse
-        {
-            Width = diameter,
-            Height = diameter,
-            StrokeThickness = 2,
-            Stroke = AccentFor("balance"),
-            Opacity = 0,
-            RenderTransformOrigin = new Point(0.5, 0.5),
-            RenderTransform = new ScaleTransform(0, 0)
-        };
-        Canvas.SetLeft(_wave, centre.X - diameter / 2);
-        Canvas.SetTop(_wave, centre.Y - diameter / 2);
-        BehindCanvas.Children.Add(_wave);
-
-        var grow = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(540)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        var fade = new DoubleAnimation(0.55, 0, TimeSpan.FromMilliseconds(540)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        if (_wave.RenderTransform is ScaleTransform transform)
-        {
-            transform.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
-            transform.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
-        }
-        _wave.BeginAnimation(OpacityProperty, fade);
+        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var length = TimeSpan.FromMilliseconds(TravelMs);
+        var begin = TimeSpan.FromMilliseconds(delayMs);
+        item.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, length) { EasingFunction = easing, BeginTime = begin });
+        item.BeginAnimation(Canvas.LeftProperty, new DoubleAnimation(from.X, to.X, length) { EasingFunction = easing, BeginTime = begin });
+        item.BeginAnimation(Canvas.TopProperty, new DoubleAnimation(from.Y, to.Y, length) { EasingFunction = easing, BeginTime = begin });
     }
 
     private static double CentreDistance(FrameworkElement element, Point centre)
@@ -831,7 +758,7 @@ public partial class BubbleWindow : Window
             if (!_requestedVisible)
             {
                 Hide();
-                if (_wave is not null) { BehindCanvas.Children.Remove(_wave); _wave = null; }
+
                 if (_mergedPlate is not null) _mergedPlate.Opacity = 0;
             } }
         catch (OperationCanceledException) { }
