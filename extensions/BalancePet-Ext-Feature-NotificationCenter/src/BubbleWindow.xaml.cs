@@ -7,6 +7,8 @@ using System.Windows.Media.Effects;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+// Aliased, not imported: System.IO.Path is already in scope and a bare Path would mean it.
+using Shapes = System.Windows.Shapes;
 
 using System.Windows.Threading;
 
@@ -50,7 +52,15 @@ public partial class BubbleWindow : Window
     private string? _coreSettingsPath;
     private DateTime _coreSettingsWriteUtc = DateTime.MinValue;
     private PetPlacement _cachedPetPlacement = new(false, 1);
-    private Border? _mergedPlate;
+    private Shapes.Path? _goo;
+    private double _gather;
+    private long _lastGatherTick;
+
+    /// <summary>
+    /// How far the fusion stroke reaches beyond the plates. This is the number that decides
+    /// when two plates stop being two: at half of it they are already one outline.
+    /// </summary>
+    private const double GooStroke = 18;
     private double _mergeProgress;
     private bool _mergeDark;
 
@@ -167,7 +177,11 @@ public partial class BubbleWindow : Window
         // The plate is a sibling of the text, not its parent. Nesting the text inside the
         // plate and fading the plate hides the text with it — which is what the first version
         // of this did, and why every item vanished the moment the values gathered.
-        var root = new Border { Width = InfoWidth, Height = InfoHeight };
+        // Invisible until the entrance says otherwise. An item that is created visible sits
+        // at its destination for a frame or two before the animation moves it back to the pet,
+        // which is exactly the flash the user reported: the destination shown first, then the
+        // item vanishing and flying out of the pet.
+        var root = new Border { Width = InfoWidth, Height = InfoHeight, Opacity = 0 };
         var layers = new Grid();
         var plate = new Border
         {
@@ -250,28 +264,36 @@ public partial class BubbleWindow : Window
     }
 
     /// <summary>
-    /// Moves the items between the two arrangements, by however much the orbit has been lost.
+    /// Moves the items between the two arrangements, and fuses their plates as they meet.
     /// </summary>
     /// <remarks>
-    /// Called on every tick rather than animated, because this is what follows a drag: the pet
-    /// moves a pixel, the measure changes a little, and the items move a little with it. An
-    /// animation here would still be running when the next tick arrived, and the two would
-    /// fight over the same position.
+    /// The measure is smoothed in time rather than followed directly. Taken raw it jitters —
+    /// the pet's position arrives in forty-five millisecond steps, and the widest empty wedge
+    /// flips between values as the hand holding the pet shakes — and following it made the
+    /// gathering stutter, which is what the user saw.
     ///
-    /// The items keep their text the whole way and only trade their own plates for a shared
-    /// one. That is what makes it read as gathering rather than as one picture being replaced
-    /// by another: every value stays legible, and the detail line — which has no room in a
-    /// caption row — fades as the row closes up.
+    /// The fusion is a union of the plates, stroked with the same brush and round joins. Two
+    /// rounded rectangles that come within a stroke's width of each other have the notch
+    /// between them filled in by that stroke, so their boundaries stop being two boundaries
+    /// and become one outline: droplets meeting, not two cards sliding together. The items
+    /// keep their own plates until then, and hand over to the union as it takes hold, which
+    /// is what makes the seam disappear rather than cross-fade.
     /// </remarks>
     private void GatherIfTheOrbitIsLost(Rect petBounds, Rect workArea, IReadOnlyList<Rect> slots)
     {
         if (_visuals.Count == 0 || slots.Count < _visuals.Count) return;
 
-        var progress = RingLayout.MergeProgress(petBounds, workArea, slots);
+        var want = RingLayout.MergeProgress(petBounds, workArea, slots);
+        var now = Environment.TickCount64;
+        var elapsed = _lastGatherTick == 0 ? 16 : Math.Clamp(now - _lastGatherTick, 0, 200);
+        _lastGatherTick = now;
+        // A third of a second to travel the whole way, so a hand shaking at the edge of the
+        // rule cannot make it flicker between the two arrangements.
+        var step = elapsed / 320.0;
+        _gather = PreviewGatherOverride ?? (PreviewImmediateGather ? want : _gather + Math.Clamp(want - _gather, -step, step));
+        var progress = _gather;
         _mergeProgress = progress;
 
-        // Measured from the text, so the gathered row is as wide as what it has to say rather
-        // than as wide as the slots happened to be.
         // The gathered row shows values, not sentences: a caption has no room for prose, and
         // four sentences side by side need a plate twice as wide as the pet. Each item swaps
         // its text at the halfway point of the gathering, when the sentence has stopped being
@@ -280,27 +302,13 @@ public partial class BubbleWindow : Window
         var widths = _visuals
             .Select(visual => Math.Max(52, Measure(visual, gathered) + 20))
             .ToArray();
-        var plateWidth = widths.Sum() + 24 * (widths.Length - 1) + 32;
+        // No gaps between the segments of the gathered row: the union of plates that touch is
+        // one shape, and the union of plates with gaps is a row of blobs. Their own padding is
+        // what keeps the values apart.
+        var plateWidth = widths.Sum() + 32;
         var plate = RingLayout.MergedPlate(petBounds, workArea, plateWidth);
 
-        _mergedPlate ??= new Border
-        {
-            CornerRadius = new CornerRadius(13), BorderThickness = new Thickness(1), Opacity = 0
-        };
-        if (!BehindCanvas.Children.Contains(_mergedPlate)) BehindCanvas.Children.Add(_mergedPlate);
-        _mergedPlate.Width = plate.Width;
-        _mergedPlate.Height = plate.Height;
-        Canvas.SetLeft(_mergedPlate, plate.Left - workArea.Left);
-        Canvas.SetTop(_mergedPlate, plate.Top - workArea.Top);
-        // The plate arrives during the last part of the gathering, not from the first pixel of
-        // it: a wide, half-transparent band appearing behind a pet whose values are still
-        // scattered reads as a glitch rather than as something closing up.
-        _mergedPlate.Opacity = Math.Clamp((progress - 0.45) / 0.55, 0, 1);
-        // The shared plate takes the finish of whatever the items had, so the row does not
-        // change colour as it gathers.
-        _mergedPlate.Background = Brush(_mergeDark ? "#EE141C26" : "#F5FFFFFF");
-        _mergedPlate.BorderBrush = Brush(_mergeDark ? "#33FFFFFF" : "#220F172A");
-
+        Geometry? fused = null;
         for (var index = 0; index < _visuals.Count; index++)
         {
             var visual = _visuals[index];
@@ -308,7 +316,7 @@ public partial class BubbleWindow : Window
             var orbiting = new Rect(
                 slot.Left + (slot.Width - InfoWidth) / 2, slot.Top + (slot.Height - InfoHeight) / 2,
                 InfoWidth, InfoHeight);
-            var segment = RingLayout.SegmentInPlate(plate, widths, index);
+            var segment = RingLayout.SegmentInPlate(plate, widths, index, gap: 0);
             var target = Interpolate(orbiting, segment, progress);
 
             // Both ways, on every tick. Going short and never coming back is what the first
@@ -318,11 +326,36 @@ public partial class BubbleWindow : Window
             var wanted = gathered ? visual.Short : visual.Full;
             if (!string.Equals(visual.Primary.Text, wanted, StringComparison.Ordinal)) visual.Primary.Text = wanted;
             visual.Root.Width = target.Width;
-            Canvas.SetLeft(visual.Root, target.Left - workArea.Left);
-            Canvas.SetTop(visual.Root, target.Top - workArea.Top);
-            // The item's own plate dissolves into the shared one; the text does not.
-            visual.Plate.Opacity = 1 - progress;
-            if (visual.Detail is not null) visual.Detail.Opacity = 1 - progress;
+            var placed = new Rect(target.Left - workArea.Left, target.Top - workArea.Top, target.Width, InfoHeight);
+            Canvas.SetLeft(visual.Root, placed.Left);
+            Canvas.SetTop(visual.Root, placed.Top);
+
+            var shape = new RectangleGeometry(placed, 12, 12);
+            fused = fused is null ? shape : Geometry.Combine(fused, shape, GeometryCombineMode.Union, null);
+        }
+
+        var fusedAmount = Math.Clamp((progress - 0.15) / 0.85, 0, 1);
+        if (_goo is null)
+        {
+            _goo = new Shapes.Path
+            {
+                StrokeThickness = GooStroke, StrokeLineJoin = PenLineJoin.Round, Opacity = 0
+            };
+            BehindCanvas.Children.Add(_goo);
+        }
+        if (fused is not null) _goo.Data = fused;
+        _goo.Fill = Brush(_mergeDark ? "#EE141C26" : "#F5FFFFFF");
+        _goo.Stroke = Brush(_mergeDark ? "#EE141C26" : "#F5FFFFFF");
+        // The stroke, not the fill, is what fuses them: it reaches out by half its width and
+        // fills the notch between two plates that are close but not yet touching.
+        _goo.Opacity = fusedAmount;
+        _goo.StrokeThickness = GooStroke;
+
+        foreach (var visual in _visuals)
+        {
+            // The items hand their plates to the union as it takes hold. The text stays.
+            visual.Plate.Opacity = 1 - fusedAmount;
+            if (visual.Detail is not null) visual.Detail.Opacity = 1 - fusedAmount;
         }
 
         // Said out loud when a preview asks, because this is where a picture of a settled
@@ -330,11 +363,31 @@ public partial class BubbleWindow : Window
         // while it is still in orbit, reads as a design decision rather than as a bug.
         if (Diagnose)
         {
-            Console.WriteLine($"  诊断 进度={progress:F2} 聚拢={gathered} 板不透明度={_mergedPlate?.Opacity ?? 0:F2} 板宽={_mergedPlate?.Width ?? 0:F0}");
+            Console.WriteLine($"  诊断 目标={want:F2} 平滑后={progress:F2} 聚拢={gathered} 融合={fusedAmount:F2} 板宽={plateWidth:F0}");
             foreach (var item in _visuals)
                 Console.WriteLine($"    「{item.Primary.Text}」 板={item.Plate.Opacity:F2} 宽={item.Root.Width:F0} 位置=({Canvas.GetLeft(item.Root):F0},{Canvas.GetTop(item.Root):F0}) 实际文字宽={item.Primary.ActualWidth:F0}");
         }
     }
+
+    /// <summary>
+    /// Skips the smoothing, for a capture of a settled arrangement.
+    /// </summary>
+    /// <remarks>
+    /// The smoothing is measured in real time and a frame capture advances the clock by a
+    /// single tick per frame: left smoothed, a preview would show a gathering that never
+    /// arrives.
+    /// </remarks>
+    internal static bool PreviewImmediateGather { get; set; }
+
+    /// <summary>
+    /// Forces the gathering to a given amount, for a capture of the fusion itself.
+    /// </summary>
+    /// <remarks>
+    /// The fusion happens while the pet is also moving, so a capture that follows the pet
+    /// samples it twice and shows neither end. Holding the pet still and sweeping this is the
+    /// only way to see whether the plates actually fuse or merely arrive side by side.
+    /// </remarks>
+    internal static double? PreviewGatherOverride { get; set; }
 
     /// <summary>Where the items leave from, when a preview is rendering instead of the screen.</summary>
     internal Point? PreviewWaveCentre { get; set; }
@@ -759,7 +812,7 @@ public partial class BubbleWindow : Window
             {
                 Hide();
 
-                if (_mergedPlate is not null) _mergedPlate.Opacity = 0;
+                if (_goo is not null) _goo.Opacity = 0;
             } }
         catch (OperationCanceledException) { }
     }

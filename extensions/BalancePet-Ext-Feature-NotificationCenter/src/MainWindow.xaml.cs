@@ -38,6 +38,8 @@ public partial class MainWindow : Window
     /// well under a second.
     /// </remarks>
     private static readonly TimeSpan RowStep = TimeSpan.FromMilliseconds(80);
+    private int _arrivals;
+    private DateTime _lastArrival;
     private static readonly Duration RowSlide = new(TimeSpan.FromMilliseconds(340));
     private static readonly Duration RowFade = new(TimeSpan.FromMilliseconds(220));
 
@@ -102,7 +104,15 @@ public partial class MainWindow : Window
         var offset = new TranslateTransform(-46, 0);
         root.RenderTransform = offset;
 
-        var delay = TimeSpan.FromMilliseconds(RowStep.TotalMilliseconds * row.Index);
+        // Counted per wave of arrivals, not by the row number. The number meant a row two
+        // hundred down waited sixteen seconds for its turn, so scrolling showed an empty list:
+        // the animated rows were the ones that had already scrolled past.
+        var now = DateTime.UtcNow;
+        _arrivals = now - _lastArrival > TimeSpan.FromMilliseconds(400) ? 0 : _arrivals + 1;
+        _lastArrival = now;
+        // Capped so a wave of two hundred rows still finishes inside a second; a scroll that
+        // brings a screenful into view is a wave like any other and starts its own.
+        var delay = TimeSpan.FromMilliseconds(Math.Min(_arrivals, 12) * RowStep.TotalMilliseconds);
         offset.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, RowSlide)
         {
             BeginTime = delay,
@@ -188,6 +198,10 @@ public partial class MainWindow : Window
             : all.Where(value => string.Equals(SectionOf(value.Category), _filter, StringComparison.OrdinalIgnoreCase)).ToArray();
 
         _rows.Clear();
+        // A fresh list is a fresh wave: the rows that fill it stagger from the first one, not
+        // from wherever the previous list happened to have got to.
+        _arrivals = 0;
+        _lastArrival = default;
         for (var index = 0; index < filtered.Count; index++) _rows.Add(new NotificationRow(filtered[index], index));
 
         var title = SectionName(_filter);

@@ -58,6 +58,7 @@ internal static class PreviewRenderer
 
         Directory.CreateDirectory(directory);
         BubbleWindow.Diagnose = true;
+        BubbleWindow.PreviewImmediateGather = true;
         var ring = new BubbleWindow();
         ring.UpdateItems(items);
 
@@ -84,6 +85,8 @@ internal static class PreviewRenderer
             ring.PreviewWaveCentre = new Point(
                 pet.Left + pet.Width / 2 - workArea.Left, pet.Top + pet.Height / 2 - workArea.Top);
             ring.BackdropLuminance = element => LuminanceBehind(backdrop, ring, element);
+            if (string.Equals(mode, "fuse", StringComparison.OrdinalIgnoreCase))
+                BubbleWindow.PreviewGatherOverride = t;
             ring.PreviewLayout(pet, workArea);
             if (entrance)
             {
