@@ -235,51 +235,52 @@ internal static class Program
             // the fallback rather than the other way round: the mirror exists because
             // GitHub is the slow path here, and the two name the same bytes, so a download
             // can change hosts part way through and still be checked once at the end.
-            var mirrorCandidates = DownloadMirror.Candidates(
-                new Uri("https://github.com/GoldenMoon-cell/BalancePet/releases/download/v1.5.0/BalancePet-1.5.0-win-x64.zip"), "v1.5.0");
+            //
+            // The empty base is passed explicitly rather than relying on Base being unset:
+            // Base is filled in once the mirror exists, and a test that reads it would
+            // change meaning on the day the mirror is published.
+            var noMirror = DownloadMirror.Candidates(
+                new Uri("https://github.com/GoldenMoon-cell/BalancePet/releases/download/v1.5.0/BalancePet-1.5.0-win-x64.zip"),
+                "v1.5.0", "");
             Check("没配置镜像时只有 GitHub 一个地址",
-                mirrorCandidates.Count == 1 && mirrorCandidates[0].Host == "github.com",
-                string.Join(",", mirrorCandidates.Select(uri => uri.Host)));
+                noMirror.Count == 1 && noMirror[0].Host == "github.com",
+                string.Join(",", noMirror.Select(uri => uri.Host)));
 
             // The shape the mirror has to have, and the order: the mirror is asked for
             // first because it exists precisely because GitHub is the slow path here.
-            var mirrored = DownloadMirror.Candidates(
+            var mirrorUrls = DownloadMirror.Candidates(
                 new Uri("https://github.com/GoldenMoon-cell/BalancePet/releases/download/v1.5.0/BalancePet-1.5.0-win-x64.zip"),
                 "v1.5.0", "https://gitee.com/example/balancepet/releases/download");
             Check("配好镜像后镜像在前、GitHub 在后",
-                mirrored.Count == 2 && mirrored[0].Host == "gitee.com" && mirrored[1].Host == "github.com",
-                string.Join(",", mirrored.Select(uri => uri.Host)));
+                mirrorUrls.Count == 2 && mirrorUrls[0].Host == "gitee.com" && mirrorUrls[1].Host == "github.com",
+                string.Join(",", mirrorUrls.Select(uri => uri.Host)));
             Check("镜像地址保留了标签与文件名",
-                mirrored[0].AbsoluteUri == "https://gitee.com/example/balancepet/releases/download/v1.5.0/BalancePet-1.5.0-win-x64.zip",
-                mirrored[0].AbsoluteUri);
+                mirrorUrls[0].AbsoluteUri == "https://gitee.com/example/balancepet/releases/download/v1.5.0/BalancePet-1.5.0-win-x64.zip",
+                mirrorUrls[0].AbsoluteUri);
             Check("标签里的特殊字符会被转义",
                 DownloadMirror.Candidates(new Uri("https://github.com/o/r/releases/download/v1.0.0/x.zip"), "v1.0.0+build/2", "https://gitee.com/example/m/releases/download")[0]
                     .AbsoluteUri.EndsWith("/v1.0.0%2Bbuild%2F2/x.zip", StringComparison.Ordinal),
                 DownloadMirror.Candidates(new Uri("https://github.com/o/r/releases/download/v1.0.0/x.zip"), "v1.0.0+build/2", "https://gitee.com/example/m/releases/download")[0].AbsoluteUri);
 
-            // The mechanism itself, exercised through the updater with the stub standing in
-            // for the mirror: the same code runs whether or not Base is filled in, so the
-            // only thing left to confirm when the mirror exists is that the address is right.
+            // Both addresses missing is the case a user actually sees when a release has not
+            // been mirrored yet: a readable failure, after the mirror has been asked and
+            // before GitHub has. The order matters for the report as much as for the fetch.
             var official = new Uri("https://github.com/GoldenMoon-cell/BalancePet/releases/download/v1.5.0/BalancePet-1.5.0-win-x64.zip");
             var askedHosts = new List<string>();
-            var archiveSequence = new RangeServer(payload, dropAfter: payload.Length);
             using (var mirrorHttp = new HttpClient(new StubHandler(request =>
             {
                 askedHosts.Add(request.RequestUri!.Host);
-                return request.RequestUri.Host == "github.com"
-                    ? new HttpResponseMessage(HttpStatusCode.NotFound)
-                    : archiveSequence.Respond(request);
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
             })))
             {
                 var service = new UpdateService(mirrorHttp, updateDownloads);
                 var asset = new UpdateAsset(UpdateAssetKind.PortableArchive, "x.zip", official, digest, "v1.5.0");
-                // No mirror configured means one host and a 404, which the updater reports
-                // rather than swallowing: an update that cannot be fetched has to say so.
                 var missingMessage = "";
                 try { await service.DownloadAsync(asset); }
                 catch (HttpRequestException error) { missingMessage = error.Message; }
-                Check("官方地址 404 时报告可读的失败",
-                    missingMessage.Length > 0 && askedHosts.Count == 1 && askedHosts[0] == "github.com",
+                var expected = DownloadMirror.Configured ? 2 : 1;
+                Check("两个地址都 404 时报告可读的失败",
+                    missingMessage.Length > 0 && askedHosts.Count == expected,
                     $"{missingMessage} / {string.Join(",", askedHosts)}");
             }
 
@@ -521,10 +522,12 @@ internal static class Program
                 string.Join(",", sequences));
 
             // The digest is what makes resuming safe: bytes appended from a source that
-            // answered the wrong range would otherwise be installed as an update.
+            // answered the wrong range would otherwise be installed as an update. Its own
+            // package name, because a file that is complete answers a range request with
+            // 416 and never reaches the digest at all.
             var corrupted = "";
             try { await Download(new RangeServer(payload, dropAfter: 50_000) { CorruptResume = true }); }
-            catch (InvalidDataException error) { corrupted = error.Message; }
+            catch (Exception error) { corrupted = $"{error.GetType().Name}: {error.Message}"; }
             Check("续传拼错的文件被校验拦下", corrupted.Contains("校验失败", StringComparison.Ordinal), corrupted);
 
             // --- 14. The pictures the catalog points at --------------------------
@@ -866,6 +869,62 @@ internal static class Program
                 Check("昨天的半成品会被清掉，今天的留着",
                     !File.Exists(stale) && File.Exists(fresh),
                     $"stale={File.Exists(stale)} fresh={File.Exists(fresh)}");
+            }
+
+            // --- 19. A mirror that cannot resume, and a host that can --------------
+            // Measured against the real mirror: its CDN answers a range request with the
+            // whole file, so a dropped transfer there starts again from nothing. Six
+            // attempts would be six copies of the same seventy megabytes over a link that
+            // drops, which is worse than not having a mirror at all. What has to happen:
+            // the mirror is tried, gives up quickly once it is known to ignore ranges, and
+            // the bytes it did deliver are handed to GitHub, which continues them — because
+            // both addresses serve the same file and the digest decides at the end.
+            var mirrored = new byte[500_000];
+            Random.Shared.NextBytes(mirrored);
+            var mirroredDigest = "sha256:" + Convert.ToHexString(SHA256.HashData(mirrored)).ToLowerInvariant();
+            var mirrorServer = new RangeServer(mirrored, dropAfter: 200_000) { IgnoreRange = true, DropEvery = true };
+            var githubServer = new RangeServer(mirrored, dropAfter: 200_000);
+            var mirrorHosts = new List<string>();
+            var mirrorDownloads = Path.Combine(workspace, "mirror-downloads");
+            Directory.CreateDirectory(mirrorDownloads);
+
+            using (var mixedHttp = new HttpClient(new StubHandler(request =>
+            {
+                var host = request.RequestUri!.Host;
+                lock (mirrorHosts) mirrorHosts.Add(host);
+                return host.Contains("gitee", StringComparison.OrdinalIgnoreCase)
+                    ? mirrorServer.Respond(request)
+                    : githubServer.Respond(request);
+            })))
+            {
+                var service = new UpdateService(mixedHttp, mirrorDownloads);
+                var asset = new UpdateAsset(
+                    UpdateAssetKind.PortableArchive,
+                    "mirrored.zip",
+                    new Uri("https://github.com/GoldenMoon-cell/BalancePet/releases/download/v9.9.9/mirrored.zip"),
+                    mirroredDigest,
+                    "v9.9.9");
+
+                // Only meaningful when a mirror is configured; without one the candidates
+                // are GitHub alone and this is the resume test again.
+                var hadMirror = DownloadMirror.Candidates(asset.DownloadUri, asset.Tag).Count > 1;
+                var path = await service.DownloadAsync(asset);
+                var throughMirror = await File.ReadAllBytesAsync(path);
+                Check("镜像断流后由 GitHub 续完", throughMirror.SequenceEqual(mirrored),
+                    $"{throughMirror.Length} / {mirrored.Length} 字节");
+                if (hadMirror)
+                {
+                    Check("先问镜像，再问 GitHub",
+                        mirrorHosts.Count > 0 && mirrorHosts[0].Contains("gitee", StringComparison.OrdinalIgnoreCase)
+                        && mirrorHosts[^1].Contains("github", StringComparison.OrdinalIgnoreCase),
+                        string.Join(",", mirrorHosts));
+                    Check("镜像已收到的字节被 GitHub 接着写，而不是从头再来",
+                        githubServer.RequestedFrom.Count > 0 && githubServer.RequestedFrom[0] == 200_000,
+                        $"GitHub 第一段从 {string.Join(",", githubServer.RequestedFrom)} 开始");
+                    Check("镜像被问的次数很少（它不支持续传，多问就是多重下整包）",
+                        mirrorHosts.Count(host => host.Contains("gitee", StringComparison.OrdinalIgnoreCase)) <= 2,
+                        $"{mirrorHosts.Count(host => host.Contains("gitee", StringComparison.OrdinalIgnoreCase))} 次");
+                }
             }
         }
         finally

@@ -145,15 +145,24 @@ public static class ResumableDownload
             await using var output = new FileStream(
                 path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read);
 
+            // A host that answers a range request with the whole file cannot continue a
+            // transfer, and another attempt against it starts from nothing. Measured: the
+            // domestic mirror does exactly this — the published address redirects to a CDN
+            // that ignores Range and returns all seventy megabytes. Six attempts there
+            // would be six copies of the same file over a link that drops, so the first
+            // time it happens the attempts stop and the caller moves to its next address.
+            var state = new AttemptState();
+
             for (var attempt = 1; ; attempt++)
             {
                 try
                 {
-                    await DownloadOnceAsync(http, uri, output, ceiling, accept, userAgent, cancellationToken, progress);
+                    await DownloadOnceAsync(http, uri, output, ceiling, accept, userAgent, cancellationToken, progress, state);
                     return;
                 }
                 catch (Exception error) when (attempt < Attempts && IsInterrupted(error, cancellationToken))
                 {
+                    if (!state.CanResume) throw;
                     // The bytes already written are left where they are: the next attempt
                     // asks the host for the remainder instead of starting over.
                     await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), cancellationToken);
@@ -164,6 +173,13 @@ public static class ResumableDownload
         {
             throw new HttpRequestException($"下载时网络连接中断，请稍后重试。（{error.Message}）", error);
         }
+    }
+
+    /// <summary>What one download learns about the host while it is talking to it.</summary>
+    private sealed class AttemptState
+    {
+        /// <summary>Whether the host honoured a range request. Set once, never unset.</summary>
+        public bool CanResume { get; set; } = true;
     }
 
     /// <summary>
@@ -197,7 +213,8 @@ public static class ResumableDownload
         string accept,
         string userAgent,
         CancellationToken cancellationToken,
-        IProgress<double>? progress)
+        IProgress<double>? progress,
+        AttemptState state)
     {
         var have = output.Length;
 
@@ -219,10 +236,12 @@ public static class ResumableDownload
 
         // A host that ignores Range answers 200 with the whole file. That is still a
         // correct answer, so what is in the file is discarded and the transfer starts
-        // again rather than being appended to.
+        // again rather than being appended to — and the host is remembered as one that
+        // cannot be resumed from.
         var resuming = response.StatusCode == HttpStatusCode.PartialContent;
         if (!resuming)
         {
+            if (have > 0) state.CanResume = false;
             output.SetLength(0);
             have = 0;
         }

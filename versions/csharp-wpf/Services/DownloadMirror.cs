@@ -32,8 +32,15 @@ public static class DownloadMirror
     /// A Gitee repository's releases, which answer at
     /// <c>{base}/{tag}/{file}</c> — the same shape GitHub uses, deliberately, so a mirrored
     /// asset keeps the address it had.
+    ///
+    /// Measured against the real release: the published address redirects twice and the
+    /// CDN behind it answers a range request with the whole file, so this mirror cannot be
+    /// resumed from. That is handled rather than assumed — <see cref="ResumableDownload"/>
+    /// notices a host ignoring Range and stops retrying it, and the bytes it did receive
+    /// are then handed to GitHub, which can continue them, because both addresses serve
+    /// the same file.
     /// </remarks>
-    public const string Base = "";
+    public const string Base = "https://gitee.com/GoldenMoon-cell/balancepet/releases/download";
 
     /// <summary>Whether a mirror is configured at all.</summary>
     public static bool Configured => Base.Length > 0;
