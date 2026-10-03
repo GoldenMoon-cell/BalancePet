@@ -390,6 +390,53 @@ public partial class BubbleWindow : Window
         }
     }
 
+    private readonly List<Point> _previewOrbitTargets = new();
+
+    /// <summary>
+    /// Puts the entrance at a moment of the items flying out of the pet, for a capture.
+    /// </summary>
+    /// <remarks>
+    /// The items leave the pet and settle into their places, rather than appearing where they
+    /// will be. It is the arrangement's own language: the values orbit the pet, so they should
+    /// come from the pet — and a ring sweeping past them says they were always there, which is
+    /// a different and weaker claim.
+    ///
+    /// Their places are remembered on the first frame, because this moves them.
+    /// </remarks>
+    /// <param name="elapsedMs">How far into the entrance, in milliseconds.</param>
+    internal void PreviewOrbitOutAt(double elapsedMs)
+    {
+        var elements = InfoCanvas.Children.OfType<FrameworkElement>().ToArray();
+        if (elements.Length == 0) return;
+
+        var centre = PreviewWaveCentre ?? new Point(ActualWidth / 2, ActualHeight / 2);
+        if (_previewOrbitTargets.Count != elements.Length)
+        {
+            _previewOrbitTargets.Clear();
+            foreach (var element in elements)
+                _previewOrbitTargets.Add(new Point(Canvas.GetLeft(element), Canvas.GetTop(element)));
+        }
+
+        var distances = elements
+            .Select((element, index) => Math.Sqrt(
+                Math.Pow(_previewOrbitTargets[index].X + element.ActualWidth / 2 - centre.X, 2)
+                + Math.Pow(_previewOrbitTargets[index].Y + element.ActualHeight / 2 - centre.Y, 2)))
+            .ToArray();
+        var farthest = Math.Max(1, distances.Max());
+
+        for (var index = 0; index < elements.Length; index++)
+        {
+            // A short stagger by distance, not a long one: they all leave the same place, and
+            // waiting their turn would read as a queue rather than as a scattering.
+            var delay = 90 * distances[index] / farthest;
+            var travelled = 1 - Math.Pow(1 - Math.Clamp((elapsedMs - delay) / 460, 0, 1), 3);
+            var start = new Point(centre.X - InfoWidth / 2, centre.Y - InfoHeight / 2);
+            Canvas.SetLeft(elements[index], start.X + (_previewOrbitTargets[index].X - start.X) * travelled);
+            Canvas.SetTop(elements[index], start.Y + (_previewOrbitTargets[index].Y - start.Y) * travelled);
+            elements[index].Opacity = travelled;
+        }
+    }
+
     /// <summary>Puts the wave in place for a capture, without animating it.</summary>
     /// <remarks>
     /// The ring has to exist before a sampled frame can move it, and the animation that would

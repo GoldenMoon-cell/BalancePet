@@ -46,7 +46,7 @@ internal static class PreviewRenderer
 
         var start = PlacePet("center", workArea);
         var end = PlacePet("bottom-right", workArea);
-        var entrance = string.Equals(mode, "enter", StringComparison.OrdinalIgnoreCase);
+        var entrance = mode is "enter" or "orbit";
         var moving = Rect.Union(start, end);
 
         // One crop for the whole sequence, so the frames can be laid side by side or made into
@@ -93,8 +93,8 @@ internal static class PreviewRenderer
                 // Every frame, after the layout: the layout clears the layer the wave lives
                 // in, so preparing it once left the ring in the first frame only — at the size
                 // it starts from, which is nothing.
-                ring.PreviewPrepareWave();
-                ring.PreviewEntranceAt(index * 45.0);
+                if (string.Equals(mode, "orbit", StringComparison.OrdinalIgnoreCase)) ring.PreviewOrbitOutAt(index * 45.0);
+                else { ring.PreviewPrepareWave(); ring.PreviewEntranceAt(index * 45.0); }
             }
 
             var overlay = new RenderTargetBitmap(

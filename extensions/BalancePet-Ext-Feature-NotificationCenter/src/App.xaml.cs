@@ -30,7 +30,8 @@ public partial class App : Application
         // A movement captured as frames: the drag that gathers the values, or the entrance.
         if (ValueAfter(e.Args, "--frames") is { Length: > 0 } framesDirectory)
         {
-            var frameMode = e.Args.Contains("--enter", StringComparer.OrdinalIgnoreCase) ? "enter" : "track";
+            var frameMode = e.Args.Contains("--orbit", StringComparer.OrdinalIgnoreCase) ? "orbit"
+                : e.Args.Contains("--enter", StringComparer.OrdinalIgnoreCase) ? "enter" : "track";
             var count = int.TryParse(ValueAfter(e.Args, "--count"), out var wanted) ? Math.Clamp(wanted, 2, 60) : 14;
             var petArt = ValueAfter(e.Args, "--pet-image");
             Shutdown(PreviewRenderer.RenderFrames(framesDirectory, frameMode, PreviewItems.Current(), petArt, count));
