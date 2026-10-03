@@ -208,15 +208,18 @@ public partial class MainWindow : Window
     {
         var desired = new (string Key, string Name)[]
         {
-            ("notice", "更新记录"), ("system", "系统通知"), ("extension", "扩展"),
-            ("balance", "余额记录"), ("task", "任务"), ("account", "账户"), ("all", "全部消息")
+            ("notice", "更新记录"), ("task", "任务"), ("account", "账户"),
+            ("balance", "余额"), ("system", "系统"), ("all", "全部消息")
         };
         var selected = _filter;
         _sections.Clear();
         foreach (var (key, name) in desired)
         {
+            // Counted through the same mapping the list is filtered by, so a section number is
+            // always the number of rows it will show — including 全部消息, which no longer
+            // counts the interaction records it does not display.
             var count = string.Equals(key, "all", StringComparison.Ordinal)
-                ? all.Count
+                ? all.Count(item => SectionOf(item.Category) is not null)
                 : all.Count(item => string.Equals(SectionOf(item.Category), key, StringComparison.OrdinalIgnoreCase));
             // 全部消息 is always offered; a section with nothing in it is not, because a
             // navigation rail full of empty rooms is worse than a short one.
@@ -241,25 +244,41 @@ public partial class MainWindow : Window
     /// messages already were. This is the mapping that makes the layout outlive a window
     /// whose only content was the changelog.
     /// </remarks>
-    private static string SectionOf(string category) => category.ToLowerInvariant() switch
+    /// <summary>
+    /// Which section a category belongs to, or null for one that is not shown here at all.
+    /// </summary>
+    /// <remarks>
+    /// The sections are the categories the host actually writes, taken from a real event
+    /// stream rather than invented: notice, task, account, balance, system. Two decisions are
+    /// worth stating because neither is visible in the result.
+    ///
+    /// `interaction` is excluded. It is the largest category by far — 982 of 1863 records on
+    /// the machine this was written on — and it is a record of clicks and drags, which is
+    /// telemetry rather than something a person reads. It stays in the stream, where the hover
+    /// information takes its values from; it just is not offered as a room to walk into.
+    ///
+    /// `refresh` and anything unknown fold into 系统 rather than being dropped. A category that
+    /// silently disappears when a future host starts writing it is worse than one filed in the
+    /// wrong drawer, and the alternative — a section that appears and vanishes with the data —
+    /// makes the navigation move under the reader's hand.
+    /// </remarks>
+    private static string? SectionOf(string category) => category.ToLowerInvariant() switch
     {
         "notice" => "notice",
-        "system" => "system",
-        "extension" => "extension",
-        "balance" => "balance",
         "task" => "task",
         "account" => "account",
+        "balance" => "balance",
+        "interaction" => null,
         _ => "system"
     };
 
     private static string SectionName(string key) => key switch
     {
         "notice" => "更新记录",
-        "system" => "系统通知",
-        "extension" => "扩展",
-        "balance" => "余额记录",
         "task" => "任务",
         "account" => "账户",
+        "balance" => "余额",
+        "system" => "系统",
         _ => "全部消息"
     };
 
