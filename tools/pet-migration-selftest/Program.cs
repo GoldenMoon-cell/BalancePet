@@ -645,6 +645,18 @@ internal static class Program
             Check("推不出镜像时只有原地址",
                 GitHubContentReader.Candidates("https://example.com/a.png").Count == 1);
 
+            // The changelog was the last document still going straight to GitHub, and the
+            // one where going straight there shows: a note that needs a manual refresh is a
+            // note nobody reads. It goes through the same reader as everything else now.
+            var noticeCandidates = GitHubContentReader.Candidates(NoticeFeed.Url);
+            var noticeHosts = noticeCandidates.Select(url => new Uri(url).Host).ToArray();
+            Check("通告也走镜像",
+                noticeCandidates.Count == 2
+                && noticeHosts[0] == "raw.githubusercontent.com"
+                && noticeHosts[1] == "cdn.jsdelivr.net"
+                && new Uri(noticeCandidates[1]).AbsolutePath.EndsWith("/BalancePet@main/notices.json", StringComparison.Ordinal),
+                string.Join(",", noticeHosts));
+
             // The first address failing is the whole point of the list, so the stub
             // refuses the raw host and answers the mirror.
             var mirrorRequests = new List<string>();

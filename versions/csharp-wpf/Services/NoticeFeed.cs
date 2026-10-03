@@ -108,29 +108,31 @@ public static class NoticeFeed
     /// say and nothing to do. The window shows whatever the last good copy held, and a
     /// later refresh retries. Reporting it would put an error about a changelog in front
     /// of someone who did not ask for either.
+    ///
+    /// Fetched through <see cref="GitHubContentReader"/> so the mirror is asked as well.
+    /// This was the last document still going straight to GitHub's raw host, and the one
+    /// where it shows most: a note that needs a manual refresh to appear is a note nobody
+    /// reads, and on a network that refuses that host the fetch failed on every launch
+    /// while the window kept showing whatever the cache held.
     /// </remarks>
     public static async Task RefreshAsync(HttpClient http, CancellationToken cancellationToken = default)
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, Url);
-            request.Headers.Accept.ParseAdd("application/json");
-            request.Headers.UserAgent.ParseAdd("BalancePet-Notices/1.0");
+            var fetched = await GitHubContentReader.DownloadAsync(
+                http, Url, MaxBytes, "application/json",
+                "BalancePet-Notices/1.0", cancellationToken);
 
-            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
-            if (!response.IsSuccessStatusCode) return;
-
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             // Published before caching: an unwritable cache directory costs the next
             // launch a refetch, while refusing the document would cost this session the
             // notes for no reason.
-            if (!Publish(json)) return;
+            if (!Publish(fetched.Text)) return;
 
             var directory = Path.GetDirectoryName(CachePath);
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-            File.WriteAllText(CachePath, json);
+            File.WriteAllText(CachePath, fetched.Text);
         }
-        catch (Exception error) when (error is HttpRequestException or IOException or UnauthorizedAccessException or TaskCanceledException or OperationCanceledException or InvalidOperationException)
+        catch (Exception error) when (error is HttpRequestException or IOException or UnauthorizedAccessException or TaskCanceledException or OperationCanceledException or InvalidOperationException or InvalidDataException)
         {
         }
     }

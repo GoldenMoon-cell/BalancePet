@@ -69,6 +69,29 @@ public partial class NoticeWindow : Window
         _unreadAtOpen = NoticeFeed.NewerThan(_settings.NoticesSeenSeq).Count;
         Rebuild();
         MarkSeen();
+
+        // And then try for a newer copy. Opening the changelog is the one moment somebody
+        // is looking for what changed, so that is the moment to ask rather than to show a
+        // list that a failed fetch at startup may have left days old — which is exactly
+        // what happened: the notes only appeared after pressing 刷新 by hand. The cached
+        // copy is already on screen, so this costs a request and never a blank window.
+        _ = RefreshQuietlyAsync();
+    }
+
+    /// <summary>Fetches and, if anything arrived, shows it. No busy state: nothing waits.</summary>
+    private async Task RefreshQuietlyAsync()
+    {
+        try
+        {
+            await NoticeFeed.RefreshAsync(_http);
+            if (_unreadAtOpen == NoticeFeed.NewerThan(_settings.NoticesSeenSeq).Count) return;
+            _unreadAtOpen = NoticeFeed.NewerThan(_settings.NoticesSeenSeq).Count;
+            Rebuild();
+            MarkSeen();
+        }
+        catch (Exception error) when (error is HttpRequestException or IOException or InvalidOperationException or TaskCanceledException)
+        {
+        }
     }
 
     private void ApplyLocalization()
