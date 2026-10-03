@@ -1,11 +1,18 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.5.15",
+    # Read from manifest.json rather than defaulted here: the manifest is what the host reads
+    # to decide whether to offer an update, so a second copy of the number here can only ever
+    # disagree with it — and this one had, by a version.
+    [string]$Version = "",
     [string]$OutputPath = ""
 )
 
 $ErrorActionPreference = "Stop"
 $extensionRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = (Get-Content (Join-Path $extensionRoot "manifest.json") -Raw | ConvertFrom-Json).version
+    if ([string]::IsNullOrWhiteSpace($Version)) { throw "无法从 manifest.json 读取版本号。" }
+}
 $project = Join-Path $extensionRoot "src\BalancePet.NotificationCenter.csproj"
 $stage = Join-Path $extensionRoot "dist\balancepet.ext.feature.notification-center-$Version-win-x64"
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {

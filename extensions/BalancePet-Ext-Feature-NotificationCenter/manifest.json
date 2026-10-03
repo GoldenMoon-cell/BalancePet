@@ -3,7 +3,7 @@
   "type": "feature",
   "name": "消息中心",
   "name_en": "Notification Center",
-  "version": "0.5.16",
+  "version": "0.6.0",
   "api_version": 1,
   "min_core_version": "1.0.0",
   "entrypoint": "BalancePet.NotificationCenter.exe",

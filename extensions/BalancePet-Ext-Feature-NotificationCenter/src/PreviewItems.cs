@@ -48,6 +48,6 @@ internal static class PreviewItems
         new NotificationBubble("余额 42.80 CNY", "上次余额 35.10 · 本次消耗 7.70", "balance", "42.80 CNY"),
         new NotificationBubble("当前登录方式 · 官方登录", "官方 API · DeepSeek", "account", "官方登录"),
         new NotificationBubble("DeepSeek 工作中", "正在处理", "task", "工作中"),
-        new NotificationBubble("当前版本 · 1.5.1", "BalancePet", "system", "v1.5.1")
+        new NotificationBubble("当前版本 · 1.6.0", "BalancePet", "system", "v1.6.0")
     ];
 }

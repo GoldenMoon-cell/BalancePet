@@ -620,7 +620,12 @@ public partial class MainWindow : Window
         public string Amount => _event.Amount;
         public string Detail => _event.Detail;
         public string Url => _event.Url ?? "";
-        public string CategoryText => MainWindow.SectionName(MainWindow.SectionOf(_event.Category));
+        // Falls back to the category itself, which cannot happen while categories that map to
+        // nothing are also kept out of every list — and if it ever does, showing the raw name
+        // is a better failure than wearing someone else's label.
+        public string CategoryText => MainWindow.SectionOf(_event.Category) is { } section
+            ? MainWindow.SectionName(section)
+            : _event.Category;
         public string OccurredAtText => _event.OccurredAt.ToLocalTime().ToString("MM-dd HH:mm");
         public Brush CategoryBrush => _event.Category switch
         {

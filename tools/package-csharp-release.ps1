@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "1.4.6",
+    # Read from the project rather than defaulted here: a second copy of the version number
+    # goes stale silently, and this one had been three releases behind.
+    [string]$Version = "",
     [switch]$SkipInstaller,
     [string]$StagePath = ""
 )

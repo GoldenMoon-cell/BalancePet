@@ -41,7 +41,7 @@ internal static class EntranceSketches
 
         var segments = new (string Value, string Kind)[]
         {
-            ("42.80 CNY", "balance"), ("官方登录", "account"), ("工作中", "task"), ("v1.5.1", "system")
+            ("42.80 CNY", "balance"), ("官方登录", "account"), ("工作中", "task"), ("v1.6.0", "system")
         };
         var slots = BubbleWindow.SelectOrbitSlots(pet, workArea, segments.Length, null);
         var petCentre = new Point(pet.Left + pet.Width / 2, pet.Top + pet.Height / 2);

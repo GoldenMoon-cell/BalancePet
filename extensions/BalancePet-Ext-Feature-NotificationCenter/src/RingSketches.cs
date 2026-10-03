@@ -86,7 +86,7 @@ internal static class RingSketches
             ("余额 42.80 CNY", "上次 35.10 · 本次消耗 7.70", "balance", pet.Left - 236, pet.Top - 74),
             ("当前登录方式 · 官方登录", "官方 API · DeepSeek", "account", pet.Left - 250, pet.Top + 34),
             ("DeepSeek 工作中", "正在处理", "task", pet.Left - 226, pet.Top + 142),
-            ("当前版本 · 1.5.1", "BalancePet", "system", pet.Left + 6, pet.Top - 82)
+            ("当前版本 · 1.6.0", "BalancePet", "system", pet.Left + 6, pet.Top - 82)
         };
 
         foreach (var card in cards)
@@ -158,7 +158,7 @@ internal static class RingSketches
 
         var segments = new (string Value, string Kind)[]
         {
-            ("42.80 CNY", "balance"), ("官方登录", "account"), ("工作中", "task"), ("v1.5.1", "system")
+            ("42.80 CNY", "balance"), ("官方登录", "account"), ("工作中", "task"), ("v1.6.0", "system")
         };
         var size = side ? 13.0 : 12.0;
         var texts = segments
@@ -244,7 +244,7 @@ internal static class RingSketches
 
         var segments = new (string Value, string Kind)[]
         {
-            ("42.80 CNY", "balance"), ("官方登录", "account"), ("工作中", "task"), ("v1.5.1", "system")
+            ("42.80 CNY", "balance"), ("官方登录", "account"), ("工作中", "task"), ("v1.6.0", "system")
         };
         var slots = BubbleWindow.SelectOrbitSlots(pet, workArea, segments.Length, null);
         var merged = MergedPlate(pet);

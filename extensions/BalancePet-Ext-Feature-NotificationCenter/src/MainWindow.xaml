@@ -220,7 +220,7 @@
 
         <DockPanel Grid.Row="2" Margin="2,10,2,14">
           <TextBlock x:Name="StatusText" Text="本地保存 · 关闭窗口后继续在后台" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center" />
-          <TextBlock x:Name="VersionText" DockPanel.Dock="Right" Text="消息中心 · v0.5.16" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
+          <TextBlock x:Name="VersionText" DockPanel.Dock="Right" Text="消息中心 · v0.6.0" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
         </DockPanel>
       </Grid>
     </Grid>
