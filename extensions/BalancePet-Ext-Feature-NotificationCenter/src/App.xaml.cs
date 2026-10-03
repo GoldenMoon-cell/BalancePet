@@ -34,7 +34,8 @@ public partial class App : Application
             Shutdown(WindowSketch.Run(
                 panelOutput,
                 string.Equals(ValueAfter(e.Args, "--theme"), "dark", StringComparison.OrdinalIgnoreCase),
-                ValueAfter(e.Args, "--pet-image")));
+                ValueAfter(e.Args, "--pet-image"),
+                ValueAfter(e.Args, "--section") ?? "notice"));
             return;
         }
 
