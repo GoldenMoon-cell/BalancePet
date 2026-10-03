@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     private static readonly TimeSpan RowStep = TimeSpan.FromMilliseconds(80);
     private int _arrivals;
     private DateTime _lastArrival;
+    private DateTime _listFilledAt;
     private static readonly Duration RowSlide = new(TimeSpan.FromMilliseconds(340));
     private static readonly Duration RowFade = new(TimeSpan.FromMilliseconds(220));
 
@@ -97,6 +98,21 @@ public partial class MainWindow : Window
     {
         if (sender is not FrameworkElement root || root.DataContext is not NotificationRow row) return;
 
+        // Only the rows of the opening screen arrive with an animation. Everything the user
+        // scrolls to afterwards is simply there: an animation you have to wait out on the way
+        // down a list is not an entrance, it is a delay. The wave is measured, not guessed —
+        // rows arriving within twelve of a fill and inside its first second are the ones on
+        // screen when it opens.
+        var now = DateTime.UtcNow;
+        var stillOpening = now - _listFilledAt < TimeSpan.FromMilliseconds(1000);
+        _arrivals = now - _lastArrival > TimeSpan.FromMilliseconds(400) ? 0 : _arrivals + 1;
+        _lastArrival = now;
+        if (!stillOpening || _arrivals > 12)
+        {
+            root.Opacity = 1;
+            return;
+        }
+
         // The transform is made here rather than declared in the template: a freezable in a
         // template arrives frozen, and animating a frozen one throws — which is what happened
         // the first time this ran, on every row of the real window. The offset is set first,
@@ -104,15 +120,7 @@ public partial class MainWindow : Window
         var offset = new TranslateTransform(-46, 0);
         root.RenderTransform = offset;
 
-        // Counted per wave of arrivals, not by the row number. The number meant a row two
-        // hundred down waited sixteen seconds for its turn, so scrolling showed an empty list:
-        // the animated rows were the ones that had already scrolled past.
-        var now = DateTime.UtcNow;
-        _arrivals = now - _lastArrival > TimeSpan.FromMilliseconds(400) ? 0 : _arrivals + 1;
-        _lastArrival = now;
-        // Capped so a wave of two hundred rows still finishes inside a second; a scroll that
-        // brings a screenful into view is a wave like any other and starts its own.
-        var delay = TimeSpan.FromMilliseconds(Math.Min(_arrivals, 12) * RowStep.TotalMilliseconds);
+        var delay = TimeSpan.FromMilliseconds(_arrivals * RowStep.TotalMilliseconds);
         offset.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, RowSlide)
         {
             BeginTime = delay,
@@ -202,6 +210,7 @@ public partial class MainWindow : Window
         // from wherever the previous list happened to have got to.
         _arrivals = 0;
         _lastArrival = default;
+        _listFilledAt = DateTime.UtcNow;
         for (var index = 0; index < filtered.Count; index++) _rows.Add(new NotificationRow(filtered[index], index));
 
         var title = SectionName(_filter);

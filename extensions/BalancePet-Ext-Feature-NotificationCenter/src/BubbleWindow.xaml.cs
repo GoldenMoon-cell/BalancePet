@@ -38,7 +38,7 @@ public partial class BubbleWindow : Window
     private const double PetGap = 4;
     private const double SlotGap = 10;
     private const double OverlayPadding = 4;
-    private readonly DispatcherTimer _triggerTimer = new() { Interval = TimeSpan.FromMilliseconds(45) };
+    private readonly DispatcherTimer _triggerTimer = new() { Interval = TimeSpan.FromMilliseconds(16) };
     private readonly List<NotificationBubble> _items = [];
     private readonly List<InfoVisual> _visuals = [];
     private readonly List<Rect> _lastScreenTargets = [];
@@ -55,6 +55,21 @@ public partial class BubbleWindow : Window
     private Shapes.Path? _goo;
     private double _gather;
     private long _lastGatherTick;
+
+    /// <summary>Which of the two arrangements is wanted. Set by the measure, with hysteresis.</summary>
+    private bool _gathered;
+
+    /// <summary>
+    /// Layouts still to be placed at once, counted down from the moment the window opens.
+    /// </summary>
+    /// <remarks>
+    /// A count rather than a flag, because opening lays the window out more than once —
+    /// RenderItems positions the items itself, and the trigger positions them again — and a
+    /// one-shot flag is spent by the first of those, which happens before anything is on
+    /// screen. The result was a window opened in a corner showing the orbit it was never going
+    /// to keep, and gathering only afterwards.
+    /// </remarks>
+    private int _gatherSnap = 2;
 
     /// <summary>
     /// How far the fusion stroke reaches beyond the plates. This is the number that decides
@@ -88,6 +103,10 @@ public partial class BubbleWindow : Window
     {
         _triggerTimer.Stop();
         _requestedVisible = true;
+        // Every captured frame is decided rather than animated into: a preview lays the window
+        // out more than once, and a one-shot snap would be spent by the first of them — which
+        // is how a corner came to be photographed as an orbit while reporting itself gathered.
+        _gatherSnap = 2;
         // Items first, then places for them: the slot count comes from how many items the
         // canvas holds, so asking for positions before building them asks for none.
         RenderItems();
@@ -142,6 +161,11 @@ public partial class BubbleWindow : Window
         _animationCancellation = new CancellationTokenSource();
         if (value)
         {
+            // Decided before anything is drawn, and again every time the window opens. The
+            // flag is one-shot, and without this it was spent by the first layout after the
+            // extension started — long before the user pressed shift — so a window opened in a
+            // corner showed the orbit it was never going to keep and only then gathered.
+            _gatherSnap = 2;
             RenderItems();
             if (!IsVisible) Show();
             QueueAdaptiveContrastAndAnimateIn(_animationCancellation.Token);
@@ -287,10 +311,35 @@ public partial class BubbleWindow : Window
         var now = Environment.TickCount64;
         var elapsed = _lastGatherTick == 0 ? 16 : Math.Clamp(now - _lastGatherTick, 0, 200);
         _lastGatherTick = now;
-        // A third of a second to travel the whole way, so a hand shaking at the edge of the
-        // rule cannot make it flicker between the two arrangements.
-        var step = elapsed / 320.0;
-        _gather = PreviewGatherOverride ?? (PreviewImmediateGather ? want : _gather + Math.Clamp(want - _gather, -step, step));
+
+        // A decision, not a measurement. The measure is noisy — the pet's position arrives in
+        // steps and a hand shakes — so it only sets which of the two arrangements is wanted,
+        // with a wide band between the thresholds so noise cannot flip it back and forth. The
+        // transition then runs to the end rather than lingering half-way, which is what the
+        // user saw and objected to: a fusion stopped in the middle looks like a fault.
+        if (!_gathered && want >= 0.65) _gathered = true;
+        else if (_gathered && want <= 0.35) _gathered = false;
+        var target = PreviewGatherOverride ?? (_gathered ? 1.0 : 0.0);
+        if (PreviewGatherOverride is null)
+        {
+            if (_gatherSnap > 0)
+            {
+                // Opening already in the right arrangement. A window that appears in a corner
+                // and only then gathers shows the orbit it is not going to keep.
+                _gather = target;
+                _gatherSnap--;
+            }
+            else
+            {
+                var step = elapsed / 240.0;
+                _gather += Math.Clamp(target - _gather, -step, step);
+                if (Math.Abs(target - _gather) < 0.001) _gather = target;
+            }
+        }
+        else
+        {
+            _gather = target;
+        }
         var progress = _gather;
         _mergeProgress = progress;
 
@@ -317,7 +366,7 @@ public partial class BubbleWindow : Window
                 slot.Left + (slot.Width - InfoWidth) / 2, slot.Top + (slot.Height - InfoHeight) / 2,
                 InfoWidth, InfoHeight);
             var segment = RingLayout.SegmentInPlate(plate, widths, index, gap: 0);
-            var target = Interpolate(orbiting, segment, progress);
+            var landing = Interpolate(orbiting, segment, progress);
 
             // Both ways, on every tick. Going short and never coming back is what the first
             // version did, and the preview's own diagnostics caught it: the pet was dragged
@@ -325,8 +374,8 @@ public partial class BubbleWindow : Window
             // "余额 42.80 CNY".
             var wanted = gathered ? visual.Short : visual.Full;
             if (!string.Equals(visual.Primary.Text, wanted, StringComparison.Ordinal)) visual.Primary.Text = wanted;
-            visual.Root.Width = target.Width;
-            var placed = new Rect(target.Left - workArea.Left, target.Top - workArea.Top, target.Width, InfoHeight);
+            visual.Root.Width = landing.Width;
+            var placed = new Rect(landing.Left - workArea.Left, landing.Top - workArea.Top, landing.Width, InfoHeight);
             Canvas.SetLeft(visual.Root, placed.Left);
             Canvas.SetTop(visual.Root, placed.Top);
 
@@ -334,12 +383,21 @@ public partial class BubbleWindow : Window
             fused = fused is null ? shape : Geometry.Combine(fused, shape, GeometryCombineMode.Union, null);
         }
 
-        var fusedAmount = Math.Clamp((progress - 0.15) / 0.85, 0, 1);
+        // One surface at a time, switched rather than faded. Fading one layer out while fading
+        // the other in leaves both half-transparent in between, and the text — which is drawn
+        // on its own layer — then reads as out of step with the shape around it. That is what
+        // the user saw as the bubble and its outline being rendered separately.
+        //
+        // The switch is invisible because it happens where the two are identical: the union of
+        // plates that do not touch is those same plates, and the stroke that fuses them starts
+        // at nothing and grows with the gathering.
+        var fusedNow = progress > 0.02;
         if (_goo is null)
         {
             _goo = new Shapes.Path
             {
-                StrokeThickness = GooStroke, StrokeLineJoin = PenLineJoin.Round, Opacity = 0
+                StrokeLineJoin = PenLineJoin.Round,
+                Effect = new DropShadowEffect { Color = (Color)ColorConverter.ConvertFromString("#66000000")!, BlurRadius = 3, ShadowDepth = 1, Opacity = 0.7 }
             };
             BehindCanvas.Children.Add(_goo);
         }
@@ -347,15 +405,16 @@ public partial class BubbleWindow : Window
         _goo.Fill = Brush(_mergeDark ? "#EE141C26" : "#F5FFFFFF");
         _goo.Stroke = Brush(_mergeDark ? "#EE141C26" : "#F5FFFFFF");
         // The stroke, not the fill, is what fuses them: it reaches out by half its width and
-        // fills the notch between two plates that are close but not yet touching.
-        _goo.Opacity = fusedAmount;
-        _goo.StrokeThickness = GooStroke;
+        // fills the notch between two plates that are close but not yet touching. At rest it is
+        // nothing, so the outline is exactly the plates.
+        _goo.StrokeThickness = GooStroke * progress;
+        _goo.Opacity = fusedNow ? 1 : 0;
 
         foreach (var visual in _visuals)
         {
-            // The items hand their plates to the union as it takes hold. The text stays.
-            visual.Plate.Opacity = 1 - fusedAmount;
-            if (visual.Detail is not null) visual.Detail.Opacity = 1 - fusedAmount;
+            visual.Plate.Opacity = fusedNow ? 0 : 1;
+            // The detail line has no room in a gathered row.
+            if (visual.Detail is not null) visual.Detail.Opacity = progress > 0.5 ? 0 : 1;
         }
 
         // Said out loud when a preview asks, because this is where a picture of a settled
@@ -363,7 +422,7 @@ public partial class BubbleWindow : Window
         // while it is still in orbit, reads as a design decision rather than as a bug.
         if (Diagnose)
         {
-            Console.WriteLine($"  诊断 目标={want:F2} 平滑后={progress:F2} 聚拢={gathered} 融合={fusedAmount:F2} 板宽={plateWidth:F0}");
+            Console.WriteLine($"  诊断 目标={want:F2} 进度={progress:F2} 已聚拢={_gathered} 待定布局={_gatherSnap} 覆盖={PreviewGatherOverride is not null} 单一表面={progress > 0.02} 板宽={plateWidth:F0}");
             foreach (var item in _visuals)
                 Console.WriteLine($"    「{item.Primary.Text}」 板={item.Plate.Opacity:F2} 宽={item.Root.Width:F0} 位置=({Canvas.GetLeft(item.Root):F0},{Canvas.GetTop(item.Root):F0}) 实际文字宽={item.Primary.ActualWidth:F0}");
         }
