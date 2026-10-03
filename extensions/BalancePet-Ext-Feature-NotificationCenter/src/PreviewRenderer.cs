@@ -21,7 +21,7 @@ namespace BalancePet.NotificationCenter;
 /// </remarks>
 internal static class PreviewRenderer
 {
-    private const double PetSurfaceSize = 238;
+    internal const double PetSurfaceSize = 238;
 
     public static int Run(string outputPath, string position, IReadOnlyList<NotificationBubble> items, string? petImagePath)
     {
@@ -90,16 +90,31 @@ internal static class PreviewRenderer
     }
 
     /// <summary>
-    /// How bright the composed backdrop is behind one item, in the same 0..1 the screen
-    /// sampler reports. The item sits on a canvas whose origin is the work area's, which is
-    /// also the backdrop bitmap's origin, so the two coordinate systems line up.
+    /// How bright the composed backdrop is behind one item. The item sits on a canvas whose
+    /// origin is the work area's, which is also the backdrop bitmap's origin, so the two
+    /// coordinate systems line up.
     /// </summary>
     private static double LuminanceBehind(RenderTargetBitmap backdrop, BubbleWindow ring, FrameworkElement element)
     {
         try
         {
             var origin = element.TranslatePoint(new Point(0, 0), ring.InfoCanvas);
-            var rect = new Rect(origin.X, origin.Y, element.ActualWidth, element.ActualHeight);
+            return LuminanceAt(backdrop, new Rect(origin.X, origin.Y, element.ActualWidth, element.ActualHeight));
+        }
+        catch (Exception)
+        {
+            return -1;
+        }
+    }
+
+    /// <summary>
+    /// How bright a rectangle of a composed backdrop is, in the same 0..1 the screen sampler
+    /// reports. Shared with the sketches, which choose their plates by it.
+    /// </summary>
+    internal static double LuminanceAt(RenderTargetBitmap backdrop, Rect rect)
+    {
+        try
+        {
             rect.Intersect(new Rect(0, 0, backdrop.PixelWidth, backdrop.PixelHeight));
             if (rect.Width < 2 || rect.Height < 2) return -1;
 
@@ -125,7 +140,7 @@ internal static class PreviewRenderer
         }
     }
 
-    private static Rect PlacePet(string position, Rect workArea)
+    internal static Rect PlacePet(string position, Rect workArea)
     {
         var margin = 24.0;
         return position switch
@@ -144,7 +159,7 @@ internal static class PreviewRenderer
         };
     }
 
-    private static void DrawWallpaper(DrawingContext context, Rect region)
+    internal static void DrawWallpaper(DrawingContext context, Rect region)
     {
         var wallpaper = ReadWallpaperPath();
         if (wallpaper is not null)
@@ -190,7 +205,7 @@ internal static class PreviewRenderer
         }
     }
 
-    private static void DrawPet(DrawingContext context, Rect pet, Rect region, string? petImagePath)
+    internal static void DrawPet(DrawingContext context, Rect pet, Rect region, string? petImagePath)
     {
         var path = petImagePath ?? FindInstalledPetArtwork();
         if (path is null || !File.Exists(path)) return;
@@ -212,7 +227,7 @@ internal static class PreviewRenderer
     /// The artwork of the appearance the program is currently set to, so the review shows
     /// the ring beside the pet it will actually appear beside.
     /// </summary>
-    private static string? FindInstalledPetArtwork()
+    internal static string? FindInstalledPetArtwork()
     {
         try
         {

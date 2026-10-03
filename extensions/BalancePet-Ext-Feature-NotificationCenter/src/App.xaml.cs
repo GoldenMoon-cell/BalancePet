@@ -13,6 +13,18 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Sketches of where the hover information could go instead. Drawn, not built: they
+        // answer "does this belong to the pet" before anything is rebuilt.
+        if (ValueAfter(e.Args, "--sketch") is { Length: > 0 } sketchOutput)
+        {
+            Shutdown(RingSketches.Run(
+                sketchOutput,
+                ValueAfter(e.Args, "--style") ?? "a",
+                ValueAfter(e.Args, "--pet") ?? "bottom-right",
+                ValueAfter(e.Args, "--pet-image")));
+            return;
+        }
+
         // A review render, and nothing else: no takeover marker, no windows, no listener.
         // Handled before any of that, so asking for a picture never disturbs a running copy
         // and never claims to be the notification presenter.
