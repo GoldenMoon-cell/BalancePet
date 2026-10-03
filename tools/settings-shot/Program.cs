@@ -182,6 +182,14 @@ internal static class Program
             var height = (int)Math.Ceiling(window.ActualHeight);
             if (window.Resources["TextBrush"] is System.Windows.Media.SolidColorBrush finalText)
                 Console.WriteLine($"截图时调色板 {(finalText.Color.R > 128 ? "深色" : "浅色")}  TextBrush #{finalText.Color.R:X2}{finalText.Color.G:X2}{finalText.Color.B:X2}");
+            // How much the page actually holds. A catalog that silently dropped an entry
+            // renders exactly like one that did not, and the row count is the difference.
+            if (window.FindName("PluginCatalogCountText") is System.Windows.Controls.TextBlock countText)
+                Console.WriteLine($"目录计数 {countText.Text}");
+            if (window.FindName("PluginCatalogListBox") is System.Windows.Controls.ListBox catalogList)
+                Console.WriteLine($"列表行数 {catalogList.Items.Count}");
+            if (window.FindName("PluginCatalogStatusText") is System.Windows.Controls.TextBlock statusText)
+                Console.WriteLine($"目录来源 {statusText.Text}");
             if (width <= 0 || height <= 0)
             {
                 Console.WriteLine("窗口没有布局尺寸，无法截图。");

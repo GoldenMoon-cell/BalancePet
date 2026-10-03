@@ -262,6 +262,22 @@ internal static class Program
             var plugins = PluginCatalogService.Parse(pluginJson);
             Check("插件目录仍解析出 4 条", plugins.Count == 4, $"实际 {plugins.Count}");
 
+            // An appearance nobody here has published, shaped exactly like the ones that
+            // are: this is the contract a third party reads, so it is worth knowing that
+            // the host accepts it rather than only that it accepts its own file.
+            var foreign = PluginCatalogService.ParseAppearances("""
+                {"catalog":"balancepet.appearances","schema_version":1,"appearances":[
+                  {"id":"pet.zz-probe","type":"pet","name":"取图探针","name_en":"Icon probe",
+                   "description":"临时条目。","version":"1.0.0","min_core_version":"0.5.0",
+                   "download_url":"https://github.com/o/r/releases/download/skins-1.0.0/pet.opencode-1.0.0.zip",
+                   "sha256":"0000000000000000000000000000000000000000000000000000000000000000",
+                   "icon_url":"https://raw.githubusercontent.com/o/r/main/previews/opencode.png",
+                   "repository_url":"https://github.com/o/r",
+                   "release_url":"https://github.com/o/r/releases/tag/skins-1.0.0",
+                   "categories":["appearance"]}]}
+                """);
+            Check("第三方形象条目被接受", foreign.Count == 1, $"实际 {foreign.Count} 条");
+
             var crossed = "";
             try { PluginCatalogService.ParseAppearances(pluginJson); }
             catch (InvalidDataException error) { crossed = error.Message; }
