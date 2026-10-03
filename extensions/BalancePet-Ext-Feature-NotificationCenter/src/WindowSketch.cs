@@ -28,7 +28,7 @@ internal static class WindowSketch
     /// the row have to hold a version notice or a balance change without looking like they
     /// were built for something else.
     /// </param>
-    public static int Run(string outputPath, bool dark, string? petImagePath, string section = "notice")
+    public static int Run(string outputPath, bool dark, string? petImagePath, string section = "notice", double entrance = 1)
     {
         var workArea = new Rect(0, 0, Math.Max(1280, SystemParameters.WorkArea.Width), Math.Max(820, SystemParameters.WorkArea.Height));
         // Centred, the way it opens, and large enough around it to show what it is sitting on.
@@ -50,7 +50,7 @@ internal static class WindowSketch
         using (var context = drawing.RenderOpen())
         {
             context.DrawImage(backdrop, new Rect(-region.Left, -region.Top, workArea.Width, workArea.Height));
-            DrawWindow(context, new Rect(window.Left - region.Left, window.Top - region.Top, Width, Height), dark, petImagePath, section);
+            DrawWindow(context, new Rect(window.Left - region.Left, window.Top - region.Top, Width, Height), dark, petImagePath, section, entrance);
         }
         composed.Render(drawing);
 
@@ -62,7 +62,7 @@ internal static class WindowSketch
         return 0;
     }
 
-    private static void DrawWindow(DrawingContext context, Rect window, bool dark, string? petImagePath, string section)
+    private static void DrawWindow(DrawingContext context, Rect window, bool dark, string? petImagePath, string section, double entrance)
     {
         var paper = dark ? Color.FromRgb(0x11, 0x17, 0x1F) : Color.FromRgb(0xFA, 0xFC, 0xFC);
         var plate = dark ? Color.FromArgb(0xCC, 0x1B, 0x24, 0x30) : Color.FromArgb(0xD8, 0xFF, 0xFF, 0xFF);
@@ -92,7 +92,7 @@ internal static class WindowSketch
         // grow, and this is the shape the settings window already uses, so the two windows
         // read as one program.
         DrawRail(context, window, dark, ink, muted, accent, section);
-        DrawMessages(context, window, dark, ink, muted, accent, plate, section);
+        DrawMessages(context, window, dark, ink, muted, accent, plate, section, entrance);
         DrawFooter(context, window, dark, ink, muted, accent);
     }
 
@@ -163,7 +163,7 @@ internal static class WindowSketch
     /// when the second kind arrives — and the second kind is coming.
     /// </remarks>
     private static void DrawMessages(
-        DrawingContext context, Rect window, bool dark, Color ink, Color muted, Color accent, Color plate, string section)
+        DrawingContext context, Rect window, bool dark, Color ink, Color muted, Color accent, Color plate, string section, double entrance)
     {
         var contentLeft = window.Left + 186 + 24;
         var contentWidth = window.Right - 24 - contentLeft;
@@ -191,9 +191,19 @@ internal static class WindowSketch
             };
 
         var top = window.Top + 106;
-        foreach (var row in rows)
+        for (var rowIndex = 0; rowIndex < rows.Length; rowIndex++)
         {
-            var rect = new Rect(contentLeft, top, contentWidth, 78);
+            var row = rows[rowIndex];
+            // One after another from the left: each row sets off a little later than the one
+            // above it and slides the last stretch of the way in, which is what makes a list
+            // look like it is arriving rather than appearing. The body of a row follows its
+            // plate by a few frames, so a row assembles instead of arriving finished.
+            var stagger = rowIndex * 0.11;
+            var local = Math.Clamp((entrance - stagger) / 0.55, 0, 1);
+            var slide = EaseOutCubic(local);
+            var textLocal = Math.Clamp((entrance - stagger - 0.10) / 0.45, 0, 1);
+            var rect = new Rect(contentLeft + (1 - slide) * -46, top + (1 - slide) * 6, contentWidth, 78);
+            context.PushOpacity(Math.Clamp(local * 1.5, 0, 1));
             context.DrawRoundedRectangle(new SolidColorBrush(plate),
                 new Pen(new SolidColorBrush(dark ? Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x12, 0x0F, 0x17, 0x2A)), 1),
                 rect, 12, 12);
@@ -219,11 +229,14 @@ internal static class WindowSketch
             var date = Text(row.Date, 11.5, muted);
             context.DrawText(date, new Point(rect.Right - 16 - date.Width, rect.Top + 16));
 
+            // The body follows its plate, so a row assembles rather than arriving finished.
+            context.PushOpacity(Math.Clamp(textLocal * 1.3, 0, 1));
             var body = Text(row.Body, 12.5, muted);
             body.MaxTextWidth = rect.Width - (row.Action is null ? 52 : 130);
             body.Trimming = TextTrimming.CharacterEllipsis;
             body.MaxLineCount = 1;
             context.DrawText(body, new Point(rect.Left + 26, rect.Top + 40));
+            context.Pop();
 
             if (row.Action is not null)
             {
@@ -235,6 +248,7 @@ internal static class WindowSketch
                 context.DrawText(action, new Point(button.Left + 13, button.Top + 4));
             }
 
+            context.Pop();
             top += 88;
         }
     }
@@ -314,6 +328,9 @@ internal static class WindowSketch
         var status = Text("本地保存 · 关闭窗口后继续在后台 · 由桌宠自动获取", 11.5, muted);
         context.DrawText(status, new Point(bar.Left + 24, bar.Top + 14));
     }
+
+    /// <summary>Decelerating: quick to set off, slow to land.</summary>
+    private static double EaseOutCubic(double t) => 1 - Math.Pow(1 - t, 3);
 
     private static FormattedText Text(string value, double size, Color colour, bool semibold = false)
         => new(value, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,

@@ -29,6 +29,26 @@ public partial class App : Application
         }
 
         // A sketch of this window, redrawn in the plates' language, for review.
+        // The entrance as frames: the rows arrive one after another from the left, and that
+        // is a question about timing rather than about layout.
+        if (ValueAfter(e.Args, "--panel-anim") is { Length: > 0 } panelAnimation)
+        {
+            var panelFrames = int.TryParse(ValueAfter(e.Args, "--frames"), out var parsedPanelFrames) ? parsedPanelFrames : 20;
+            var panelDark = string.Equals(ValueAfter(e.Args, "--theme"), "dark", StringComparison.OrdinalIgnoreCase);
+            var panelSection = ValueAfter(e.Args, "--section") ?? "all";
+            var panelPet = ValueAfter(e.Args, "--pet-image");
+            System.IO.Directory.CreateDirectory(panelAnimation);
+            for (var frame = 0; frame < panelFrames; frame++)
+            {
+                WindowSketch.Run(
+                    System.IO.Path.Combine(panelAnimation, $"frame-{frame:00}.png"),
+                    panelDark, panelPet, panelSection,
+                    panelFrames == 1 ? 1 : frame / (double)(panelFrames - 1));
+            }
+            Shutdown(0);
+            return;
+        }
+
         if (ValueAfter(e.Args, "--panel") is { Length: > 0 } panelOutput)
         {
             Shutdown(WindowSketch.Run(
