@@ -182,116 +182,26 @@ public sealed class UpdateService(HttpClient http)
     }
 
     /// <summary>
-    /// How many times a download is attempted before its failure is reported.
-    /// </summary>
-    /// <remarks>
-    /// Higher than the JSON requests get, because the work is resumable: an attempt
-    /// that stops part way still leaves the bytes it received, so another one costs a
-    /// wait rather than the whole transfer.
-    /// </remarks>
-    private const int DownloadAttempts = 6;
-
-    /// <summary>
     /// Downloads the asset to a file, resuming a transfer that was cut short.
     /// </summary>
+    /// <remarks>
+    /// The machinery lives in <see cref="ResumableDownload"/> because the extension
+    /// installer needs exactly the same thing: one implementation of "keep what arrived
+    /// and ask for the rest", rather than two that drift.
+    /// </remarks>
     private async Task DownloadToFileAsync(UpdateAsset asset, string path, CancellationToken cancellationToken, IProgress<double>? progress)
     {
         try
         {
-            for (var attempt = 1; ; attempt++)
-            {
-                try
-                {
-                    await DownloadOnceAsync(asset, path, cancellationToken, progress);
-                    return;
-                }
-                catch (Exception error) when (attempt < DownloadAttempts && IsInterruptedDownload(error, cancellationToken))
-                {
-                    // The partial file is deliberately left in place: the next attempt
-                    // asks for the remainder instead of starting over. On a connection
-                    // that drops, restarting is what turns a slow download into one
-                    // that never finishes.
-                    await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), cancellationToken);
-                }
-            }
+            await ResumableDownload.DownloadAsync(
+                http, asset.DownloadUri, path, 512L * 1024 * 1024, "application/octet-stream",
+                "BalancePet-Updater/1.0", cancellationToken, progress);
         }
-        catch (Exception error) when (IsInterruptedDownload(error, cancellationToken))
+        catch (Exception error) when (ResumableDownload.IsInterrupted(error, cancellationToken))
         {
             throw new HttpRequestException($"下载更新包时网络连接中断，请稍后重试。（{error.Message}）", error);
         }
     }
-
-    /// <summary>One ranged request, appended to whatever is already on disk.</summary>
-    private async Task DownloadOnceAsync(UpdateAsset asset, string path, CancellationToken cancellationToken, IProgress<double>? progress)
-    {
-        var have = File.Exists(path) ? new FileInfo(path).Length : 0;
-
-        using var request = new HttpRequestMessage(HttpMethod.Get, asset.DownloadUri);
-        request.Headers.Accept.ParseAdd("application/octet-stream");
-        request.Headers.UserAgent.ParseAdd("BalancePet-Updater/1.0");
-        if (have > 0) request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(have, null);
-
-        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-
-        // Asked for the remainder of a file that is already complete. Nothing to do;
-        // the caller's digest check is what decides whether it really is complete.
-        if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
-        {
-            progress?.Report(1);
-            return;
-        }
-        response.EnsureSuccessStatusCode();
-
-        // A server that ignores Range answers 200 with the whole file. That is still a
-        // correct answer, so the part on disk is discarded and the transfer restarts
-        // rather than being appended to.
-        var resuming = response.StatusCode == HttpStatusCode.PartialContent;
-        if (!resuming) have = 0;
-
-        var received = response.Content.Headers.ContentLength ?? -1;
-        var total = resuming ? have + received : received;
-        if (total > 512L * 1024 * 1024)
-            throw new InvalidDataException("更新包大小异常，已停止下载。");
-
-        await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
-        await using (var output = new FileStream(path, resuming ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.None))
-        {
-            // A manual copy loop rather than CopyToAsync: the update package is
-            // hundreds of megabytes, and with no running count the pet has
-            // nothing to show for the whole download.
-            var buffer = new byte[81920];
-            var copied = have;
-            var lastPercent = -1;
-            int read;
-            while ((read = await input.ReadAsync(buffer, cancellationToken)) > 0)
-            {
-                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-                copied += read;
-                if (progress is null || total <= 0) continue;
-                var percent = (int)Math.Clamp(copied * 100 / total, 0, 100);
-                // Whole percents only: every report is a UI update, and 80 KB
-                // chunks would otherwise flood the dispatcher.
-                if (percent == lastPercent) continue;
-                lastPercent = percent;
-                progress.Report(percent / 100d);
-            }
-        }
-        progress?.Report(1);
-    }
-
-    /// <summary>
-    /// Whether a download should be attempted again.
-    /// </summary>
-    /// <remarks>
-    /// This is <see cref="IsDroppedConnection"/> plus the request timeout. A timeout is
-    /// worth another attempt here and not for the JSON requests, precisely because the
-    /// bytes already on disk are kept: the second attempt continues the transfer
-    /// instead of paying for it twice. A cancellation is still the user's own doing and
-    /// is never retried.
-    /// </remarks>
-    private static bool IsInterruptedDownload(Exception error, CancellationToken cancellationToken)
-        => !cancellationToken.IsCancellationRequested
-            && (error is OperationCanceledException || IsDroppedConnection(error, CancellationToken.None));
 
     private static bool Matches(string? name, params string[] expectedNames) =>
         !string.IsNullOrWhiteSpace(name) && expectedNames.Contains(name, StringComparer.OrdinalIgnoreCase);

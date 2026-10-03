@@ -705,6 +705,55 @@ internal static class Program
                 catch (UnauthorizedAccessException error) { failed = error.Message; }
             }
             Check("彻底失败时不留半个版本目录", failed.Length > 0 && !Directory.Exists(refusedRoot), failed);
+
+            // --- 18. Installing an appearance survives a dropped connection ---------
+            // An appearance package is twelve to seventeen megabytes, and this network
+            // cuts a long transfer whenever it likes: measured on the real asset, one
+            // attempt in four completed over HTTP/1.1 and two in four over HTTP/2, every
+            // failure about three seconds in. The updater used to keep its partial file
+            // and ask for the rest while the extension installer started over, which on
+            // such a link is the difference between a slow install and one that never
+            // finishes. Same stub as the updater's resume test, because it is the same
+            // machinery now.
+            var packageRoot = Path.Combine(workspace, "extension-resume");
+            Directory.CreateDirectory(packageRoot);
+            var skin = new byte[180_000];
+            Random.Shared.NextBytes(skin);
+            var skinDigest = "sha256:" + Convert.ToHexString(SHA256.HashData(skin)).ToLowerInvariant();
+            var skinServer = new RangeServer(skin, dropAfter: 60_000);
+            using (var resumeHttp = new HttpClient(new StubHandler(skinServer.Respond)))
+            {
+                var downloads = new ExtensionUpdateService(resumeHttp);
+                var release = new ExtensionUpdateRelease
+                {
+                    Id = "pet.qwen",
+                    Type = "pet",
+                    Version = "1.2.0",
+                    PackageName = "pet.qwen-1.2.0.zip",
+                    DownloadUrl = "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.qwen-1.2.0.zip",
+                    Digest = skinDigest
+                };
+
+                // The download lands in the temp directory, which section 9 points at the
+                // scratch space for the same reason it does there.
+                var downloaded = await downloads.DownloadAsync(release);
+                var bytes = await File.ReadAllBytesAsync(downloaded);
+                File.Delete(downloaded);
+                Check("断流的形象包能续传下完", bytes.Length == skin.Length && bytes.SequenceEqual(skin),
+                    $"{bytes.Length} / {skin.Length} 字节");
+                Check("续传确实只取了剩余部分",
+                    skinServer.RequestedFrom.Count == 2 && skinServer.RequestedFrom[1] == 60_000,
+                    string.Join(",", skinServer.RequestedFrom));
+
+                // A package that arrives corrupted has to be refused rather than installed:
+                // the digest is the only thing standing between a mirror and the disk.
+                var wrong = new ExtensionUpdateService(new HttpClient(new StubHandler(
+                    new RangeServer(skin, dropAfter: 60_000) { CorruptResume = true }.Respond)));
+                var skinRefused = "";
+                try { await wrong.DownloadAsync(release); }
+                catch (InvalidDataException error) { skinRefused = error.Message; }
+                Check("续传拼错的形象包被校验拦下", skinRefused.Contains("校验失败", StringComparison.Ordinal), skinRefused);
+            }
         }
         finally
         {

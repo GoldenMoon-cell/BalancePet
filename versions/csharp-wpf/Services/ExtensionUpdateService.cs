@@ -92,20 +92,18 @@ public sealed class ExtensionUpdateService(HttpClient http)
     {
         if (!Uri.TryCreate(release.DownloadUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
             throw new InvalidDataException("扩展更新下载地址无效。");
-        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-        request.Headers.Accept.ParseAdd("application/octet-stream");
-        request.Headers.UserAgent.ParseAdd("BalancePet-Extension-Updater/1.0");
-        using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        response.EnsureSuccessStatusCode();
-        if (response.Content.Headers.ContentLength is <= 0 or > MaxPackageBytes)
-            throw new InvalidDataException("扩展更新包大小异常。");
 
         var path = Path.Combine(Path.GetTempPath(), $"BalancePet-extension-update-{Guid.NewGuid():N}.zip");
         try
         {
-            await using (var input = await response.Content.ReadAsStreamAsync(cancellationToken))
-            await using (var output = File.Create(path))
-                await input.CopyToAsync(output, cancellationToken);
+            // Through the resumable downloader, which keeps what it received and asks for
+            // the rest. An appearance package is twelve to seventeen megabytes and this
+            // network cuts a long transfer whenever it feels like it, so an install that
+            // started over on every drop was an install that never finished.
+            await ResumableDownload.DownloadAsync(
+                http, uri, path, MaxPackageBytes, "application/octet-stream",
+                "BalancePet-Extension-Updater/1.0", cancellationToken);
+
             if (new FileInfo(path).Length is <= 0 or > MaxPackageBytes)
                 throw new InvalidDataException("扩展更新包大小异常。");
             if (!string.IsNullOrWhiteSpace(release.Digest) && release.Digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
