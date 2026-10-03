@@ -197,7 +197,7 @@ public partial class BubbleWindow : Window
                 TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = InfoWidth - 24, Margin = new Thickness(14, 3, 0, 0) };
             Grid.SetRow(detail, 1); content.Children.Add(detail);
         }
-        _visuals.Add(new InfoVisual(root, plate, primary, detail, dot, item.Kind,
+        _visuals.Add(new InfoVisual(root, plate, primary, detail, dot, item.Kind, item.Text,
             string.IsNullOrWhiteSpace(item.Short) ? item.Text : item.Short));
         return root;
     }
@@ -309,8 +309,12 @@ public partial class BubbleWindow : Window
             var segment = RingLayout.SegmentInPlate(plate, widths, index);
             var target = Interpolate(orbiting, segment, progress);
 
-            var wanted = gathered ? visual.Short : null;
-            if (wanted is not null && !string.Equals(visual.Primary.Text, wanted, StringComparison.Ordinal)) visual.Primary.Text = wanted;
+            // Both ways, on every tick. Going short and never coming back is what the first
+            // version did, and the preview's own diagnostics caught it: the pet was dragged
+            // back into open space and every item still read "42.80 CNY" instead of
+            // "余额 42.80 CNY".
+            var wanted = gathered ? visual.Short : visual.Full;
+            if (!string.Equals(visual.Primary.Text, wanted, StringComparison.Ordinal)) visual.Primary.Text = wanted;
             visual.Root.Width = target.Width;
             Canvas.SetLeft(visual.Root, target.Left - workArea.Left);
             Canvas.SetTop(visual.Root, target.Top - workArea.Top);
@@ -318,7 +322,28 @@ public partial class BubbleWindow : Window
             visual.Plate.Opacity = 1 - progress;
             if (visual.Detail is not null) visual.Detail.Opacity = 1 - progress;
         }
+
+        // Said out loud when a preview asks, because this is where a picture of a settled
+        // state hides its own faults: an item with no plate, or one showing its short form
+        // while it is still in orbit, reads as a design decision rather than as a bug.
+        if (Diagnose)
+        {
+            Console.WriteLine($"  诊断 进度={progress:F2} 聚拢={gathered} 板不透明度={_mergedPlate?.Opacity ?? 0:F2} 板宽={_mergedPlate?.Width ?? 0:F0}");
+            foreach (var item in _visuals)
+                Console.WriteLine($"    「{item.Primary.Text}」 板={item.Plate.Opacity:F2} 宽={item.Root.Width:F0} 位置=({Canvas.GetLeft(item.Root):F0},{Canvas.GetTop(item.Root):F0}) 实际文字宽={item.Primary.ActualWidth:F0}");
+        }
     }
+
+    /// <summary>Recolours the items once they have been laid out. Used by the preview.</summary>
+    /// <remarks>
+    /// The colours come from measuring each item against what is behind it, so they can only
+    /// be chosen after the items have a size — and a preview that colours them before its
+    /// layout pass renders them with no plates at all, which reads as a missing design.
+    /// </remarks>
+    internal void RefreshAdaptiveContrast() => UpdateAdaptiveContrast();
+
+    /// <summary>Prints what the gathering decided. Set by the preview renderer.</summary>
+    internal static bool Diagnose { get; set; }
 
     /// <summary>
     /// How wide an item wants to be. Measured when the layout has run, estimated from the
@@ -327,7 +352,7 @@ public partial class BubbleWindow : Window
     /// </summary>
     private static double Measure(InfoVisual visual, bool gathered)
     {
-        var text = gathered ? visual.Short : visual.Primary.Text;
+        var text = gathered ? visual.Short : visual.Full;
         return visual.Primary.ActualWidth > 1 && !gathered
             ? visual.Primary.ActualWidth
             : text.Sum(character => character > 0x2E80 ? 13.5 : 7.2) + 14;
@@ -699,7 +724,11 @@ public partial class BubbleWindow : Window
         {
             foreach (var visual in _visuals)
             {
-                if (!visual.Root.IsVisible || visual.Root.ActualWidth <= 0 || visual.Root.ActualHeight <= 0) continue;
+                // Visibility is only required when the colour comes from the screen: a preview
+                // window is never shown, and skipping these left every plate without a
+                // background — which looks like a missing design rather than a missing brush.
+                if (sampler is null && !visual.Root.IsVisible) continue;
+                if (visual.Root.ActualWidth <= 0 || visual.Root.ActualHeight <= 0) continue;
                 var luminance = sampler is not null ? sampler(visual.Root) : SampleBackgroundLuminance(screen, visual.Root);
                 if (luminance < 0) continue;
                 var useLightText = ContrastRatio(0.955, luminance) >= ContrastRatio(0.014, luminance);
@@ -842,7 +871,7 @@ public partial class BubbleWindow : Window
     private void EnableMousePassthrough() { var handle = new WindowInteropHelper(this).Handle; var style = GetWindowLongPtr(handle, GwlExStyle).ToInt64(); SetWindowLongPtr(handle, GwlExStyle, new IntPtr(style | WsExTransparent | WsExToolWindow | WsExNoActivate)); }
     protected override void OnClosed(EventArgs e) { _animationCancellation?.Cancel(); _animationCancellation?.Dispose(); _triggerTimer.Stop(); base.OnClosed(e); }
 
-    private sealed record InfoVisual(Border Root, Border Plate, TextBlock Primary, TextBlock? Detail, Border Accent, string Kind, string Short);
+    private sealed record InfoVisual(Border Root, Border Plate, TextBlock Primary, TextBlock? Detail, Border Accent, string Kind, string Full, string Short);
     private sealed record OrbitCandidate(Rect Rect, double Angle, double Scale);
     private sealed record OrbitState(Rect[] Slots, double Score);
     private sealed record PetPlacement(bool Flipped, double Scale);

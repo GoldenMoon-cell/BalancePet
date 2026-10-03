@@ -46,6 +46,7 @@ internal static class PreviewRenderer
         }
         backdrop.Render(backdropDrawing);
 
+        BubbleWindow.Diagnose = true;
         var ring = new BubbleWindow();
         ring.UpdateItems(items);
         // No waiting afterwards: the layout puts the items in their final state, because
@@ -65,6 +66,9 @@ internal static class PreviewRenderer
             layer.Arrange(new Rect(0, 0, workArea.Width, workArea.Height));
             layer.UpdateLayout();
         }
+        // After the layout pass, not before: the plates take their colour from what is
+        // behind them, which needs each item to have a size first.
+        ring.RefreshAdaptiveContrast();
         overlay.Render(ring.BehindCanvas);
         overlay.Render(ring.InfoCanvas);
 
