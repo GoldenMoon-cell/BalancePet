@@ -10,6 +10,11 @@ param(
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $project = Join-Path $root "versions\csharp-wpf\BalancePet.Wpf.csproj"
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = ([xml](Get-Content $project -Raw)).Project.PropertyGroup.Version |
+        Where-Object { $_ } | Select-Object -First 1
+    if ([string]::IsNullOrWhiteSpace($Version)) { throw "无法从 $project 读取版本号。" }
+}
 $dist = Join-Path $root "dist"
 $stage = if ([string]::IsNullOrWhiteSpace($StagePath)) {
     Join-Path $dist "BalancePet-$Version-win-x64"
