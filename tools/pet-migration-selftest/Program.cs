@@ -296,6 +296,57 @@ internal static class Program
                 readable && goodFaces.Count > 0,
                 $"Segoe UI → {(readable ? $"{goodFaces.Count} 个字面" : "读取失败")}");
 
+            // The changelog is handed to the message centre as notification events: the
+            // host keeps producing, the extension does the presenting. Two things make that
+            // work and both are easy to get wrong — the order, and only ever once.
+            var feedWith = """
+                {"schema_version":1,"notices":[
+                  {"seq":4,"date":"2026-10-01","area":"规范","title":"第四条","summary":"四","url":"https://example.com/4"},
+                  {"seq":5,"date":"2026-10-02","area":"文档","title":"第五条","summary":"五","url":"https://example.com/5"},
+                  {"seq":6,"date":"2026-10-03","area":"在线内容","title":"第六条","summary":"六","url":"https://example.com/6"}]}
+                """;
+            Check("喂给消息中心的那份通告能被解析", NoticeFeed.Publish(feedWith), "解析失败");
+            var handover = NoticeFeed.RecordableFrom(4);
+            Check("只交出水印之后的，且按时间从旧到新",
+                handover.Count == 2 && handover[0].Seq == 5 && handover[1].Seq == 6,
+                string.Join(",", handover.Select(item => item.Seq)));
+            Check("水印推进后再问就是空的（不会每半小时重复写一遍）",
+                NoticeFeed.RecordableFrom(6).Count == 0,
+                $"{NoticeFeed.RecordableFrom(6).Count} 条");
+
+            // And the record itself, in a directory of its own: the file is read by
+            // extensions at a fixed path, so the store only takes a directory so that this
+            // can be tested without writing to the profile.
+            var eventDirectory = Path.Combine(workspace, "notification-events");
+            using (var events = new NotificationEventStore(eventDirectory))
+            {
+                // Awaited here for the same reason the host awaits them: a queued append is
+                // discarded when the store is disposed, so reading the file straight after
+                // an un-awaited write is a race, not a test.
+                await events.RecordNotice(6, "2026-10-03", "在线内容", "第六条", "六的摘要", "https://example.com/6");
+                await events.Record("账户余额", "12.34", "一次普通气泡");
+
+                var lines = File.ReadAllLines(Path.Combine(eventDirectory, "notification-events.ndjson"))
+                    .Where(line => line.Trim().Length > 0).ToArray();
+                Check("通告与气泡各占一行", lines.Length == 2, $"实际 {lines.Length} 行");
+                using (var noticeLine = JsonDocument.Parse(lines[0]))
+                {
+                    var root = noticeLine.RootElement;
+                    Check("通告事件带 notice 类别、原文链接与自己的日期",
+                        root.GetProperty("category").GetString() == "notice"
+                        && root.GetProperty("url").GetString() == "https://example.com/6"
+                        && root.GetProperty("occurred_at").GetString()!.StartsWith("2026-10-03", StringComparison.Ordinal)
+                        && root.GetProperty("amount").GetString() == "在线内容",
+                        lines[0]);
+                    Check("通告的事件 id 由序号决定（重复写入能被认出来）",
+                        root.GetProperty("event_id").GetString() == "notice-6",
+                        root.GetProperty("event_id").GetString() ?? "(没有)");
+                }
+                Check("普通气泡事件没有 url（那个字段是通告专用的）",
+                    !lines[1].Contains("\"url\"", StringComparison.Ordinal),
+                    lines[1]);
+            }
+
             // The record a user can actually read afterwards. Written where the environment
             // points it, because a process started from this workspace cannot write to the
             // profile directory, and trimmed rather than left to grow: a fault that repeats

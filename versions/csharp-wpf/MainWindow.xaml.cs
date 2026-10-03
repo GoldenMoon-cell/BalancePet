@@ -2094,9 +2094,41 @@ public partial class MainWindow : Window
         catch (Exception error) when (error is HttpRequestException or IOException or InvalidOperationException or TaskCanceledException)
         {
         }
+        await RecordNewNoticesForMessageCentreAsync();
         // Discarded deliberately: this is the last statement, and the operation is only a
         // handle for cancelling work that is meant to run.
         _ = Dispatcher.BeginInvoke(new Action(MaybeMentionNotices));
+    }
+    /// <summary>
+    /// Writes every changelog entry the message centre has not been given yet.
+    /// </summary>
+    /// <remarks>
+    /// The changelog is a kind of notification, and the message centre is where this
+    /// program's notifications are read, so the entries go there rather than into a window
+    /// of the host's own. The host keeps doing the part only it can: fetching the feed,
+    /// because the pet's bubble has to mention new entries, and recording them once.
+    ///
+    /// "Once" is the whole of this method. The feed is fetched again every half hour and on
+    /// every launch, so without a watermark of its own every entry would be appended again
+    /// on each pass — and the separate watermark for what has been *mentioned* is not it,
+    /// because that moves when the user is told, which is not when this write happens.
+    /// </remarks>
+    private async Task RecordNewNoticesForMessageCentreAsync()
+    {
+        var newest = NoticeFeed.NewestSeq;
+        if (newest <= _settings.NoticesRecordedSeq) return;
+
+        foreach (var notice in NoticeFeed.RecordableFrom(_settings.NoticesRecordedSeq))
+        {
+            // Awaited, not queued: the watermark below is a claim that this entry has been
+            // handed over, and claiming it before the write lands loses the entry for good
+            // when the program exits with the append still in flight.
+            await _notificationEventStore.RecordNotice(
+                notice.Seq, notice.Date, notice.Area, notice.Title, notice.Summary, notice.Url);
+        }
+
+        _settings.NoticesRecordedSeq = newest;
+        try { _settingsStore.Save(_settings); } catch (IOException) { }
     }
 
     private void MaybeMentionNotices()

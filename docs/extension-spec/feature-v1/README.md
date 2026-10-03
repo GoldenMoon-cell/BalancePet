@@ -104,6 +104,25 @@ granted implicitly. Future capabilities require a documented API revision.
 title, amount text, detail text, timestamp, and event id; prompts, responses,
 provider credentials, and raw API payloads are never written.
 
+Changelog entries travel in that same stream, under the category `notice`, so
+that a presenter can show them beside everything else rather than the host
+keeping a changelog window of its own. A `notice` record carries three things the
+others do not:
+
+- `url`, an absolute `https` address to the change itself, and the only field
+  that is absent on every other category. It is what a presenter opens when the
+  entry is clicked, and nothing else may be sent to the shell;
+- the entry's own publication date as its timestamp, rather than the moment it
+  was written, because a changelog reads in publication order;
+- the entry's area (`规范`, `文档`, `在线内容`) in the `amount` slot, which is
+  the short piece of text a presenter shows beside a title. An entry has no
+  amount, and `detail` holds its summary — which may run to several hundred
+  characters, longer than a bubble's line.
+
+An entry is written once: its `event_id` is `notice-<seq>` using the `seq` of the
+published entry, so a presenter that sees the same one twice — after an
+interrupted shutdown, say — can recognise it instead of showing it twice.
+
 `notifications.present` declares that an enabled extension can replace the
 built-in bubble presentation. BalancePet starts such an extension in the
 background with `--background` before its initial refresh. Once ready, the

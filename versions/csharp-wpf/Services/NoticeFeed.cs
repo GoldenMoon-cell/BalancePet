@@ -72,6 +72,19 @@ public static class NoticeFeed
         => All.Where(item => item.Seq > seenSeq).ToArray();
 
     /// <summary>
+    /// What still has to be handed on, oldest first.
+    /// </summary>
+    /// <remarks>
+    /// The order a stream wants, which is the reverse of the order a person wants: the
+    /// feed is read newest first, and a file whose lines are appended should read in the
+    /// order things happened. The watermark is what makes this answer "nothing" the second
+    /// time it is asked — the caller advances it — so an entry is handed on once rather
+    /// than on every half-hourly fetch.
+    /// </remarks>
+    public static IReadOnlyList<NoticeItem> RecordableFrom(int watermark)
+        => NewerThan(watermark).Reverse().ToArray();
+
+    /// <summary>
     /// Replaces the published notes with the contents of a document, returning whether it
     /// could be used at all.
     /// </summary>

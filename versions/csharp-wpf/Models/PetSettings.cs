@@ -67,6 +67,12 @@ public sealed class PetSettings
     // the feed dropping an old entry, and two notices published on the same day cannot
     // hide each other behind a comparison that has only day resolution.
     [JsonPropertyName("notices_seen_seq")] public int NoticesSeenSeq { get; set; }
+    // A second watermark, separate from the one above, because the two answer different
+    // questions. "Seen" is what the pet has already mentioned to this user; this is what
+    // has already been written into the notification stream for the message centre to
+    // read. Sharing one number would mean either telling the user about the same entry
+    // twice every half hour, or never telling them at all.
+    [JsonPropertyName("notices_recorded_seq")] public int NoticesRecordedSeq { get; set; }
     // On by default, and it lives in the changelog window rather than among the
     // interaction switches, because that is where someone who is annoyed by it will
     // look. A notification nobody can find the switch for is worse than none.
