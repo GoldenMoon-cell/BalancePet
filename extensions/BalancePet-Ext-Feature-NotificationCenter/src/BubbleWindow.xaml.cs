@@ -369,6 +369,17 @@ public partial class BubbleWindow : Window
             _wave.Opacity = 0.55 * (1 - eased);
         }
 
+        // Printed when a preview asks. The wave not appearing in the captured frames is the
+        // one thing that could not be seen from the frames themselves, and guessing at why
+        // cost a round of changes that changed nothing.
+        if (Diagnose)
+        {
+            var scale = (_wave?.RenderTransform as ScaleTransform)?.ScaleX ?? -1;
+            Console.WriteLine($"  涟漪 存在={_wave is not null} 在层里={_wave is not null && BehindCanvas.Children.Contains(_wave)}"
+                + $" 不透明度={_wave?.Opacity ?? -1:F2} 缩放={scale:F2} 直径={_wave?.Width ?? -1:F0}"
+                + $" 描边={( _wave?.Stroke as SolidColorBrush)?.Color.ToString() ?? "无"} 层内元素={BehindCanvas.Children.Count}");
+        }
+
         // Each item wakes when the wave reaches it, then fades and rises into place.
         for (var index = 0; index < elements.Length; index++)
         {
@@ -393,6 +404,9 @@ public partial class BubbleWindow : Window
             .Max();
         if (_wave is not null) BehindCanvas.Children.Remove(_wave);
         StartWave(centre, Math.Max(1, farthest));
+        // Thicker for the capture only, to tell "not painted at all" apart from "too thin to
+        // be seen at this size". The live ring keeps its two pixels.
+        if (_wave is not null) _wave.StrokeThickness = 8;
         if (_wave is not null)
         {
             _wave.BeginAnimation(OpacityProperty, null);
