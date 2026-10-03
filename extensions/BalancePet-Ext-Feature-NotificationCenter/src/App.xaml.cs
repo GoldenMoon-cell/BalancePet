@@ -15,6 +15,19 @@ public partial class App : Application
     {
         // Sketches of where the hover information could go instead. Drawn, not built: they
         // answer "does this belong to the pet" before anything is rebuilt.
+        // The same idea as a sequence of frames, for the transition between the two
+        // arrangements — which cannot be judged from a still.
+        if (ValueAfter(e.Args, "--morph") is { Length: > 0 } morphDirectory)
+        {
+            var frameCount = int.TryParse(ValueAfter(e.Args, "--frames"), out var parsedFrames) ? parsedFrames : 14;
+            Shutdown(RingSketches.RenderMorph(
+                morphDirectory, frameCount,
+                ValueAfter(e.Args, "--pet") ?? "corner",
+                ValueAfter(e.Args, "--pet-image"),
+                string.Equals(ValueAfter(e.Args, "--plate"), "dark", StringComparison.OrdinalIgnoreCase)));
+            return;
+        }
+
         if (ValueAfter(e.Args, "--sketch") is { Length: > 0 } sketchOutput)
         {
             Shutdown(RingSketches.Run(

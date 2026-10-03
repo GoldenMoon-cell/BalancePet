@@ -215,7 +215,13 @@ public partial class BubbleWindow : Window
         _hasPositionedItems = true;
     }
 
-    private static IReadOnlyList<Rect> SelectOrbitSlots(Rect pet, Rect workArea, int count, IReadOnlyList<Rect>? previous)
+    /// <summary>
+    /// Where the items go around the pet: a ring in open space, a fan towards the screen's
+    /// middle when the pet is near an edge. Internal so the sketch renderer can lay items
+    /// out with the same algorithm the real ring uses, which is what makes a sketch an
+    /// answer about this design rather than about a drawing of it.
+    /// </summary>
+    internal static IReadOnlyList<Rect> SelectOrbitSlots(Rect pet, Rect workArea, int count, IReadOnlyList<Rect>? previous)
     {
         if (count <= 0) return [];
         var petCenterX = pet.Left + pet.Width / 2;

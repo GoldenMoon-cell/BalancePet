@@ -209,6 +209,171 @@ internal static class RingSketches
         context.DrawText(ink, new Point(rect.Left + 31, rect.Top + (height - ink.Height) / 2));
     }
 
+    /// <summary>
+    /// The idea in frames: four plates around the pet while there is room, gathering into
+    /// one plate when the pet is in a corner.
+    /// </summary>
+    /// <remarks>
+    /// Rendered as a sequence because the point of it is the movement — droplets running
+    /// together — and a single picture of the end state cannot say whether that reads. One
+    /// file per frame, for the caller to assemble into something that moves.
+    ///
+    /// The items are placed by the ring's own slot algorithm, not by hand, so the frames
+    /// show the arrangement the program would actually choose; only the interpolation
+    /// towards the merged plate is drawn here.
+    /// </remarks>
+    public static int RenderMorph(string outputDirectory, int frames, string position, string? petImagePath, bool forceDark)
+    {
+        var workArea = new Rect(0, 0, Math.Max(1200, SystemParameters.WorkArea.Width), Math.Max(760, SystemParameters.WorkArea.Height));
+        var pet = PreviewRenderer.PlacePet(position == "corner" ? "bottom-right" : position, workArea);
+
+        var backdrop = new RenderTargetBitmap(
+            (int)Math.Round(workArea.Width), (int)Math.Round(workArea.Height), 96, 96, PixelFormats.Pbgra32);
+        var painting = new DrawingVisual();
+        using (var context = painting.RenderOpen())
+        {
+            PreviewRenderer.DrawWallpaper(context, new Rect(0, 0, workArea.Width, workArea.Height));
+            PreviewRenderer.DrawPet(context, pet, new Rect(0, 0, workArea.Width, workArea.Height), petImagePath);
+        }
+        backdrop.Render(painting);
+
+        var region = Rect.Intersect(
+            Rect.Union(pet, new Rect(pet.Left - 700, pet.Top - 420, pet.Width + 900, pet.Height + 700)),
+            workArea);
+        System.IO.Directory.CreateDirectory(outputDirectory);
+
+        var segments = new (string Value, string Kind)[]
+        {
+            ("42.80 CNY", "balance"), ("官方登录", "account"), ("工作中", "task"), ("v1.5.1", "system")
+        };
+        var slots = BubbleWindow.SelectOrbitSlots(pet, workArea, segments.Length, null);
+        var merged = MergedPlate(pet);
+        var measured = PreviewRenderer.LuminanceAt(backdrop, new Rect(
+            merged.Left + region.Left, merged.Top + region.Top, merged.Width, merged.Height));
+        var dark = forceDark || measured > 0.55;
+
+        for (var index = 0; index < frames; index++)
+        {
+            var progress = frames == 1 ? 1 : index / (double)(frames - 1);
+            var composed = new RenderTargetBitmap(
+                (int)Math.Round(region.Width), (int)Math.Round(region.Height), 96, 96, PixelFormats.Pbgra32);
+            var drawing = new DrawingVisual();
+            using (var context = drawing.RenderOpen())
+            {
+                context.DrawImage(backdrop, new Rect(-region.Left, -region.Top, workArea.Width, workArea.Height));
+                MorphFrame(context, segments, slots, merged, region, progress, dark);
+            }
+            composed.Render(drawing);
+
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(composed));
+            using var stream = System.IO.File.Create(System.IO.Path.Combine(outputDirectory, $"frame-{index:00}.png"));
+            encoder.Save(stream);
+        }
+
+        Console.WriteLine($"形变帧已写出 {frames} 张到 {outputDirectory}");
+        return 0;
+    }
+
+    /// <summary>Where the four values end up once the plates have run together.</summary>
+    private static Rect MergedPlate(Rect pet)
+    {
+        const double width = 452;
+        const double height = 52;
+        return new Rect(pet.Left - width - 20, pet.Bottom - height - 30, width, height);
+    }
+
+    /// <summary>
+    /// One frame of the gathering.
+    /// </summary>
+    /// <remarks>
+    /// Each item travels from its slot to the place it will hold inside the merged plate,
+    /// and the plates cross over: the separate backgrounds fade as the single one arrives.
+    /// The items set off one after another rather than together, which is what makes four
+    /// things look like they run together instead of being resized, and the positions
+    /// overshoot slightly on arrival — the difference between a droplet landing and a
+    /// rectangle being moved.
+    /// </remarks>
+    private static void MorphFrame(
+        DrawingContext context,
+        (string Value, string Kind)[] segments,
+        IReadOnlyList<Rect> slots,
+        Rect merged,
+        Rect region,
+        double progress,
+        bool dark)
+    {
+        // The merged plate fades in over the second half, so it appears as the items meet
+        // rather than waiting there with nothing in it.
+        var plateAlpha = Math.Clamp((progress - 0.30) / 0.55, 0, 1);
+        if (plateAlpha > 0)
+        {
+            var fill = new SolidColorBrush(dark
+                ? Color.FromArgb((byte)(0xEE * plateAlpha), 0x14, 0x1C, 0x26)
+                : Color.FromArgb((byte)(0xF5 * plateAlpha), 0xFF, 0xFF, 0xFF));
+            var edge = new Pen(new SolidColorBrush(dark
+                ? Color.FromArgb((byte)(0x33 * plateAlpha), 0xFF, 0xFF, 0xFF)
+                : Color.FromArgb((byte)(0x22 * plateAlpha), 0x0F, 0x17, 0x2A)), 1);
+            context.DrawRoundedRectangle(fill, edge, Offset(merged, region), 14, 14);
+        }
+
+        var sizes = segments
+            .Select((segment, index) => Text(segment.Value, 13, dark ? Paper : Ink, semibold: index == 0))
+            .ToArray();
+        var needed = sizes.Sum(text => 12 + text.Width) + 24 * (segments.Length - 1);
+        var start = merged.Left + Math.Max(16, (merged.Width - needed) / 2);
+
+        for (var index = 0; index < segments.Length; index++)
+        {
+            var stagger = index * 0.07;
+            var local = Math.Clamp((progress - stagger) / (1 - stagger), 0, 1);
+            var eased = EaseOutBack(local);
+
+            var slot = slots[index];
+            var from = new Rect(slot.Left + (slot.Width - 196) / 2, slot.Top + (slot.Height - 46) / 2, 196, 46);
+            var target = start + sizes.Take(index).Sum(text => 12 + text.Width + 24);
+            var to = new Rect(target - 2, merged.Top + 3, sizes[index].Width + 16, merged.Height - 6);
+            var rect = Lerp(from, to, eased);
+
+            var own = 1 - Math.Clamp(local * 1.15, 0, 1);
+            if (own > 0.02)
+            {
+                var fill = new SolidColorBrush(dark
+                    ? Color.FromArgb((byte)(0xEE * own), 0x14, 0x1C, 0x26)
+                    : Color.FromArgb((byte)(0xF5 * own), 0xFF, 0xFF, 0xFF));
+                var edge = new Pen(new SolidColorBrush(dark
+                    ? Color.FromArgb((byte)(0x33 * own), 0xFF, 0xFF, 0xFF)
+                    : Color.FromArgb((byte)(0x22 * own), 0x0F, 0x17, 0x2A)), 1);
+                context.DrawRoundedRectangle(fill, edge, Offset(rect, region), 12, 12);
+            }
+
+            context.DrawRoundedRectangle(
+                new SolidColorBrush(Accent(segments[index].Kind, dark)), null,
+                Offset(new Rect(rect.Left + 12, rect.Top + rect.Height / 2 - 3, 6, 6), region), 3, 3);
+            var text = Offset(new Rect(rect.Left + 24, rect.Top + (rect.Height - sizes[index].Height) / 2, 0, 0), region);
+            context.DrawText(sizes[index], new Point(text.Left, text.Top));
+        }
+    }
+
+    private static Rect Offset(Rect rect, Rect region)
+        => new(rect.Left - region.Left, rect.Top - region.Top, rect.Width, rect.Height);
+
+    private static Rect Lerp(Rect from, Rect to, double t)
+        => new(
+            from.Left + (to.Left - from.Left) * t,
+            from.Top + (to.Top - from.Top) * t,
+            from.Width + (to.Width - from.Width) * t,
+            from.Height + (to.Height - from.Height) * t);
+
+    /// <summary>Overshoots a little before settling: a droplet landing, not a slide.</summary>
+    private static double EaseOutBack(double t)
+    {
+        const double c1 = 1.20;
+        const double c3 = c1 + 1;
+        var p = t - 1;
+        return 1 + c3 * p * p * p + c1 * p * p;
+    }
+
     private static Color Accent(string kind, bool dark) => kind switch
     {
         "balance" => dark ? Color.FromRgb(0x2D, 0xE1, 0xC2) : Color.FromRgb(0x07, 0x8C, 0x82),
