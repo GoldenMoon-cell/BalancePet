@@ -25,6 +25,8 @@ public partial class MainWindow : Window
     private string _filter = "notice";
     private string _lastFingerprint = "";
     private string _coreVersion = "";
+    private string _appliedAppearance = "";
+    private NotificationAppearance? _publishedAppearance;
 
     /// <summary>
     /// How long each row waits before it starts arriving, and how long it takes.
@@ -165,6 +167,16 @@ public partial class MainWindow : Window
         // The hover plates keep reading every kind of message: the list is what changed,
         // not what the pet knows.
         _infoWindow.UpdateItems(CreateAroundPetItems(all, _coreVersion, liveState));
+        // Following the host's theme, applied when it changes rather than on every tick:
+        // replacing ten brushes redraws the window, and this runs twice a second.
+        var appearance = liveState?.Appearance;
+        var appearancePrint = appearance?.Fingerprint ?? "";
+        if (!string.Equals(appearancePrint, _appliedAppearance, StringComparison.Ordinal))
+        {
+            _appliedAppearance = appearancePrint;
+            _publishedAppearance = appearance;
+            ApplySystemTheme();
+        }
 
         var fingerprint = all.Count == 0 ? "empty" : $"{all.Count}:{all[0].EventId}:{_filter}";
         if (!force && string.Equals(fingerprint, _lastFingerprint, StringComparison.Ordinal)) return;
@@ -412,6 +424,9 @@ public partial class MainWindow : Window
         catch (Exception) { }
 
         var resources = Application.Current.Resources;
+        // A palette from the host wins over reading the system: the user chose a theme in the
+        // host, and to them this window is part of the same program.
+        if (_publishedAppearance is not null && ApplyPublishedAppearance(resources, _publishedAppearance)) return;
         if (isLight)
         {
             SetBrush(resources, "WindowBrush", Color.FromRgb(244, 246, 251));
@@ -438,6 +453,61 @@ public partial class MainWindow : Window
             SetBrush(resources, "AccentBrush", Color.FromRgb(45, 225, 194));
             SetBrush(resources, "AccentSoftBrush", Color.FromRgb(23, 65, 71));
         }
+    }
+
+    /// <summary>
+    /// Wears the host's colours and face.
+    /// </summary>
+    /// <remarks>
+    /// The same resource keys the host fills, with the values it reported, so the two windows
+    /// look like one program. A colour the host did not send is left alone rather than
+    /// defaulted — this extension's own value is a better answer than black — and a font it
+    /// named but which cannot be resolved is skipped rather than fatal.
+    ///
+    /// Returns false when the host sent nothing usable, which leaves the caller free to fall
+    /// back to reading the system.
+    /// </remarks>
+    private static bool ApplyPublishedAppearance(ResourceDictionary resources, NotificationAppearance appearance)
+    {
+        var applied = false;
+        applied |= SetIfPresent(resources, "WindowBrush", appearance.Window);
+        applied |= SetIfPresent(resources, "TitleBarBrush", appearance.Sidebar);
+        applied |= SetIfPresent(resources, "PanelBrush", appearance.Sidebar);
+        applied |= SetIfPresent(resources, "CardBrush", appearance.Surface);
+        applied |= SetIfPresent(resources, "ControlHoverBrush", appearance.Control);
+        applied |= SetIfPresent(resources, "BorderBrush", appearance.Border);
+        applied |= SetIfPresent(resources, "TextBrush", appearance.Text);
+        applied |= SetIfPresent(resources, "MutedBrush", appearance.Muted);
+        applied |= SetIfPresent(resources, "AccentBrush", appearance.Accent);
+        applied |= SetIfPresent(resources, "AccentSoftBrush", appearance.AccentSoft);
+
+        if (!string.IsNullOrWhiteSpace(appearance.Font))
+        {
+            try
+            {
+                resources["UiFontFamily"] = new FontFamily(appearance.Font);
+                applied = true;
+            }
+            catch (Exception error) when (error is ArgumentException or UriFormatException)
+            {
+            }
+        }
+        return applied;
+    }
+
+    private static bool SetIfPresent(ResourceDictionary resources, string key, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        try
+        {
+            if (ColorConverter.ConvertFromString(value) is Color color)
+            {
+                resources[key] = new SolidColorBrush(color);
+                return true;
+            }
+        }
+        catch (FormatException) { }
+        return false;
     }
 
     private static void SetBrush(ResourceDictionary resources, string key, Color color) => resources[key] = new SolidColorBrush(color);

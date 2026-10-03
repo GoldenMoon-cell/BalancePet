@@ -4,6 +4,6 @@
         Width="680" Height="430" WindowStyle="None" AllowsTransparency="True"
         ShowInTaskbar="False" ShowActivated="False" Topmost="True"
         Background="Transparent" IsHitTestVisible="False" Focusable="False"
-        FontFamily="Segoe UI, Microsoft YaHei UI" UseLayoutRounding="True">
+        FontFamily="{DynamicResource UiFontFamily}" UseLayoutRounding="True">
   <Canvas x:Name="InfoCanvas" />
 </Window>

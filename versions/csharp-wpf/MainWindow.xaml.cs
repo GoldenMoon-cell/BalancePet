@@ -623,7 +623,7 @@ public partial class MainWindow : Window
             return new NotificationStateStore.AppearanceSnapshot(
                 dark ? "dark" : "light",
                 string.IsNullOrWhiteSpace(_settings.UiFont) ? WindowThemeService.DefaultFontFamily : _settings.UiFont,
-                Hex(palette.Window), Hex(palette.Surface), Hex(palette.Control),
+                Hex(palette.Window), Hex(palette.Sidebar), Hex(palette.Surface), Hex(palette.Control),
                 Hex(palette.Text), Hex(palette.Muted), Hex(palette.Border),
                 Hex(palette.Accent), Hex(palette.AccentSoft));
         }

@@ -46,6 +46,7 @@ public sealed class NotificationStateStore
         string ThemeMode,
         string Font,
         string Window,
+        string Sidebar,
         string Surface,
         string Control,
         string Text,
@@ -90,6 +91,7 @@ public sealed class NotificationStateStore
                 ThemeMode = appearance.ThemeMode == "dark" ? "dark" : "light",
                 Font = Clean(appearance.Font, 96),
                 Window = Clean(appearance.Window, 16),
+                Sidebar = Clean(appearance.Sidebar, 16),
                 Surface = Clean(appearance.Surface, 16),
                 Control = Clean(appearance.Control, 16),
                 Text = Clean(appearance.Text, 16),
@@ -122,6 +124,7 @@ public sealed class NotificationStateStore
         [JsonPropertyName("theme_mode")] public string ThemeMode { get; set; } = "light";
         [JsonPropertyName("font")] public string Font { get; set; } = "";
         [JsonPropertyName("window")] public string Window { get; set; } = "";
+        [JsonPropertyName("sidebar")] public string Sidebar { get; set; } = "";
         [JsonPropertyName("surface")] public string Surface { get; set; } = "";
         [JsonPropertyName("control")] public string Control { get; set; } = "";
         [JsonPropertyName("text")] public string Text { get; set; } = "";

@@ -5,7 +5,7 @@
         Title="消息中心" Icon="assets/balance-pet.ico" Width="860" Height="620" MinWidth="720" MinHeight="500"
         WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
         Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}"
-        FontFamily="Segoe UI, Microsoft YaHei UI" UseLayoutRounding="True">
+        FontFamily="{DynamicResource UiFontFamily}" UseLayoutRounding="True">
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" CornerRadius="{DynamicResource WindowCornerRadius}" GlassFrameThickness="0" />
   </shell:WindowChrome.WindowChrome>

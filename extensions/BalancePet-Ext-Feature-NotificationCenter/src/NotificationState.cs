@@ -23,6 +23,15 @@ public sealed class NotificationLiveState
     [JsonPropertyName("spent")] public double? Spent { get; set; }
     [JsonPropertyName("spent_currency")] public string SpentCurrency { get; set; } = "USD";
 
+    /// <summary>
+    /// What the host's own windows look like, or null when it did not say.
+    /// </summary>
+    /// <remarks>
+    /// Null means "keep your own colours": an older host does not publish this, and neither
+    /// does one that could not resolve a theme. Guessing would be worse than not following.
+    /// </remarks>
+    [JsonPropertyName("appearance")] public NotificationAppearance? Appearance { get; set; }
+
     public bool HasBalance => Balance.HasValue && double.IsFinite(Balance.Value);
     public bool HasSpent => Spent.HasValue && double.IsFinite(Spent.Value);
 
@@ -42,4 +51,34 @@ public sealed class NotificationLiveState
         catch (IOException) { return null; }
         catch (UnauthorizedAccessException) { return null; }
     }
+}
+
+/// <summary>
+/// The host's colours and face, as the host reports them.
+/// </summary>
+/// <remarks>
+/// Resolved values rather than a theme name: this extension has no business finding and
+/// parsing another program's theme package, and even if it did, nothing in that package says
+/// which one is active. Every colour is optional — one the host did not send leaves this
+/// extension's own colour in place rather than becoming black.
+/// </remarks>
+public sealed class NotificationAppearance
+{
+    [JsonPropertyName("theme_mode")] public string ThemeMode { get; set; } = "light";
+    [JsonPropertyName("font")] public string Font { get; set; } = "";
+    [JsonPropertyName("window")] public string Window { get; set; } = "";
+    [JsonPropertyName("sidebar")] public string Sidebar { get; set; } = "";
+    [JsonPropertyName("surface")] public string Surface { get; set; } = "";
+    [JsonPropertyName("control")] public string Control { get; set; } = "";
+    [JsonPropertyName("text")] public string Text { get; set; } = "";
+    [JsonPropertyName("muted")] public string Muted { get; set; } = "";
+    [JsonPropertyName("border")] public string Border { get; set; } = "";
+    [JsonPropertyName("accent")] public string Accent { get; set; } = "";
+    [JsonPropertyName("accent_soft")] public string AccentSoft { get; set; } = "";
+
+    public bool IsDark => string.Equals(ThemeMode, "dark", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A fingerprint, so the palette is only reapplied when it actually changed.</summary>
+    public string Fingerprint =>
+        $"{ThemeMode}|{Font}|{Window}|{Sidebar}|{Surface}|{Control}|{Text}|{Muted}|{Border}|{Accent}|{AccentSoft}";
 }

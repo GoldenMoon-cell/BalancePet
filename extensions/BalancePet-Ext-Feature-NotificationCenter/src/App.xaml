@@ -17,5 +17,8 @@
     <SolidColorBrush x:Key="AccentBrush" Color="#078C82" />
     <SolidColorBrush x:Key="AccentSoftBrush" Color="#DDF3F0" />
     <SolidColorBrush x:Key="DangerBrush" Color="#C43B52" />
+    <!-- 主程序会在状态快照里发布它正在用的字体，插件读到后替换这一项；在读到之前用同一个
+         回退栈，所以窗口在第一时间也不会跳字体。 -->
+    <FontFamily x:Key="UiFontFamily">Segoe UI, Microsoft YaHei UI</FontFamily>
   </Application.Resources>
 </Application>
