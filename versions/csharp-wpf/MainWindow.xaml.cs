@@ -85,9 +85,7 @@ public partial class MainWindow : Window
     private Forms.ToolStripMenuItem? _trayUpdateItem;
     private Forms.ToolStripMenuItem? _trayUsageItem;
     private Forms.ToolStripMenuItem? _trayNotificationItem;
-    private Forms.ToolStripMenuItem? _trayNoticeItem;
     /// <summary>The changelog window, so a second request raises the open one instead.</summary>
-    private NoticeWindow? _noticeWindow;
     private Forms.ToolStripMenuItem? _trayExitItem;
     private Forms.ToolStripMenuItem? _trayStyleMenuItem;
     private readonly Dictionary<string, Forms.ToolStripMenuItem> _trayMonitorItems = new(StringComparer.OrdinalIgnoreCase);
@@ -1493,7 +1491,6 @@ public partial class MainWindow : Window
         ContextUpdateMenuItem.Header = AppLocalization.Text(_settings.Language, "检查更新", "Check for updates");
         ContextUsageMenuItem.Header = AppLocalization.Text(_settings.Language, "用量统计", "Usage");
         ContextNotificationMenuItem.Header = AppLocalization.Text(_settings.Language, "消息中心", "Messages");
-        ContextNoticeMenuItem.Header = AppLocalization.Text(_settings.Language, "更新记录", "Changelog");
         ContextHideMenuItem.Header = AppLocalization.Text(_settings.Language, "隐藏桌宠", "Hide pet");
         ContextExitMenuItem.Header = AppLocalization.Text(_settings.Language, "退出", "Exit");
         // Named generically from the menus themselves, not one line per appearance. A
@@ -1509,7 +1506,6 @@ public partial class MainWindow : Window
         if (_trayUpdateItem is not null) _trayUpdateItem.Text = AppLocalization.Text(_settings.Language, "检查更新", "Check for updates");
         if (_trayUsageItem is not null) _trayUsageItem.Text = AppLocalization.Text(_settings.Language, "用量统计", "Usage");
         if (_trayNotificationItem is not null) _trayNotificationItem.Text = AppLocalization.Text(_settings.Language, "消息中心", "Messages");
-        if (_trayNoticeItem is not null) _trayNoticeItem.Text = AppLocalization.Text(_settings.Language, "更新记录", "Changelog");
         if (_trayExitItem is not null) _trayExitItem.Text = AppLocalization.Text(_settings.Language, "退出", "Exit");
         // Renamed from the dictionary the menu was built from, so a package with its own
         // name is labelled correctly too.
@@ -1525,7 +1521,6 @@ public partial class MainWindow : Window
 
     private void OnContextNotificationClick(object sender, RoutedEventArgs e) => Dispatcher.BeginInvoke(new Action(OpenNotificationCenter));
 
-    private void OnContextNoticeClick(object sender, RoutedEventArgs e) => Dispatcher.BeginInvoke(new Action(OpenNoticeWindow));
 
     private void OnContextHideClick(object sender, RoutedEventArgs e) => Hide();
 
@@ -1663,9 +1658,6 @@ public partial class MainWindow : Window
         _trayNotificationItem = new Forms.ToolStripMenuItem();
         _trayNotificationItem.Click += (_, _) => Dispatcher.BeginInvoke(new Action(OpenNotificationCenter));
         menu.Items.Add(_trayNotificationItem);
-        _trayNoticeItem = new Forms.ToolStripMenuItem();
-        _trayNoticeItem.Click += (_, _) => Dispatcher.BeginInvoke(new Action(OpenNoticeWindow));
-        menu.Items.Add(_trayNoticeItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         _trayExitItem = new Forms.ToolStripMenuItem();
         _trayExitItem.Click += (_, _) => { _closing = true; System.Windows.Application.Current.Shutdown(); };
@@ -2043,7 +2035,6 @@ public partial class MainWindow : Window
         _trayUpdateItem = null;
         _trayUsageItem = null;
         _trayNotificationItem = null;
-        _trayNoticeItem = null;
         _trayExitItem = null;
         _trayStyleMenuItem = null;
         _trayMonitorItems.Clear();
@@ -2153,30 +2144,9 @@ public partial class MainWindow : Window
             AppLocalization.Text(_settings.Language, "有新的更新记录", "New changelog entries"),
             AppLocalization.Text(_settings.Language, $"{unseen.Count} 条", $"{unseen.Count}"),
             AppLocalization.Text(_settings.Language,
-                $"{first.Title}　·　右键菜单「更新记录」查看",
-                $"{first.Title} · see \"Changelog\" in the right-click menu"),
+                $"{first.Title}　·　右键菜单「消息中心」查看",
+                $"{first.Title} · see \"Messages\" in the right-click menu"),
             TimeSpan.FromSeconds(7));
-    }
-
-    private void OpenNoticeWindow()
-    {
-        if (_noticeWindow is { IsLoaded: true })
-        {
-            _noticeWindow.Activate();
-            return;
-        }
-
-        _noticeWindow = new NoticeWindow(_settingsStore, _settings, _updateHttpClient) { Owner = this };
-        _noticeWindow.Closed += (_, _) =>
-        {
-            _noticeWindow = null;
-            // The window records the watermark itself. Reload rather than assume, so the
-            // rest of this session does not keep a stale copy and mention the same entry
-            // twice.
-            try { _settings = _settingsStore.Load(); }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
-        };
-        _noticeWindow.Show();
     }
 
     private void ShowEasterEggBubble(string label, string amount, string hint, TimeSpan? duration = null)

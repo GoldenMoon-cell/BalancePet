@@ -124,14 +124,10 @@ internal static class Program
             NoticeFeed.Publish(File.ReadAllText(args[nt + 1]));
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        // Which window to capture. The changelog is built here too rather than only in the
-        // application, because a window that has never been rendered is a window nobody has
-        // looked at -- and the alternative is discovering a clipped label in a release.
-        var asNotice = Array.IndexOf(args, "--window") is var wt2 && wt2 >= 0 && wt2 + 1 < args.Length
-            && string.Equals(args[wt2 + 1], "notice", StringComparison.OrdinalIgnoreCase);
-        Window window = asNotice
-            ? new NoticeWindow(store, settings, new HttpClient { Timeout = TimeSpan.FromSeconds(20) })
-            : new SettingsWindow(store, new DpapiTokenStore(), settings);
+        // Only the settings window is captured here now. The changelog window it used to be
+        // able to build is gone: the changelog is presented by the message-centre extension,
+        // which renders its own window and has its own capture mode (`--panel`, `--shot`).
+        Window window = new SettingsWindow(store, new DpapiTokenStore(), settings);
         window.WindowStartupLocation = WindowStartupLocation.Manual;
         window.Left = -32000;
         window.Top = -32000;

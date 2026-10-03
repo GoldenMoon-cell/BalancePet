@@ -89,7 +89,7 @@ public partial class SettingsWindow : Window
         _suppressLanguageChange = true;
         SelectByTag(LanguageBox, settings.Language);
         _suppressLanguageChange = false;
- ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; InteractionEffectsBox.IsChecked = settings.InteractionEffects; NavigationAnimationsBox.IsChecked = settings.NavigationAnimations; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = settings.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = settings.GeminiTaskIntegration; FollowQwenBox.IsChecked = settings.QwenTaskIntegration; FollowClaudeBox.IsChecked = settings.ClaudeTaskIntegration; FollowOtherBox.IsChecked = settings.OtherTaskIntegration; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
+ ScaleSlider.Value = Math.Clamp(settings.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(settings.Volume, 0, 1); SoundBox.IsChecked = settings.Sound; BubbleBox.IsChecked = settings.Bubble; NoticeBubbleBox.IsChecked = settings.NoticesNotify; InteractionEffectsBox.IsChecked = settings.InteractionEffects; NavigationAnimationsBox.IsChecked = settings.NavigationAnimations; EasterEggsBox.IsChecked = settings.RandomEasterEggs; FollowCodexBox.IsChecked = settings.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = settings.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = settings.GeminiTaskIntegration; FollowQwenBox.IsChecked = settings.QwenTaskIntegration; FollowClaudeBox.IsChecked = settings.ClaudeTaskIntegration; FollowOtherBox.IsChecked = settings.OtherTaskIntegration; StartupBox.IsChecked = settings.StartWithWindows || StartupManager.IsEnabled();
         _navigationCollapsed = settings.NavigationCollapsed;
         OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
         AppLocalization.Apply(this, settings.Language);
@@ -2347,7 +2347,7 @@ public partial class SettingsWindow : Window
             _selectedThemeId = SelectedTag(ThemeBox, ThemeExtensionManager.BundledThemeId);
                 ApplySelectedTheme();
             ScaleSlider.Value = Math.Clamp(imported.Scale, 0.6, 1.4); VolumeSlider.Value = Math.Clamp(imported.Volume, 0, 1);
- SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; InteractionEffectsBox.IsChecked = imported.InteractionEffects; NavigationAnimationsBox.IsChecked = imported.NavigationAnimations; EasterEggsBox.IsChecked = imported.RandomEasterEggs; FollowCodexBox.IsChecked = imported.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = imported.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = imported.GeminiTaskIntegration; FollowQwenBox.IsChecked = imported.QwenTaskIntegration; FollowClaudeBox.IsChecked = imported.ClaudeTaskIntegration; FollowOtherBox.IsChecked = imported.OtherTaskIntegration; StartupBox.IsChecked = imported.StartWithWindows;
+ SoundBox.IsChecked = imported.Sound; BubbleBox.IsChecked = imported.Bubble; NoticeBubbleBox.IsChecked = imported.NoticesNotify; InteractionEffectsBox.IsChecked = imported.InteractionEffects; NavigationAnimationsBox.IsChecked = imported.NavigationAnimations; EasterEggsBox.IsChecked = imported.RandomEasterEggs; FollowCodexBox.IsChecked = imported.CodexTaskIntegration; FollowDeepSeekHarnessBox.IsChecked = imported.DeepSeekHarnessIntegration; FollowGeminiBox.IsChecked = imported.GeminiTaskIntegration; FollowQwenBox.IsChecked = imported.QwenTaskIntegration; FollowClaudeBox.IsChecked = imported.ClaudeTaskIntegration; FollowOtherBox.IsChecked = imported.OtherTaskIntegration; StartupBox.IsChecked = imported.StartWithWindows;
             OnAuthModeChanged(this, new SelectionChangedEventArgs(Selector.SelectionChangedEvent, Array.Empty<object>(), Array.Empty<object>()));
             AppLocalization.Apply(this, imported.Language);
             RefreshLanguageSelector(imported.Language, selectLanguage: false);
@@ -2392,6 +2392,7 @@ public partial class SettingsWindow : Window
                 sound = SoundBox.IsChecked == true,
                 volume = VolumeSlider.Value,
                 bubble = BubbleBox.IsChecked == true,
+            noticesNotify = NoticeBubbleBox.IsChecked == true,
                 interaction_effects = InteractionEffectsBox.IsChecked == true,
                 navigation_animations = NavigationAnimationsBox.IsChecked == true,
                 random_easter_eggs = EasterEggsBox.IsChecked == true,
@@ -2511,8 +2512,11 @@ public partial class SettingsWindow : Window
                 // them would reset the watermark to zero and make the next launch announce
                 // the entire backlog, and would silently switch the notice back on for
                 // anyone who had turned it off.
-                NoticesSeenSeq = _settings.NoticesSeenSeq,
-                NoticesNotify = _settings.NoticesNotify,
+                // Moved here from the changelog window when that window was removed; the
+                // watermark stays with the settings, so this only replaces where the switch
+                // lives, not what it means.
+                NoticesRecordedSeq = _settings.NoticesRecordedSeq,
+                NoticesNotify = NoticeBubbleBox.IsChecked == true,
                 Scale = ScaleSlider.Value,
                 Volume = VolumeSlider.Value,
                 Sound = SoundBox.IsChecked == true,

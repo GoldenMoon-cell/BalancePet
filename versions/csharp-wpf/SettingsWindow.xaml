@@ -467,6 +467,9 @@
             <StackPanel>
               <local:ToggleSwitch x:Name="SoundBox" Content="按压音效" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <local:ToggleSwitch x:Name="BubbleBox" Content="对话气泡" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
+              <!-- 这一项原来长在更新记录窗口里，那个窗口删掉后搬来这里：桌宠要不要为新的
+                   更新记录弹气泡，是交互设置，不该随窗口一起消失。 -->
+              <local:ToggleSwitch x:Name="NoticeBubbleBox" Content="更新记录提示" ToolTip="关闭后，桌宠不会为新的更新记录弹气泡；记录本身仍会出现在消息中心。" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <local:ToggleSwitch x:Name="InteractionEffectsBox" Content="互动动作" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <local:ToggleSwitch x:Name="NavigationAnimationsBox" Content="设置面板动效" ToolTip="关闭后，设置面板展开和折叠会立即切换，不播放过渡动画。" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,9"/>
               <local:ToggleSwitch x:Name="EasterEggsBox" Content="随机彩蛋" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,12"/>
