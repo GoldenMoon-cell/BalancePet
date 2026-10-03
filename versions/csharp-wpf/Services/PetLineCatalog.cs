@@ -40,7 +40,12 @@ public static class PetLineCatalog
     /// appearance at once. Generous, because it is one file for all of them rather than
     /// one per character.
     /// </summary>
-    private const long MaxRemoteBytes = 512 * 1024;
+    /// <remarks>
+    /// Public because the fetch applies it as a limit on the download as well: a ceiling
+    /// that is only checked after the whole body has been read is a ceiling that does not
+    /// stop anything from filling memory.
+    /// </remarks>
+    public const long MaxRemoteBytes = 512 * 1024;
 
     private static readonly JsonSerializerOptions Options = new()
     {

@@ -62,7 +62,8 @@ public sealed record PluginCatalogLoadResult(
     IReadOnlyList<PluginCatalogRecord> Entries,
     bool FromRemote,
     bool FromCache,
-    string? Error);
+    string? Error,
+    bool Mirrored = false);
 
 /// <summary>
 /// Loads the curated, static plugin directory. The catalog is discovery-only:
@@ -139,6 +140,7 @@ public sealed class PluginCatalogService
         var errors = new List<string>();
         var fromRemote = false;
         var fromCache = false;
+        var mirrored = false;
 
         foreach (var source in Sources)
         {
@@ -147,6 +149,7 @@ public sealed class PluginCatalogService
             if (!string.IsNullOrWhiteSpace(loaded.Error)) errors.Add(loaded.Error);
             fromRemote |= loaded.FromRemote;
             fromCache |= loaded.FromCache;
+            mirrored |= loaded.Mirrored;
         }
 
         // An id published by both catalogs is a mistake rather than something to
@@ -160,7 +163,8 @@ public sealed class PluginCatalogService
             unique.OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray(),
             fromRemote,
             fromCache,
-            errors.Count == 0 ? null : string.Join("；", errors));
+            errors.Count == 0 ? null : string.Join("；", errors),
+            mirrored);
     }
 
     private async Task<PluginCatalogLoadResult> LoadSourceAsync(CatalogSource source, CancellationToken cancellationToken)
@@ -168,18 +172,15 @@ public sealed class PluginCatalogService
         string? remoteError = null;
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, source.Url);
-            request.Headers.Accept.ParseAdd("application/json");
-            request.Headers.UserAgent.ParseAdd("BalancePet-Plugin-Catalog/1.0");
-            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            if (response.Content.Headers.ContentLength is > MaxCatalogBytes)
-                throw new InvalidDataException($"{source.What}文件过大。");
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            if (json.Length > MaxCatalogBytes) throw new InvalidDataException($"{source.What}文件过大。");
-            var entries = source.Parse(json);
-            SaveCache(source.CachePath, json);
-            return new PluginCatalogLoadResult(entries, FromRemote: true, FromCache: false, Error: null);
+            // Fetched through the reader rather than directly, so a network that refuses
+            // GitHub's raw host still gets a catalog: the same document is served from a
+            // mirror of the same repository, and the caller is told which one answered.
+            var fetched = await GitHubContentReader.DownloadAsync(
+                _http, source.Url, MaxCatalogBytes, "application/json",
+                "BalancePet-Plugin-Catalog/1.0", cancellationToken);
+            var entries = source.Parse(fetched.Text);
+            SaveCache(source.CachePath, fetched.Text);
+            return new PluginCatalogLoadResult(entries, FromRemote: true, FromCache: false, Error: null, Mirrored: fetched.Mirrored);
         }
         catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or JsonException or TaskCanceledException)
         {

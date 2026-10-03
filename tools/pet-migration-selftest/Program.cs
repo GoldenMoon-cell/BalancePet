@@ -567,24 +567,24 @@ internal static class Program
 
             // --- 15. The mirror of a declared address ---------------------------
             // GitHub's raw host is refused on some networks while a public mirror of
-            // the same repository answers, so a picture is looked for at both. The
+            // the same repository answers, so every document is looked for at both. The
             // second address is derived rather than declared, which is what keeps a
             // catalog from aiming the program at a host of its choosing.
             Check("raw 地址能推出镜像",
-                PluginIconService.MirrorOf("https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/qwen.png")
+                GitHubContentReader.MirrorOf("https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/qwen.png")
                     == "https://cdn.jsdelivr.net/gh/GoldenMoon-cell/BalancePet-Pets@main/previews/qwen.png",
-                PluginIconService.MirrorOf("https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/qwen.png") ?? "null");
+                GitHubContentReader.MirrorOf("https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/qwen.png") ?? "null");
             Check("其它主机不推镜像",
-                PluginIconService.MirrorOf("https://cdn.jsdelivr.net/gh/o/r@main/x.png") is null
-                && PluginIconService.MirrorOf("https://example.com/x.png") is null
-                && PluginIconService.MirrorOf("not a url") is null);
+                GitHubContentReader.MirrorOf("https://cdn.jsdelivr.net/gh/o/r@main/x.png") is null
+                && GitHubContentReader.MirrorOf("https://example.com/x.png") is null
+                && GitHubContentReader.MirrorOf("not a url") is null);
             Check("路径里带目录也能推",
-                PluginIconService.MirrorOf("https://raw.githubusercontent.com/o/r/v1.2.3/a/b/c.png")
+                GitHubContentReader.MirrorOf("https://raw.githubusercontent.com/o/r/v1.2.3/a/b/c.png")
                     == "https://cdn.jsdelivr.net/gh/o/r@v1.2.3/a/b/c.png");
             Check("候选地址按顺序给出，镜像在后",
-                PluginIconService.CandidateUrls("https://raw.githubusercontent.com/o/r/main/a.png").Count == 2);
+                GitHubContentReader.Candidates("https://raw.githubusercontent.com/o/r/main/a.png").Count == 2);
             Check("推不出镜像时只有原地址",
-                PluginIconService.CandidateUrls("https://example.com/a.png").Count == 1);
+                GitHubContentReader.Candidates("https://example.com/a.png").Count == 1);
 
             // The first address failing is the whole point of the list, so the stub
             // refuses the raw host and answers the mirror.
@@ -602,6 +602,33 @@ internal static class Program
                 Check("原地址被拒后走镜像取到图", throughMirror is not null && mirrorRequests.Count == 2,
                     $"{mirrorRequests.Count} 次：{string.Join(",", mirrorRequests)}");
             }
+
+            // An address that never answers is the case this exists for — a host that
+            // drops the connection instead of refusing it. The mirror has to be asked
+            // without waiting for that address's whole timeout, or every fetch on such a
+            // network costs one timeout before it can start.
+            var hanging = new TaskCompletionSource<HttpResponseMessage>();
+            var asked = new List<string>();
+            using (var blackhole = new HttpClient(new AsyncStubHandler(request =>
+            {
+                lock (asked) asked.Add(request.RequestUri!.Host);
+                if (request.RequestUri.Host.Contains("raw.githubusercontent", StringComparison.Ordinal))
+                    return hanging.Task;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(iconBytes) });
+            })))
+            {
+                var started = DateTime.UtcNow;
+                var hedged = await GitHubContentReader.DownloadAsync(
+                    blackhole, iconUrl, 1024 * 1024, "image/png", "BalancePet-SelfTest/1.0");
+                var elapsed = DateTime.UtcNow - started;
+                Check("原地址无响应时不等它超时，直接问镜像",
+                    hedged.Mirrored && hedged.Bytes.SequenceEqual(iconBytes) && elapsed < TimeSpan.FromSeconds(5),
+                    $"{elapsed.TotalMilliseconds:F0} ms，{asked.Count} 次请求");
+                Check("镜像地址是推导出来的那一个",
+                    hedged.Url == "https://cdn.jsdelivr.net/gh/GoldenMoon-cell/BalancePet@main/previews/ok.png",
+                    hedged.Url);
+            }
+            hanging.SetCanceled();
 
             // --- 16. The four states one tile can be in ---------------------------
             // These are the states a machine with everything installed never shows, so
@@ -636,6 +663,48 @@ internal static class Program
             Check("本机形象没有图源也能立刻画", States(arrived) != "glyph", States(arrived));
             arrived.SetIcon(iconFetcher.Cached(iconRecord));
             Check("拿到图之后只剩图", States(arrived) == "image", States(arrived));
+
+            // --- 17. A package Windows will not move ------------------------------
+            // Installing used to fail outright when Windows refused to move the staged
+            // directory, which it does while anything still holds a handle inside it: a
+            // virus scanner reading files written a moment ago. Measured by installing
+            // one appearance over and over, fourteen attempts in sixty were refused, so
+            // this is a user pressing Install, not a test artefact. A handle held open
+            // on purpose reproduces the refusal on demand, which is what makes the
+            // recovery testable rather than hoped for.
+            var commitRoot = Path.Combine(workspace, "commit");
+            var staged = Path.Combine(commitRoot, ".staging", "one");
+            Directory.CreateDirectory(Path.Combine(staged, "assets", "pets", "qwen"));
+            File.WriteAllText(Path.Combine(staged, "manifest.json"), "{}");
+            var stagedImage = Path.Combine(staged, "assets", "pets", "qwen", "idle.png");
+            File.WriteAllBytes(stagedImage, iconBytes);
+
+            var committed = Path.Combine(commitRoot, "pet.probe", "1.0.0");
+            Directory.CreateDirectory(Path.GetDirectoryName(committed)!);
+            using (var held = new FileStream(stagedImage, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                StagedPackage.Commit(staged, committed);
+            }
+            Check("占用导致移动被拒时，改用复制装好",
+                File.Exists(Path.Combine(committed, "manifest.json"))
+                && File.ReadAllBytes(Path.Combine(committed, "assets", "pets", "qwen", "idle.png")).SequenceEqual(iconBytes),
+                string.Join(",", Directory.Exists(committed) ? Directory.GetFiles(committed, "*", SearchOption.AllDirectories).Select(Path.GetFileName) : Array.Empty<string>()));
+
+            // The version directory is what "installed" means, so a failed commit must not
+            // leave one behind for the next launch to find.
+            var refusedRoot = Path.Combine(commitRoot, "pet.refused", "1.0.0");
+            Directory.CreateDirectory(Path.GetDirectoryName(refusedRoot)!);
+            var blocked = Path.Combine(commitRoot, ".staging", "two");
+            Directory.CreateDirectory(blocked);
+            File.WriteAllText(Path.Combine(blocked, "manifest.json"), "{}");
+            var failed = "";
+            using (var held = new FileStream(Path.Combine(blocked, "manifest.json"), FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                try { StagedPackage.Commit(blocked, refusedRoot); }
+                catch (IOException error) { failed = error.Message; }
+                catch (UnauthorizedAccessException error) { failed = error.Message; }
+            }
+            Check("彻底失败时不留半个版本目录", failed.Length > 0 && !Directory.Exists(refusedRoot), failed);
         }
         finally
         {
@@ -686,6 +755,17 @@ internal static class Program
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(respond(request));
+    }
+
+    /// <summary>
+    /// The same, for a test that has to answer later — or never. A host that drops
+    /// connections rather than refusing them cannot be reproduced by a handler that
+    /// always returns immediately.
+    /// </summary>
+    private sealed class AsyncStubHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> respond) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => respond(request);
     }
 
     /// <summary>

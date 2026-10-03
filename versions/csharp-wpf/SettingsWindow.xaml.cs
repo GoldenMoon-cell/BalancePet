@@ -1374,9 +1374,12 @@ public partial class SettingsWindow : Window
                 // A source that failed while another succeeded is still worth saying:
                 // an empty category looks like "nothing is published" otherwise.
                 var partial = string.IsNullOrWhiteSpace(result.Error) ? "" : $"（{result.Error}）";
+                // Said out loud because the mirror caches a branch for hours: a catalog
+                // that looks a version behind is the mirror, not a mistake.
+                var via = result.Mirrored ? AppLocalization.Text(language, "（经镜像）", " (via mirror)") : "";
                 PluginCatalogStatusText.Text = AppLocalization.Text(language,
-                    $"已从官方目录加载 {_pluginCatalogEntries.Count} 个扩展。{partial}",
-                    $"Loaded {_pluginCatalogEntries.Count} extension(s) from the curated catalogs.{(string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error}")}");
+                    $"已从官方目录加载 {_pluginCatalogEntries.Count} 个扩展。{partial}{via}",
+                    $"Loaded {_pluginCatalogEntries.Count} extension(s) from the curated catalogs.{(string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error}")}{(result.Mirrored ? " (via mirror)" : "")}");
             }
             else if (_pluginCatalogEntries.Count > 0)
             {

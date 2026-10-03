@@ -159,7 +159,7 @@ public sealed class FeatureExtensionManager : IDisposable
             // silently carry over to a newly installed version.
             TryDeleteFile(Path.Combine(idDirectory, ".disabled"));
             if (Directory.Exists(destinationRoot)) Directory.Delete(destinationRoot, true);
-            Directory.Move(stagingRoot, destinationRoot);
+            StagedPackage.Commit(stagingRoot, destinationRoot);
             return new FeatureExtensionInfo(manifest, destinationRoot, !File.Exists(Path.Combine(idDirectory, ".disabled")));
         }
         finally

@@ -262,7 +262,14 @@ public sealed class PluginIconService
         byte[]? bytes = null;
         try
         {
-            bytes = await DownloadAsync(http, record.IconUrl, cancellationToken);
+            // Through the reader, which tries the declared address and then the mirror of
+            // the same repository: the host this catalog points at is one a network can
+            // refuse while leaving the rest of GitHub reachable, and a row that cannot be
+            // drawn is exactly what this pass exists to prevent.
+            var fetched = await GitHubContentReader.DownloadAsync(
+                http, record.IconUrl, MaxBytes, "image/png",
+                "BalancePet-Plugin-Icons/1.0", cancellationToken);
+            bytes = fetched.Bytes;
         }
         catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException
             or TaskCanceledException or OperationCanceledException or InvalidOperationException or UriFormatException)
@@ -295,80 +302,6 @@ public sealed class PluginIconService
         catch (UnauthorizedAccessException) { }
 
         return image;
-    }
-
-    /// <summary>
-    /// The declared address, and the mirror of it when the declared one cannot be
-    /// reached.
-    /// </summary>
-    /// <remarks>
-    /// GitHub serves repository content from a host that some networks refuse while
-    /// leaving the rest of GitHub reachable — measured on one, the raw host hung until
-    /// the request timed out while the API, the website and a public mirror of the same
-    /// repository all answered in about a second. Without the mirror the pictures would
-    /// simply never arrive on such a network, which is the whole feature.
-    ///
-    /// The mirror address is derived from the declared one rather than read from the
-    /// catalog, so a catalog still cannot aim the program at a host of its choosing:
-    /// the fallback can only ever name the same repository and path.
-    /// </remarks>
-    public static IReadOnlyList<string> CandidateUrls(string? declared)
-    {
-        var url = (declared ?? "").Trim();
-        if (url.Length == 0) return Array.Empty<string>();
-        var mirror = MirrorOf(url);
-        return mirror is null ? new[] { url } : new[] { url, mirror };
-    }
-
-    /// <summary>
-    /// <c>raw.githubusercontent.com/OWNER/REPO/REF/PATH</c> as
-    /// <c>cdn.jsdelivr.net/gh/OWNER/REPO@REF/PATH</c>, or null for anything else.
-    /// </summary>
-    public static string? MirrorOf(string? url)
-    {
-        if (!Uri.TryCreate((url ?? "").Trim(), UriKind.Absolute, out var uri)) return null;
-        if (uri.Scheme != Uri.UriSchemeHttps) return null;
-        if (!uri.Host.Equals("raw.githubusercontent.com", StringComparison.OrdinalIgnoreCase)) return null;
-
-        var segments = uri.AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 4) return null;
-        var owner = Uri.EscapeDataString(segments[0]);
-        var repository = Uri.EscapeDataString(segments[1]);
-        var reference = Uri.EscapeDataString(segments[2]);
-        var path = string.Join('/', segments.Skip(3).Select(Uri.EscapeDataString));
-        if (owner.Length == 0 || repository.Length == 0 || reference.Length == 0 || path.Length == 0) return null;
-        return $"https://cdn.jsdelivr.net/gh/{owner}/{repository}@{reference}/{path}";
-    }
-
-    /// <summary>Each candidate in turn; the first answer that is a picture wins.</summary>
-    private static async Task<byte[]?> DownloadAsync(HttpClient http, string declared, CancellationToken cancellationToken)
-    {
-        Exception? last = null;
-        foreach (var url in CandidateUrls(declared))
-        {
-            try
-            {
-                using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                request.Headers.Accept.ParseAdd("image/png");
-                request.Headers.UserAgent.ParseAdd("BalancePet-Plugin-Icons/1.0");
-                using var response = await http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
-                if (!response.IsSuccessStatusCode) throw new HttpRequestException($"HTTP {(int)response.StatusCode}");
-                if (response.Content.Headers.ContentLength is > MaxBytes) throw new InvalidDataException("图示过大。");
-                var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-                if (bytes.Length is 0 or > MaxBytes) throw new InvalidDataException("图示大小异常。");
-                return bytes;
-            }
-            catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException
-                or TaskCanceledException or OperationCanceledException or InvalidOperationException or UriFormatException)
-            {
-                last = error;
-                // A cancellation is about the caller, not about the address, so there is
-                // nothing a second address would answer.
-                if (cancellationToken.IsCancellationRequested) throw;
-            }
-        }
-        if (last is not null) throw last;
-        return null;
     }
 
     public string CachePath(PluginCatalogRecord record)

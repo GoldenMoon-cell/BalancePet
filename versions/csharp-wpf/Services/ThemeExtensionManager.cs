@@ -204,7 +204,7 @@ public sealed class ThemeExtensionManager
             var disabledMarker = Path.Combine(idDirectory, ".disabled");
             if (File.Exists(disabledMarker)) File.Delete(disabledMarker);
             if (Directory.Exists(destinationRoot)) Directory.Delete(destinationRoot, true);
-            Directory.Move(stagingRoot, destinationRoot);
+            StagedPackage.Commit(stagingRoot, destinationRoot);
             return new ThemeExtensionInfo(manifest, theme, destinationRoot, true);
         }
         finally

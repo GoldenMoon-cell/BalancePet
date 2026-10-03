@@ -64,24 +64,22 @@ public static class AppearanceLinesService
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, Url);
-            request.Headers.Accept.ParseAdd("application/json");
-            request.Headers.UserAgent.ParseAdd("BalancePet-Appearance-Lines/1.0");
+            // Through the reader, so a network that refuses GitHub's raw host still gets
+            // the served lines rather than keeping whatever the packages shipped.
+            var fetched = await GitHubContentReader.DownloadAsync(
+                http, Url, PetLineCatalog.MaxRemoteBytes, "application/json",
+                "BalancePet-Appearance-Lines/1.0", cancellationToken);
 
-            using var response = await http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken);
-            if (!response.IsSuccessStatusCode) return;
-
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             // Published before caching: an unwritable cache directory costs the next launch
             // nothing but a refetch, while refusing the document would cost this session the
             // corrected lines for no reason.
-            if (!PetLineCatalog.PublishRemote(json)) return;
+            if (!PetLineCatalog.PublishRemote(fetched.Text)) return;
 
             var directory = Path.GetDirectoryName(CachePath);
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-            File.WriteAllText(CachePath, json);
+            File.WriteAllText(CachePath, fetched.Text);
         }
-        catch (Exception error) when (error is HttpRequestException or IOException or UnauthorizedAccessException or TaskCanceledException or OperationCanceledException or InvalidOperationException)
+        catch (Exception error) when (error is HttpRequestException or IOException or UnauthorizedAccessException or TaskCanceledException or OperationCanceledException or InvalidOperationException or InvalidDataException)
         {
         }
     }

@@ -147,7 +147,7 @@ public sealed class PetExtensionManager
             var destinationRoot = Path.Combine(idDirectory, manifest.Version);
             Directory.CreateDirectory(idDirectory);
             if (Directory.Exists(destinationRoot)) Directory.Delete(destinationRoot, true);
-            Directory.Move(stagingRoot, destinationRoot);
+            StagedPackage.Commit(stagingRoot, destinationRoot);
             return new PetExtensionInfo(manifest, destinationRoot, !File.Exists(Path.Combine(idDirectory, ".disabled")));
         }
         finally
