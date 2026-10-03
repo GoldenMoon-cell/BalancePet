@@ -49,6 +49,36 @@ public partial class BubbleWindow : Window
         _triggerTimer.Start();
     }
 
+    /// <summary>
+    /// Lays the ring out for a preview, without the cursor and the Shift key that normally
+    /// ask for it, and stops polling so nothing moves it afterwards.
+    /// </summary>
+    /// <remarks>
+    /// Exists so the ring can be looked at — and reviewed — without hovering the pet with a
+    /// key held down. The alternative was to synthesise mouse and keyboard input against a
+    /// live desktop, which is a strange way to take a picture and cannot be repeated on a
+    /// machine that is not being used at that moment.
+    /// </remarks>
+    internal void PreviewLayout(Rect petBounds, Rect workArea)
+    {
+        _triggerTimer.Stop();
+        _requestedVisible = true;
+        // Items first, then places for them: the slot count comes from how many items the
+        // canvas holds, so asking for positions before building them asks for none.
+        RenderItems();
+        PositionAroundPet(petBounds, workArea);
+        // The state they settle into, rather than the animation that gets them there. The
+        // fade needs a running dispatcher, and a still picture wants the ring as it looks
+        // once it has arrived — waiting for it here would mean blocking the thread that
+        // would have to run it.
+        UpdateAdaptiveContrast();
+        foreach (var child in InfoCanvas.Children.OfType<FrameworkElement>())
+        {
+            child.Opacity = 1;
+            if (child.RenderTransform is TranslateTransform offset) offset.Y = 0;
+        }
+    }
+
     public void UpdateItems(IReadOnlyList<NotificationBubble> items)
     {
         var next = items.Where(item => !string.IsNullOrWhiteSpace(item.Text)).Take(5).ToArray();
@@ -448,17 +478,30 @@ public partial class BubbleWindow : Window
         "system" => (Brush)Resources["SystemBrush"], _ => (Brush)Resources["RefreshBrush"]
     };
 
+    /// <summary>
+    /// Measures the backdrop behind an item, in the ordinary case by reading the screen.
+    /// </summary>
+    /// <remarks>
+    /// A preview sets this, because the picture it is composing is not on the screen yet:
+    /// reading the screen there would measure whatever window happens to be open behind the
+    /// review, and would choose the text colour for the wrong backdrop — which is a picture
+    /// of a ring nobody will ever see.
+    /// </remarks>
+    internal Func<FrameworkElement, double>? BackdropLuminance { get; set; }
+
     private void UpdateAdaptiveContrast()
     {
-        if (!IsVisible || _visuals.Count == 0) return;
-        var screen = GetDC(IntPtr.Zero);
-        if (screen == IntPtr.Zero) return;
+        if (_visuals.Count == 0) return;
+        var sampler = BackdropLuminance;
+        if (sampler is null && !IsVisible) return;
+        var screen = sampler is null ? GetDC(IntPtr.Zero) : IntPtr.Zero;
+        if (sampler is null && screen == IntPtr.Zero) return;
         try
         {
             foreach (var visual in _visuals)
             {
                 if (!visual.Root.IsVisible || visual.Root.ActualWidth <= 0 || visual.Root.ActualHeight <= 0) continue;
-                var luminance = SampleBackgroundLuminance(screen, visual.Root);
+                var luminance = sampler is not null ? sampler(visual.Root) : SampleBackgroundLuminance(screen, visual.Root);
                 if (luminance < 0) continue;
                 var useLightText = ContrastRatio(0.955, luminance) >= ContrastRatio(0.014, luminance);
                 visual.Primary.Foreground = Brush(useLightText ? "#F7FAFF" : "#111827");
@@ -474,7 +517,7 @@ public partial class BubbleWindow : Window
                 };
             }
         }
-        finally { ReleaseDC(IntPtr.Zero, screen); }
+        finally { if (screen != IntPtr.Zero) ReleaseDC(IntPtr.Zero, screen); }
     }
 
     private static double SampleBackgroundLuminance(IntPtr screen, FrameworkElement element)
