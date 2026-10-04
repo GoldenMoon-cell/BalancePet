@@ -10,6 +10,52 @@
     <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" CornerRadius="{DynamicResource WindowCornerRadius}" GlassFrameThickness="0" />
   </shell:WindowChrome.WindowChrome>
   <Window.Resources>
+    <!-- The list's scrollbar, scoped to this window rather than applied globally: this project
+         asks for a scrollbar template to be checked in each container it lands in before it is
+         shared, and this window has exactly one scrolling surface. A ten-pixel inset thumb in a
+         transparent track is the 8-10 px the design system asks for — the native bar's bright
+         gutter and arrow buttons are what read as a foreign object in here. Dragging, track
+         paging, the wheel and the keyboard are all kept: the repeat buttons are still there,
+         just invisible. -->
+    <Style TargetType="ScrollBar">
+      <Setter Property="Width" Value="12" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Grid Background="Transparent">
+              <Track x:Name="PART_Track" IsDirectionReversed="True">
+                <Track.DecreaseRepeatButton>
+                  <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False" />
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                  <Thumb>
+                    <Thumb.Template>
+                      <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="Bar" Width="10" CornerRadius="5" Margin="1,0"
+                                Background="{DynamicResource MutedBrush}" Opacity="0.35" />
+                        <ControlTemplate.Triggers>
+                          <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bar" Property="Opacity" Value="0.6" />
+                          </Trigger>
+                          <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="Bar" Property="Opacity" Value="0.85" />
+                          </Trigger>
+                        </ControlTemplate.Triggers>
+                      </ControlTemplate>
+                    </Thumb.Template>
+                  </Thumb>
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                  <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False" />
+                </Track.IncreaseRepeatButton>
+              </Track>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <Style x:Key="IconButtonStyle" TargetType="Button">
       <Setter Property="Width" Value="46" /><Setter Property="Height" Value="48" />
       <Setter Property="Background" Value="Transparent" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
