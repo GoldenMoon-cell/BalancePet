@@ -21,6 +21,13 @@ SIZE = 256
 RADIUS = int(SIZE * 0.23)
 SIZES = (256, 128, 64, 48, 32, 16)
 
+# Per-appearance nudges. The shared framing is a compromise across eighteen illustrations, and
+# one of them has something worth keeping beside the head: rwkv's bird is cut off at the right
+# edge, so that one is framed looser — less enlargement, less to the left — and the bird fits.
+OVERRIDES = {
+    "rwkv": {"scale": 1.02, "x": -0.19, "bottom": 0.89},
+}
+
 
 def without_background(image: Image.Image) -> Image.Image:
     """The head alone, on transparency.
@@ -96,9 +103,12 @@ def icon(path: Path) -> Image.Image:
     # frame actually needs to remove is the neck, which sits at the very bottom. So the image is
     # barely enlarged and pushed down: 0.89 of its height lands on the bottom edge, which keeps
     # everything above the collar and crops the rest.
-    scale = (SIZE * 1.16) / max(head.width, head.height)
+    tune = OVERRIDES.get(path.stem, {})
+    scale = (SIZE * tune.get("scale", 1.16)) / max(head.width, head.height)
     head = head.resize((max(1, int(head.width * scale)), max(1, int(head.height * scale))), Image.LANCZOS)
-    tile.alpha_composite(head, (int(-SIZE * 0.10), int(SIZE - head.height * 0.89)))
+    tile.alpha_composite(head, (
+        int(-SIZE * tune.get("x", 0.10)),
+        int(SIZE - head.height * tune.get("bottom", 0.89))))
 
     mask = Image.new("L", (SIZE, SIZE), 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, SIZE - 1, SIZE - 1), RADIUS, fill=255)
