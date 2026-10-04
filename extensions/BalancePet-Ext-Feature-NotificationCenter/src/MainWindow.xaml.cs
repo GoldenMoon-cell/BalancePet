@@ -101,7 +101,12 @@ public partial class MainWindow : Window
     /// </remarks>
     private void LoadPetAvatar()
     {
-        var path = PreviewRenderer.FindInstalledPetArtwork();
+        // The tile that ships with the extension, not the host's live appearance. Icons are
+        // assigned one per extension — this one is DeepSeek's, the host's own character and so
+        // the voice the message centre speaks in — and an extension's face should not change
+        // when the user swaps the pet's costume.
+        var path = Path.Combine(AppContext.BaseDirectory, "assets", "avatar.png");
+        if (!File.Exists(path)) path = PreviewRenderer.FindInstalledPetArtwork();
         if (path is null || !File.Exists(path)) return;
         try
         {
@@ -110,10 +115,10 @@ public partial class MainWindow : Window
             image.UriSource = new Uri(path);
             image.CacheOption = BitmapCacheOption.OnLoad;
             image.EndInit();
-            // The head: the artwork is a full figure and a portrait wants the top of it.
-            var crop = new CroppedBitmap(image, new Int32Rect(
-                (int)(image.PixelWidth * 0.22), 0, (int)(image.PixelWidth * 0.56), (int)(image.PixelHeight * 0.42)));
-            PetAvatar.Source = crop;
+            // Already a square head tile: nothing to crop, unlike the host's full-body artwork.
+            PetAvatar.Source = image;
+
+
         }
         catch (Exception)
         {

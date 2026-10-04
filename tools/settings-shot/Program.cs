@@ -128,6 +128,24 @@ internal static class Program
         // able to build is gone: the changelog is presented by the message-centre extension,
         // which renders its own window and has its own capture mode (`--panel`, `--shot`).
         Window window = new SettingsWindow(store, new DpapiTokenStore(), settings);
+
+        // Which page to capture. The window opens on its first tab, and a change to any other
+        // page could only ever be photographed by someone clicking to it — which is not a thing
+        // a capture tool can do, and left the pages after the first one unverified.
+        // Set on Loaded, not on construction: the window restores the page it was last left on
+        // while it loads, so a tab chosen before that is simply overwritten — which is exactly
+        // what happened, and why the capture kept coming back as the second page.
+        var pageAt = Array.IndexOf(args, "--page");
+        if (pageAt >= 0 && pageAt + 1 < args.Length && int.TryParse(args[pageAt + 1], out var page)
+            && window is SettingsWindow settingsWindow)
+        {
+            window.Loaded += (_, _) =>
+            {
+                if (settingsWindow.SettingsTabs.Items.Count == 0) return;
+                settingsWindow.SettingsTabs.SelectedIndex =
+                    Math.Clamp(page, 0, settingsWindow.SettingsTabs.Items.Count - 1);
+            };
+        }
         window.WindowStartupLocation = WindowStartupLocation.Manual;
         window.Left = -32000;
         window.Top = -32000;

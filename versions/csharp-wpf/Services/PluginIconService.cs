@@ -69,6 +69,57 @@ public sealed class PluginIconService
 
     public string CacheDirectory { get; }
 
+    /// <summary>
+    /// How much the icon cache is using, for the advanced page to show.
+    /// </summary>
+    /// <remarks>
+    /// Walked rather than tracked: a number kept alongside the directory drifts the moment
+    /// anything else touches it, and this is one directory of a few dozen small files. The
+    /// answer wanted here is honest, not instant.
+    /// </remarks>
+    public long CacheSizeBytes()
+    {
+        try
+        {
+            if (!Directory.Exists(CacheDirectory)) return 0;
+            long total = 0;
+            foreach (var file in Directory.EnumerateFiles(CacheDirectory, "*", SearchOption.AllDirectories))
+            {
+                try { total += new FileInfo(file).Length; }
+                catch (IOException) { }
+            }
+            return total;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Forgets every cached icon: the files, and the pictures already decoded from them.
+    /// </summary>
+    /// <remarks>
+    /// Both, or neither. Emptying the directory while leaving the decoded images in memory
+    /// produces the one outcome worse than a full cache — a list still showing pictures whose
+    /// files the user believes they just deleted, with nothing to re-fetch them from on a
+    /// machine that has since gone offline.
+    /// </remarks>
+    public void ClearCache()
+    {
+        lock (_gate)
+        {
+            _images.Clear();
+            _failed.Clear();
+        }
+        try
+        {
+            if (Directory.Exists(CacheDirectory)) Directory.Delete(CacheDirectory, recursive: true);
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
     public PluginIconService(string? cacheDirectory = null)
         => CacheDirectory = cacheDirectory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -163,6 +214,21 @@ public sealed class PluginIconService
         var cached = Cached(record);
         if (cached is not null) return cached;
 
+        // The published icon first, when the entry has one — including for appearances that are
+        // already installed. Both lists then draw the same picture for the same character: the
+        // store row used the published icon and the installed row used a face cropped out of the
+        // state artwork, and side by side they read as two different things.
+        //
+        // The crop stays as the fallback, and it is not decorative: an entry with no icon_url, an
+        // offline machine, or a URL that has gone stale all land on it, and a list with nothing
+        // to draw in those cases would be worse than a list drawn two ways.
+        if (CanHaveIcon(record))
+        {
+            var fetched = await FetchAsync(http, record, cancellationToken);
+            if (fetched is not null) return fetched;
+            if (cancellationToken.IsCancellationRequested) return null;
+        }
+
         // Off the UI thread: reading and downscaling a state image is tens of
         // milliseconds, and sixteen rows of it is a visible stall on a page that is
         // being drawn at the same time. Not cancellable: it is a local file, it is
@@ -175,8 +241,7 @@ public sealed class PluginIconService
             return local;
         }
 
-        if (cancellationToken.IsCancellationRequested) return null;
-        return await FetchAsync(http, record, cancellationToken);
+        return null;
     }
 
     /// <summary>
@@ -194,7 +259,13 @@ public sealed class PluginIconService
         if (string.IsNullOrWhiteSpace(style)) return null;
         try
         {
-            var path = Path.Combine(PetStyleCatalog.ResolveAssetDirectory(style), "idle.png");
+            // A package may carry a portrait of its own for this list — a square head, the same
+            // tile the extensions use — and it is preferred over the artwork's first frame when
+            // it is there. Optional on purpose: the sixteen appearances already published have
+            // no such file, and one missing file must not cost them their thumbnail.
+            var directory = PetStyleCatalog.ResolveAssetDirectory(style);
+            var portrait = Path.Combine(directory, "logo.png");
+            var path = File.Exists(portrait) ? portrait : Path.Combine(directory, "idle.png");
             if (!File.Exists(path)) return null;
             return BuildPreview(path, style);
         }

@@ -59,7 +59,11 @@ public partial class SettingsWindow : Window
 
     public SettingsWindow(SettingsStore store, DpapiTokenStore tokens, PetSettings settings, FeatureExtensionManager? featureExtensions = null, BrowserSessionBridgeServer? browserSessionBridge = null)
     {
-        InitializeComponent(); _store = store; _tokens = tokens; _settings = settings; _featureExtensions = featureExtensions ?? new FeatureExtensionManager(); _browserSessionBridge = browserSessionBridge;
+        InitializeComponent();
+
+        // Counted when the page appears rather than when the button is pressed, so the row reads
+        // as a fact about the disk instead of as a result of having clicked something.
+        Loaded += (_, _) => UpdateIconCacheText(); _store = store; _tokens = tokens; _settings = settings; _featureExtensions = featureExtensions ?? new FeatureExtensionManager(); _browserSessionBridge = browserSessionBridge;
         if (_browserSessionBridge is not null) _browserSessionBridge.SessionReceived += OnBrowserSessionReceived;
         _themes.EnsureBundledThemeInstalled();
         _extensionUpdates = new ExtensionUpdateService(_extensionUpdateHttpClient);
@@ -1347,6 +1351,42 @@ public partial class SettingsWindow : Window
 
     /// <summary>The pictures the catalog entries point at, fetched once each.</summary>
     private readonly PluginIconService _pluginIcons = new();
+
+    /// <summary>Shows how much the icon cache is using. Called on load and after clearing.</summary>
+    private void UpdateIconCacheText()
+    {
+        var bytes = _pluginIcons.CacheSizeBytes();
+        IconCacheText.Text = bytes <= 0
+            ? "当前没有缓存。"
+            : $"当前占用 {FormatCacheSize(bytes)}。";
+    }
+
+    private static string FormatCacheSize(long bytes)
+        => bytes >= 1024 * 1024
+            ? $"{bytes / 1024.0 / 1024.0:0.0} MB"
+            : $"{Math.Max(1, bytes / 1024)} KB";
+
+    /// <summary>
+    /// Empties the icon cache, after asking.
+    /// </summary>
+    /// <remarks>
+    /// Asked because it is not undoable and the cost is paid later, on a page the user is not
+    /// looking at: the next visit to the extension list downloads every icon again. The number is
+    /// refreshed from the directory afterwards rather than recomputed in the head, so what the
+    /// page shows is what is actually on disk.
+    /// </remarks>
+    private void OnClearIconCache(object sender, RoutedEventArgs e)
+    {
+        var answer = System.Windows.MessageBox.Show(
+            this,
+            "清除后，下次打开扩展列表会重新下载这些图标。现在清除吗？",
+            "清除图标缓存",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Warning);
+        if (answer != MessageBoxResult.OK) return;
+        _pluginIcons.ClearCache();
+        UpdateIconCacheText();
+    }
 
     /// <summary>The rows currently on screen, so a picture that arrives can reach them.</summary>
     /// <remarks>

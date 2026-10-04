@@ -2,6 +2,13 @@
   "schema_version": 1,
   "notices": [
     {
+      "seq": 8,
+      "date": "2026-10-04",
+      "area": "在线内容",
+      "title": "形象图标与缓存",
+      "summary": "每个 AI 形象新增一张方形头像图（圆角方底、手绘大头），扩展列表与商店列表统一使用它，不再从立绘里裁剪。图标下载一次即缓存于本机，按条目 ID 与版本为键，重发形象时自动更新；主程序「高级与迁移」页新增图标缓存占用显示与清除按钮。未带新头像的旧形象包行为不变，仍回退使用立绘。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/skins/previews"
+    },    {
       "seq": 7,
       "date": "2026-10-04",
       "area": "规范",

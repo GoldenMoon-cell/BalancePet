@@ -48,6 +48,29 @@ def shift(colour: tuple[int, int, int], factor: float) -> tuple[int, int, int]:
     return tuple(max(0, min(255, int(channel * factor))) for channel in colour)
 
 
+def cut_out(image: Image.Image) -> Image.Image:
+    """The figure without the background it was drawn on.
+
+    The reference is a head on a flat tile, so the artwork's own painted background has to go —
+    otherwise the tile is a photograph of a character rather than a character on a tile, and the
+    gradient only ever shows at the corners. Backgrounds here are usually flat, so a pixel that
+    matches the border's colour is background; that is a guess, and it is checked by eye.
+    """
+    rgba = image.convert("RGBA")
+    pixels = np.array(rgba).astype(int)
+    height, width = pixels.shape[:2]
+    border = np.concatenate([
+        pixels[0:2, :, :3].reshape(-1, 3), pixels[-2:, :, :3].reshape(-1, 3),
+        pixels[:, 0:2, :3].reshape(-1, 3), pixels[:, -2:, :3].reshape(-1, 3),
+    ])
+    reference = np.median(border, axis=0)
+    distance = np.sqrt(((pixels[:, :, :3] - reference) ** 2).sum(axis=2))
+    # Generous: antialiased edges sit well away from the flat colour they were drawn against.
+    background = distance < 46
+    rgba.putalpha(Image.fromarray(np.where(background, 0, 255).astype("uint8")))
+    return rgba
+
+
 def head_slice(image: Image.Image) -> Image.Image:
     """The face, found rather than assumed.
 
@@ -109,11 +132,17 @@ def icon(path: Path) -> Image.Image:
     tile = Image.fromarray(gradient, "RGB").convert("RGBA")
 
     head = head_slice(artwork)
-    scale = (SIZE * 1.02) / head.width
+    head = cut_out(head)
+
+    # Big and tilted, which is the style being asked for: the head overflows the tile rather than
+    # sitting inside it, and leans, so the composition runs corner to corner instead of standing
+    # upright like a portrait photograph.
+    scale = (SIZE * 1.30) / head.width
     head = head.resize((max(1, int(head.width * scale)), max(1, int(head.height * scale))), Image.LANCZOS)
+    head = head.rotate(-10, resample=Image.BICUBIC, expand=True)
 
     layer = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    layer.paste(head, ((SIZE - head.width) // 2, int(SIZE * 0.10)), head)
+    layer.paste(head, ((SIZE - head.width) // 2, int(SIZE * 0.04)), head)
     tile.alpha_composite(layer)
 
     mask = Image.new("L", (SIZE, SIZE), 0)

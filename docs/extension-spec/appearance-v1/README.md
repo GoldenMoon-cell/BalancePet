@@ -167,3 +167,21 @@ a sentence or a crop should not put every installation through a download of it:
 The catalog generator refuses to run without both, so a new appearance cannot reach the
 catalog as a row with no face and no line. See
 [skins/PUBLISHING.md](../../../skins/PUBLISHING.md) for the release cycle.
+
+## Optional `logo.png`
+
+An appearance package may carry one extra file beside the nine state images:
+
+```
+assets/pets/<style>/logo.png
+```
+
+It is the character as a **square head** — the same tile the extensions use — and it is what the
+host draws in the extension list, both for an appearance that is installed and for one that is
+only listed in the store. Prefer it over cropping a face out of `idle.png`: the state artwork is
+a full figure, so a crop leaves the character a seventh of the tile, and every appearance
+cropped its own way looks like a different set from the one beside it.
+
+It is optional. A package without one still lists, drawn from its `idle.png` — which is why the
+sixteen appearances published before this was added need no rebuild to keep working. 256×256 is
+the size the published tiles use; anything square and at least 128 is fine.
