@@ -91,9 +91,14 @@ def icon(path: Path) -> Image.Image:
     # the top and right, which is what the reference does — the tile is a window onto a head, not
     # a frame around one. 0.92 is the line that ends up on the bottom edge: far enough down to
     # bring the chin to the corner, not so far that it cuts it off.
-    scale = (SIZE * 1.46) / max(head.width, head.height)
+    # Nearly the whole illustration, shifted rather than zoomed. Zooming lost head features —
+    # horns, ears, the top of the hair — because they sit near the top of the drawing; what the
+    # frame actually needs to remove is the neck, which sits at the very bottom. So the image is
+    # barely enlarged and pushed down: 0.89 of its height lands on the bottom edge, which keeps
+    # everything above the collar and crops the rest.
+    scale = (SIZE * 1.16) / max(head.width, head.height)
     head = head.resize((max(1, int(head.width * scale)), max(1, int(head.height * scale))), Image.LANCZOS)
-    tile.alpha_composite(head, (int(-SIZE * 0.18), int(SIZE - head.height * 0.92)))
+    tile.alpha_composite(head, (int(-SIZE * 0.10), int(SIZE - head.height * 0.89)))
 
     mask = Image.new("L", (SIZE, SIZE), 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, SIZE - 1, SIZE - 1), RADIUS, fill=255)
@@ -135,7 +140,16 @@ def main() -> int:
         built.append((path.stem, image))
         print(f"  {path.stem}")
     if built:
-        sheet(built, OUT / "sheet.png")
+        # The sheet is often open in a viewer while this runs — it is the thing being looked at —
+        # and Windows will not let a new one be written over it. Fall back to a numbered name
+        # rather than failing after the icons themselves have already been written.
+        target = OUT / "sheet.png"
+        for attempt in range(1, 8):
+            try:
+                sheet(built, target)
+                break
+            except OSError:
+                target = OUT / f"sheet-{attempt + 1}.png"
     return 0
 
 
