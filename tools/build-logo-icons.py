@@ -87,9 +87,13 @@ def icon(path: Path) -> Image.Image:
     # bottom, so lining the image's 90% mark up with the tile's bottom edge keeps the whole face
     # inside and crops the neck and shoulders outside — nudging the picture down instead pushed
     # the faces out of frame, which is what the previous attempt did.
-    scale = (SIZE * 1.30) / max(head.width, head.height)
+    # Pressed into the lower left. The face reaches the corner and the hair is allowed to run off
+    # the top and right, which is what the reference does — the tile is a window onto a head, not
+    # a frame around one. 0.92 is the line that ends up on the bottom edge: far enough down to
+    # bring the chin to the corner, not so far that it cuts it off.
+    scale = (SIZE * 1.46) / max(head.width, head.height)
     head = head.resize((max(1, int(head.width * scale)), max(1, int(head.height * scale))), Image.LANCZOS)
-    tile.alpha_composite(head, (int(-SIZE * 0.09), int(SIZE - head.height * 0.90)))
+    tile.alpha_composite(head, (int(-SIZE * 0.18), int(SIZE - head.height * 0.92)))
 
     mask = Image.new("L", (SIZE, SIZE), 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, SIZE - 1, SIZE - 1), RADIUS, fill=255)
