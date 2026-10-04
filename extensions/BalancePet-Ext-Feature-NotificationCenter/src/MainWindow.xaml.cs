@@ -84,6 +84,7 @@ public partial class MainWindow : Window
             UpdateNewPill();
         };
         TakeoverSwitch.IsChecked = _takeover.Enabled;
+        CardAnimationSwitch.IsChecked = _takeover.CardAnimation;
         LoadPetAvatar();
         _refreshTimer.Tick += (_, _) => Refresh(false);
         Refresh();
@@ -150,7 +151,7 @@ public partial class MainWindow : Window
         var stillOpening = now - _listFilledAt < TimeSpan.FromMilliseconds(1000);
         _arrivals = now - _lastArrival > TimeSpan.FromMilliseconds(400) ? 0 : _arrivals + 1;
         _lastArrival = now;
-        if (!stillOpening || _arrivals > 12)
+        if (!_takeover.CardAnimation || !stillOpening || _arrivals > 12)
         {
             // A row that arrived while the window was open still gets a short entrance of its
             // own: it is the one thing on screen that is actually new. What it does not get is
@@ -302,6 +303,11 @@ public partial class MainWindow : Window
     /// so this switch is only a matter of holding it or letting it go — no message has to be
     /// sent anywhere, and turning it off restores the host's own bubbles immediately.
     /// </remarks>
+    private void CardAnimationChanged(object sender, RoutedEventArgs e)
+    {
+        _takeover.CardAnimation = CardAnimationSwitch.IsChecked == true;
+    }
+
     private void TakeoverChanged(object sender, RoutedEventArgs e)
     {
         _takeover.Enabled = TakeoverSwitch.IsChecked == true;
@@ -807,12 +813,31 @@ public partial class MainWindow : Window
                 if (document.RootElement.TryGetProperty("takeover", out var value)
                     && value.ValueKind is JsonValueKind.True or JsonValueKind.False)
                     Enabled = value.GetBoolean();
+                     if (document.RootElement.TryGetProperty("card_animation", out var animation)
+                         && animation.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                         CardAnimation = animation.GetBoolean();
             }
             catch (Exception)
             {
                 // An unreadable preference means the default, which is to take over.
             }
         }
+
+        /// <summary>
+        /// Whether a record card animates into place. On by default: the entrance is what
+        /// makes a new arrival noticeable, and a preference that starts off would look like
+        /// the animation had failed. Off is for anyone the movement bothers.
+        /// </summary>
+        private bool _cardAnimation = true;
+         public bool CardAnimation
+         {
+             get => _cardAnimation;
+             set
+             {
+                 _cardAnimation = value;
+                 Save();
+             }
+         }
 
         private bool _enabled = true;
         public bool Enabled
@@ -831,7 +856,7 @@ public partial class MainWindow : Window
             {
                 var directory = Path.GetDirectoryName(_path);
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-                File.WriteAllText(_path, JsonSerializer.Serialize(new { takeover = _enabled }));
+                File.WriteAllText(_path, JsonSerializer.Serialize(new { takeover = _enabled, card_animation = _cardAnimation }));
                 PresenterMarker.Apply(_enabled);
             }
             catch (Exception)

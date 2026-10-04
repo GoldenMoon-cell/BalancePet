@@ -2,6 +2,13 @@
   "schema_version": 1,
   "notices": [
     {
+      "seq": 12,
+      "date": "2026-10-04",
+      "area": "在线内容",
+      "title": "分区上限与开关",
+      "summary": "消息中心读取事件流时对所有类别共用一个「最新 500 条」上限，而事件流里互动 1187 条、任务 688 条，两者就把上限占满，其余类别一条也进不来：账户与系统两个分区内容为空，余额与刷新各只剩 1 条，更新记录 8 条只显示 3 条。现改为按类别各设上限。另新增「卡片插入动画」开关，关闭后记录卡片直接出现，不再从左逐条滑入。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases/tag/v0.6.3"
+    },    {
       "seq": 11,
       "date": "2026-10-04",
       "area": "在线内容",
