@@ -93,7 +93,7 @@ public static class PetStyleCatalog
         new PetStyleDefinition("mistral", "Mistral 小猫骑士「麦霜」", "Mistral Cat Knight \"Maishuang\"", "Mistral 小猫骑士", "Mistral Cat Knight"),
         new PetStyleDefinition("opencode", "OpenCode 小码灵「墨枢」", "OpenCode Code Sprite \"Moshu\"", "OpenCode 小码灵", "OpenCode Code Sprite"),
         new PetStyleDefinition("perplexity", "Perplexity 小探灯「青鉴」", "Perplexity Little Lantern \"Qingjian\"", "Perplexity 小探灯", "Perplexity Little Lantern"),
-        new PetStyleDefinition("rwkv", "RWKV 小乌鸦「夜翎」", "RWKV Little Raven \"Yeling\"", "RWKV 小乌鸦", "RWKV Little Raven"),
+        new PetStyleDefinition("rwkv", "RWKV 小夜鸦「夜翎」", "RWKV Little Raven \"Yeling\"", "RWKV 小夜鸦", "RWKV Little Raven"),
         new PetStyleDefinition("seedance", "Seedance 小星晶「澄芽」", "Seedance Little Star Crystal \"Chengya\"", "Seedance 小星晶", "Seedance Little Star Crystal")
     };
 

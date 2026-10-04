@@ -65,6 +65,14 @@
     "seedance": {
       "zh": "淡紫渐变长发的小星晶，发梢卷起一缕青色。",
       "en": "A star crystal with lavender gradient hair and a curl of cyan at the tips."
+    },
+    "mistral": {
+      "zh": "橙红长卷发的小猫骑士，酒红宽檐帽上别着白羽，手里那把剑的剑身是一根刚出炉的法棍。",
+      "en": "A cat knight with orange curls and a wide wine-red hat, whose sword is a freshly baked baguette."
+    },
+    "rwkv": {
+      "zh": "深靛紫长发的夜鸦少女，头顶悬着黑色荆棘光环，肩头站着一只小渡鸦——她的双臂是一对黑紫羽翼。",
+      "en": "A night-raven girl with a thorned halo and violet-feathered wings, a small raven perched on her shoulder."
     }
   }
 }

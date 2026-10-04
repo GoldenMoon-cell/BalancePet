@@ -811,15 +811,16 @@
               <Button Content="导入设置" Click="OnImport" Padding="12,6" Margin="0,0,8,0"/>
               <Button Content="导出设置" Click="OnExport" Padding="12,6"/>
 
-    <TextBlock Text="图标缓存" FontWeight="SemiBold" FontSize="15" Margin="0,20,0,0"/>
-    <TextBlock Text="扩展列表里的图标下载一次后会留在这里，不必每次重下。清除后下次打开扩展列表会重新下载。"
-               Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,10"/>
-    <StackPanel Orientation="Horizontal">
-      <Button Content="清除图标缓存" Click="OnClearIconCache" Padding="12,6"/>
-      <TextBlock x:Name="IconCacheText" Text="" VerticalAlignment="Center" Margin="12,0,0,0"
-                 Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
-    </StackPanel>
             </WrapPanel>
+
+            <TextBlock Text="图标缓存" FontWeight="SemiBold" FontSize="15" Margin="0,20,0,0"/>
+            <TextBlock Text="扩展列表里的图标下载一次后会留在这里，不必每次重下。清除后下次打开扩展列表会重新下载。"
+                       Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,10"/>
+            <StackPanel Orientation="Horizontal">
+              <Button Content="清除图标缓存" Click="OnClearIconCache" Padding="12,6"/>
+              <TextBlock x:Name="IconCacheText" Text="" VerticalAlignment="Center" Margin="12,0,0,0"
+                         Foreground="{DynamicResource MutedBrush}" FontSize="11"/>
+            </StackPanel>
           </StackPanel>
         </ScrollViewer>
       </TabItem>
