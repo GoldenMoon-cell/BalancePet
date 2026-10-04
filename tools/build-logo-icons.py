@@ -28,7 +28,11 @@ SIZES = (256, 128, 64, 48, 32, 16)
 # gave up the corner the user asked for — twice. The corner wins: eighteen tiles that look like
 # one set matter more than one bird, and the fix for the bird belongs in the illustration (draw
 # it nearer the head) rather than in the framing.
-OVERRIDES: dict[str, dict[str, float]] = {}
+OVERRIDES: dict[str, dict[str, float]] = {
+    # Further left, and the bottom edge taken up a little: this illustration includes more of
+    # the neck than the others, so the crop has to start higher to leave the face alone.
+    "minimax": {"x": 0.19, "bottom": 0.86},
+}
 
 
 def without_background(image: Image.Image) -> Image.Image:
