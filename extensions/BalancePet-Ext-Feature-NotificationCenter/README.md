@@ -1,5 +1,7 @@
 # BalancePet 消息中心
 
+[English](README.en.md)
+
 ![下载量](https://img.shields.io/github/downloads/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=2ea043)
 ![Forks](https://img.shields.io/github/forks/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter?label=Forks&color=2ea043)
 ![版本](https://img.shields.io/github/v/tag/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter?label=%E7%89%88%E6%9C%AC&color=2ea043)
@@ -33,3 +35,4 @@
 ## 🔒 数据与隐私
 
 扩展只读取 `%LOCALAPPDATA%\\BalancePet\\notification-events.ndjson` 及轮转文件，以及主程序生成的脱敏 `notification-state.v1.json` 当前状态快照。记录不包含 API Token、提示词、模型响应、原始请求或原始响应。
+
