@@ -46,27 +46,23 @@
 打开设置窗口的“扩展”页，它分成“在线插件库”和“本地扩展功能”两个选项卡：前者按功能、形象、主题、浏览器分类浏览可下载的扩展，后者列出已经下载到本机的包，并扫描主程序目录旁 `extension-library` 文件夹中的顶层 `.zip`。形象包安装后不在“本地扩展功能”里重复出现，而是回到“桌宠与交互”页选择或卸载，管理入口只有一个。功能、资源和主题扩展可以从在线目录下载并经过本地校验后安装；浏览器扩展会明确标记为“浏览器扩展”，只提供打开独立仓库的按钮，因为它不能由主程序直接安装或加载。目录不可用时会显示最近一次有效缓存，仍可导入本地 ZIP。扩展条目右侧提供图标化的安装/卸载、启用/禁用、更新和启动操作；同一扩展的不同版本会合并为一个条目。扩展更新可单独选择每次启动、每天、每周或仅手动检查；更新地址由扩展 manifest 的 `update_url` 声明，下载后仍会经过正常的 ZIP 和 manifest 校验。卸载只删除 `%LOCALAPPDATA%\BalancePet\extensions` 中的运行副本，不删除扩展库里的 ZIP，因此之后可以重新安装。功能扩展不会被加载进主程序进程，只能通过声明的能力读取本机脱敏数据。插件库规范见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)。
 
 
-| 仓库 | 内容 |
-|---|---|
-| [BalancePet-Ext-Feature-UsageAnalytics](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics) | 用量统计插件 `v0.4.0`：查询与消耗的历史与统计 |
-| [BalancePet-Ext-Feature-NotificationCenter](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter) | 消息中心插件 `v0.6.2`：更新记录、任务、账户、余额与系统消息 |
-| [BalancePet-Ext-Theme-Mica](https://github.com/GoldenMoon-cell/BalancePet-Ext-Theme-Mica) | 云母主题 `v1.0.0`：云母、云母 Alt 与亚克力效果 |
-| [BalancePet-BrowserBridge](https://github.com/GoldenMoon-cell/BalancePet-BrowserBridge) | 浏览器桥接 `v1.0.0`：浏览器扩展，把会话同步给桌宠 |
-| [BalancePet-Pets](https://github.com/GoldenMoon-cell/BalancePet-Pets) | 形象包与主题包索引：十八套形象、形象目录与台词 |
-资源扩展包格式见 [docs/extension-spec/v1/README.md](docs/extension-spec/v1/README.md)，形象仓库的两份在线文档（形象目录与台词）见 [docs/extension-spec/appearance-v1/README.md](docs/extension-spec/appearance-v1/README.md)，功能扩展协议见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)，声明式主题协议见 [docs/extension-spec/theme-v1/README.md](docs/extension-spec/theme-v1/README.md)。主题扩展只包含经过白名单校验的颜色、圆角和材质令牌，不加载任意 XAML 或代码；Windows 云母效果始终由主程序调用系统接口。可用 [tools/package-pet-extension.ps1](tools/package-pet-extension.ps1) 打包任意九状态宠物形象，用 [tools/package-shipped-pets.ps1](tools/package-shipped-pets.ps1) 把主程序曾经自带的形象批量打成发布包，用 [tools/build-skin-catalog.ps1](tools/build-skin-catalog.ps1) 生成形象包索引，用 [tools/package-theme-extension.ps1](tools/package-theme-extension.ps1) 打包主题。形象包的额外动画帧按 `idle.png`、`idle-2.png` 依次命名，序号断档即结束，最多八帧；不认识动画的主程序仍然只读第一帧，因此加动画不会让旧版本打不开新包。资源扩展的发布流程见 [skins/PUBLISHING.md](skins/PUBLISHING.md)。用量统计插件位于 `extensions/BalancePet-Ext-Feature-UsageAnalytics/`，通过右键菜单“用量统计”启动；它会监听事件文件变化，并以不超过 60 秒的间隔自动刷新。任务完成事件可以自动记录请求次数和耗时；
+- [BalancePet-Ext-Feature-UsageAnalytics](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics) —— 用量统计插件 `v0.4.0`
+- [BalancePet-Ext-Feature-NotificationCenter](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter) —— 消息中心插件 `v0.6.2`
+- [BalancePet-Ext-Theme-Mica](https://github.com/GoldenMoon-cell/BalancePet-Ext-Theme-Mica) —— 云母主题 `v1.0.0`
+- [BalancePet-BrowserBridge](https://github.com/GoldenMoon-cell/BalancePet-BrowserBridge) —— 浏览器桥接 `v1.0.0`
+- [BalancePet-Pets](https://github.com/GoldenMoon-cell/BalancePet-Pets) —— 十八套形象，以及形象目录与台词
+主题扩展只包含经过白名单校验的颜色、圆角和材质令牌，不加载任意 XAML 或代码；Windows 云母效果始终由主程序调用系统接口。可用 [tools/package-pet-extension.ps1](tools/package-pet-extension.ps1) 打包任意九状态宠物形象，用 [tools/package-shipped-pets.ps1](tools/package-shipped-pets.ps1) 把主程序曾经自带的形象批量打成发布包，用 [tools/build-skin-catalog.ps1](tools/build-skin-catalog.ps1) 生成形象包索引，用 [tools/package-theme-extension.ps1](tools/package-theme-extension.ps1) 打包主题。形象包的额外动画帧按 `idle.png`、`idle-2.png` 依次命名，序号断档即结束，最多八帧；不认识动画的主程序仍然只读第一帧，因此加动画不会让旧版本打不开新包。资源扩展的发布流程见 [skins/PUBLISHING.md](skins/PUBLISHING.md)。用量统计插件位于 `extensions/BalancePet-Ext-Feature-UsageAnalytics/`，通过右键菜单“用量统计”启动；它会监听事件文件变化，并以不超过 60 秒的间隔自动刷新。任务完成事件可以自动记录请求次数和耗时；
 
 要统计真实 Token、缓存命中和首 Token 延迟（TTFT），客户端还需主动上报 Usage.v1 字段。主程序还会把基础窗口使用的本地余额变化账本导出为脱敏的 `balance-usage.v1.json`，供插件显示“今日消费”；这代表余额下降估算，不是中转站账单。主程序只接收计数和耗时等元数据，不接收提示词、回复或令牌。功能扩展协议只规定 manifest、`--data-dir`、Usage Event v1、Balance Usage v1、能力和生命周期；第三方扩展可以自由选择 UI 工具包、主题、Logo、窗口布局和交互方式。
 
 
 若中转站的费用明细接口需要网页会话，可从独立的 [BalancePet Browser Bridge 仓库](https://github.com/GoldenMoon-cell/BalancePet-BrowserBridge) 获取 `v1.0.0` 扩展。主程序发布包也会附带同一扩展 ZIP 作为便利下载。在 Edge 或 Chrome 的扩展管理页开启开发人员模式并加载解压后的扩展目录，然后在 BalancePet 设置的“高级：从本机浏览器读取会话”中生成配对码，在已登录中转站的标签页点击扩展并同步即可。Cookie 仅通过本机回环地址传给 BalancePet，并使用 DPAPI 加密保存；不需要手动复制 Cookie。
 
-| 规范 | 内容 |
-|---|---|
-| [资源扩展包格式](docs/extension-spec/v1/README.md) | 形象与资源包的目录结构、状态图命名、可选 `lines.json` |
-| [形象仓库文档](docs/extension-spec/appearance-v1/README.md) | 形象仓库的两份在线文档：形象目录与台词 |
-| [功能扩展协议](docs/extension-spec/feature-v1/README.md) | manifest、`--data-dir`、能力、生命周期与事件管道 |
-| [声明式主题协议](docs/extension-spec/theme-v1/README.md) | 颜色、圆角与材质令牌白名单 |
-| [更新记录格式](docs/extension-spec/notices-v1/README.md) | `notices.json`：不属于任何版本的改动 |
+- [资源扩展包格式](docs/extension-spec/v1/README.md) —— 形象与资源包的目录结构、状态图命名、可选 `lines.json`
+- [形象仓库文档](docs/extension-spec/appearance-v1/README.md) —— 形象仓库的两份在线文档：形象目录与台词
+- [功能扩展协议](docs/extension-spec/feature-v1/README.md) —— manifest、`--data-dir`、能力、生命周期与事件管道
+- [声明式主题协议](docs/extension-spec/theme-v1/README.md) —— 颜色、圆角与材质令牌白名单
+- [更新记录格式](docs/extension-spec/notices-v1/README.md) —— `notices.json`：不属于任何版本的改动
 ## 运行
 
 推荐使用 GitHub Release 中的 `BalancePet-<版本>-Setup.exe`。安装器首先提供简体中文与 English 选择，随后以所选语言展示安装流程；它会打包 .NET 运行时，可选择仅为当前用户安装，或请求管理员权限后安装到 `Program Files` 等全用户目录。
