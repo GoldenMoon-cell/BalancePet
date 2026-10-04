@@ -7,6 +7,11 @@
 一只住在 Windows 桌面上的桌宠。它定时查询你配置的用量接口，把余额、花费与 AI
 任务状态用一个小角色表现出来。
 
+
+<p align="center">
+  <img src="https://github-readme-stats.vercel.app/api?username=GoldenMoon-cell&show_icons=true&locale=cn" alt="GitHub 统计" height="150" />
+  <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=GoldenMoon-cell&layout=compact&locale=cn" alt="热门语言" height="150" />
+</p>
 ## 功能
 
 - **余额与花费** —— 轮询你配置的用量接口（官方平台或通用中转），变化时用气泡提示
@@ -57,4 +62,5 @@ python tools\validate-spec-documents.py
 ## 许可
 
 见 [LICENSE](LICENSE)。
+
 
