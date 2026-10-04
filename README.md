@@ -1,10 +1,13 @@
 # BalancePet
 
-    ✓ 下载量
-    ✗ Forks —— The SSL connection could not be established, see inner exception.
-    ✗ 版本 —— 由于连接方在一段时间后没有正确答复或连接的主机没有反应，连接尝试失败。 (img.shields.io:443)
-    ✗ Stars —— 服务返回错误徽章
 ![下载量](https://img.shields.io/github/downloads/GoldenMoon-cell/BalancePet/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=2ea043)
+![Forks](https://img.shields.io/github/forks/GoldenMoon-cell/BalancePet?label=Forks&color=2ea043)
+![版本](https://img.shields.io/github/v/tag/GoldenMoon-cell/BalancePet?label=%E7%89%88%E6%9C%AC&color=2ea043)
+![Stars](https://img.shields.io/github/stars/GoldenMoon-cell/BalancePet?label=Stars&color=2ea043)
+
+
+
+
 
 一只住在 Windows 桌面上的桌宠。它定时查询你配置的用量接口，把余额、花费与 AI
 任务状态用一个小角色表现出来。

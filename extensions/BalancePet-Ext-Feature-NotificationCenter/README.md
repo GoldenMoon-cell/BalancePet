@@ -1,10 +1,13 @@
 # BalancePet 消息中心
 
-    ✓ 下载量
-    ✗ Forks —— The SSL connection could not be established, see inner exception.
-    ✗ 版本 —— 服务返回错误徽章
-    ✗ Stars —— The SSL connection could not be established, see inner exception.
 ![下载量](https://img.shields.io/github/downloads/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=2ea043)
+![Forks](https://img.shields.io/github/forks/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter?label=Forks&color=2ea043)
+![版本](https://img.shields.io/github/v/tag/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter?label=%E7%89%88%E6%9C%AC&color=2ea043)
+![Stars](https://img.shields.io/github/stars/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter?label=Stars&color=2ea043)
+
+
+
+
 
 BalancePet 的功能扩展：把桌宠气泡里的脱敏摘要集中展示，并在悬停时显示环绕信息。
 
