@@ -28,11 +28,14 @@ SIZES = (256, 128, 64, 48, 32, 16)
 # gave up the corner the user asked for — twice. The corner wins: eighteen tiles that look like
 # one set matter more than one bird, and the fix for the bird belongs in the illustration (draw
 # it nearer the head) rather than in the framing.
-OVERRIDES: dict[str, dict[str, float]] = {
-    # Further left, and the bottom edge taken up a little: this illustration includes more of
-    # the neck than the others, so the crop has to start higher to leave the face alone.
-    "minimax": {"x": 0.19, "bottom": 0.86},
-}
+# Empty, and minimax is the reason it is worth writing down why.
+#
+# It was tried: pushed left and cropped higher, to take out the bit of neck that illustration
+# includes. At 0.86 the crop line reached the eyes — because in that drawing the chin and the
+# collar are close together, so a line high enough to remove the collar also removes the mouth.
+# There is no setting between the two. Either the sliver of neck stays, or the illustration is
+# redrawn without it; the framing cannot choose.
+OVERRIDES: dict[str, dict[str, float]] = {}
 
 
 def without_background(image: Image.Image) -> Image.Image:
