@@ -51,6 +51,12 @@ public partial class MainWindow : Window
     /// </remarks>
     private readonly Dictionary<string, string> _unread = new(StringComparer.Ordinal);
 
+    /// <summary>Which section the rows currently on screen belong to.</summary>
+    private string _rowsFilter = "";
+
+    /// <summary>How many rows the last fill produced, for the capped-stream arithmetic.</summary>
+    private int _lastFilledCount;
+
     private int _arrivals;
     private DateTime _lastArrival;
     private DateTime _listFilledAt;
@@ -342,31 +348,48 @@ public partial class MainWindow : Window
             ? all.Where(value => SectionOf(value.Category) is not null).ToArray()
             : all.Where(value => string.Equals(SectionOf(value.Category), _filter, StringComparison.OrdinalIgnoreCase)).ToArray();
 
+        // What has arrived since the last look, worked out before deciding how to show it,
+        // because both ways of showing it need the same answer — and because the arrivals are
+        // what become unread. Only meaningful while the section has not changed: comparing ids
+        // across two different sections would call every row of the new one an arrival.
+        var sameSection = !force && _rows.Count > 0 && string.Equals(_filter, _rowsFilter, StringComparison.Ordinal);
+        var arrivals = 0;
+        if (sameSection)
+        {
+            while (arrivals < filtered.Length
+                && !string.Equals(filtered[arrivals].EventId, _rows[0].EventId, StringComparison.Ordinal)) arrivals++;
+        }
+        for (var index = 0; index < arrivals; index++)
+            _unread[filtered[index].EventId] = SectionOf(filtered[index].Category) ?? "all";
+
         // Inserted rather than rebuilt. Clearing and refilling the list is what made every
-        // arrival replay the whole column's entrance — the rows that had not changed were
-        // thrown away and made again, and the user watched their list animate at them for
-        // something that happened three rows up. A list is only rebuilt when it has to be:
-        // a different section, a forced refresh, or a stream that no longer lines up.
-        var inserted = 0;
-        var canInsert = !force && _rows.Count > 0 && filtered.Length > _rows.Count;
+        // arrival replay the whole column's entrance — the rows that had not changed were thrown
+        // away and made again, and the user watched their list animate at them for something that
+        // happened three rows up.
+        //
+        // The stream is capped, so a new event also drops the oldest one: the new list is the
+        // same length as the old, which is why checking only for growth sent every arrival down
+        // the rebuild path on a list that had reached the cap.
+        var overlap = 0;
+        var canInsert = sameSection && arrivals > 0;
         if (canInsert)
         {
-            while (inserted < filtered.Length
-                && !string.Equals(filtered[inserted].EventId, _rows[0].EventId, StringComparison.Ordinal)) inserted++;
-            // The rest of the old list has to still be there, in order, or the two disagree and
-            // a rebuild is the only honest answer.
-            if (inserted == 0
-                || filtered.Length - inserted != _rows.Count
-                || !string.Equals(filtered[filtered.Length - 1].EventId, _rows[^1].EventId, StringComparison.Ordinal))
+            overlap = Math.Min(_rows.Count, filtered.Length - arrivals);
+            for (var index = 0; index < overlap; index++)
             {
+                if (string.Equals(filtered[arrivals + index].EventId, _rows[index].EventId, StringComparison.Ordinal)) continue;
                 canInsert = false;
+                break;
             }
         }
 
         if (canInsert)
         {
-            for (var index = inserted - 1; index >= 0; index--)
+            for (var index = arrivals - 1; index >= 0; index--)
                 _rows.Insert(0, new NotificationRow(filtered[index], 0) { IsNew = true });
+            // Whatever fell off the end of the capped stream goes with it.
+            while (_rows.Count > overlap + arrivals) _rows.RemoveAt(_rows.Count - 1);
+            _lastFilledCount = filtered.Length;
             UpdateNewPill();
         }
         else
@@ -380,6 +403,7 @@ public partial class MainWindow : Window
             for (var index = 0; index < filtered.Length; index++)
                 _rows.Add(new NotificationRow(filtered[index], index) { IsNew = _unread.ContainsKey(filtered[index].EventId) });
         }
+        _rowsFilter = _filter;
 
         var title = SectionName(_filter);
         SectionTitle.Text = title;
