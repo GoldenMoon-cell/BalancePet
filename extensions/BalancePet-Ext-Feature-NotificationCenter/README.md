@@ -1,8 +1,10 @@
 # BalancePet 消息中心
 
-[![下载量](https://img.shields.io/github/downloads/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases)
-[![最新版本](https://img.shields.io/github/v/release/=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases/latest)
-[![Stars](https://img.shields.io/github/stars/=Stars&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/stargazers)
+    ✓ 下载量
+    ✗ Forks —— The SSL connection could not be established, see inner exception.
+    ✗ 版本 —— 服务返回错误徽章
+    ✗ Stars —— The SSL connection could not be established, see inner exception.
+![下载量](https://img.shields.io/github/downloads/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=2ea043)
 
 BalancePet 的功能扩展：把桌宠气泡里的脱敏摘要集中展示，并在悬停时显示环绕信息。
 

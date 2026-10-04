@@ -1,18 +1,15 @@
 # BalancePet
 
-[![下载量](https://img.shields.io/github/downloads/GoldenMoon-cell/BalancePet/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet/releases)
-[![最新版本](https://img.shields.io/github/v/release/=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet/releases/latest)
-[![Stars](https://img.shields.io/github/stars/=Stars&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet/stargazers)
+    ✓ 下载量
+    ✗ Forks —— The SSL connection could not be established, see inner exception.
+    ✗ 版本 —— 由于连接方在一段时间后没有正确答复或连接的主机没有反应，连接尝试失败。 (img.shields.io:443)
+    ✗ Stars —— 服务返回错误徽章
+![下载量](https://img.shields.io/github/downloads/GoldenMoon-cell/BalancePet/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=2ea043)
 
 一只住在 Windows 桌面上的桌宠。它定时查询你配置的用量接口，把余额、花费与 AI
 任务状态用一个小角色表现出来。
 
 
-<p align="center">
-  <img src="https://github-readme-stats.vercel.app/api?username=GoldenMoon-cell&show_icons=true&locale=cn" alt="GitHub 统计" height="150" />
-  <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=GoldenMoon-cell&layout=compact&locale=cn" alt="热门语言" height="150" />
-</p>
-## 功能
 
 - **余额与花费** —— 轮询你配置的用量接口（官方平台或通用中转），变化时用气泡提示
 - **AI 任务状态** —— 跟随各客户端（Codex、Claude、Gemini、Qwen、DeepSeek 等）的任务开始与结束，桌宠切换到对应动作
