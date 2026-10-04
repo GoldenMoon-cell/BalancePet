@@ -22,10 +22,12 @@ RADIUS = int(SIZE * 0.23)
 SIZES = (256, 128, 64, 48, 32, 16)
 
 # Per-appearance nudges. The shared framing is a compromise across eighteen illustrations, and
-# one of them has something worth keeping beside the head: rwkv's bird is cut off at the right
-# edge, so that one is framed looser — less enlargement, less to the left — and the bird fits.
+# one of them has something beside the head worth keeping: rwkv's crow sits at the very right
+# edge of its drawing, so the whole width has to fit. Panning cannot do it — the face is on the
+# left and the bird on the right, so moving one into frame moves the other out. Only zooming out
+# keeps both, which is why this one is under 1.0 while all the others are over it.
 OVERRIDES = {
-    "rwkv": {"scale": 1.02, "x": -0.19, "bottom": 0.89},
+    "rwkv": {"scale": 0.98, "x": -0.02, "bottom": 0.89},
 }
 
 
