@@ -5,41 +5,24 @@
 ![版本](https://img.shields.io/github/v/tag/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter?label=%E7%89%88%E6%9C%AC&color=2ea043)
 ![Stars](https://img.shields.io/github/stars/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter?label=Stars&color=2ea043)
 
+消息中心是一个只读功能扩展，把 BalancePet 气泡中的脱敏摘要按类别集中展示：余额、刷新、任务、账户、系统和互动。窗口采用与 BalancePet 一致的 Fluent 视觉语言，并自动跟随 Windows 应用浅色或深色模式。
 
+## 安装与运行
 
+安装扩展后会自动启用并在后台运行；需要查看历史时，在 BalancePet 的右键菜单中打开“消息中心”（完整展示分流需要 BalancePet 1.0.0-dev.30 或更高版本）。插件只保存脱敏消息，不会自动弹出通知。
 
+## 环绕信息
 
-BalancePet 的功能扩展：把桌宠气泡里的脱敏摘要集中展示，并在悬停时显示环绕信息。
+鼠标移到桌宠上并按住 `Shift` 时，环绕层固定显示四个状态槽：余额、当前登录方式、任务状态和当前版本。余额槽分别读取“账户余额 / 上次余额 / 本次消耗”各自最新的有效数值并合并显示，不再三选一；登录槽合并官方账户、官方 API 与 CC Switch 登录事件；任务槽在“工作中 / 已停止”之间切换；版本槽直接读取正在运行的 BalancePet 版本。
 
-本仓库只发布扩展包与说明。扩展由主程序在扩展列表里安装，源码在主程序的
-[`extensions/`](https://github.com/GoldenMoon-cell/BalancePet/tree/main/extensions/BalancePet-Ext-Feature-NotificationCenter)
-目录下。
+四个状态会以无底色文字贴近桌宠边缘，并按可见弧线等角度沿周围轨道依次淡入；每条信息下方有一条短横线作为视觉分隔。桌宠位于屏幕中央时信息形成规律的近似四等分环，处于屏幕四角时采用面向屏幕内部的统一半包围椭圆弧线，其他边缘位置使用等间隔扇形，位置变化时会平滑滑动。信息块使用紧凑高度，下划线紧跟详情文字。
 
-## 功能
+每次开始展示前，插件会在本机取样每条信息所在的桌面背景，按相对亮度切换浅色或深色文字、反向描边与分隔线配色，不保存取样像素；显示期间不持续取样。松开 `Shift` 或移开鼠标后，信息会按顺序淡出。
 
-- **消息中心窗口** —— 左侧按类别导航：更新记录、任务、账户、余额、系统、全部消息；条目逐条进入，新消息增量插入，不重建整个列表
-- **未读** —— 侧栏显示每类未读数；离开该分类、点掉该条或关闭窗口时清除
-- **新消息提示** —— 不在列表顶部时，顶部提示「N 条新消息」，点击回到顶部
-- **环绕信息** —— 按住 `Shift` 时显示余额、登录方式、任务状态与版本四个槽；按桌面背景自动选择浅色或深色文字
-- **跟随主程序外观** —— 使用主程序的明暗模式、界面字体与配色，改主题后一秒内同步
-- **更新记录** —— 由主程序抓取，交给本窗口呈现，条目留在「更新记录」分类里
+## 与主程序的分工
+
+刷新过程、刷新失败或冷却提示和桌宠彩蛋继续由主程序原生气泡展示；本次消耗会合并进余额槽，同时保留脱敏历史。点击面板关闭按钮只会隐藏面板，插件会继续在后台监听；禁用、卸载或退出扩展后，主程序原生气泡会自动恢复。
 
 ## 数据与隐私
 
-扩展**只读**以下两个文件，且只读脱敏内容：
-
-- `%LOCALAPPDATA%\BalancePet\notification-events.ndjson` 及轮转文件——消息记录
-- `%LOCALAPPDATA%\BalancePet\notification-state.v1.json`——当前状态快照
-
-记录中不含 API Token、提示词、模型响应、原始请求或原始响应。扩展不联网，也不写入
-主程序的任何设置。
-
-## 系统要求
-
-Windows 10 1809（build 17763）或更高，64 位。随主程序发布，主程序核心版本需
-不低于清单里声明的版本。
-
-## 许可
-
-见主程序仓库的 [LICENSE](https://github.com/GoldenMoon-cell/BalancePet/blob/main/LICENSE)。
-
+扩展只读取 `%LOCALAPPDATA%\\BalancePet\\notification-events.ndjson` 及轮转文件，以及主程序生成的脱敏 `notification-state.v1.json` 当前状态快照。记录不包含 API Token、提示词、模型响应、原始请求或原始响应。
