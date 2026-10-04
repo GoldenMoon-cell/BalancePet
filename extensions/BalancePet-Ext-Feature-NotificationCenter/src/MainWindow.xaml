@@ -72,7 +72,7 @@
          tag, a date, a line of body and at most one action. The changelog, a version notice
          and a balance change all fit it, which is the point of drawing it this way. -->
     <DataTemplate x:Key="MessageRowTemplate">
-      <Border x:Name="RowRoot" Loaded="RowLoaded" BorderThickness="1"
+      <Border x:Name="RowRoot" Loaded="RowLoaded" BorderThickness="1" PreviewMouseLeftButtonDown="RowClicked"
               CornerRadius="{DynamicResource CardCornerRadius}" Opacity="0" Margin="0,0,0,8"
               RenderTransformOrigin="0,0.5">
         <!-- A row that is pointed at or picked lifts a little and warms, instead of wearing the
@@ -112,6 +112,13 @@
                falling out of its own box, which is what the user saw. -->
           <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal">
+              <!-- The mark that says this arrived while the window was open. Its own pill at the
+                   start of the title line, which is the top-left of the card without pushing
+                   anything sideways. -->
+              <Border Background="{DynamicResource AccentBrush}" CornerRadius="7" Padding="6,0" Margin="0,0,8,0"
+                      VerticalAlignment="Center" Visibility="{Binding NewVisibility}">
+                <TextBlock Text="新" Foreground="White" FontSize="10.5" FontWeight="SemiBold" />
+              </Border>
               <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
               <Border Background="{Binding CategorySoftBrush}" CornerRadius="9" Padding="7,1" Margin="10,1,0,0" VerticalAlignment="Center">
                 <TextBlock Text="{Binding CategoryText}" Foreground="{Binding CategoryBrush}" FontSize="11" FontWeight="SemiBold" />
@@ -251,6 +258,11 @@
                    ItemTemplate="{StaticResource MessageRowTemplate}"
                    ItemContainerStyle="{StaticResource MessageItemStyle}"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" />
+          <!-- Shown only when something arrived while the list is scrolled away from the top, so
+               the news is not announced into a view that cannot see it. Clicking it goes back. -->
+          <Button x:Name="NewPill" Style="{StaticResource RowActionStyle}" Content="1 条新消息"
+                  HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,6,0,0"
+                  Visibility="Collapsed" Click="NewPillClick" />
           <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360" Visibility="Collapsed">
             <Border Width="60" Height="60" CornerRadius="20" Background="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center">
               <Path Data="M6,5 L18,5 C19.1,5 20,5.9 20,7 L20,15 C20,16.1 19.1,17 18,17 L12,17 L8,21 L8,17 L6,17 C4.9,17 4,16.1 4,15 L4,7 C4,5.9 4.9,5 6,5 Z M8,9 L16,9 M8,12 L14,12"

@@ -7,6 +7,7 @@ using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Input;
 using System.Windows.Threading;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -52,6 +53,15 @@ public partial class MainWindow : Window
         _takeover = new TakeoverPreference();
         SectionList.ItemsSource = _sections;
         EventsList.ItemsSource = _rows;
+
+        // The scroll viewer the template makes, so the pill can tell whether the newest rows
+        // are in view.
+        Loaded += (_, _) =>
+        {
+            _listScroll = FindScrollViewer(EventsList);
+            if (_listScroll is not null) _listScroll.ScrollChanged += (_, _) => UpdateNewPill();
+            UpdateNewPill();
+        };
         TakeoverSwitch.IsChecked = _takeover.Enabled;
         LoadPetAvatar();
         _refreshTimer.Tick += (_, _) => Refresh(false);
@@ -109,7 +119,20 @@ public partial class MainWindow : Window
         _lastArrival = now;
         if (!stillOpening || _arrivals > 12)
         {
-            root.Opacity = 1;
+            // A row that arrived while the window was open still gets a short entrance of its
+            // own: it is the one thing on screen that is actually new. What it does not get is
+            // the whole column animating with it, which is what rebuilding the list did.
+            if (!row.IsNew)
+            {
+                root.Opacity = 1;
+                return;
+            }
+            var arrival = new TranslateTransform(-30, 0);
+            root.RenderTransform = arrival;
+            var arrive = TimeSpan.FromMilliseconds(200);
+            var arrivalEase = new CubicEase { EasingMode = EasingMode.EaseOut };
+            arrival.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, arrive) { EasingFunction = arrivalEase });
+            root.BeginAnimation(OpacityProperty, new DoubleAnimation(1, arrive) { EasingFunction = arrivalEase });
             return;
         }
 
@@ -129,6 +152,67 @@ public partial class MainWindow : Window
         root.BeginAnimation(OpacityProperty, new DoubleAnimation(1, RowFade) { BeginTime = delay });
     }
 
+    /// <summary>The list's scroll viewer, once the template has made it.</summary>
+    private ScrollViewer? _listScroll;
+
+    /// <summary>
+    /// Shows the "new messages" pill only when there is something new and it cannot be seen.
+    /// </summary>
+    /// <remarks>
+    /// At the top, the arrivals are already in view and the pill would be an announcement of
+    /// something the reader is looking at. Scrolled down, the arrivals are above the viewport,
+    /// and the pill is the only way to know without going back.
+    /// </remarks>
+    private void UpdateNewPill()
+    {
+        var count = _rows.Count(row => row.IsNew);
+        if (count == 0)
+        {
+            NewPill.Visibility = Visibility.Collapsed;
+            return;
+        }
+        NewPill.Content = $"{count} 条新消息";
+        NewPill.Visibility = _listScroll is null || _listScroll.VerticalOffset <= 1
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
+    /// <summary>Back to the newest, from wherever the list was left.</summary>
+    private void NewPillClick(object sender, RoutedEventArgs e)
+    {
+        if (_listScroll is not null) _listScroll.ScrollToTop();
+        else if (_rows.Count > 0) EventsList.ScrollIntoView(_rows[0]);
+        UpdateNewPill();
+    }
+
+    /// <summary>Everything stops being new — on closing, and on leaving a section.</summary>
+    private void AcknowledgeAll()
+    {
+        foreach (var row in _rows) row.Acknowledge();
+        UpdateNewPill();
+    }
+
+    /// <summary>Pointing at a row is what clears its mark.</summary>
+    private void RowClicked(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: NotificationRow row }) return;
+        row.Acknowledge();
+        UpdateNewPill();
+    }
+
+    /// <summary>Finds the scroll viewer the list template makes, rather than the markup.</summary>
+    private static ScrollViewer? FindScrollViewer(DependencyObject root)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(root); index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is ScrollViewer viewer) return viewer;
+            var found = FindScrollViewer(child);
+            if (found is not null) return found;
+        }
+        return null;
+    }
+
     /// <summary>Opens what an entry points at. Only https, and only through the shell.</summary>
     private void RowActionClick(object sender, RoutedEventArgs e)
     {
@@ -146,6 +230,8 @@ public partial class MainWindow : Window
         if (SectionList.SelectedItem is not NotificationSection section) return;
         if (string.Equals(_filter, section.Key, StringComparison.Ordinal)) return;
         _filter = section.Key;
+        // Leaving a section is one of the three ways a mark is cleared: the reader has moved on.
+        AcknowledgeAll();
         Refresh(true);
     }
 
@@ -202,20 +288,53 @@ public partial class MainWindow : Window
 
         RebuildSections(all);
         var filtered = string.Equals(_filter, "all", StringComparison.Ordinal)
-            ? all
+            // Filtered the same way the count is, so the number beside 全部消息 is the number
+            // of rows under it. Taking `all` here put the interaction records back in the list
+            // that the counts had just stopped counting.
+            ? all.Where(value => SectionOf(value.Category) is not null).ToArray()
             : all.Where(value => string.Equals(SectionOf(value.Category), _filter, StringComparison.OrdinalIgnoreCase)).ToArray();
 
-        _rows.Clear();
-        // A fresh list is a fresh wave: the rows that fill it stagger from the first one, not
-        // from wherever the previous list happened to have got to.
-        _arrivals = 0;
-        _lastArrival = default;
-        _listFilledAt = DateTime.UtcNow;
-        for (var index = 0; index < filtered.Count; index++) _rows.Add(new NotificationRow(filtered[index], index));
+        // Inserted rather than rebuilt. Clearing and refilling the list is what made every
+        // arrival replay the whole column's entrance — the rows that had not changed were
+        // thrown away and made again, and the user watched their list animate at them for
+        // something that happened three rows up. A list is only rebuilt when it has to be:
+        // a different section, a forced refresh, or a stream that no longer lines up.
+        var inserted = 0;
+        var canInsert = !force && _rows.Count > 0 && filtered.Length > _rows.Count;
+        if (canInsert)
+        {
+            while (inserted < filtered.Length
+                && !string.Equals(filtered[inserted].EventId, _rows[0].EventId, StringComparison.Ordinal)) inserted++;
+            // The rest of the old list has to still be there, in order, or the two disagree and
+            // a rebuild is the only honest answer.
+            if (inserted == 0
+                || filtered.Length - inserted != _rows.Count
+                || !string.Equals(filtered[filtered.Length - 1].EventId, _rows[^1].EventId, StringComparison.Ordinal))
+            {
+                canInsert = false;
+            }
+        }
+
+        if (canInsert)
+        {
+            for (var index = inserted - 1; index >= 0; index--)
+                _rows.Insert(0, new NotificationRow(filtered[index], 0) { IsNew = true });
+            UpdateNewPill();
+        }
+        else
+        {
+            _rows.Clear();
+            // A fresh list is a fresh wave: the rows that fill it stagger from the first one, not
+            // from wherever the previous list happened to have got to.
+            _arrivals = 0;
+            _lastArrival = default;
+            _listFilledAt = DateTime.UtcNow;
+            for (var index = 0; index < filtered.Length; index++) _rows.Add(new NotificationRow(filtered[index], index));
+        }
 
         var title = SectionName(_filter);
         SectionTitle.Text = title;
-        SectionSubtitle.Text = filtered.Count == 0 ? "暂无内容" : $"共 {filtered.Count:N0} 条 · 由桌宠自动获取";
+        SectionSubtitle.Text = filtered.Length == 0 ? "暂无内容" : $"共 {filtered.Length:N0} 条 · 由桌宠自动获取";
         EmptyState.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         EmptyText.Text = string.Equals(_filter, "notice", StringComparison.Ordinal)
             ? "还没有更新记录。桌宠每次获取到新内容都会写在这里。"
@@ -628,14 +747,43 @@ public partial class MainWindow : Window
     }
 
     /// <summary>The row as the list sees it.</summary>
-    private sealed class NotificationRow
+    private sealed class NotificationRow : System.ComponentModel.INotifyPropertyChanged
     {
         private readonly NotificationEvent _event;
+        private bool _isNew;
+
         public NotificationRow(NotificationEvent value, int index)
         {
             _event = value;
             Index = index;
         }
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+        /// <summary>
+        /// Whether this arrived while the window was open.
+        /// </summary>
+        /// <remarks>
+        /// Cleared in place rather than by rebuilding the list, because rebuilding to take a
+        /// badge off a card is the same mistake as rebuilding to put a card on.
+        /// </remarks>
+        public bool IsNew
+        {
+            get => _isNew;
+            set
+            {
+                if (_isNew == value) return;
+                _isNew = value;
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(NewVisibility)));
+            }
+        }
+
+        public Visibility NewVisibility => _isNew ? Visibility.Visible : Visibility.Collapsed;
+
+        /// <summary>The event this row stands for, for matching lists against each other.</summary>
+        public string EventId => _event.EventId;
+
+        public void Acknowledge() => IsNew = false;
 
         /// <summary>Position in the list, which is what staggers the arrival.</summary>
         public int Index { get; }
