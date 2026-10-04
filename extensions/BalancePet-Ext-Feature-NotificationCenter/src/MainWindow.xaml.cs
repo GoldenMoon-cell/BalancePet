@@ -39,6 +39,18 @@ public partial class MainWindow : Window
     /// well under a second.
     /// </remarks>
     private static readonly TimeSpan RowStep = TimeSpan.FromMilliseconds(80);
+    /// <summary>
+    /// Unread arrivals, and the section each belongs to.
+    /// </summary>
+    /// <remarks>
+    /// Kept outside the rows on purpose. The rows are rebuilt whenever the section changes, so
+    /// anything stored on them is thrown away by the act of looking somewhere else — and the
+    /// user has been explicit that looking somewhere else must not clear an unread mark. The
+    /// section is recorded with the id so that leaving a section clears that section and only
+    /// that section.
+    /// </remarks>
+    private readonly Dictionary<string, string> _unread = new(StringComparer.Ordinal);
+
     private int _arrivals;
     private DateTime _lastArrival;
     private DateTime _listFilledAt;
@@ -53,6 +65,9 @@ public partial class MainWindow : Window
         _takeover = new TakeoverPreference();
         SectionList.ItemsSource = _sections;
         EventsList.ItemsSource = _rows;
+
+        // Closing the window is the other way a mark is cleared: the reader has finished.
+        Closing += (_, _) => AcknowledgeEverything();
 
         // The scroll viewer the template makes, so the pill can tell whether the newest rows
         // are in view.
@@ -193,7 +208,31 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Everything stops being new — on closing, and on leaving a section.</summary>
-    private void AcknowledgeAll()
+    /// <summary>
+    /// Marks the section being left as read — and only that one.
+    /// </summary>
+    /// <remarks>
+    /// Called when the section changes, at which point the rows still belong to the section
+    /// being left. It is never called merely because a section is being looked at: the user was
+    /// explicit that browsing into another list must not clear the mark on the one they left
+    /// unread.
+    /// </remarks>
+    private void AcknowledgeCurrentSection()
+    {
+        var leaving = _filter;
+        foreach (var id in _unread
+            .Where(pair => string.Equals(leaving, "all", StringComparison.Ordinal)
+                || string.Equals(pair.Value, leaving, StringComparison.Ordinal))
+            .Select(pair => pair.Key)
+            .ToArray())
+        {
+            _unread.Remove(id);
+        }
+        foreach (var row in _rows) row.Acknowledge();
+        UpdateNewPill();
+    }
+
+    private void AcknowledgeEverything()
     {
         foreach (var row in _rows) row.Acknowledge();
         UpdateNewPill();
@@ -203,6 +242,8 @@ public partial class MainWindow : Window
     private void RowClicked(object sender, MouseButtonEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: NotificationRow row }) return;
+        // Clicking the card is the third way a mark is cleared, and it clears just this one.
+        _unread.Remove(row.EventId);
         row.Acknowledge();
         UpdateNewPill();
     }
@@ -238,7 +279,7 @@ public partial class MainWindow : Window
         if (string.Equals(_filter, section.Key, StringComparison.Ordinal)) return;
         _filter = section.Key;
         // Leaving a section is one of the three ways a mark is cleared: the reader has moved on.
-        AcknowledgeAll();
+        AcknowledgeCurrentSection();
         Refresh(true);
     }
 
@@ -336,7 +377,8 @@ public partial class MainWindow : Window
             _arrivals = 0;
             _lastArrival = default;
             _listFilledAt = DateTime.UtcNow;
-            for (var index = 0; index < filtered.Length; index++) _rows.Add(new NotificationRow(filtered[index], index));
+            for (var index = 0; index < filtered.Length; index++)
+                _rows.Add(new NotificationRow(filtered[index], index) { IsNew = _unread.ContainsKey(filtered[index].EventId) });
         }
 
         var title = SectionName(_filter);
@@ -375,7 +417,14 @@ public partial class MainWindow : Window
             // 更新记录 stays even when empty: it is what this window is for now, and a
             // section that vanishes until the first entry arrives looks like a missing feature.
             if (count == 0 && key is not ("all" or "notice")) continue;
-            _sections.Add(new NotificationSection(key, name, count));
+            _sections.Add(new NotificationSection(key, name, count)
+            {
+                // A dot on the section, not on the list: the point is to tell the reader there is
+                // something in a room they are not standing in.
+                HasUnread = string.Equals(key, "all", StringComparison.Ordinal)
+                    ? _unread.Count > 0
+                    : _unread.Values.Contains(key, StringComparer.Ordinal)
+            });
         }
         if (_sections.All(section => !string.Equals(section.Key, selected, StringComparison.Ordinal)))
         {
@@ -693,6 +742,19 @@ public partial class MainWindow : Window
         public string Name { get; } = name;
         public string Count { get; } = count.ToString("N0");
         public Visibility BadgeVisibility => count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        /// <summary>
+        /// Whether this section holds something the reader has not seen.
+        /// </summary>
+        /// <remarks>
+        /// A dot beside the name rather than on the list: the point is to say that a room the
+        /// reader is not standing in has something in it. It is set when the rail is rebuilt,
+        /// which happens on every refresh, so it needs no notification of its own.
+        /// </remarks>
+        public bool HasUnread { get; init; }
+
+        /// <summary>The dot beside the name.</summary>
+        public Visibility UnreadVisibility => HasUnread ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>
