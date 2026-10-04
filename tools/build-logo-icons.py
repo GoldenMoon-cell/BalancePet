@@ -27,7 +27,7 @@ SIZES = (256, 128, 64, 48, 32, 16)
 # left and the bird on the right, so moving one into frame moves the other out. Only zooming out
 # keeps both, which is why this one is under 1.0 while all the others are over it.
 OVERRIDES = {
-    "rwkv": {"scale": 0.98, "x": -0.02, "bottom": 0.89},
+    "rwkv": {"scale": 1.09, "x": -0.10, "bottom": 0.88},
 }
 
 
