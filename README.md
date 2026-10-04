@@ -1,5 +1,9 @@
 # BalancePet
 
+[![下载量](https://img.shields.io/github/downloads/GoldenMoon-cell/BalancePet/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet/releases)
+[![最新版本](https://img.shields.io/github/v/release/=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet/releases/latest)
+[![Stars](https://img.shields.io/github/stars/=Stars&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet/stargazers)
+
 一只住在 Windows 桌面上的桌宠。它定时查询你配置的用量接口，把余额、花费与 AI
 任务状态用一个小角色表现出来。
 
@@ -74,3 +78,4 @@ python tools\validate-spec-documents.py
 ## 许可
 
 见 [LICENSE](LICENSE)。
+

@@ -1,5 +1,9 @@
 # BalancePet 消息中心
 
+[![下载量](https://img.shields.io/github/downloads/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/total?label=%E4%B8%8B%E8%BD%BD%E9%87%8F&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases)
+[![最新版本](https://img.shields.io/github/v/release/=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases/latest)
+[![Stars](https://img.shields.io/github/stars/=Stars&color=2ea043)](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/stargazers)
+
 BalancePet 的功能扩展：把桌宠气泡里的脱敏摘要集中展示，并在悬停时显示环绕信息。
 
 本仓库只发布扩展包与说明。扩展由主程序在扩展列表里安装，源码在主程序的
@@ -53,3 +57,4 @@ Windows 10 1809（build 17763）或更高，64 位。随主程序发布，主程
 ## 许可
 
 见主程序仓库的 [LICENSE](https://github.com/GoldenMoon-cell/BalancePet/blob/main/LICENSE)。
+
