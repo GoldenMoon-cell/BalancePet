@@ -107,6 +107,13 @@ public partial class MainWindow : Window
     private void RowLoaded(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement root || root.DataContext is not NotificationRow row) return;
+        if (row.HasAnimated)
+        {
+            // Second time this container has been handed this row: it is not an arrival.
+            root.Opacity = 1;
+            return;
+        }
+        row.HasAnimated = true;
 
         // Only the rows of the opening screen arrive with an animation. Everything the user
         // scrolls to afterwards is simply there: an animation you have to wait out on the way
@@ -779,6 +786,17 @@ public partial class MainWindow : Window
         }
 
         public Visibility NewVisibility => _isNew ? Visibility.Visible : Visibility.Collapsed;
+
+        /// <summary>
+        /// Whether this row has already made its entrance.
+        /// </summary>
+        /// <remarks>
+        /// Loaded fires again whenever the list recycles a container — which it does whenever
+        /// rows shift, so inserting one at the top re-fires it for everything below. Without
+        /// this the whole column replays its entrance for every arrival, which is exactly what
+        /// the user kept seeing after the rebuild was removed.
+        /// </remarks>
+        public bool HasAnimated { get; set; }
 
         /// <summary>The event this row stands for, for matching lists against each other.</summary>
         public string EventId => _event.EventId;
