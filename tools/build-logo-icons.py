@@ -21,14 +21,14 @@ SIZE = 256
 RADIUS = int(SIZE * 0.23)
 SIZES = (256, 128, 64, 48, 32, 16)
 
-# Per-appearance nudges. The shared framing is a compromise across eighteen illustrations, and
-# one of them has something beside the head worth keeping: rwkv's crow sits at the very right
-# edge of its drawing, so the whole width has to fit. Panning cannot do it — the face is on the
-# left and the bird on the right, so moving one into frame moves the other out. Only zooming out
-# keeps both, which is why this one is under 1.0 while all the others are over it.
-OVERRIDES = {
-    "rwkv": {"scale": 1.03, "x": -0.15, "bottom": 0.88},
-}
+# Per-appearance nudges, empty on purpose.
+#
+# rwkv had one for a while, to keep the crow beside its head in frame. But the shared framing is
+# what presses the face into the lower left, and any setting loose enough to keep the bird in
+# gave up the corner the user asked for — twice. The corner wins: eighteen tiles that look like
+# one set matter more than one bird, and the fix for the bird belongs in the illustration (draw
+# it nearer the head) rather than in the framing.
+OVERRIDES: dict[str, dict[str, float]] = {}
 
 
 def without_background(image: Image.Image) -> Image.Image:
