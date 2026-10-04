@@ -93,11 +93,11 @@
                 </Setter>
               </DataTrigger>
               <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                <!-- Highlighted, not lifted. The lift was doing two jobs at once, and the
+                     second one — a card still raised after being clicked — reads as a card
+                     that is still busy. Pointing at a row lifts it; picking one only warms it. -->
                 <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBrush}" />
-                <Setter Property="RenderTransform">
-                  <Setter.Value><TranslateTransform Y="-3" /></Setter.Value>
-                </Setter>
               </DataTrigger>
             </Style.Triggers>
           </Style>
