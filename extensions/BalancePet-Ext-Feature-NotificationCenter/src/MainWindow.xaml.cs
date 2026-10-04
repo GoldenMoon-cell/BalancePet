@@ -409,22 +409,22 @@ public partial class MainWindow : Window
             // Counted through the same mapping the list is filtered by, so a section number is
             // always the number of rows it will show — including 全部消息, which no longer
             // counts the interaction records it does not display.
+            // Presence is decided by the section's size — an empty room is not worth a door —
+            // while the badge beside it says how many of them are unread. Those are two
+            // different questions and the rail now answers the second one, because the list
+            // prints the first at the top of its own page.
             var count = string.Equals(key, "all", StringComparison.Ordinal)
                 ? all.Count(item => SectionOf(item.Category) is not null)
                 : all.Count(item => string.Equals(SectionOf(item.Category), key, StringComparison.OrdinalIgnoreCase));
+            var unread = string.Equals(key, "all", StringComparison.Ordinal)
+                ? _unread.Count
+                : _unread.Values.Count(value => string.Equals(value, key, StringComparison.Ordinal));
             // 全部消息 is always offered; a section with nothing in it is not, because a
             // navigation rail full of empty rooms is worse than a short one.
             // 更新记录 stays even when empty: it is what this window is for now, and a
             // section that vanishes until the first entry arrives looks like a missing feature.
             if (count == 0 && key is not ("all" or "notice")) continue;
-            _sections.Add(new NotificationSection(key, name, count)
-            {
-                // A dot on the section, not on the list: the point is to tell the reader there is
-                // something in a room they are not standing in.
-                HasUnread = string.Equals(key, "all", StringComparison.Ordinal)
-                    ? _unread.Count > 0
-                    : _unread.Values.Contains(key, StringComparer.Ordinal)
-            });
+            _sections.Add(new NotificationSection(key, name, unread));
         }
         if (_sections.All(section => !string.Equals(section.Key, selected, StringComparison.Ordinal)))
         {
@@ -736,25 +736,23 @@ public partial class MainWindow : Window
     private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 
     /// <summary>One section of the rail.</summary>
-    private sealed class NotificationSection(string key, string name, int count)
+    private sealed class NotificationSection(string key, string name, int unread)
     {
         public string Key { get; } = key;
         public string Name { get; } = name;
-        public string Count { get; } = count.ToString("N0");
-        public Visibility BadgeVisibility => count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
         /// <summary>
-        /// Whether this section holds something the reader has not seen.
+        /// How many of this section are unread — which is what the badge says.
         /// </summary>
         /// <remarks>
-        /// A dot beside the name rather than on the list: the point is to say that a room the
-        /// reader is not standing in has something in it. It is set when the rail is rebuilt,
-        /// which happens on every refresh, so it needs no notification of its own.
+        /// Not the size of the section. The page prints its own total under the title, so a
+        /// number repeating it beside the name was saying the same thing twice, in the one place
+        /// a number could have said something the page does not. Hidden at zero, so a quiet rail
+        /// stays quiet.
         /// </remarks>
-        public bool HasUnread { get; init; }
+        public string Count { get; } = unread.ToString("N0");
 
-        /// <summary>The dot beside the name.</summary>
-        public Visibility UnreadVisibility => HasUnread ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility BadgeVisibility => unread > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>

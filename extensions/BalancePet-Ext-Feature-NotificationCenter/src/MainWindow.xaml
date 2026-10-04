@@ -274,11 +274,7 @@
             <ListBox.ItemTemplate><DataTemplate>
               <Grid>
                 <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center" />
-                <!-- Unread, on the section rather than in it: the reader is being told that a
-                     room they are not standing in has something in it. It clears when they
-                     leave that room, or when they open the thing itself. -->
-                <Ellipse Width="7" Height="7" Margin="7,0,0,0" VerticalAlignment="Center"
-                         Fill="#E5484D" Visibility="{Binding UnreadVisibility}" />
+
                 <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="9" Padding="7,1" HorizontalAlignment="Right" VerticalAlignment="Center"
                         Visibility="{Binding BadgeVisibility}">
                   <TextBlock Text="{Binding Count}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
