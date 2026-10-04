@@ -52,7 +52,10 @@ public partial class BubbleWindow : Window
     private string? _coreSettingsPath;
     private DateTime _coreSettingsWriteUtc = DateTime.MinValue;
     private PetPlacement _cachedPetPlacement = new(false, 1);
-    private Shapes.Path? _goo;
+    private Border? _mergedPanel;
+    private readonly List<TextBlock> _mergedValues = new();
+    private bool _shownGathered;
+    private bool _snapping;
     private double _gather;
     private long _lastGatherTick;
 
@@ -118,9 +121,13 @@ public partial class BubbleWindow : Window
         UpdateAdaptiveContrast();
         foreach (var child in InfoCanvas.Children.OfType<FrameworkElement>())
         {
-            child.Opacity = 1;
+            // Only the arrangement that is actually being shown. Forcing every item visible is
+            // how a captured corner came out with the gathered plate and the scattered bubbles
+            // in the same picture.
+            child.Opacity = _shownGathered ? 0 : 1;
             if (child.RenderTransform is TranslateTransform offset) offset.Y = 0;
         }
+        if (_mergedPanel is not null) _mergedPanel.Opacity = _shownGathered ? 1 : 0;
     }
 
     public void UpdateItems(IReadOnlyList<NotificationBubble> items)
@@ -328,9 +335,12 @@ public partial class BubbleWindow : Window
                 // and only then gathers shows the orbit it is not going to keep.
                 _gather = target;
                 _gatherSnap--;
+                // Placed rather than exchanged: there is nothing on screen yet to fade from.
+                _snapping = true;
             }
             else
             {
+                _snapping = false;
                 var step = elapsed / 240.0;
                 _gather += Math.Clamp(target - _gather, -step, step);
                 if (Math.Abs(target - _gather) < 0.001) _gather = target;
@@ -343,89 +353,130 @@ public partial class BubbleWindow : Window
         var progress = _gather;
         _mergeProgress = progress;
 
-        // The gathered row shows values, not sentences: a caption has no room for prose, and
-        // four sentences side by side need a plate twice as wide as the pet. Each item swaps
-        // its text at the halfway point of the gathering, when the sentence has stopped being
-        // readable at that width anyway.
-        var gathered = progress > 0.5;
-        var widths = _visuals
-            .Select(visual => Math.Max(52, Measure(visual, gathered) + 20))
-            .ToArray();
-        // No gaps between the segments of the gathered row: the union of plates that touch is
-        // one shape, and the union of plates with gaps is a row of blobs. Their own padding is
-        // what keeps the values apart.
-        var plateWidth = widths.Sum() + 32;
-        var plate = RingLayout.MergedPlate(petBounds, workArea, plateWidth);
-
-        Geometry? fused = null;
+        // Two arrangements, each rendered properly, and a quick exchange between them — rather
+        // than one arrangement morphing into the other. A morph spends most of its time in a
+        // state that is neither, and the user asked for the opposite: the separate bubbles go
+        // quickly, the gathered plate comes quickly.
+        var gathered = _gathered;
+        var plate = EnsureMergedPanel();
         for (var index = 0; index < _visuals.Count; index++)
         {
             var visual = _visuals[index];
             var slot = slots[index];
+            // The orbit arrangement is kept current even while it is hidden, so whichever one
+            // fades in is already in the right place instead of arriving from where it was.
             var orbiting = new Rect(
-                slot.Left + (slot.Width - InfoWidth) / 2, slot.Top + (slot.Height - InfoHeight) / 2,
+                slot.Left + (slot.Width - InfoWidth) / 2 - workArea.Left,
+                slot.Top + (slot.Height - InfoHeight) / 2 - workArea.Top,
                 InfoWidth, InfoHeight);
-            var segment = RingLayout.SegmentInPlate(plate, widths, index, gap: 0);
-            var landing = Interpolate(orbiting, segment, progress);
+            Canvas.SetLeft(visual.Root, orbiting.Left);
+            Canvas.SetTop(visual.Root, orbiting.Top);
 
-            // Both ways, on every tick. Going short and never coming back is what the first
-            // version did, and the preview's own diagnostics caught it: the pet was dragged
-            // back into open space and every item still read "42.80 CNY" instead of
-            // "余额 42.80 CNY".
-            var wanted = gathered ? visual.Short : visual.Full;
-            if (!string.Equals(visual.Primary.Text, wanted, StringComparison.Ordinal)) visual.Primary.Text = wanted;
-            visual.Root.Width = landing.Width;
-            var placed = new Rect(landing.Left - workArea.Left, landing.Top - workArea.Top, landing.Width, InfoHeight);
-            Canvas.SetLeft(visual.Root, placed.Left);
-            Canvas.SetTop(visual.Root, placed.Top);
-
-            var shape = new RectangleGeometry(placed, 12, 12);
-            fused = fused is null ? shape : Geometry.Combine(fused, shape, GeometryCombineMode.Union, null);
+            if (index < _mergedValues.Count) _mergedValues[index].Text = visual.Short;
         }
 
-        // One surface at a time, switched rather than faded. Fading one layer out while fading
-        // the other in leaves both half-transparent in between, and the text — which is drawn
-        // on its own layer — then reads as out of step with the shape around it. That is what
-        // the user saw as the bubble and its outline being rendered separately.
-        //
-        // The switch is invisible because it happens where the two are identical: the union of
-        // plates that do not touch is those same plates, and the stroke that fuses them starts
-        // at nothing and grows with the gathering.
-        var fusedNow = progress > 0.02;
-        if (_goo is null)
+        if (gathered)
         {
-            _goo = new Shapes.Path
-            {
-                StrokeLineJoin = PenLineJoin.Round,
-                Effect = new DropShadowEffect { Color = (Color)ColorConverter.ConvertFromString("#66000000")!, BlurRadius = 3, ShadowDepth = 1, Opacity = 0.7 }
-            };
-            BehindCanvas.Children.Add(_goo);
+            // Measured from the values themselves, so the plate is as wide as what it has to
+            // say. The values are laid out by the panel, which is what keeps them on the middle
+            // line of the plate — the row of a stack is not a baseline to be nudged by hand.
+            plate.InvalidateMeasure();
+            plate.Measure(new Size(double.PositiveInfinity, InfoHeight));
+            // Pinned to what it measured, so the plate is exactly as wide as the values in it.
+            // Left to itself the border sizes to its content while the rectangle it is placed
+            // into does not, and the two drift apart — which is how the values came out crowded
+            // against a plate narrower than they were.
+            plate.Width = Math.Ceiling(plate.DesiredSize.Width);
+            var rect = RingLayout.MergedPlate(petBounds, workArea, plate.Width);
+            Canvas.SetLeft(plate, rect.Left - workArea.Left);
+            Canvas.SetTop(plate, rect.Top - workArea.Top);
         }
-        if (fused is not null) _goo.Data = fused;
-        _goo.Fill = Brush(_mergeDark ? "#EE141C26" : "#F5FFFFFF");
-        _goo.Stroke = Brush(_mergeDark ? "#EE141C26" : "#F5FFFFFF");
-        // The stroke, not the fill, is what fuses them: it reaches out by half its width and
-        // fills the notch between two plates that are close but not yet touching. At rest it is
-        // nothing, so the outline is exactly the plates.
-        _goo.StrokeThickness = GooStroke * progress;
-        _goo.Opacity = fusedNow ? 1 : 0;
 
-        foreach (var visual in _visuals)
-        {
-            visual.Plate.Opacity = fusedNow ? 0 : 1;
-            // The detail line has no room in a gathered row.
-            if (visual.Detail is not null) visual.Detail.Opacity = progress > 0.5 ? 0 : 1;
-        }
+        Exchange(gathered);
 
         // Said out loud when a preview asks, because this is where a picture of a settled
-        // state hides its own faults: an item with no plate, or one showing its short form
-        // while it is still in orbit, reads as a design decision rather than as a bug.
+        // state hides its own faults.
         if (Diagnose)
         {
-            Console.WriteLine($"  诊断 目标={want:F2} 进度={progress:F2} 已聚拢={_gathered} 待定布局={_gatherSnap} 覆盖={PreviewGatherOverride is not null} 单一表面={progress > 0.02} 板宽={plateWidth:F0}");
+            Console.WriteLine($"  诊断 目标={want:F2} 已聚拢={_gathered} 排布={(_shownGathered ? "合" : "散")} 待定布局={_gatherSnap} 覆盖={PreviewGatherOverride is not null}");
             foreach (var item in _visuals)
                 Console.WriteLine($"    「{item.Primary.Text}」 板={item.Plate.Opacity:F2} 宽={item.Root.Width:F0} 位置=({Canvas.GetLeft(item.Root):F0},{Canvas.GetTop(item.Root):F0}) 实际文字宽={item.Primary.ActualWidth:F0}");
         }
+    }
+
+    /// <summary>
+    /// Shows the arrangement that is wanted and hides the other, in a sixth of a second.
+    /// </summary>
+    /// <remarks>
+    /// A fade rather than a movement, and fast rather than graceful: the two arrangements are
+    /// both correct pictures and the change between them is a fact about where the pet is, not
+    /// something the user needs to watch. Slow, it reads as an animation competing with the
+    /// drag that caused it.
+    /// </remarks>
+    private void Exchange(bool gathered)
+    {
+        if (gathered == _shownGathered) return;
+        _shownGathered = gathered;
+        var fade = TimeSpan.FromMilliseconds(140);
+        var show = new DoubleAnimation(1, fade) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+        var hide = new DoubleAnimation(0, fade) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
+        if (_snapping)
+        {
+            // Opening: placed rather than faded, because there is nothing to fade from.
+            foreach (var visual in _visuals) visual.Root.Opacity = gathered ? 0 : 1;
+            if (_mergedPanel is not null) _mergedPanel.Opacity = gathered ? 1 : 0;
+            return;
+        }
+        foreach (var visual in _visuals)
+            visual.Root.BeginAnimation(OpacityProperty, gathered ? hide : show);
+        if (_mergedPanel is not null)
+            _mergedPanel.BeginAnimation(OpacityProperty, gathered ? show : hide);
+    }
+
+    /// <summary>
+    /// The plate the values gather into, built once.
+    /// </summary>
+    /// <remarks>
+    /// Its own layout rather than the item visuals squeezed together: a row of values wants
+    /// them on one line, centred in the plate, with their own spacing — which is also why the
+    /// values in it sit on the middle line rather than wherever a text block's own box puts
+    /// them.
+    /// </remarks>
+    private Border EnsureMergedPanel()
+    {
+        if (_mergedPanel is not null) return _mergedPanel;
+        var row = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        _mergedValues.Clear();
+        foreach (var visual in _visuals)
+        {
+            var dot = new Border
+            {
+                Width = 6, Height = 6, CornerRadius = new CornerRadius(3),
+                Background = AccentFor(visual.Kind), VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 7, 0)
+            };
+            var value = new TextBlock
+            {
+                Text = visual.Short, Foreground = (Brush)Resources["InfoTextBrush"],
+                FontSize = 13, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center
+            };
+            var cell = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 22, 0) };
+            cell.Children.Add(dot);
+            cell.Children.Add(value);
+            row.Children.Add(cell);
+            _mergedValues.Add(value);
+        }
+        _mergedPanel = new Border
+        {
+            CornerRadius = new CornerRadius(13), BorderThickness = new Thickness(1), Opacity = 0,
+            Padding = new Thickness(18, 0, 18, 0), Height = InfoHeight,
+            Background = Brush(_mergeDark ? "#EE141C26" : "#F5FFFFFF"),
+            BorderBrush = Brush(_mergeDark ? "#33FFFFFF" : "#220F172A"),
+            Effect = new DropShadowEffect { Color = (Color)ColorConverter.ConvertFromString("#66000000")!, BlurRadius = 3, ShadowDepth = 1, Opacity = 0.7 },
+            Child = row
+        };
+        BehindCanvas.Children.Add(_mergedPanel);
+        return _mergedPanel;
     }
 
     /// <summary>
@@ -871,7 +922,7 @@ public partial class BubbleWindow : Window
             {
                 Hide();
 
-                if (_goo is not null) _goo.Opacity = 0;
+                if (_mergedPanel is not null) _mergedPanel.Opacity = 0;
             } }
         catch (OperationCanceledException) { }
     }

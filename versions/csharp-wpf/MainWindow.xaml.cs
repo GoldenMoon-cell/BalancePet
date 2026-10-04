@@ -2193,6 +2193,19 @@ public partial class MainWindow : Window
                 $"{first.Title}　·　右键菜单「消息中心」查看",
                 $"{first.Title} · see \"Messages\" in the right-click menu"),
             TimeSpan.FromSeconds(7));
+
+        // Announced once, then remembered as announced. The watermark used to be left alone
+        // here — it was only moved when there was nothing new — so every start showed the same
+        // bubble for the same notice, for ever. It meant "seen in the changelog window", and
+        // that window is gone: the host no longer has anywhere for a notice to be read, so the
+        // honest meaning now is "the pet has mentioned it", and nothing is lost by saying it
+        // once. The entries themselves live on in the message centre.
+        var announced = NoticeFeed.NewestSeq;
+        if (announced > _settings.NoticesSeenSeq)
+        {
+            _settings.NoticesSeenSeq = announced;
+            try { _settingsStore.Save(_settings); } catch (IOException) { }
+        }
     }
 
     private void ShowEasterEggBubble(string label, string amount, string hint, TimeSpan? duration = null)

@@ -72,17 +72,45 @@
          tag, a date, a line of body and at most one action. The changelog, a version notice
          and a balance change all fit it, which is the point of drawing it this way. -->
     <DataTemplate x:Key="MessageRowTemplate">
-      <Border x:Name="RowRoot" Loaded="RowLoaded" Background="{DynamicResource CardBrush}"
-              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+      <Border x:Name="RowRoot" Loaded="RowLoaded" BorderThickness="1"
               CornerRadius="{DynamicResource CardCornerRadius}" Opacity="0" Margin="0,0,0,8"
               RenderTransformOrigin="0,0.5">
+        <!-- A row that is pointed at or picked lifts a little and warms, instead of wearing the
+             system's blue selection rectangle. Nothing is done with a selection here, so the
+             rectangle was pure noise; the lift says "this one" without claiming more. -->
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="RenderTransform">
+              <Setter.Value><TranslateTransform Y="0" /></Setter.Value>
+            </Setter>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}" />
+                <Setter Property="RenderTransform">
+                  <Setter.Value><TranslateTransform Y="-2" /></Setter.Value>
+                </Setter>
+              </DataTrigger>
+              <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource ControlHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBrush}" />
+                <Setter Property="RenderTransform">
+                  <Setter.Value><TranslateTransform Y="-3" /></Setter.Value>
+                </Setter>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
         <Grid Height="78">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <Border Grid.Column="0" Width="3" Margin="12,16,0,16" CornerRadius="1.5" Background="{Binding CategoryBrush}" />
-          <StackPanel Grid.Column="1" Margin="14,13,12,0" VerticalAlignment="Top">
+          <!-- Centred, not pinned to the top: a card whose text sits high looks like it is
+               falling out of its own box, which is what the user saw. -->
+          <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
               <Border Background="{Binding CategorySoftBrush}" CornerRadius="9" Padding="7,1" Margin="10,1,0,0" VerticalAlignment="Center">
@@ -92,14 +120,29 @@
             <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource MutedBrush}" FontSize="12.5"
                        TextTrimming="CharacterEllipsis" Margin="0,5,0,0" />
           </StackPanel>
+          <!-- 18 is where the centred block starts in a 78-pixel card, so the date sits on the
+               title's line rather than floating between the two. -->
           <TextBlock Grid.Column="2" Text="{Binding OccurredAtText}" Foreground="{DynamicResource MutedBrush}"
-                     FontSize="11.5" VerticalAlignment="Top" Margin="0,16,0,0" />
-          <Button Grid.Column="3" Content="打开" Style="{StaticResource RowActionStyle}" Margin="12,0,16,10"
-                  VerticalAlignment="Bottom" Click="RowActionClick" Tag="{Binding Url}"
+                     FontSize="11.5" VerticalAlignment="Top" Margin="0,18,0,0" />
+          <Button Grid.Column="3" Content="打开" Style="{StaticResource RowActionStyle}" Margin="12,0,16,0"
+                  VerticalAlignment="Center" Click="RowActionClick" Tag="{Binding Url}"
                   Visibility="{Binding ActionVisibility}" />
         </Grid>
       </Border>
     </DataTemplate>
+
+    <!-- No chrome of its own: the row says everything about how it is being treated. -->
+    <Style x:Key="MessageItemStyle" TargetType="ListBoxItem">
+      <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ListBoxItem">
+            <ContentPresenter />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
 
     <!-- The takeover switch: a pill that slides, because it changes how the pet behaves
          rather than what this window shows. -->
@@ -206,6 +249,7 @@
         <Grid Grid.Row="1">
           <ListBox x:Name="EventsList" Background="Transparent" BorderThickness="0" Padding="0"
                    ItemTemplate="{StaticResource MessageRowTemplate}"
+                   ItemContainerStyle="{StaticResource MessageItemStyle}"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" />
           <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360" Visibility="Collapsed">
             <Border Width="60" Height="60" CornerRadius="20" Background="{DynamicResource AccentSoftBrush}" HorizontalAlignment="Center">
