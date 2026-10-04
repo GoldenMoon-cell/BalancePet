@@ -35,10 +35,13 @@
 
 以下扩展由各自的仓库提供：
 
-| 扩展 | 仓库 |
-|---|---|
-| 消息中心 | [BalancePet-Ext-Feature-NotificationCenter](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter) |
-| 形象与主题 | [BalancePet-Pets](https://github.com/GoldenMoon-cell/BalancePet-Pets) |
+| 扩展 | 说明 | 仓库 |
+|---|---|---|
+| 用量统计 | 查询与消耗的历史与统计 | [BalancePet-Ext-Feature-UsageAnalytics](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-UsageAnalytics) |
+| 消息中心 | 更新记录、任务、账户、余额与系统消息 | [BalancePet-Ext-Feature-NotificationCenter](https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter) |
+| 云母主题 | 云母、云母 Alt 与亚克力效果 | [BalancePet-Ext-Theme-Mica](https://github.com/GoldenMoon-cell/BalancePet-Ext-Theme-Mica) |
+| 浏览器桥接 | 把浏览器扩展的会话与用量同步给桌宠 | [BalancePet-BrowserBridge](https://github.com/GoldenMoon-cell/BalancePet/tree/main/extensions/BalancePet-BrowserBridge) |
+| 形象与主题包 | 18 套公开形象与主题 | [BalancePet-Pets](https://github.com/GoldenMoon-cell/BalancePet-Pets) |
 
 包格式、清单字段、事件流与状态快照的规范在
 [`docs/extension-spec/`](docs/extension-spec/)，第三方可据此实现自己的扩展。
