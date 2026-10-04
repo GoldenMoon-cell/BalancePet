@@ -291,7 +291,14 @@ public partial class BubbleWindow : Window
         _lastLayoutPetBounds = petBounds;
         _lastLayoutWorkArea = workArea;
         _hasPositionedItems = true;
-        GatherIfTheOrbitIsLost(petBounds, workArea, slots);
+        // The gathering is off. The rule that decided when to gather was sound and measured, but
+        // the arrangement it produced had faults the user kept running into, and a hover panel
+        // whose second mode is unreliable is worse than one mode that works: the items stay in
+        // the orbit, which is what the panel was for.
+        //
+        // The method is left in place rather than deleted. It is the part that would need
+        // rewriting if the gathered plate is ever wanted again, and deleting it would mean
+        // rediscovering the rule, the hysteresis and the exchange.
     }
 
     /// <summary>
