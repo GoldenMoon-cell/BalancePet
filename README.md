@@ -2,7 +2,7 @@
 
 面向 Windows 的余额桌宠。项目当前只维护 C# WPF 版本：它会按设定间隔查询中转站提供的余额 API，并以可互动的桌宠显示状态和余额，不需要打开中转站网页。
 
-当前正式版本：1.5.0；上一正式版：1.4.6。
+当前正式版本：1.6.1；上一正式版：1.5.0。
 
 ## 项目统计
 
@@ -27,7 +27,7 @@
 - 多账户监控：可在设置中新增多个 API/中转站账户，每个账户独立令牌、刷新间隔、缓存、用量和低余额阈值；桌宠聚合显示当前选中账户，托盘可快速切换。
 - 凭证保护：令牌由 Windows DPAPI 按当前用户加密保存，不以明文写入项目配置。
 - 桌宠交互：置顶显示、自由拖动、边缘吸附、锁定互动、点击刷新和状态气泡；可独立关闭互动动作或随机彩蛋。
-- 更新记录：规范、文档和在线内容这类**不属于任何版本**的改动会记在形象仓库旁的 `notices.json` 里，主程序联网时读取，有新条目就让桌宠提醒一次，并指向右键菜单的「更新记录」窗口。窗口列出每条改动的日期、类别、标题和摘要，并附「打开」按钮跳到对应提交或文件。**主程序与扩展的版本更新仍由「检查更新」负责，不会重复出现在这里。** 提醒开关在这个窗口里，不在「交互开关」中——被气泡打扰的人会去气泡指向的地方找开关。全新安装保持安静：安装前发布的条目按定义都已经错过了，不会再补报一遍。格式见 [docs/extension-spec/notices-v1/README.md](docs/extension-spec/notices-v1/README.md)。
+- 更新记录：规范、文档和在线内容这类**不属于任何版本**的改动会记在形象仓库旁的 `notices.json` 里，主程序联网时读取，有新条目就让桌宠提醒一次，并交给「消息中心」扩展展示（1.6.1 起主程序不再自带更新记录窗口）。窗口列出每条改动的日期、类别、标题和摘要，并附「打开」按钮跳到对应提交或文件。**主程序与扩展的版本更新仍由「检查更新」负责，不会重复出现在这里。** 提醒开关在设置窗口的交互开关里。全新安装保持安静：安装前发布的条目按定义都已经错过了，不会再补报一遍。格式见 [docs/extension-spec/notices-v1/README.md](docs/extension-spec/notices-v1/README.md)。
 - 通知与统计：低余额提示、每日用量和最近使用记录；New API 兼容中转站可从只读 Token 日志同步服务器实际额度，其他接口仍按上游上报显示。
 - 配置迁移：可导入/导出不含令牌的设置文件，适合切换中转站或迁移到另一台电脑。
 - 更新管理：可选每次启动、每天、每周或仅手动检查 GitHub Release；更新前会下载并校验 SHA-256。可写安装目录直接替换 ZIP，受保护目录会改用管理员安装器。
@@ -38,13 +38,18 @@
 - 形象台词：每套形象可以带自己的彩蛋台词，放在美术旁的 `lines.json` 里随包发布，覆盖长时间无操作、点击、连续互动四连击以及摸头/摸脸/摸身体。主程序不再内置任何角色的专属文案，只保留一套不提角色名的中性文案：形象没有这个文件、文件读不了、或声明了未知的 `schema_version`，都会回落到它，桌宠照常显示。同一份台词还会汇总成形象仓库里的 `lines.json`，主程序能联网时优先用它——形象包体积几乎全是美术，只为改一句话就重新发包，等于让所有人为了几百字节重下几兆；改台词现在是一次小提交，不发版、不下载。格式见 [docs/extension-spec/v1/README.md](docs/extension-spec/v1/README.md) 的「Optional lines」一节。
 - AI 联动：设置窗口有独立的“AI 联动”页。DeepSeek Harness、Codex、Gemini CLI、Qwen Code、Claude Code 各有一个开关，另加一个“其他客户端”兜底，未列出的自定义 CLI 不会失效。开关打开时自动写入该客户端需要的 Hook，关闭时自动移除；未安装的客户端会显示为警示色并附小字说明，仍然可以开启，等它出现后自动补写配置。
 - 费用归属：用量记录会带上实际扣费的账户，用量统计中显示为“客户端 · 账户名”。中转站账户抓取逐次计费日志并标注“消耗额度”；官方 API 账户改用任务前后余额差值给出“任务总消耗”，并注明是余额变化而非逐次计费。两条路都有数据时以逐次日志为准。
-- 状态素材：九种状态图（待机、查询中、查询成功、余额偏低、查询失败、被点击、任务进行中、任务完成、长时间无操作）是形象包的必备内容。目前以形象包发布的有 DeepSeek 小鲸鱼「澜汐」、ChatGPT 小白龙「霁珑」、MiniMax 小海螺「绯音」、Gemini 小星猫「星璃」、Grok 小恶魔「烬斧」、Claude 小书灵「丹笺」、Kimi 小棱镜「虹谱」、Qwen 小折扇「绀华」、Ernie 小病书灵「青绡」、GLM 小方灵「青棱」、GPT Image 2 小墨龙「玄珏」、Llama 小羊驼「绒眠」、MiMo 小兔码师「橙析」和 Seedance 小星晶「澄芽」；Mistral、OpenCode、Perplexity、RWKV 已登记，会在素材完整后出现在选择菜单里。形象包索引发在独立的 [BalancePet-Pets](https://github.com/GoldenMoon-cell/BalancePet-Pets) 仓库，与主仓库的插件目录分开。
+- 状态素材：九种状态图（待机、查询中、查询成功、余额偏低、查询失败、被点击、任务进行中、任务完成、长时间无操作）是形象包的必备内容。目前以形象包发布的有 DeepSeek 小鲸鱼「澜汐」、ChatGPT 小白龙「霁珑」、MiniMax 小海螺「绯音」、Gemini 小星猫「星璃」、Grok 小恶魔「烬斧」、Claude 小书灵「丹笺」、Kimi 小棱镜「虹谱」、Qwen 小折扇「绀华」、Ernie 小病书灵「青绡」、GLM 小方灵「青棱」、GPT Image 2 小墨龙「玄珏」、Llama 小羊驼「绒眠」、MiMo 小兔码师「橙析」和 Seedance 小星晶「澄芽」；Mistral、OpenCode、Perplexity、RWKV 也已作为形象包发布，现在共十八套。形象包索引发在独立的 [BalancePet-Pets](https://github.com/GoldenMoon-cell/BalancePet-Pets) 仓库，与主仓库的插件目录分开。
 
 ## 扩展
 
-`v0.5.0` 开始提供资源型宠物扩展基础；`v0.6.0` 增加功能扩展的独立进程宿主和脱敏用量事件管道。当前插件库提供 Usage Analytics `v0.4.0`、Notification Center `v0.5.15`、Mica 主题 `v1.0.0` 和 Browser Bridge `v1.0.0`。打开设置窗口的“扩展”页，它分成“在线插件库”和“本地扩展功能”两个选项卡：前者按功能、形象、主题、浏览器分类浏览可下载的扩展，后者列出已经下载到本机的包，并扫描主程序目录旁 `extension-library` 文件夹中的顶层 `.zip`。形象包安装后不在“本地扩展功能”里重复出现，而是回到“桌宠与交互”页选择或卸载，管理入口只有一个。功能、资源和主题扩展可以从在线目录下载并经过本地校验后安装；浏览器扩展会明确标记为“浏览器扩展”，只提供打开独立仓库的按钮，因为它不能由主程序直接安装或加载。目录不可用时会显示最近一次有效缓存，仍可导入本地 ZIP。扩展条目右侧提供图标化的安装/卸载、启用/禁用、更新和启动操作；同一扩展的不同版本会合并为一个条目。扩展更新可单独选择每次启动、每天、每周或仅手动检查；更新地址由扩展 manifest 的 `update_url` 声明，下载后仍会经过正常的 ZIP 和 manifest 校验。卸载只删除 `%LOCALAPPDATA%\BalancePet\extensions` 中的运行副本，不删除扩展库里的 ZIP，因此之后可以重新安装。功能扩展不会被加载进主程序进程，只能通过声明的能力读取本机脱敏数据。插件库规范见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)。
+`v0.5.0` 开始提供资源型宠物扩展基础；`v0.6.0` 增加功能扩展的独立进程宿主和脱敏用量事件管道。当前插件库提供 Usage Analytics `v0.4.0`、Notification Center `v0.6.2`、Mica 主题 `v1.0.0` 和 Browser Bridge `v1.0.0`。
+打开设置窗口的“扩展”页，它分成“在线插件库”和“本地扩展功能”两个选项卡：前者按功能、形象、主题、浏览器分类浏览可下载的扩展，后者列出已经下载到本机的包，并扫描主程序目录旁 `extension-library` 文件夹中的顶层 `.zip`。形象包安装后不在“本地扩展功能”里重复出现，而是回到“桌宠与交互”页选择或卸载，管理入口只有一个。功能、资源和主题扩展可以从在线目录下载并经过本地校验后安装；浏览器扩展会明确标记为“浏览器扩展”，只提供打开独立仓库的按钮，因为它不能由主程序直接安装或加载。目录不可用时会显示最近一次有效缓存，仍可导入本地 ZIP。扩展条目右侧提供图标化的安装/卸载、启用/禁用、更新和启动操作；同一扩展的不同版本会合并为一个条目。扩展更新可单独选择每次启动、每天、每周或仅手动检查；更新地址由扩展 manifest 的 `update_url` 声明，下载后仍会经过正常的 ZIP 和 manifest 校验。卸载只删除 `%LOCALAPPDATA%\BalancePet\extensions` 中的运行副本，不删除扩展库里的 ZIP，因此之后可以重新安装。功能扩展不会被加载进主程序进程，只能通过声明的能力读取本机脱敏数据。插件库规范见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)。
 
-资源扩展包格式见 [docs/extension-spec/v1/README.md](docs/extension-spec/v1/README.md)，形象仓库的两份在线文档（形象目录与台词）见 [docs/extension-spec/appearance-v1/README.md](docs/extension-spec/appearance-v1/README.md)，功能扩展协议见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)，声明式主题协议见 [docs/extension-spec/theme-v1/README.md](docs/extension-spec/theme-v1/README.md)。主题扩展只包含经过白名单校验的颜色、圆角和材质令牌，不加载任意 XAML 或代码；Windows 云母效果始终由主程序调用系统接口。可用 [tools/package-pet-extension.ps1](tools/package-pet-extension.ps1) 打包任意九状态宠物形象，用 [tools/package-shipped-pets.ps1](tools/package-shipped-pets.ps1) 把主程序曾经自带的形象批量打成发布包，用 [tools/build-skin-catalog.ps1](tools/build-skin-catalog.ps1) 生成形象包索引，用 [tools/package-theme-extension.ps1](tools/package-theme-extension.ps1) 打包主题。形象包的额外动画帧按 `idle.png`、`idle-2.png` 依次命名，序号断档即结束，最多八帧；不认识动画的主程序仍然只读第一帧，因此加动画不会让旧版本打不开新包。资源扩展的发布流程见 [skins/PUBLISHING.md](skins/PUBLISHING.md)。用量统计插件位于 `extensions/BalancePet-Ext-Feature-UsageAnalytics/`，通过右键菜单“用量统计”启动；它会监听事件文件变化，并以不超过 60 秒的间隔自动刷新。任务完成事件可以自动记录请求次数和耗时；要统计真实 Token、缓存命中和首 Token 延迟（TTFT），客户端还需主动上报 Usage.v1 字段。主程序还会把基础窗口使用的本地余额变化账本导出为脱敏的 `balance-usage.v1.json`，供插件显示“今日消费”；这代表余额下降估算，不是中转站账单。主程序只接收计数和耗时等元数据，不接收提示词、回复或令牌。功能扩展协议只规定 manifest、`--data-dir`、Usage Event v1、Balance Usage v1、能力和生命周期；第三方扩展可以自由选择 UI 工具包、主题、Logo、窗口布局和交互方式。
+
+资源扩展包格式见 [docs/extension-spec/v1/README.md](docs/extension-spec/v1/README.md)，形象仓库的两份在线文档（形象目录与台词）见 [docs/extension-spec/appearance-v1/README.md](docs/extension-spec/appearance-v1/README.md)，功能扩展协议见 [docs/extension-spec/feature-v1/README.md](docs/extension-spec/feature-v1/README.md)，声明式主题协议见 [docs/extension-spec/theme-v1/README.md](docs/extension-spec/theme-v1/README.md)。主题扩展只包含经过白名单校验的颜色、圆角和材质令牌，不加载任意 XAML 或代码；Windows 云母效果始终由主程序调用系统接口。可用 [tools/package-pet-extension.ps1](tools/package-pet-extension.ps1) 打包任意九状态宠物形象，用 [tools/package-shipped-pets.ps1](tools/package-shipped-pets.ps1) 把主程序曾经自带的形象批量打成发布包，用 [tools/build-skin-catalog.ps1](tools/build-skin-catalog.ps1) 生成形象包索引，用 [tools/package-theme-extension.ps1](tools/package-theme-extension.ps1) 打包主题。形象包的额外动画帧按 `idle.png`、`idle-2.png` 依次命名，序号断档即结束，最多八帧；不认识动画的主程序仍然只读第一帧，因此加动画不会让旧版本打不开新包。资源扩展的发布流程见 [skins/PUBLISHING.md](skins/PUBLISHING.md)。用量统计插件位于 `extensions/BalancePet-Ext-Feature-UsageAnalytics/`，通过右键菜单“用量统计”启动；它会监听事件文件变化，并以不超过 60 秒的间隔自动刷新。任务完成事件可以自动记录请求次数和耗时；
+
+要统计真实 Token、缓存命中和首 Token 延迟（TTFT），客户端还需主动上报 Usage.v1 字段。主程序还会把基础窗口使用的本地余额变化账本导出为脱敏的 `balance-usage.v1.json`，供插件显示“今日消费”；这代表余额下降估算，不是中转站账单。主程序只接收计数和耗时等元数据，不接收提示词、回复或令牌。功能扩展协议只规定 manifest、`--data-dir`、Usage Event v1、Balance Usage v1、能力和生命周期；第三方扩展可以自由选择 UI 工具包、主题、Logo、窗口布局和交互方式。
+
 
 若中转站的费用明细接口需要网页会话，可从独立的 [BalancePet Browser Bridge 仓库](https://github.com/GoldenMoon-cell/BalancePet-BrowserBridge) 获取 `v1.0.0` 扩展。主程序发布包也会附带同一扩展 ZIP 作为便利下载。在 Edge 或 Chrome 的扩展管理页开启开发人员模式并加载解压后的扩展目录，然后在 BalancePet 设置的“高级：从本机浏览器读取会话”中生成配对码，在已登录中转站的标签页点击扩展并同步即可。Cookie 仅通过本机回环地址传给 BalancePet，并使用 DPAPI 加密保存；不需要手动复制 Cookie。
 
@@ -72,7 +77,7 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 - **认证方式**：支持 `Bearer Token`、完整 `Authorization`、`x-api-key` 和自定义 Header。
 - **余额 JSON 路径**：例如 `{ "data": { "balance": 12.3 } }` 填写 `data.balance`。
 - **自动刷新间隔**：可选择关闭、30 秒、1/5/15/30 分钟、1 小时或自定义（最少 30 秒）；例如填写 `300` 表示每 5 分钟自动查询一次。关闭后不再运行后台轮询。桌宠手动刷新不受此设置影响，但两次手动刷新至少间隔 5 秒；AI 任务完成后的余额更新属于内部强制刷新。
-- **语言**：可选择“简体中文”或 “English”。保存后会应用到设置窗口、桌宠菜单、气泡提示、用量统计和更新窗口。
+- **语言**：可选择“简体中文”或 “English”。保存后会应用到设置窗口、桌宠菜单、气泡提示和用量统计。
 - **网络失败处理**：请求遇到超时、网络波动或 408/425/429/5xx 响应时会自动重试 2 次，仍失败则显示最近一次缓存余额（如有）。
 - **设置导入/导出**：设置窗口底部可导入或导出 JSON；导出文件不会包含访问令牌，换电脑后需重新填写令牌。
 
@@ -149,7 +154,9 @@ BalancePet 不需要安装对应的 AI 客户端或 CLI。未在上面列出的�
 
 例如客户端名可以填写 `Claude Code`、`通义灵码` 或 `generic`。`<task-id>` 应在同一任务的开始和结束事件中保持一致；停止事件没有任务 ID 时，桌宠也会在只有一个任务时自动匹配。脚本只连接本机当前用户的 `BalancePet.Task.v1` 命名管道，不开放网络端口。能够直接使用命名管道的客户端也可以发送一行 JSON（`state` 使用 `start` 或 `stop`）：`{"state":"start","sessionId":"external:<provider>","turnId":"<task-id>","provider":"<provider>"}`。未运行 BalancePet 或未勾选“自动跟随 AI 任务”时，脚本会返回错误码 2。
 
+
 Gemini CLI、Qwen Code 和 Claude Code 可以配置其生命周期 Hook 调用 `tools\\balancepet-client-hook.ps1`。该适配器只从 Hook 标准输入中识别 `session_id`，将其作为任务 ID，并始终返回空 JSON；它不会读取、记录或传递提示词、回复、API 令牌或网络请求。Gemini 应使用 `BeforeAgent` / `AfterAgent`，Qwen 和 Claude 应使用 `UserPromptSubmit` / `Stop`；具体命令路径必须指向当前发布包中的该脚本。
+
 
 若已安装 Gemini CLI、Qwen Code 或 Claude Code，可在发布包根目录运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\\tools\\install-balancepet-client-hooks.ps1"`，自动合并当前用户的 Hook 设置；也可以将 `-Client` 指定为 `Gemini`、`Qwen` 或 `Claude`。安装器按名称去重，保留其他设置，并在修改已有设置文件前创建带时间戳的备份；客户端重启后生效。
 
