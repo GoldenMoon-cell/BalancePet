@@ -4,7 +4,7 @@
 
 当前正式版本：v1.6.1；上一正式版：v1.5.0。
 
-## 项目统计
+## 📊 项目统计
 
 <div align="center">
 <table>
@@ -21,7 +21,7 @@
 </table>
 </div>
 
-## 功能
+## ✨ 功能
 
 - 余额接口预设：可自动识别常见接口，也可选择通用 `/v1/usage`、New API `/api/usage/token`、DeepSeek 官方平台或完整自定义配置。选择 DeepSeek 官方平台时只需填写 API Key，接口地址、JSON 路径与货币都会自动填好。
 - 多账户监控：可在设置中新增多个 API/中转站账户，每个账户独立令牌、刷新间隔、缓存、用量和低余额阈值；桌宠聚合显示当前选中账户，托盘可快速切换。
@@ -56,7 +56,7 @@
   - 目前以形象包发布的有 DeepSeek 小鲸鱼「澜汐」、ChatGPT 小白龙「霁珑」、MiniMax 小海螺「绯音」、Gemini 小星猫「星璃」、Grok 小恶魔「烬斧」、Claude 小书灵「丹笺」、Kimi 小棱镜「虹谱」、Qwen 小折扇「绀华」、Ernie 小病书灵「青绡」、GLM 小方灵「青棱」、GPT Image 2 小墨龙「玄珏」、Llama 小羊驼「绒眠」、MiMo 小兔码师「橙析」和 Seedance 小星晶「澄芽」；Mistral、OpenCode、Perplexity、RWKV 也已作为形象包发布，现在共十八套。
   - 形象包索引发在独立的 [BalancePet-Pets](https://github.com/GoldenMoon-cell/BalancePet-Pets) 仓库，与主仓库的插件目录分开。
 
-## 扩展
+## 🧩 扩展
 
 `v0.5.0` 开始提供资源型宠物扩展基础；`v0.6.0` 增加功能扩展的独立进程宿主和脱敏用量事件管道。
 
@@ -130,7 +130,7 @@ Cookie 仅通过本机回环地址传给 BalancePet，并使用 DPAPI 加密保�
 | [功能扩展协议](docs/extension-spec/feature-v1/README.md) | manifest、`--data-dir`、能力、生命周期与事件管道 |
 | [声明式主题协议](docs/extension-spec/theme-v1/README.md) | 颜色、圆角与材质令牌白名单 |
 | [更新记录格式](docs/extension-spec/notices-v1/README.md) | `notices.json`：不属于任何版本的改动 |
-## 运行
+## ▶️ 运行
 
 推荐使用 GitHub Release 中的 `BalancePet-<版本>-Setup.exe`。安装器首先提供简体中文与 English 选择，随后以所选语言展示安装流程；它会打包 .NET 运行时，可选择仅为当前用户安装，或请求管理员权限后安装到 `Program Files` 等全用户目录。
 
@@ -144,7 +144,7 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 
 构建后运行根目录的 `launch-balance-pet.bat`，或直接启动生成的 `BalancePet.Wpf.exe`。首次启动会打开配置窗口；之后可从托盘菜单选择“配置接口”。
 
-## 配置接口
+## ⚙️ 配置接口
 
 - **监控账户**：设置窗口顶部可以新增、删除和启用多个账户；每个账户单独保存接口预设、令牌、刷新间隔和阈值。令牌仍按账户使用 Windows DPAPI 加密保存。
 - **接口预设**：“自动识别”会在同一站点依次尝试只读的 `/v1/usage` 和 `/api/usage/token`；也可直接选择对应协议。预设模式只需填写中转站根地址和 API Key，程序会补全接口、Bearer 认证与余额字段；New API 会读取公开状态中的额度比例和 USD/CNY/Token/自定义货币设置后再显示，并尝试从同站点的只读 `/api/log/token` 同步逐次消费。
@@ -153,7 +153,9 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 - **余额 API 地址**：中转站文档给出的余额查询 API 完整 URL，不是网站首页或聊天接口。
 - **认证方式**：支持 `Bearer Token`、完整 `Authorization`、`x-api-key` 和自定义 Header。
 - **余额 JSON 路径**：例如 `{ "data": { "balance": 12.3 } }` 填写 `data.balance`。
-- **自动刷新间隔**：可选择关闭、30 秒、1/5/15/30 分钟、1 小时或自定义（最少 30 秒）；例如填写 `300` 表示每 5 分钟自动查询一次。关闭后不再运行后台轮询。桌宠手动刷新不受此设置影响，但两次手动刷新至少间隔 5 秒；AI 任务完成后的余额更新属于内部强制刷新。
+- **自动刷新间隔**：可选择关闭、30 秒、1/5/15/30 分钟、1 小时或自定义（最少 30 秒）；例如填写 `300` 表示每 5 分钟自动查询一次。
+  - 关闭后不再运行后台轮询。
+  - 桌宠手动刷新不受此设置影响，但两次手动刷新至少间隔 5 秒；AI 任务完成后的余额更新属于内部强制刷新。
 - **语言**：可选择“简体中文”或 “English”。保存后会应用到设置窗口、桌宠菜单、气泡提示和用量统计。
 - **网络失败处理**：请求遇到超时、网络波动或 408/425/429/5xx 响应时会自动重试 2 次，仍失败则显示最近一次缓存余额（如有）。
 - **设置导入/导出**：设置窗口底部可导入或导出 JSON；导出文件不会包含访问令牌，换电脑后需重新填写令牌。
@@ -164,7 +166,7 @@ dotnet build .\versions\csharp-wpf\BalancePet.Wpf.csproj --configuration Release
 
 可参考无凭证示例：[docs/balance-pet.example.json](docs/balance-pet.example.json)。自动识别只向用户填写的同一站点发送令牌，不会把令牌交给第三方识别服务。
 
-## 素材
+## 🎨 素材
 
 桌宠状态图所使用的二次元形象参考素材均来自 Bilibili UP 主 `@ZipZipPipe`。感谢原作者的公开分享；素材的使用范围和授权条件以原作者发布页面的说明为准。
 
@@ -190,7 +192,7 @@ inactive.png
 
 素材必须是具有真实 Alpha 通道的透明 RGBA PNG。不要使用白底、灰底或棋盘格图片模拟透明；详情见 [docs/csharp-art-pipeline.md](docs/csharp-art-pipeline.md)。
 
-## 打包
+## 📦 打包
 
 ```powershell
 .\tools\package-csharp-release.ps1
@@ -208,19 +210,38 @@ inactive.png
 程序内更新会按目录权限选择路径：当前用户目录或其他可写目录直接替换当前程序目录；`Program Files` 等受保护目录会下载并校验 `Setup.exe`，再由用户确认 UAC 后升级。配置、加密令牌和用量记录始终保留在 `%LOCALAPPDATA%\\BalancePet`。
 
 
-## 互动效果
+## 🖱️ 互动效果
 
 - **互动动作**：控制锁定互动时的按压、回弹、轻微倾斜和表情状态；关闭后仍可拖动桌宠、点击刷新余额。
 - **随机彩蛋**：控制当前角色的专属短台词、闲置提示和连续互动彩蛋。不同角色、触摸部位和连续互动会从独立候选池取词，并避开最近使用的台词；连续快速互动四至六次才会触发一次彩蛋，避免频繁打扰。
 - **状态切换**：正常查询成功后会短暂显示成功图，再回到待机图；鼠标按住角色期间会持续显示点击图，松开后才进入刷新或互动反馈。后台自动刷新不会重置闲置计时，15 分钟没有用户互动后会显示闲置图。
-- **AI 任务状态**：在设置窗口的“AI 联动”页里分别开关。BalancePet 会监听当前用户专用的本地命名管道，桌宠在至少一个任务活动时保持 `codex-working`，全部任务完成或停止后才切换到 `codex-done`，不会被单个任务的结束事件提前覆盖。完成后会刷新余额；气泡会显示客户端名称。联动只传递开始/结束、客户端名和任务 ID，不读取或保存提示词、回复或令牌。
-- **按客户端开关**：每个客户端一个独立开关 —— Codex、DeepSeek Harness、Gemini CLI、Qwen Code、Claude Code，以及“其他客户端”。开关打开时 BalancePet 会自动写入该客户端需要的 Hook（Codex 用 `~/.codex/hooks.json`，Gemini/Qwen/Claude 用各自的 `settings.json`，DeepSeek Harness 用 Cordis 插件）；关闭时自动移除。未安装的客户端开关会显示为警示色并附小字说明，仍然可以打开：勾选只记录意图，等该客户端出现后下一次启动会自动补写配置，不会为没装的客户端凭空创建配置文件。自定义 CLI 只要调用 `tools/balancepet-task.ps1`，就会被“其他客户端”接管，所以未列出的集成不会失效。
-- **DeepSeek Harness 联动**：DeepSeek Harness 没有 Codex 那样的 hooks.json，它的官方扩展点是 Cordis 插件，所以 BalancePet 附带一个桥接插件（`tools/dsh-bridge/`）。正常不需要手动安装 —— 在“AI 联动”页勾选 DeepSeek Harness 即可，保存时它会自动挂载。也可以手动运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\install-balancepet-dsh-plugin.ps1"`。DSH 会自动重新加载 profile，但**只限首次安装**：替换磁盘上已有的插件文件后必须重启 DSH，因为 ESM 模块在进程内按 URL 缓存。诊断日志写在 `%LOCALAPPDATA%\BalancePet\dsh-bridge.log`，出现 `bridge active` 即表示插件已生效。插件订阅官方的 `turn/start` 与 `turn/end` 会话事件，通过同一个本地命名管道上报，因此气泡和余额刷新行为与其他客户端一致。除了开始与结束，它还会上报**本回合增量**的模型、思考强度、输入/输出/缓存读写 token、步数和耗时，所以用量统计里 DeepSeek Harness 的记录与 Codex 一样有明细。插件不上报费用：DSH 只统计 token、没有价格表，走中转站时由主程序的逐条日志回填，走官方账户时显示“未上报”。安装只是把插件目录复制进 profile 并在 `cordis.patch.yml` 追加一条挂载项，不改动 profile 的 `package.json`，也不联网；卸载传 `-Action Uninstall`，两次操作都会先备份该配置文件。
-- **用量归属与费用来源**：每条用量记录会带上它实际扣费的账户，用量统计里显示为「客户端 · 账户名」。费用按账户类型分两种口径：中转站账户能抓到逐次计费日志，记录每次请求的额度（标为「消耗额度」）；官方 API 账户没有逐次计费接口，改用**任务前后余额差值**给出该次任务的总消耗（标为「任务总消耗」，并注明是余额变化而非逐次计费）。两条路都有数据时以逐次日志为准。余额差值只在账户不是中转站时启用，判断依据是现成的中转站能力探测，不需要额外配置。要让它生效，需要把官方账户本身加进监控，例如 DeepSeek：接口地址 `https://api.deepseek.com/user/balance`、认证方式 `authorization`、余额路径 `balance_infos.0.total_balance`、币种路径 `balance_infos.0.currency`。注意余额至少 30 秒才刷新一次，短于该间隔的任务可能测不到消耗。
+- **AI 任务状态**：在设置窗口的“AI 联动”页里分别开关。
+  - BalancePet 会监听当前用户专用的本地命名管道，桌宠在至少一个任务活动时保持 `codex-working`，全部任务完成或停止后才切换到 `codex-done`，不会被单个任务的结束事件提前覆盖。
+  - 完成后会刷新余额；气泡会显示客户端名称。
+  - 联动只传递开始/结束、客户端名和任务 ID，不读取或保存提示词、回复或令牌。
+- **按客户端开关**：每个客户端一个独立开关 —— Codex、DeepSeek Harness、Gemini CLI、Qwen Code、Claude Code，以及“其他客户端”。
+  - 开关打开时 BalancePet 会自动写入该客户端需要的 Hook（Codex 用 `~/.codex/hooks.json`，Gemini/Qwen/Claude 用各自的 `settings.json`，DeepSeek Harness 用 Cordis 插件）；关闭时自动移除。
+  - 未安装的客户端开关会显示为警示色并附小字说明，仍然可以打开：勾选只记录意图，等该客户端出现后下一次启动会自动补写配置，不会为没装的客户端凭空创建配置文件。
+  - 自定义 CLI 只要调用 `tools/balancepet-task.ps1`，就会被“其他客户端”接管，所以未列出的集成不会失效。
+- **DeepSeek Harness 联动**：DeepSeek Harness 没有 Codex 那样的 hooks.json，它的官方扩展点是 Cordis 插件，所以 BalancePet 附带一个桥接插件（`tools/dsh-bridge/`）。
+  - 正常不需要手动安装 —— 在“AI 联动”页勾选 DeepSeek Harness 即可，保存时它会自动挂载。
+  - 也可以手动运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\install-balancepet-dsh-plugin.ps1"`。
+  - DSH 会自动重新加载 profile，但**只限首次安装**：替换磁盘上已有的插件文件后必须重启 DSH，因为 ESM 模块在进程内按 URL 缓存。
+  - 诊断日志写在 `%LOCALAPPDATA%\BalancePet\dsh-bridge.log`，出现 `bridge active` 即表示插件已生效。
+  - 插件订阅官方的 `turn/start` 与 `turn/end` 会话事件，通过同一个本地命名管道上报，因此气泡和余额刷新行为与其他客户端一致。
+  - 除了开始与结束，它还会上报**本回合增量**的模型、思考强度、输入/输出/缓存读写 token、步数和耗时，所以用量统计里 DeepSeek Harness 的记录与 Codex 一样有明细。
+  - 插件不上报费用：DSH 只统计 token、没有价格表，走中转站时由主程序的逐条日志回填，走官方账户时显示“未上报”。
+  - 安装只是把插件目录复制进 profile 并在 `cordis.patch.yml` 追加一条挂载项，不改动 profile 的 `package.json`，也不联网；卸载传 `-Action Uninstall`，两次操作都会先备份该配置文件。
+- **用量归属与费用来源**：每条用量记录会带上它实际扣费的账户，用量统计里显示为「客户端 · 账户名」。
+  - 费用按账户类型分两种口径：中转站账户能抓到逐次计费日志，记录每次请求的额度（标为「消耗额度」）；官方 API 账户没有逐次计费接口，改用**任务前后余额差值**给出该次任务的总消耗（标为「任务总消耗」，并注明是余额变化而非逐次计费）。
+  - 两条路都有数据时以逐次日志为准。
+  - 余额差值只在账户不是中转站时启用，判断依据是现成的中转站能力探测，不需要额外配置。
+  - 要让它生效，需要把官方账户本身加进监控，例如 DeepSeek：接口地址 `https://api.deepseek.com/user/balance`、认证方式 `authorization`、余额路径 `balance_infos.0.total_balance`、币种路径 `balance_infos.0.currency`。
+  - 注意余额至少 30 秒才刷新一次，短于该间隔的任务可能测不到消耗。
 - **无令牌保存**：余额 API 访问令牌可以暂时留空。保存设置时会跳过余额连接测试，但仍会保存 AI 任务联动等设置；之后配置令牌即可恢复余额查询。
 - 气泡提示会比余额状态提示更短，余额查询、低余额和错误提示不受上述开关影响。
 
-## 自定义客户端接入
+## 🔌 自定义客户端接入
 
 BalancePet 不需要安装对应的 AI 客户端或 CLI。未在上面列出的自定义客户端，只要按下面的方式上报开始和结束，就会被“其他客户端”接管。
 
@@ -236,7 +257,7 @@ Gemini CLI、Qwen Code 和 Claude Code 可以配置其生命周期 Hook 调用 `
 
 若已安装 Gemini CLI、Qwen Code 或 Claude Code，可在发布包根目录运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\\tools\\install-balancepet-client-hooks.ps1"`，自动合并当前用户的 Hook 设置；也可以将 `-Client` 指定为 `Gemini`、`Qwen` 或 `Claude`。安装器按名称去重，保留其他设置，并在修改已有设置文件前创建带时间戳的备份；客户端重启后生效。
 
-## 项目结构
+## 🗂️ 项目结构
 
 ```text
 versions/csharp-wpf/  C# WPF 应用
@@ -244,7 +265,7 @@ tools/                发布打包脚本
 docs/                 配置示例、素材要求、扩展规范和许可证副本
 ```
 
-## 来源与许可证
+## 📜 来源与许可证
 
 BalancePet 是独立的 C# WPF 重写项目。部分小鲸鱼素材和交互音效改编自 MIT 许可的 [DeepSeek Balance Whale Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget)。原始许可证副本及完整署名见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
