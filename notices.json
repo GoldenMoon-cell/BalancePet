@@ -1,6 +1,14 @@
 {
   "schema_version": 1,
   "notices": [
+      {
+        "seq": 13,
+        "date": "2026-10-05",
+        "area": "在线内容",
+        "title": "插件目录更新",
+        "summary": "在线插件目录里消息中心的版本停在 0.6.3，而仓库已发布 0.6.4：目录的版本号、下载地址与哈希已同步，升级说明里的版本引用也一并更正。目录只描述发布了什么，不重复发布说明。",
+        "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/plugin-catalog.json"
+      },
     {
       "seq": 12,
       "date": "2026-10-04",
