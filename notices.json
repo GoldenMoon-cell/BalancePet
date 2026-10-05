@@ -2,6 +2,14 @@
   "schema_version": 1,
   "notices": [
       {
+        "seq": 15,
+        "date": "2026-10-05",
+        "area": "扩展规范",
+        "title": "主题目录独立",
+        "summary": "主题搬进自己的仓库 BalancePet-Themes，一个仓库放多个主题，catalog.json 是它们的目录。主程序新增第三个目录源读取它，插件目录里原来的主题条目已移除，避免同一主题出现两次。以后新增主题只需在该仓库加一个目录并发布，不再需要新仓库与新的目录条目。",
+        "url": "https://github.com/GoldenMoon-cell/BalancePet-Themes"
+      },
+      {
         "seq": 14,
         "date": "2026-10-05",
         "area": "扩展规范",
