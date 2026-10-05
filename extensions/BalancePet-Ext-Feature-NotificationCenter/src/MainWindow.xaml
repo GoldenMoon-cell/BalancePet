@@ -297,24 +297,70 @@
               </Grid>
             </DataTemplate></ListBox.ItemTemplate>
           </ListBox>
-          <StackPanel Grid.Row="1" Margin="26,0,16,22">
-            <TextBlock Text="设置" FontSize="12" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,10" />
-            <local:ToggleSwitch x:Name="CardAnimationSwitch" Content="卡片插入动画"
-                       FontSize="12.5" Checked="CardAnimationChanged" Unchecked="CardAnimationChanged" />
-            <TextBlock Text="关闭后新消息卡片直接出现，不再从左逐条滑入。只影响列表里的记录卡片。"
-                       Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,12" />
-
-            <local:ToggleSwitch x:Name="TakeoverSwitch" Content="接管气泡提醒"
-                       FontSize="12.5" Checked="TakeoverChanged" Unchecked="TakeoverChanged" />
-            <TextBlock Text="开启后由本窗口显示桌宠原本要弹出的气泡消息；关掉则两者都会有。"
-                       Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
-          </StackPanel>
         </Grid>
       </Border>
 
       <Grid Grid.Column="1" Margin="24,0,20,0">
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,22,0,14">
+
+        <!-- Settings get a page of their own rather than a corner of the rail: the rail is a list
+             of sections, and six checkboxes, two fields and a preview do not fit in it without the
+             wrapping that made them look cramped. The preview in particular needs width to say
+             anything useful about how the ring will sit. -->
+        <ScrollViewer x:Name="SettingsPage" Grid.Row="0" Grid.RowSpan="3" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+          <StackPanel MaxWidth="470" HorizontalAlignment="Left" Margin="0,22,0,0">
+            <TextBlock Text="外观与交互" FontSize="15" FontWeight="SemiBold" />
+            <local:ToggleSwitch x:Name="CardAnimationSwitch" Content="卡片插入动画" Margin="0,12,0,0"
+                       FontSize="12.5" Checked="CardAnimationChanged" Unchecked="CardAnimationChanged" />
+            <TextBlock Text="关闭后新消息卡片直接出现，不再从左逐条滑入。只影响列表里的记录卡片。"
+                       Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,18" />
+
+            <local:ToggleSwitch x:Name="BubbleSwitch" Content="气泡提醒"
+                       FontSize="12.5" Checked="BubbleSettingChanged" Unchecked="BubbleSettingChanged" />
+            <TextBlock Text="关闭后消息不再弹出气泡，只在消息中心汇总。这是总开关，主程序那条「更新记录提示」比它窄。"
+                       Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,18" />
+
+            <!-- The ring section is collapsed rather than deleted: the code behind it still exists
+                 and still compiles, and this one attribute is what shows it again if the flicker is
+                 ever solved. Leaving the controls visible would offer switches that change nothing. -->
+            <StackPanel x:Name="RingSection" Visibility="Collapsed">
+            <TextBlock Text="轨道常驻显示" FontSize="15" FontWeight="SemiBold" />
+            <TextBlock Text="勾选哪些消息会一直显示在桌宠周围；按住 Shift 仍然切回余额、登录方式、任务状态与版本。"
+                       Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,10" />
+            <WrapPanel x:Name="RingCategoryPanel" Margin="0,0,0,10">
+              <CheckBox x:Name="RingNoticeBox" Content="更新记录" FontSize="12" Margin="0,0,16,6" Checked="RingSettingChanged" Unchecked="RingSettingChanged" />
+              <CheckBox x:Name="RingTaskBox" Content="任务" FontSize="12" Margin="0,0,16,6" Checked="RingSettingChanged" Unchecked="RingSettingChanged" />
+              <CheckBox x:Name="RingBalanceBox" Content="余额" FontSize="12" Margin="0,0,16,6" Checked="RingSettingChanged" Unchecked="RingSettingChanged" />
+              <CheckBox x:Name="RingAccountBox" Content="账户" FontSize="12" Margin="0,0,16,6" Checked="RingSettingChanged" Unchecked="RingSettingChanged" />
+              <CheckBox x:Name="RingSystemBox" Content="系统" FontSize="12" Margin="0,0,16,6" Checked="RingSettingChanged" Unchecked="RingSettingChanged" />
+              <CheckBox x:Name="RingInteractionBox" Content="互动" FontSize="12" Margin="0,0,16,6" Checked="RingSettingChanged" Unchecked="RingSettingChanged" />
+            </WrapPanel>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="同时显示" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
+              <TextBox x:Name="RingCountBox" Width="40" Height="24" Margin="8,0,0,0" FontSize="12"
+                       TextAlignment="Center" TextChanged="RingSettingChanged" />
+              <TextBlock Text="条" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource MutedBrush}" />
+              <TextBlock Text="每条停留" FontSize="12" VerticalAlignment="Center" Margin="20,0,0,0" Foreground="{DynamicResource MutedBrush}" />
+              <TextBox x:Name="RingDwellBox" Width="46" Height="24" Margin="8,0,0,0" FontSize="12"
+                       TextAlignment="Center" TextChanged="RingSettingChanged" />
+              <TextBlock Text="秒" FontSize="12" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource MutedBrush}" />
+            </StackPanel>
+            <TextBlock Text="停留填 0 表示一直留着，直到有新消息把它顶掉。"
+                       Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,14" />
+
+            <!-- Drawn from the same layout code the ring uses, so it cannot tell a different story
+                 from what the ring will do. -->
+            <Border x:Name="RingPreviewHost" Height="190" CornerRadius="9"
+                    Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+              <Canvas x:Name="RingPreviewCanvas" ClipToBounds="True" />
+            </Border>
+            <TextBlock x:Name="RingPreviewNote" Text="预览：勾选与条数会立刻反映在这里。"
+                       Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel x:Name="ListHeader" Grid.Row="0" Orientation="Horizontal" Margin="0,22,0,14">
           <TextBlock x:Name="SectionTitle" Text="更新记录" FontSize="16" FontWeight="SemiBold" />
           <TextBlock x:Name="SectionSubtitle" Text="共 0 条" FontSize="11.5" Foreground="{DynamicResource MutedBrush}"
                      VerticalAlignment="Bottom" Margin="10,0,0,3" />
@@ -343,7 +389,7 @@
 
         <DockPanel Grid.Row="2" Margin="2,10,2,14">
           <TextBlock x:Name="StatusText" Text="本地保存 · 关闭窗口后继续在后台" Foreground="{DynamicResource MutedBrush}" FontSize="11" VerticalAlignment="Center" />
-          <TextBlock x:Name="VersionText" DockPanel.Dock="Right" Text="消息中心 · v0.6.3" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
+          <TextBlock x:Name="VersionText" DockPanel.Dock="Right" Text="消息中心 · v0.6.4" Foreground="{DynamicResource MutedBrush}" FontSize="11" />
         </DockPanel>
       </Grid>
     </Grid>

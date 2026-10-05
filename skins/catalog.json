@@ -1,7 +1,7 @@
 {
   "catalog": "balancepet.appearances",
   "schema_version": 1,
-  "updated_at": "2026-10-04T11:07:25Z",
+  "updated_at": "2026-10-04T12:53:30Z",
   "appearances": [
     {
       "id": "pet.chatgpt",
@@ -229,7 +229,7 @@
       "version": "1.0.0",
       "min_core_version": "0.5.0",
       "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.mistral-1.0.0.zip",
-      "sha256": "cd802f26697bf800d851fd651b3b5aeede62388324da832b62eb8698df478c17",
+      "sha256": "497866d45152abaa2775b9a1f1074b7718bcd23dbd5b7e85d711460f2e2bc3d7",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/mistral.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
       "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
@@ -301,7 +301,7 @@
       "version": "1.0.0",
       "min_core_version": "0.5.0",
       "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.rwkv-1.0.0.zip",
-      "sha256": "5fe02bc4c5b0e4ea38b3a64f32a72e9092319eae46350f18bfea85de93b12208",
+      "sha256": "d295adbcec2bb9e81ba5d7d6ed246b5c5fc67cdf07095211f39378be2421caaf",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/rwkv.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
       "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",

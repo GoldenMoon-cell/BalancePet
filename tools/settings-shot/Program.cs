@@ -194,6 +194,17 @@ internal static class Program
                 window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
                 Thread.Sleep(120);
             }
+             // Selected again, not only before the drains above: the window restores the tab it was
+             // last left on once its own load continuations run, and those run during the draining and
+             // the wait that follow the first selection -- so a tab chosen there is overwritten by the
+             // restore, and the capture comes back as whatever page was open last. Selecting here, after
+             // every continuation has run and immediately before the render, is the one place nobody
+             // overwrites. This is what --tab was always meant to do.
+             if (!string.IsNullOrWhiteSpace(tabElement))
+             {
+                 SelectTabContaining(window, tabElement);
+                 window.UpdateLayout();
+             }
             window.UpdateLayout();
 
             // A ComboBox popup lives in its own window, so RenderTargetBitmap cannot capture

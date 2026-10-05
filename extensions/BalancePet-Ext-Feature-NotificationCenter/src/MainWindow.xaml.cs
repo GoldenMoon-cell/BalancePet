@@ -83,7 +83,36 @@ public partial class MainWindow : Window
             if (_listScroll is not null) _listScroll.ScrollChanged += (_, _) => UpdateNewPill();
             UpdateNewPill();
         };
-        TakeoverSwitch.IsChecked = _takeover.Enabled;
+        LoadRingSettings();
+        BubbleSwitch.IsChecked = _takeover.Enabled;
+        // Applied once at start as well, so the choice survives a restart: the marker is a named
+        // mutex, and a process that exits releases it whether or not anyone meant to turn bubbles
+        // back on.
+        PresenterMarker.Apply(!_takeover.Enabled);
+        // Filled in when the page is loaded rather than while the values are being set: setting a
+        // box raises the same changed event a user would, and the handler stands aside until the
+        // window is loaded so that filling the form is not mistaken for editing it. That left the
+        // preview blank until the first edit, which is the one moment it is most useful.
+        Loaded += (_, _) => DrawRingPreview();
+        // The dot in the preview stands for the pet, so it can be dragged like one: the point of
+        // the preview is not the arrangement at the centre, which is the easy case, but what
+        // happens when the pet is pushed into a corner -- which is the case the ring itself is
+        // built around.
+        RingPreviewCanvas.MouseLeftButtonDown += (_, args) =>
+        {
+            _previewDragging = true;
+            RingPreviewCanvas.CaptureMouse();
+            MovePreviewPet(args.GetPosition(RingPreviewCanvas));
+        };
+        RingPreviewCanvas.MouseMove += (_, args) =>
+        {
+            if (_previewDragging) MovePreviewPet(args.GetPosition(RingPreviewCanvas));
+        };
+        RingPreviewCanvas.MouseLeftButtonUp += (_, _) =>
+        {
+            _previewDragging = false;
+            RingPreviewCanvas.ReleaseMouseCapture();
+        };
         CardAnimationSwitch.IsChecked = _takeover.CardAnimation;
         LoadPetAvatar();
         _refreshTimer.Tick += (_, _) => Refresh(false);
@@ -293,6 +322,37 @@ public partial class MainWindow : Window
         // Leaving a section is one of the three ways a mark is cleared: the reader has moved on.
         AcknowledgeCurrentSection();
         Refresh(true);
+        // After the refresh, not before: the refresh decides whether the list or the empty state
+        // is shown, and asking for the settings page first would be undone by it.
+        ApplySectionSurface();
+    }
+
+    /// <summary>
+    /// Shows the list, or the settings page, for the section that is selected.
+    /// </summary>
+    /// <remarks>
+    /// The settings are a section like any other rather than a panel pinned to the rail: the rail
+    /// is a list of things to read, and the settings are where the ring and the card animation are
+    /// decided -- which needs the width the content area has and the rail does not.
+    /// </remarks>
+    private void ApplySectionSurface()
+    {
+        var settings = string.Equals(_filter, "settings", StringComparison.Ordinal);
+        SettingsPage.Visibility = settings ? Visibility.Visible : Visibility.Collapsed;
+        ListHeader.Visibility = settings ? Visibility.Collapsed : Visibility.Visible;
+        if (settings)
+        {
+            EventsList.Visibility = Visibility.Collapsed;
+            EmptyState.Visibility = Visibility.Collapsed;
+            // Drawn again now that the page has a size: the first drawing happens while the page is
+            // still collapsed, where the canvas has no width to arrange the preview in.
+            DrawRingPreview();
+        }
+        else
+        {
+            EventsList.Visibility = _rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+            EmptyState.Visibility = _rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
     /// <summary>
@@ -308,10 +368,207 @@ public partial class MainWindow : Window
         _takeover.CardAnimation = CardAnimationSwitch.IsChecked == true;
     }
 
-    private void TakeoverChanged(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// The master switch for whether messages pop as the pet's bubbles at all.
+    /// </summary>
+    /// <remarks>
+    /// The stored flag is the presenter marker, which the host reads to decide whether to show its
+    /// own bubble. It is applied inverted here on purpose: the flag means "bubbles are on", and the
+    /// marker means "stay quiet". Off is therefore not a different bubble in a different window --
+    /// it is no bubble, with the message still recorded below for anyone who goes looking. The old
+    /// saved value was true, so an existing install reads as bubbles on, which is the behaviour
+    /// that was already working.
+    /// </remarks>
+    private void BubbleSettingChanged(object sender, RoutedEventArgs e)
     {
-        _takeover.Enabled = TakeoverSwitch.IsChecked == true;
-        Refresh(true);
+        _takeover.Enabled = BubbleSwitch.IsChecked == true;
+        PresenterMarker.Apply(!_takeover.Enabled);
+    }
+
+    /// <summary>True while the form is being filled from the saved values.</summary>
+    /// <remarks>
+    /// Setting a box raises the same changed event a click does, so without this the act of
+    /// showing the saved settings would save them back -- from a form that is still half filled,
+    /// which is how a category list loses entries it was never meant to touch.
+    /// </remarks>
+    private bool _loadingRingSettings;
+
+    private void LoadRingSettings()
+    {
+        _loadingRingSettings = true;
+        try
+        {
+        var categories = _takeover.RingCategories.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        RingNoticeBox.IsChecked = categories.Contains("notice");
+        RingTaskBox.IsChecked = categories.Contains("task");
+        RingBalanceBox.IsChecked = categories.Contains("balance");
+        RingAccountBox.IsChecked = categories.Contains("account");
+        RingSystemBox.IsChecked = categories.Contains("system");
+        RingInteractionBox.IsChecked = categories.Contains("interaction");
+        RingCountBox.Text = _takeover.RingCount.ToString();
+        RingDwellBox.Text = _takeover.RingDwellSeconds.ToString();
+        }
+        finally
+        {
+            _loadingRingSettings = false;
+        }
+    }
+
+    /// <summary>What the ring should show, and for how long. Saved as it is changed.</summary>
+    private void RingSettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loadingRingSettings || !IsLoaded) return;
+        _takeover.RingCategories = string.Join(",", new[]
+        {
+            RingNoticeBox.IsChecked == true ? "notice" : "",
+            RingTaskBox.IsChecked == true ? "task" : "",
+            RingBalanceBox.IsChecked == true ? "balance" : "",
+            RingAccountBox.IsChecked == true ? "account" : "",
+            RingSystemBox.IsChecked == true ? "system" : "",
+            RingInteractionBox.IsChecked == true ? "interaction" : ""
+        }.Where(value => value.Length > 0));
+        _takeover.RingCount = int.TryParse(RingCountBox.Text, out var count) ? Math.Clamp(count, 1, 6) : 3;
+        // Zero is a value, not an absence: it means a message stays until a newer one takes its
+        // place, which is the "always showing something" reading of a permanent ring.
+        _takeover.RingDwellSeconds = int.TryParse(RingDwellBox.Text, out var dwell) ? Math.Clamp(dwell, 0, 600) : 8;
+        DrawRingPreview();
+    }
+
+    /// <summary>
+    /// Draws the preview from the same layout the ring uses.
+    /// </summary>
+    /// <remarks>
+    /// Not a drawing of an idea of the ring: it calls the layout the ring itself calls, so the
+    /// preview cannot promise an arrangement the ring will not produce. A hand-drawn mock would
+    /// drift the first time either side changed, which is the failure this avoids by construction.
+    /// </remarks>
+    private bool _previewDragging;
+    private double _previewPetX = 0.5;
+    private double _previewPetY = 0.62;
+
+    private void MovePreviewPet(Point position)
+    {
+        var (width, height) = PreviewSize();
+        _previewPetX = Math.Clamp(position.X / width, 0.08, 0.92);
+        _previewPetY = Math.Clamp(position.Y / height, 0.12, 0.88);
+        DrawRingPreview();
+    }
+
+    private (double Width, double Height) PreviewSize()
+        => (RingPreviewHost.ActualWidth > 20 ? RingPreviewHost.ActualWidth : 420,
+            RingPreviewHost.ActualHeight > 20 ? RingPreviewHost.ActualHeight : 190);
+
+    /// <summary>One line of what a category's messages actually look like.</summary>
+    private static readonly (string Key, string Sample)[] PreviewSamples =
+    [
+        ("notice", "说明文档改版"),
+        ("task", "DeepSeek 工作中"),
+        ("balance", "余额 42.80 CNY"),
+        ("account", "官方登录"),
+        ("system", "已更新到 1.6.2"),
+        ("interaction", "点击了桌宠")
+    ];
+
+    private void DrawRingPreview()
+    {
+        RingPreviewCanvas.Children.Clear();
+        var (width, height) = PreviewSize();
+        var centre = new Point(width * _previewPetX, height * _previewPetY);
+        const double petSize = 16;
+        var pet = new Rect(centre.X - petSize / 2, centre.Y - petSize / 2, petSize, petSize);
+        var count = int.TryParse(RingCountBox.Text, out var parsed) ? Math.Clamp(parsed, 1, 6) : 3;
+        var chosen = new[]
+        {
+            (RingNoticeBox.IsChecked == true, "notice"),
+            (RingTaskBox.IsChecked == true, "task"),
+            (RingBalanceBox.IsChecked == true, "balance"),
+            (RingAccountBox.IsChecked == true, "account"),
+            (RingSystemBox.IsChecked == true, "system"),
+            (RingInteractionBox.IsChecked == true, "interaction")
+        }.Where(pair => pair.Item1)
+         .Select(pair => PreviewSamples.First(sample => sample.Key == pair.Item2).Sample)
+         .Take(count)
+         .ToArray();
+
+        var dot = new System.Windows.Shapes.Ellipse
+        {
+            Width = petSize,
+            Height = petSize,
+            Fill = (System.Windows.Media.Brush)FindResource("AccentBrush")
+        };
+        Canvas.SetLeft(dot, pet.X);
+        Canvas.SetTop(dot, pet.Y);
+        RingPreviewCanvas.Children.Add(dot);
+
+        var dwell = int.TryParse(RingDwellBox.Text, out var seconds) ? Math.Clamp(seconds, 0, 600) : 8;
+        var dwellText = dwell == 0 ? "一直留着" : $"{dwell} 秒";
+        if (chosen.Length == 0)
+        {
+            RingPreviewNote.Text = "一个类别都没勾，轨道平时是空的。拖动圆点可以看桌宠在角落时的表现。";
+            return;
+        }
+
+        // The same two questions the ring asks, in the same order: does an orbit fit here, and if
+        // not, where does the gathered plate go. The preview draws whichever answer it gets, so
+        // what it shows at a corner is what the ring will do at a corner.
+        // Proportions rather than fixed pixels: the preview is a miniature of a screen, so a chip
+        // that is 96 wide in a 190-tall box takes up as much room as a chip a third of the screen
+        // wide would -- and the rule then reports "does not fit" for an arrangement that fits
+        // perfectly well on a real desktop, which is a preview telling the wrong story.
+        var radius = Math.Min(width, height) * 0.40;
+        var chipWidth = Math.Min(84, radius * 1.1);
+        const double chipHeight = 16, gap = 6;
+        var slots = new List<Rect>();
+        for (var index = 0; index < chosen.Length; index++)
+        {
+            var angle = Math.PI * (1.0 - (index + 0.5) / chosen.Length);
+            slots.Add(new Rect(
+                centre.X + Math.Cos(angle) * radius - chipWidth / 2,
+                centre.Y - Math.Sin(angle) * radius - chipHeight / 2,
+                chipWidth, chipHeight));
+        }
+
+        var canvasBounds = new Rect(0, 0, width, height);
+        if (RingLayout.OrbitFits(canvasBounds, slots, clearance: 2))
+        {
+            for (var index = 0; index < slots.Count; index++) AddPreviewChip(chosen[index], slots[index]);
+            RingPreviewNote.Text = $"{chosen.Length} 条 · {dwellText} · 放得下，绕着桌宠排开";
+        }
+        else
+        {
+            var plate = RingLayout.MergedPlate(pet, canvasBounds, chipWidth + gap);
+            AddPreviewChip(chosen[0], plate);
+            RingPreviewNote.Text = chosen.Length == 1
+                ? $"{chosen.Length} 条 · {dwellText} · 放不下，收成桌宠脚边的一块"
+                : $"{chosen.Length} 条 · {dwellText} · 放不下，收成桌宠脚边的一块（这里示意第一条）";
+        }
+
+        RingPreviewNote.Text += "。拖动圆点试试角落。";
+    }
+
+    private void AddPreviewChip(string text, Rect slot)
+    {
+        var chip = new Border
+        {
+            Width = slot.Width,
+            Height = slot.Height,
+            CornerRadius = new CornerRadius(5),
+            BorderThickness = new Thickness(1),
+            BorderBrush = (System.Windows.Media.Brush)FindResource("AccentBrush"),
+            Background = (System.Windows.Media.Brush)FindResource("AccentSoftBrush")
+        };
+        chip.Child = new TextBlock
+        {
+            Text = text,
+            FontSize = 9.5,
+            Margin = new Thickness(6, 0, 6, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Foreground = (System.Windows.Media.Brush)FindResource("TextBrush")
+        };
+        Canvas.SetLeft(chip, slot.X);
+        Canvas.SetTop(chip, slot.Y);
+        RingPreviewCanvas.Children.Add(chip);
     }
 
     /// <summary>Opens on a named section. Used by the screenshot mode, and by nothing else.</summary>
@@ -327,6 +584,31 @@ public partial class MainWindow : Window
 
     private void CloseClick(object sender, RoutedEventArgs e) => Hide();
 
+    /// <summary>
+    /// The newest messages the permanent ring should show, newest first.
+    /// </summary>
+    /// <remarks>
+    /// Filtered by the categories the user chose, capped at the count they chose, and dropped once
+    /// older than the dwell they chose -- except a dwell of zero, which means a message stays until
+    /// a newer one takes its place. The filter runs through the same section mapping the list uses,
+    /// so what the ring calls a task is what the list calls a task.
+    /// </remarks>
+    private IReadOnlyList<NotificationBubble> CreateRingMessages(IReadOnlyList<NotificationEvent> all)
+    {
+        var wanted = _takeover.RingCategories.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        if (wanted.Length == 0) return [];
+        var cutoff = _takeover.RingDwellSeconds > 0
+            ? DateTimeOffset.Now.AddSeconds(-_takeover.RingDwellSeconds)
+            : DateTimeOffset.MinValue;
+        return all
+            .Where(item => wanted.Contains(SectionOf(item.Category) ?? item.Category, StringComparer.Ordinal))
+            .Where(item => item.OccurredAt >= cutoff)
+            .OrderByDescending(item => item.OccurredAt)
+            .Take(Math.Clamp(_takeover.RingCount, 1, 6))
+            .Select(item => new NotificationBubble(item.Title, item.Detail, item.Category, item.Amount))
+            .ToArray();
+    }
+
     private void Refresh(bool force = true)
     {
         var all = _store.ReadAll();
@@ -335,7 +617,14 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(_coreVersion)) _coreVersion = ReadCoreVersion();
         // The hover plates keep reading every kind of message: the list is what changed,
         // not what the pet knows.
-        _infoWindow.UpdateItems(CreateAroundPetItems(all, _coreVersion, liveState));
+        // The ring window is no longer fed anything. It drew information plates around the pet --
+        // the live values while Shift was held, and then, in permanent mode, the latest messages --
+        // and it was removed after the plates were seen blinking between a full set and none
+        // several times a second, with four attempts at the cause having failed to settle it.
+        // Messages reach the reader through the host's own bubbles and the list below instead.
+        // BubbleWindow itself is left in place for the preview renderer, which builds its own
+        // throwaway instance; nothing here shows one.
+        _infoWindow.SetPermanent(false);
         // Following the host's theme, applied when it changes rather than on every tick:
         // replacing ten brushes redraws the window, and this runs twice a second.
         var appearance = liveState?.Appearance;
@@ -424,9 +713,11 @@ public partial class MainWindow : Window
             ? "还没有更新记录。桌宠每次获取到新内容都会写在这里。"
             : "这一类还没有内容。";
         EventsList.Visibility = _rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        StatusText.Text = _takeover.Enabled
-            ? "本地保存 · 已接管气泡 · 关闭窗口后继续在后台"
-            : "本地保存 · 气泡仍由桌宠显示 · 关闭窗口后继续在后台";
+        StatusText.Text = "本地保存 · 气泡由桌宠显示 · 关闭窗口后继续在后台";
+        // Keeps the surface and the selection in step: a refresh happens for reasons other than a
+        // click -- a new message, the first fill -- and each one would otherwise put the page back
+        // to whatever the row count implied.
+        ApplySectionSurface();
     }
 
     /// <summary>The sections, with the count each one currently holds.</summary>
@@ -435,7 +726,8 @@ public partial class MainWindow : Window
         var desired = new (string Key, string Name)[]
         {
             ("notice", "更新记录"), ("task", "任务"), ("account", "账户"),
-            ("balance", "余额"), ("system", "系统"), ("all", "全部消息")
+            ("balance", "余额"), ("system", "系统"), ("all", "全部消息"),
+            ("settings", "设置")
         };
         var selected = _filter;
         _sections.Clear();
@@ -458,7 +750,7 @@ public partial class MainWindow : Window
             // navigation rail full of empty rooms is worse than a short one.
             // 更新记录 stays even when empty: it is what this window is for now, and a
             // section that vanishes until the first entry arrives looks like a missing feature.
-            if (count == 0 && key is not ("all" or "notice")) continue;
+            if (count == 0 && key is not ("all" or "notice" or "settings")) continue;
             _sections.Add(new NotificationSection(key, name, unread));
         }
         if (_sections.All(section => !string.Equals(section.Key, selected, StringComparison.Ordinal)))
@@ -816,6 +1108,15 @@ public partial class MainWindow : Window
                      if (document.RootElement.TryGetProperty("card_animation", out var animation)
                          && animation.ValueKind is JsonValueKind.True or JsonValueKind.False)
                          CardAnimation = animation.GetBoolean();
+                  if (document.RootElement.TryGetProperty("ring_categories", out var categories)
+                      && categories.ValueKind is JsonValueKind.String)
+                      RingCategories = categories.GetString() ?? RingCategories;
+                  if (document.RootElement.TryGetProperty("ring_count", out var ringCount)
+                      && ringCount.ValueKind is JsonValueKind.Number)
+                      RingCount = Math.Clamp(ringCount.GetInt32(), 1, 6);
+                  if (document.RootElement.TryGetProperty("ring_dwell_seconds", out var dwell)
+                      && dwell.ValueKind is JsonValueKind.Number)
+                      RingDwellSeconds = Math.Clamp(dwell.GetInt32(), 0, 600);
             }
             catch (Exception)
             {
@@ -839,6 +1140,42 @@ public partial class MainWindow : Window
              }
          }
 
+         /// <summary>Categories the permanent ring shows, comma separated. Empty means none.</summary>
+         private string _ringCategories = "notice,task,balance,system";
+         public string RingCategories
+         {
+             get => _ringCategories;
+             set
+             {
+                 _ringCategories = value ?? "";
+                 Save();
+             }
+         }
+
+         /// <summary>How many messages the ring shows at once.</summary>
+         private int _ringCount = 3;
+         public int RingCount
+         {
+             get => _ringCount;
+             set
+             {
+                 _ringCount = value;
+                 Save();
+             }
+         }
+
+         /// <summary>Seconds a message stays before making way. Zero keeps it until replaced.</summary>
+         private int _ringDwellSeconds = 8;
+         public int RingDwellSeconds
+         {
+             get => _ringDwellSeconds;
+             set
+             {
+                 _ringDwellSeconds = value;
+                 Save();
+             }
+         }
+
         private bool _enabled = true;
         public bool Enabled
         {
@@ -856,13 +1193,22 @@ public partial class MainWindow : Window
             {
                 var directory = Path.GetDirectoryName(_path);
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-                File.WriteAllText(_path, JsonSerializer.Serialize(new { takeover = _enabled, card_animation = _cardAnimation }));
-                PresenterMarker.Apply(_enabled);
+                File.WriteAllText(_path, JsonSerializer.Serialize(new
+                  {
+                      takeover = _enabled,
+                      card_animation = _cardAnimation,
+                      ring_categories = _ringCategories,
+                      ring_count = _ringCount,
+                      ring_dwell_seconds = _ringDwellSeconds
+                  }));
+                // The presenter marker is no longer applied: its only effect was to make the host suppress
+        // its own bubbles with nothing taking their place. Messages pop beside the pet again.
             }
             catch (Exception)
             {
                 // Remembering the choice matters less than acting on it.
-                PresenterMarker.Apply(_enabled);
+                // The presenter marker is no longer applied: its only effect was to make the host suppress
+        // its own bubbles with nothing taking their place. Messages pop beside the pet again.
             }
         }
     }

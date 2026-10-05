@@ -364,6 +364,79 @@ public sealed class PluginCatalogItemView : System.ComponentModel.INotifyPropert
     private ImageSource? _iconImage;
     private bool _iconBusy;
 
+    /// <summary>
+    /// What the row is doing right now, shown above its action button. Empty when idle.
+    /// </summary>
+    /// <remarks>
+    /// A download that reports nothing looks the same as a click that did nothing, which is
+    /// how a user ends up pressing the button again. The phase text exists for the steps that
+    /// have no honest percentage -- verifying a digest, installing a package -- where a made-up
+    /// bar would be worse than none.
+    /// </remarks>
+     private bool _busy;
+     private string _busyText = "";
+     private string _busyDetail = "";
+     private double _busyPercent;
+     private bool _busyIndeterminate;
+
+     public bool Busy
+     {
+         get => _busy;
+         set => Set(ref _busy, value);
+     }
+
+     public string BusyText
+     {
+         get => _busyText;
+         set => Set(ref _busyText, value);
+     }
+
+     public string BusyDetail
+     {
+         get => _busyDetail;
+         set => Set(ref _busyDetail, value);
+     }
+
+     public double BusyPercent
+     {
+         get => _busyPercent;
+         set => Set(ref _busyPercent, value);
+     }
+
+     public bool BusyIndeterminate
+     {
+         get => _busyIndeterminate;
+         set => Set(ref _busyIndeterminate, value);
+     }
+
+     public System.Windows.Visibility BusyVisibility => _busy ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+
+    /// <summary>Whether this row's action may be pressed; false while it is busy.</summary>
+    public bool CanActNow => CanInstall && !_busy;
+
+    /// <summary>Colour of the phase line and the bar. Null while idle, and the block is hidden then.</summary>
+    private System.Windows.Media.Brush? _busyTextBrush;
+    private System.Windows.Media.Brush? _busyBarBrush;
+    public System.Windows.Media.Brush? BusyTextBrush { get => _busyTextBrush; set => SetTone(ref _busyTextBrush, value); }
+    public System.Windows.Media.Brush? BusyBarBrush { get => _busyBarBrush; set => SetTone(ref _busyBarBrush, value); }
+    private void SetTone<T>(ref T field, T value, [System.Runtime.CompilerServices.CallerMemberName] string? name = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        field = value;
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+    }
+     private void Set<T>(ref T field, T value, [System.Runtime.CompilerServices.CallerMemberName] string? name = null)
+     {
+         if (EqualityComparer<T>.Default.Equals(field, value)) return;
+         field = value;
+         PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+             if (name is nameof(Busy))
+    {
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(BusyVisibility)));
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CanActNow)));
+    }
+     }
+
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
 
     public PluginCatalogItemView(PluginCatalogRecord record, ExtensionCatalogEntry? installed, bool isEnglish,

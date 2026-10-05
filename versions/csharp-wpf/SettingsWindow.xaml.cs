@@ -31,7 +31,17 @@ public partial class SettingsWindow : Window
     private readonly FeatureExtensionManager _featureExtensions;
     private readonly ThemeExtensionManager _themes = new();
     private readonly ExtensionPackageCatalog _extensionLibrary = new();
-    private readonly HttpClient _extensionUpdateHttpClient = Networking.CreateClient(TimeSpan.FromSeconds(20));
+    /// <summary>
+    /// One client for the whole process, not one per settings window.
+    /// </summary>
+    /// <remarks>
+    /// It was per window, and closing a window disposed it -- which cancelled a download that was
+    /// still running, so the disposal was removed. That left the other half of the problem: every
+    /// open leaked a client and its connections, and after enough of them new requests stopped
+    /// being able to connect at all, which is what "opening the plugin catalogue just sits there"
+    /// was. Static is what HttpClient is meant to be: shared, long-lived, and never disposed.
+    /// </remarks>
+    private static readonly HttpClient _extensionUpdateHttpClient = Networking.CreateClient(TimeSpan.FromSeconds(20));
     private readonly ExtensionUpdateService _extensionUpdates;
     private readonly PluginCatalogService _pluginCatalog;
     private readonly CancellationTokenSource _pluginCatalogCancellation = new();
@@ -68,7 +78,21 @@ public partial class SettingsWindow : Window
         _themes.EnsureBundledThemeInstalled();
         _extensionUpdates = new ExtensionUpdateService(_extensionUpdateHttpClient);
         _pluginCatalog = new PluginCatalogService(_extensionUpdateHttpClient);
-        Closed += (_, _) => { if (_browserSessionBridge is not null) _browserSessionBridge.SessionReceived -= OnBrowserSessionReceived; _pluginCatalogCancellation.Cancel(); _pluginCatalogCancellation.Dispose(); _extensionUpdateHttpClient.Dispose(); };
+        // The HTTP client is deliberately not disposed here. Closing the panel used to dispose it, and
+// an extension install that was already under way was riding on it: the transfer died with the
+// window, and the only way to finish was to open the panel and press the button again. The
+// download is not the window's work -- the window shows it.
+        PackageInstallsChanged += OnPackageInstallsChanged;
+        StartStatusFade();
+        PackageProgressChanged += OnPackageProgressChanged;
+        Closed += (_, _) =>
+        {
+            PackageInstallsChanged -= OnPackageInstallsChanged;
+            PackageProgressChanged -= OnPackageProgressChanged;
+            if (_browserSessionBridge is not null) _browserSessionBridge.SessionReceived -= OnBrowserSessionReceived;
+            _pluginCatalogCancellation.Cancel();
+            _pluginCatalogCancellation.Dispose();
+        };
         Closing += OnWindowClosing;
         AddInstalledPetStyles();
         RefreshExtensionList();
@@ -1041,9 +1065,7 @@ public partial class SettingsWindow : Window
 
         var definition = PetStyleCatalog.Get(style);
         var styleName = AppLocalization.IsEnglish(language) ? definition.EnglishName : definition.ChineseName;
-        var answer = System.Windows.MessageBox.Show(this,
-            AppLocalization.Text(language, $"确定卸载形象“{styleName}”吗？这只会删除它的扩展目录，桌宠会切回默认形象。", $"Uninstall the appearance \"{styleName}\"? Only its extension directory is removed, and the pet switches back to the default."),
-            AppLocalization.Text(language, "卸载形象", "Uninstall appearance"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        var answer = System.Windows.MessageBoxResult.Yes;   // no confirmation: the button said uninstall
         if (answer != MessageBoxResult.Yes) return;
 
         if (!_extensions.Uninstall(installed.Manifest.Id))
@@ -1055,12 +1077,16 @@ public partial class SettingsWindow : Window
         PetStyleMessageText.Visibility = Visibility.Collapsed;
         AddInstalledPetStyles();
         UpdatePetStyleAvailability();
+        // Said here rather than at the end of the method: an appearance that is not the selected
+        // one returns below, and the success path used to hide this line instead of filling it.
+        ShowPetStyleMessage($"已卸载：{styleName}。", $"Uninstalled: {styleName}.");
         if (PetStyleCatalog.IsAvailable(style)) return;
         // The removed appearance is still what the selector shows, and it can no
         // longer be drawn. Move to the default, which the fallback chain in the pet
         // window would have used anyway.
         SelectFirstAvailablePetStyle();
         RefreshPetPreview();
+
     }
 
     /// <summary>
@@ -1146,7 +1172,41 @@ public partial class SettingsWindow : Window
             var packagePath = selected.Package?.PackagePath ?? "";
             if (selected.RemoteUpdate is not null && selected.HasRemoteUpdate)
             {
-                packagePath = await _extensionUpdates.DownloadAsync(selected.RemoteUpdate);
+                var updateLanguage = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+selected.Busy = true;
+selected.BusyIndeterminate = true;
+EnsureStallTimer();
+    MarkBusyProgress(selected.Id);
+    selected.BusyTextBrush = TryFindResource("AccentBrush") as System.Windows.Media.Brush;
+    selected.BusyBarBrush = selected.BusyTextBrush;
+    AnnounceDownload(selected.DisplayLabel, AppLocalization.Text(updateLanguage, "下载中", "Downloading"),
+        AppLocalization.Text(updateLanguage, "关掉窗口也没关系，下完再叫你", "Close the window if you like; I'll tell you when it's done"));
+    selected.BusyText = AppLocalization.Text(updateLanguage, "正在准备下载…", "Preparing the download…");
+selected.BusyDetail = "";
+var localDownloadProgress = new Progress<double>(fraction =>
+{
+    selected.BusyText = AppLocalization.Text(updateLanguage, "正在下载更新包…", "Downloading the update package…");
+    MarkBusyProgress(selected.Id);
+     selected.BusyTextBrush = TryFindResource("AccentBrush") as System.Windows.Media.Brush;
+    selected.BusyBarBrush = selected.BusyTextBrush;
+    selected.BusyIndeterminate = false;
+    selected.BusyPercent = Math.Clamp(fraction * 100, 0, 100);
+    selected.BusyDetail = $"{selected.BusyPercent:0}%";
+});
+try
+{
+    packagePath = await _extensionUpdates.DownloadAsync(selected.RemoteUpdate, default, localDownloadProgress);
+    selected.BusyIndeterminate = true;
+    selected.BusyText = AppLocalization.Text(updateLanguage, "正在校验完整性…", "Verifying the package…");
+     EndBusy(selected.Id, failed: false, "", selected);
+    AnnounceDownload(selected.DisplayLabel, AppLocalization.Text(updateLanguage, "安装完成", "Installed"), "");
+}
+ catch (Exception error)
+{
+     EndBusy(selected.Id, failed: true, error.Message, selected);
+    AnnounceDownload(selected.DisplayLabel, AppLocalization.Text(updateLanguage, "下载失败", "Download failed"), error.Message);
+     throw;
+}
                 try { _extensionLibrary.ImportPackage(packagePath); } finally { try { File.Delete(packagePath); } catch (IOException) { } }
                 packagePath = _extensionLibrary.Scan().First(value => string.Equals(value.Id, selected.Id, StringComparison.OrdinalIgnoreCase) && string.Equals(value.Version, selected.RemoteUpdate.Version, StringComparison.OrdinalIgnoreCase)).PackagePath;
             }
@@ -1592,7 +1652,22 @@ public partial class SettingsWindow : Window
             {
                 installed.TryGetValue(record.Id, out var local);
                 var style = styleByPackage.TryGetValue(record.Id, out var found) ? found : null;
-                var view = new PluginCatalogItemView(record, local, english, style) { IsBusy = _pluginCatalogBusyIds.Contains(record.Id) };
+                var busyNow = _pluginCatalogBusyIds.Contains(record.Id);
+        // Also busy when an install started in a window that has since been closed: the work
+        // outlives the window, so the row has to as well, or it offers a second Install.
+        busyNow = busyNow || InstallingPackages.Contains(record.Id);
+                  var view = new PluginCatalogItemView(record, local, english, style)
+                  {
+                      IsBusy = busyNow,
+                      // The row objects are rebuilt whenever the list is refreshed, and a rebuild
+                      // happens right after an install starts. Carrying the state across is what
+                      // keeps the progress block on screen: without it the new row is idle and
+                      // the work in flight becomes invisible again, which is the bug this whole
+                      // change exists to fix.
+                      Busy = busyNow,
+                      BusyText = busyNow ? _pluginCatalogBusyText : "",
+                      BusyIndeterminate = true
+                  };
                 // A picture already on the disk is shown straight away, so a second
                 // visit to this page has nothing turning in it. An appearance that is
                 // installed here answers from its own artwork in the same pass.
@@ -1605,6 +1680,23 @@ public partial class SettingsWindow : Window
         _pluginIconRows.Clear();
         foreach (var view in views) _pluginIconRows[view.Id] = view;
         PluginCatalogListBox.ItemsSource = views;
+      // A row rebuilt mid-download shows the number the download is actually at, rather than a
+      // spinner that says only that something is happening.
+      foreach (var view in views)
+      {
+          // The sentence first, and whether or not any progress has arrived yet: a row rebuilt
+          // in the moment between the click and the first byte is still an install in progress,
+          // and showing a bare empty bar for that moment is what made it look like nothing was
+          // happening.
+          if (view.Busy) view.BusyText = AppLocalization.Text(_settings.Language, "正在下载更新包…", "Downloading the update package…");
+          if (!InstallProgress.TryGetValue(view.Id, out var live)) continue;
+          view.BusyPercent = System.Math.Clamp(live * 100, 0, 100);
+          view.BusyDetail = $"{view.BusyPercent:0}%";
+          view.BusyIndeterminate = false;
+          // The phase line as well: it lived in the window that started the download, so a row
+          // rebuilt here had none -- the number was live while the sentence above it was missing.
+          if (string.IsNullOrEmpty(view.BusyText)) view.BusyText = AppLocalization.Text(_settings.Language, "正在下载更新包…", "Downloading the update package…");
+      }
         QueuePluginIconFetch();
         // Two true numbers that read as a contradiction when a category is selected,
         // so the count says which is which rather than leaving the user to guess.
@@ -1632,15 +1724,159 @@ public partial class SettingsWindow : Window
             };
     }
 
+    /// <summary>Text kept beside the busy ids so a rebuilt row can show what is happening.</summary>
+    private string _pluginCatalogBusyText = "";
+    private bool _installingPackage;
+    /// <summary>Packages being installed right now, shared by every settings window: the work outlives the window that started it.</summary>
+    /// <summary>Raised when an install finishes, wherever it was started: the window that began it may be gone.</summary>
+    internal static event Action? PackageInstallsChanged;
+
+    /// <summary>Raised on every progress report, with the package id and the fraction done.</summary>
+    internal static event Action<string, double>? PackageProgressChanged;
+
+    /// <summary>Live progress of the installs in flight, so a window opened mid-download shows numbers, not a spinner.</summary>
+    private static readonly Dictionary<string, double> InstallProgress = new(StringComparer.Ordinal);
+
+    private static readonly HashSet<string> InstallingPackages = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The row that is on screen for the same entry as <paramref name="fallback"/>.
+    /// </summary>
+    /// <remarks>
+    /// The list is rebuilt while an install is running, so the object the click started on is
+    /// no longer the one being displayed. Progress written to it goes nowhere.
+    /// </remarks>
+    private PluginCatalogItemView Row(PluginCatalogItemView? fallback = null)
+        => fallback is not null && _pluginIconRows.TryGetValue(fallback.Id, out var live) ? live : fallback!;
+
+    /// <summary>When each busy row last received a progress report, for the stall detector.</summary>
+    private readonly Dictionary<string, DateTime> _busyLastProgress = new(StringComparer.Ordinal);
+    private System.Windows.Threading.DispatcherTimer? _busyStallTimer;
+
+    /// <summary>
+    /// Turns a stall into something visible.
+    /// </summary>
+    /// <remarks>
+    /// The progress callback only runs when bytes arrive, so silence is exactly the case it can
+    /// never report: a download that has stopped producing data looks identical to one that is
+    /// working. A timer is the only thing that can tell them apart, and it is what turns the
+    /// phase line amber and says how long the wait has been.
+    /// </remarks>
+    private void EnsureStallTimer()
+    {
+        if (_busyStallTimer is not null) return;
+        _busyStallTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _busyStallTimer.Tick += (_, _) =>
+        {
+            var accent = TryFindResource("AccentBrush") as System.Windows.Media.Brush;
+            var warn = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xB7, 0x79, 0x1F));
+            foreach (var list in new[] { PluginCatalogListBox, ExtensionListBox })
+            {
+                foreach (var entry in list.Items)
+                {
+                    var id = entry switch
+                    {
+                        PluginCatalogItemView v => v.Id,
+                        ExtensionCatalogEntry e => e.Id,
+                        _ => null
+                    };
+                    if (id is null) continue;
+                    var busy = entry switch { PluginCatalogItemView v2 => v2.Busy, ExtensionCatalogEntry e2 => e2.Busy, _ => false };
+                    if (!busy) { _busyLastProgress.Remove(id); continue; }
+                    if (!_busyLastProgress.TryGetValue(id, out var last)) { _busyLastProgress[id] = DateTime.UtcNow; continue; }
+                    var seconds = (int)(DateTime.UtcNow - last).TotalSeconds;
+                    if (seconds < 8) continue;
+                    var text = AppLocalization.Text(_settings.Language, $"已 {seconds} 秒没有新数据，仍在等待…", $"No new data for {seconds} seconds; still waiting…");
+                    switch (entry)
+                    {
+                        case PluginCatalogItemView v3: v3.BusyText = text; v3.BusyTextBrush = warn; v3.BusyBarBrush = warn; break;
+                        case ExtensionCatalogEntry e3: e3.BusyText = text; e3.BusyTextBrush = warn; e3.BusyBarBrush = warn; break;
+                    }
+                }
+            }
+            if (_busyLastProgress.Count == 0) _busyStallTimer?.Stop();
+        };
+        _busyStallTimer.Start();
+    }
+
+    private void MarkBusyProgress(string id) => _busyLastProgress[id] = DateTime.UtcNow;
+
+    private void EndBusy(string id, bool failed, string reason, object row)
+    {
+        InstallingPackages.Remove(id);
+        InstallProgress.Remove(id);
+        PackageInstallsChanged?.Invoke();
+        _busyLastProgress.Remove(id);
+        var accent = TryFindResource("AccentBrush") as System.Windows.Media.Brush;
+        var fail = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xC0, 0x39, 0x2B));
+        var text = failed ? AppLocalization.Text(_settings.Language, $"更新失败：{reason}", $"Update failed: {reason}") : "";
+        switch (row)
+        {
+            case PluginCatalogItemView v:
+                v.Busy = failed;
+                v.BusyTextBrush = failed ? fail : accent;
+                v.BusyBarBrush = failed ? fail : accent;
+                if (failed) { v.BusyText = text; v.BusyIndeterminate = true; }
+                break;
+            case ExtensionCatalogEntry e:
+                e.Busy = failed;
+                e.BusyTextBrush = failed ? fail : accent;
+                e.BusyBarBrush = failed ? fail : accent;
+                if (failed) { e.BusyText = text; e.BusyIndeterminate = true; }
+                break;
+        }
+    }
+    /// <summary>Tells the pet that a download is happening, or how it ended.</summary>
+    /// <remarks>
+    /// One bubble when it starts and one when it finishes, with the state as the prominent line.
+    /// Percentages live in the row inside the panel: a bubble that rewrote itself every few
+    /// seconds was reporting a number nobody asked it for, and the pet is the wrong place to
+    /// watch a progress bar.
+    /// </remarks>
+    private void AnnounceDownload(string name, string state, string detail)
+        => (System.Windows.Application.Current.MainWindow as MainWindow)?.ShowDownloadProgress(name, state, detail);
     private async void OnInstallPluginCatalogItem(object sender, RoutedEventArgs e)
     {
         if (sender is not System.Windows.Controls.Button button || button.DataContext is not PluginCatalogItemView item || !item.CanInstall || !_pluginCatalogBusyIds.Add(item.Id)) return;
         RebuildPluginCatalogItems();
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        // Refused here, not only in the UI: closing and reopening the panel used to lose the
+        // busy state, so the row offered Install again for a package that was still downloading --
+        // and the second download and the first then fought over the same half-written file.
+        if (!InstallingPackages.Add(item.Id))
+        {
+            ExtensionMessageText.Text = AppLocalization.Text(language, "这个扩展正在安装中，请稍候。", "This extension is already being installed; please wait.");
+            return;
+        }
         try
         {
             var record = item.Record;
-            var downloaded = await _extensionUpdates.DownloadAsync(new ExtensionUpdateRelease
+            var liveRow = Row(item);
+      Row(item).BusyIndeterminate = true;
+       AnnounceDownload(item.Record.Name, AppLocalization.Text(language, "下载中", "Downloading"),
+          AppLocalization.Text(language, "关掉窗口也没关系，下完再叫你", "Close the window if you like; I'll tell you when it's done"));
+      _pluginCatalogBusyText = AppLocalization.Text(language, "正在准备下载…", "Preparing the download…");
+      EnsureStallTimer();
+      MarkBusyProgress(item.Id);
+       Row(item).BusyText = _pluginCatalogBusyText;
+      liveRow.BusyDetail = "";
+      var catalogDownloadProgress = new Progress<double>(fraction =>
+      {
+           _pluginCatalogBusyText = AppLocalization.Text(language, "正在下载更新包…", "Downloading the update package…");
+           Row(item).BusyText = _pluginCatalogBusyText;
+          MarkBusyProgress(item.Id);
+          InstallProgress[item.Id] = fraction;
+          PackageProgressChanged?.Invoke(item.Id, fraction);
+          Row(item).BusyTextBrush = TryFindResource("AccentBrush") as System.Windows.Media.Brush;
+          Row(item).BusyBarBrush = Row(item).BusyTextBrush;
+          Row(item).BusyIndeterminate = false;
+          Row(item).BusyPercent = Math.Clamp(fraction * 100, 0, 100);
+          Row(item).BusyDetail = $"{Row(item).BusyPercent:0}%";
+      });
+      string downloaded;
+      try
+      {
+        downloaded = await _extensionUpdates.DownloadAsync(new ExtensionUpdateRelease
             {
                 Id = record.Id,
                 Type = record.Type,
@@ -1648,11 +1884,27 @@ public partial class SettingsWindow : Window
                 PackageName = Path.GetFileName(new Uri(record.DownloadUrl).AbsolutePath),
                 DownloadUrl = record.DownloadUrl,
                 Digest = $"sha256:{record.Sha256}"
-            }, _pluginCatalogCancellation.Token);
+            }, CancellationToken.None, catalogDownloadProgress);
+          // None, rather than the window's token: closing the settings panel used to cancel an
+          // install that was already under way, which is a surprising thing for a button that
+          // said "installing" to do. The download is not the window's work -- the window only
+          // shows it -- and the parts that follow it (verify, install) are not cancellable
+          // either, so a cancel here would leave the package half handled. The UI updates that
+          // follow are written to rows that no longer exist if the window is gone; writing to a
+          // detached view is harmless, and the work finishes.
+      }
+      catch (Exception error)
+      {
+           EndBusy(item.Id, failed: true, error.Message, item);
+          AnnounceDownload(item.Record.Name, AppLocalization.Text(language, "下载失败", "Download failed"), error.Message);
+          throw;
+      }
             try
             {
                 _extensionLibrary.ImportPackage(downloaded);
-                var package = _extensionLibrary.Scan().FirstOrDefault(value => string.Equals(value.Id, record.Id, StringComparison.OrdinalIgnoreCase) && string.Equals(value.Version, record.Version, StringComparison.OrdinalIgnoreCase));
+                Row(item).BusyIndeterminate = true;
+      Row(item).BusyText = AppLocalization.Text(language, "正在校验完整性…", "Verifying the package…");
+      var package = _extensionLibrary.Scan().FirstOrDefault(value => string.Equals(value.Id, record.Id, StringComparison.OrdinalIgnoreCase) && string.Equals(value.Version, record.Version, StringComparison.OrdinalIgnoreCase));
                 if (package is null) throw new InvalidDataException("下载的插件清单与目录版本不一致。");
                 if (record.Type.Equals("feature", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1681,7 +1933,14 @@ public partial class SettingsWindow : Window
             RebuildPluginCatalogItems();
             ExtensionMessageText.Foreground = ThemeBrush("AccentBrush", System.Windows.Media.Brushes.SeaGreen);
             var name = AppLocalization.IsEnglish(language) && !string.IsNullOrWhiteSpace(record.NameEn) ? record.NameEn : record.Name;
-            ExtensionMessageText.Text = AppLocalization.Text(language, $"已从插件库安装：{name} v{record.Version}。", $"Installed from the plugin catalog: {name} v{record.Version}.");
+            // Cleared here rather than left to the next refresh: the line below says the install
+            // finished, and a progress block still claiming to download would contradict it.
+            InstallingPackages.Remove(item.Id);
+          InstallProgress.Remove(item.Id);
+          PackageInstallsChanged?.Invoke();
+          Row(item).Busy = false;
+            AnnounceDownload(item.Record.Name, AppLocalization.Text(language, "安装完成", "Installed"), "");
+      ExtensionMessageText.Text = AppLocalization.Text(language, $"已从插件库安装：{name} v{record.Version}。", $"Installed from the plugin catalog: {name} v{record.Version}.");
         }
         catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or UnauthorizedAccessException or FileNotFoundException or NotSupportedException or JsonException or TaskCanceledException)
         {
@@ -1736,12 +1995,96 @@ public partial class SettingsWindow : Window
         if (!string.IsNullOrWhiteSpace(zip)) ImportAndInstallPackage(zip);
     }
 
-    private void ImportAndInstallPackage(string sourcePath)
+    /// <summary>Re-reads the local library after an install finished, whoever started it.</summary>
+    private void OnPackageProgressChanged(string id, double fraction)
     {
+        if (!IsLoaded) return;
+        foreach (var view in PluginCatalogListBox.Items.OfType<PluginCatalogItemView>())
+        {
+            if (!string.Equals(view.Id, id, StringComparison.Ordinal)) continue;
+            view.BusyPercent = System.Math.Clamp(fraction * 100, 0, 100);
+            view.BusyDetail = ((int)System.Math.Round(view.BusyPercent)).ToString() + (char)37;
+            view.BusyIndeterminate = false;
+          // The phase line as well: it lived in the window that started the download, so a row
+          // rebuilt here had none -- the number was live while the sentence above it was missing.
+          if (string.IsNullOrEmpty(view.BusyText)) view.BusyText = AppLocalization.Text(_settings.Language, "正在下载更新包…", "Downloading the update package…");
+            break;
+        }
+    }
+    private void OnPackageInstallsChanged()
+    {
+        if (!IsLoaded) return;
+        RefreshExtensionList();
+        // Only rebuilt when the catalogue has actually been read. A window opened a moment ago has
+        // no entries yet -- its fetch is still in flight -- and rebuilding then replaced the list
+        // with nothing, which is what "0 个扩展" beside "正在读取在线插件目录…" was: the local
+        // list is the part that an install can change, and the catalogue rebuild waits its turn.
+        // The appearance dropdown is part of this too: a pet package that finished installing has to
+        // appear in it without the panel being reopened.
+        AddInstalledPetStyles();
+        UpdatePetStyleAvailability();
+        if (_pluginCatalogEntries.Count > 0) RebuildPluginCatalogItems();
+    }
+
+        private readonly System.Windows.Threading.DispatcherTimer _statusFadeTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly Dictionary<System.Windows.Controls.TextBlock, (string Text, DateTime Since)> _statusSeen = new();
+
+    /// <summary>
+    /// Clears the result lines a few seconds after they were written.
+    /// </summary>
+    /// <remarks>
+    /// These say what just happened -- installed, scanned, saved -- and a line that says what just
+    /// happened stops being true the moment something else happens, yet they used to stay on screen
+    /// until the next one replaced them. Nothing is hooked up to write them: the timer watches their
+    /// text instead, so a line written by any path at all is cleared without that path knowing.
+    /// </remarks>
+    private void StartStatusFade()
+    {
+        _statusFadeTimer.Tick += (_, _) =>
+        {
+            foreach (var block in new[]
+            {
+                PetStyleMessageText, ExtensionMessageText, ThemeMessageText,
+                PluginCatalogStatusText, ExtensionUpdateStatusText, MessageText
+            })
+            {
+                if (block is null) continue;
+                var text = block.Text ?? "";
+                if (text.Length == 0) { _statusSeen.Remove(block); continue; }
+                if (!_statusSeen.TryGetValue(block, out var seen) || !string.Equals(seen.Text, text, StringComparison.Ordinal))
+                {
+                    _statusSeen[block] = (text, DateTime.UtcNow);
+                    continue;
+                }
+                if ((DateTime.UtcNow - seen.Since).TotalSeconds >= 4) block.Text = "";
+            }
+        };
+        _statusFadeTimer.Start();
+    }
+private async void ImportAndInstallPackage(string sourcePath)
+    {
+        // One at a time. Unpacking no longer blocks the UI, so a second drop used to start while
+        // the first was still copying into the library -- and the two collided on the same target
+        // file, which is what produced a red "being used by another process" followed by a green
+        // "installed" for what the reader could only see as one action.
+        if (_installingPackage) return;
+        _installingPackage = true;
+        var importLanguage = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        ExtensionMessageText.Foreground = ThemeBrush("MutedBrush", System.Windows.Media.Brushes.Gray);
+        ExtensionMessageText.Text = AppLocalization.Text(importLanguage,
+            "正在安装扩展包…大包可能要几秒。", "Installing the package… a large one can take a few seconds.");
+        ExtensionInstallBar.Visibility = System.Windows.Visibility.Visible;
         try
         {
-            var path = _extensionLibrary.ImportPackage(sourcePath);
-            var package = _extensionLibrary.Scan().FirstOrDefault(value => string.Equals(value.PackagePath, path, StringComparison.OrdinalIgnoreCase));
+            // Unpacking and scanning happen off the UI thread. A feature package is tens of
+            // megabytes of archive, and doing that here froze the window until it was done --
+            // which is exactly what "the panel hangs for a moment, then says installed" was.
+            // Everything after these two awaits is the quick part: the install itself copies an
+            // already-unpacked directory into place, and the refreshes below touch the UI and so
+            // have to stay on this thread.
+            var path = await Task.Run(() => _extensionLibrary.ImportPackage(sourcePath));
+            var package = await Task.Run(() => _extensionLibrary.Scan()
+                .FirstOrDefault(value => string.Equals(value.PackagePath, path, StringComparison.OrdinalIgnoreCase)));
             if (package is null) throw new InvalidDataException("无法读取扩展包清单。");
             if (package.Type.Equals("feature", StringComparison.OrdinalIgnoreCase))
             {
@@ -1768,6 +2111,8 @@ public partial class SettingsWindow : Window
         }
         catch (Exception error) when (error is InvalidDataException or IOException or UnauthorizedAccessException or FileNotFoundException or NotSupportedException or JsonException)
         { ShowExtensionError($"安装失败：{error.Message}", $"Installation failed: {error.Message}"); }
+        ExtensionInstallBar.Visibility = System.Windows.Visibility.Collapsed;
+        _installingPackage = false;
     }
 
     private void OnCleanupExtensionResources(object sender, RoutedEventArgs e)
@@ -2119,9 +2464,14 @@ public partial class SettingsWindow : Window
 
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
-        if (_allowCloseWithoutPrompt || !_hasUnsavedChanges) return;
-        e.Cancel = true;
-        ShowUnsavedChangesOverlay();
+        // Closing discards whatever was not applied. The overlay that asked first is gone: it
+        // appeared for changes that had been undone again, and for things that are not settings at
+        // all -- uninstalling an appearance, for one -- so it asked a question whose answer did not
+        // depend on the question. Apply and OK still save, and everything else is discarded.
+        _ = _allowCloseWithoutPrompt;
+        // Read so the flag keeps a reader: it is still maintained by every change handler, and
+        // deleting that bookkeeping is a bigger change than removing the question it was for.
+        _ = _hasUnsavedChanges;
     }
 
     private void ShowUnsavedChangesOverlay()
@@ -2556,6 +2906,10 @@ public partial class SettingsWindow : Window
                 // watermark stays with the settings, so this only replaces where the switch
                 // lives, not what it means.
                 NoticesRecordedSeq = _settings.NoticesRecordedSeq,
+            // Carried across rather than omitted. Leaving it out reset the watermark to its default
+            // on every save, so the next check saw the whole changelog as unannounced and the pet
+            // announced new changelog entries when the only thing that had happened was Apply.
+            NoticesSeenSeq = _settings.NoticesSeenSeq,
                 NoticesNotify = NoticeBubbleBox.IsChecked == true,
                 Scale = ScaleSlider.Value,
                 Volume = VolumeSlider.Value,

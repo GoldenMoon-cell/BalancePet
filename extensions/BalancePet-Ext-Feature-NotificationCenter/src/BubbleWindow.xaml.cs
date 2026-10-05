@@ -40,6 +40,13 @@ public partial class BubbleWindow : Window
     private const double OverlayPadding = 4;
     private readonly DispatcherTimer _triggerTimer = new() { Interval = TimeSpan.FromMilliseconds(16) };
     private readonly List<NotificationBubble> _items = [];
+
+    /// <summary>The live values, and the messages, kept apart: one is what Shift asks for, the
+    /// other is what a permanent ring shows. Both are lists of the same shape, so the drawing
+    /// code does not care which it is given.</summary>
+    private readonly List<NotificationBubble> _ringItems = [];
+    private IReadOnlyList<NotificationBubble> _permanentItems = [];
+    private bool _permanent;
     private readonly List<InfoVisual> _visuals = [];
     private readonly List<Rect> _lastScreenTargets = [];
     private CancellationTokenSource? _animationCancellation;
@@ -138,6 +145,11 @@ public partial class BubbleWindow : Window
         _itemsFingerprint = fingerprint;
         _items.Clear();
         _items.AddRange(next);
+        // In the ordinary mode the ring draws the live values, so a new feed replaces what is on
+        // screen. In the permanent mode it draws the messages instead, and this feed is only the
+        // set Shift switches to -- writing it into the ring would overwrite the messages with the
+        // values a few times a second.
+        if (!_permanent) SetRingSource(_items);
         if (!_requestedVisible) return;
 
         _animationCancellation?.Cancel();
@@ -154,9 +166,86 @@ public partial class BubbleWindow : Window
         var hoveringPet = cursor.X >= physicalPetBounds.Left && cursor.X <= physicalPetBounds.Right
             && cursor.Y >= physicalPetBounds.Top && cursor.Y <= physicalPetBounds.Bottom;
         var shiftHeld = (GetAsyncKeyState(VkShift) & 0x8000) != 0;
-        var shouldShow = hoveringPet && shiftHeld && _items.Count > 0;
+
+        if (_permanent)
+        {
+            // Shift alone decides, with no hover test. The ring is already up, so requiring the
+            // pointer to be over the pet as well meant the two sets swapped whenever the pointer
+            // crossed the pet's edge -- and the pet's own bubble grows that edge, so starting a
+            // task was enough to make the ring flicker between the values and the messages.
+            // Hovering still decides in the ordinary, Shift-to-summon mode below.
+            var live = shiftHeld;
+            SetRingSource(live ? _items : _permanentItems);
+            // Visible for as long as the mode is on, even with nothing to show. Hiding when the
+            // last message aged out cancelled whatever entrance was running and made the next
+            // message start a fresh one -- an empty ring costs nothing, and an empty window draws
+            // nothing, so staying up is both simpler and the end of the restart cycle.
+            SetRequestedVisible(true);
+            if (_ringItems.Count > 0) PositionAroundPet(petBounds, workArea);
+            return;
+        }
+
+        var shouldShow = hoveringPet && shiftHeld && _ringItems.Count > 0;
         SetRequestedVisible(shouldShow);
         if (shouldShow) PositionAroundPet(petBounds, workArea);
+    }
+
+    /// <summary>
+    /// Turns the permanent ring on or off, and hands it the messages to show.
+    /// </summary>
+    /// <remarks>
+    /// Off is the behaviour this window had before: nothing appears until the pointer is over the
+    /// pet with Shift held. The message list is kept even while off, so turning it back on does
+    /// not need the caller to notice and send it again.
+    /// </remarks>
+    public void SetPermanent(bool on, IReadOnlyList<NotificationBubble>? messages = null)
+    {
+        _permanent = on;
+        if (messages is not null) _permanentItems = messages;
+        if (!on) SetRequestedVisible(false);
+    }
+
+    public void SetMessages(IReadOnlyList<NotificationBubble> messages) => _permanentItems = messages;
+
+    /// <summary>What the ring is drawing right now: the live values, or the messages.</summary>
+    private void SetRingSource(IReadOnlyList<NotificationBubble> source)
+    {
+        if (_ringItems.Count == source.Count)
+        {
+            // Compared by what is shown, not by object identity. The caller rebuilds its list on
+            // every refresh, so identity says "changed" twice a second even when the values are
+            // the same -- and each of those redraws the ring and replays its entrance, which is
+            // the flicker someone sees while holding Shift.
+            var same = true;
+            for (var index = 0; index < source.Count; index++)
+            {
+                var current = _ringItems[index];
+                var next = source[index];
+                if (!string.Equals(current.Text, next.Text, StringComparison.Ordinal)
+                    || !string.Equals(current.Detail, next.Detail, StringComparison.Ordinal)
+                    || !string.Equals(current.Kind, next.Kind, StringComparison.Ordinal))
+                {
+                    same = false;
+                    break;
+                }
+            }
+            if (same) return;
+        }
+        var wasEmpty = _ringItems.Count == 0;
+        _ringItems.Clear();
+        _ringItems.AddRange(source);
+        if (!_requestedVisible) return;
+        RenderItems();
+        // The entrance plays when the ring was empty and now has something to show: that is an
+        // arrival. When it already had items, the content is replaced in place -- replaying the
+        // fly-in for every change meant that a ring whose dwell time kept emptying and refilling
+        // it restarted the animation before it could finish, over and over.
+        if (wasEmpty)
+        {
+            QueueAdaptiveContrastAndAnimateIn(_animationCancellation?.Token ?? CancellationToken.None);
+            return;
+        }
+        _ = Dispatcher.BeginInvoke(new Action(UpdateAdaptiveContrast), DispatcherPriority.Render);
     }
 
     private void SetRequestedVisible(bool value)
@@ -189,7 +278,7 @@ public partial class BubbleWindow : Window
         _visuals.Clear();
         _lastScreenTargets.Clear();
         _hasPositionedItems = false;
-        foreach (var item in _items) InfoCanvas.Children.Add(CreateInfoItem(item));
+        foreach (var item in _ringItems) InfoCanvas.Children.Add(CreateInfoItem(item));
         if (TryGetPetBounds(out var petBounds, out _, out var workArea)) PositionAroundPet(petBounds, workArea);
     }
 

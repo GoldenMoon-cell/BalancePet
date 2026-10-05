@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:BalancePet.Wpf.Controls"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="小余额设置" Width="760" Height="720" MinWidth="700" MinHeight="640"
-        WindowStartupLocation="CenterOwner" ResizeMode="CanResize" WindowStyle="None" AllowDrop="True" Drop="OnExtensionDrop" DragOver="OnExtensionDragOver"
+        WindowStartupLocation="CenterScreen" ResizeMode="CanResize" WindowStyle="None" AllowDrop="True" Drop="OnExtensionDrop" DragOver="OnExtensionDragOver"
         Background="Transparent"
         FontFamily="{DynamicResource UiFontFamily}" SnapsToDevicePixels="True" UseLayoutRounding="True"
         Loaded="OnWindowLoaded" SourceInitialized="OnWindowSourceInitialized">
@@ -627,7 +627,12 @@
                             <TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource AccentBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0"/>
                           </StackPanel>
                           <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                            <Button Content="{Binding ActionText}" ToolTip="{Binding InstallTooltip}" Click="OnInstallPluginCatalogItem" IsEnabled="{Binding CanInstall}" Visibility="{Binding ActionVisibility}" Style="{StaticResource CatalogActionButton}"/>
+                            <StackPanel Visibility="{Binding BusyVisibility}" Margin="0,0,0,6">
+                              <TextBlock Text="{Binding BusyText}" FontSize="11" TextWrapping="Wrap" Foreground="{Binding BusyTextBrush}"/>
+                              <ProgressBar Height="6" Margin="0,4,0,0" Minimum="0" Maximum="100" Value="{Binding BusyPercent}" IsIndeterminate="{Binding BusyIndeterminate}" Foreground="{Binding BusyBarBrush}"/>
+                              <TextBlock Text="{Binding BusyDetail}" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
+                            </StackPanel>
+                            <Button Content="{Binding ActionText}" ToolTip="{Binding InstallTooltip}" Click="OnInstallPluginCatalogItem" IsEnabled="{Binding CanActNow}" Visibility="{Binding ActionVisibility}" Style="{StaticResource CatalogActionButton}"/>
                             <Button Content="{Binding RepositoryText}" Click="OnOpenPluginCatalogRepository" ToolTip="{Binding RepositoryText}" Padding="4,3" Margin="0,5,0,0" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource AccentBrush}" FontSize="10"/>
                           </StackPanel>
                         </Grid>
@@ -658,11 +663,16 @@
                       <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
                         <TextBlock Text="{Binding DisplayText}" FontWeight="SemiBold" TextWrapping="Wrap"/>
                         <TextBlock Text="{Binding UpdateStatusText}" Foreground="{DynamicResource MutedBrush}" FontSize="10" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        <StackPanel Visibility="{Binding BusyVisibility}" Margin="0,7,0,0">
+                          <TextBlock Text="{Binding BusyText}" FontSize="11" TextWrapping="Wrap" Foreground="{Binding BusyTextBrush}"/>
+                          <ProgressBar Height="6" Margin="0,4,0,0" Minimum="0" Maximum="100" Value="{Binding BusyPercent}" IsIndeterminate="{Binding BusyIndeterminate}" Foreground="{Binding BusyBarBrush}"/>
+                          <TextBlock Text="{Binding BusyDetail}" FontSize="10" Margin="0,3,0,0" TextWrapping="Wrap" Foreground="{DynamicResource MutedBrush}"/>
+                        </StackPanel>
                       </StackPanel>
                       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Content="{Binding InstallActionText}" ToolTip="{Binding InstallTooltip}" Click="OnInstallOrUninstallExtension" Style="{StaticResource ExtensionActionButton}" IsEnabled="{Binding CanInstallOrUninstall}"/>
                         <Button Content="{Binding ToggleActionText}" ToolTip="{Binding ToggleTooltip}" Click="OnToggleExtension" Style="{StaticResource ExtensionActionButton}" IsEnabled="{Binding IsInstalled}" Visibility="{Binding ToggleVisibility}"/>
-                        <Button Content="{Binding UpdateActionText}" ToolTip="{Binding UpdateTooltip}" Click="OnUpdateExtension" Style="{StaticResource ExtensionActionButton}" IsEnabled="{Binding HasUpdate}"/>
+                        <Button Content="{Binding UpdateActionText}" ToolTip="{Binding UpdateTooltip}" Click="OnUpdateExtension" Style="{StaticResource ExtensionActionButton}" IsEnabled="{Binding CanUpdateNow}"/>
                         <Button Content="{Binding LaunchActionText}" ToolTip="{Binding LaunchTooltip}" Click="OnLaunchExtension" Style="{StaticResource ExtensionActionButton}" IsEnabled="{Binding CanLaunch}" Visibility="{Binding LaunchVisibility}"/>
                       </StackPanel>
                     </Grid>
@@ -679,6 +689,7 @@
               <Button x:Name="ExtensionCheckButton" Content="检查更新" ToolTip="检查扩展更新" Click="OnCheckExtensionUpdates" Padding="10,5"/>
             </WrapPanel>
             <TextBlock x:Name="ExtensionUpdateStatusText" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,7"/>
+            <ProgressBar x:Name="ExtensionInstallBar" Height="6" Margin="0,0,0,6" IsIndeterminate="True" Visibility="Collapsed" />
             <TextBlock x:Name="ExtensionMessageText" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
             <Border Background="{DynamicResource SurfaceBrush}" Padding="10" CornerRadius="4">
               <TextBlock Text="扩展不会写入主程序安装目录。禁用或卸载当前正在使用的资源扩展后，桌宠会回退到内置形象；功能扩展始终在独立进程中运行。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap"/>

@@ -89,7 +89,10 @@ public sealed class ExtensionUpdateService(HttpClient http, string? downloadDire
             if (cache.TryGetValue(Key(entry.Type, entry.Id), out var release)) entry.RemoteUpdate = release;
     }
 
-    public async Task<string> DownloadAsync(ExtensionUpdateRelease release, CancellationToken cancellationToken = default)
+    public async Task<string> DownloadAsync(
+        ExtensionUpdateRelease release,
+        CancellationToken cancellationToken = default,
+        IProgress<double>? progress = null)
     {
         if (!Uri.TryCreate(release.DownloadUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
             throw new InvalidDataException("扩展更新下载地址无效。");
@@ -104,7 +107,7 @@ public sealed class ExtensionUpdateService(HttpClient http, string? downloadDire
         {
             await ResumableDownload.DownloadAsync(
                 http, uri, path, MaxPackageBytes, "application/octet-stream",
-                "BalancePet-Extension-Updater/1.0", cancellationToken);
+                "BalancePet-Extension-Updater/1.0", cancellationToken, progress);
 
             if (new FileInfo(path).Length is <= 0 or > MaxPackageBytes)
                 throw new InvalidDataException("扩展更新包大小异常。");

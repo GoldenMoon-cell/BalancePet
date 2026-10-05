@@ -571,7 +571,7 @@ internal static class Program
                     && !label.Contains("澄芽") && !label.Contains("橙析")),
                 string.Join(" / ", neutralInactive));
             Check("未安装的形象回落到中性文案",
-                PetLineCatalog.Resolve("mistral", "inactive").Select(line => line.Label).SequenceEqual(neutralInactive));
+                PetLineCatalog.Resolve("no-such-appearance", "inactive").Select(line => line.Label).SequenceEqual(neutralInactive));
             Check("随程序提供的形象读到自己的文案",
                 PetLineCatalog.Resolve("chatgpt", "inactive").Select(line => line.Label).FirstOrDefault()?.Contains("霁珑") == true,
                 string.Join(" / ", PetLineCatalog.Resolve("chatgpt", "inactive").Select(line => line.Label)));

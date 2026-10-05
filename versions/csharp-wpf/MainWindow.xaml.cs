@@ -1613,7 +1613,7 @@ public partial class MainWindow : Window
             SelectMonitor(added.Id, announce: true);
             return;
         }
-        ShowBubble("设置已生效", SelectedMonitor?.Profile.Name ?? "当前账户", "更改已保存");
+        // Removed on request: saving an account profile is not news, and this popped on every Apply.
     }
 
     private async Task StopActiveRefreshAsync()
@@ -2210,6 +2210,10 @@ public partial class MainWindow : Window
 
     private void ShowEasterEggBubble(string label, string amount, string hint, TimeSpan? duration = null)
         => ShowBubble(label, amount, hint, duration, allowExternalPresenter: false);
+
+    /// <summary>Shows an extension download on the pet, rather than in the notification centre.</summary>
+    public void ShowDownloadProgress(string label, string amount, string hint)
+        => ShowBubble(label, amount, hint, TimeSpan.FromSeconds(6), allowExternalPresenter: false);
 
     private void ShowRefreshBubble(string label, string amount, string hint, TimeSpan? duration = null)
         => ShowBubble(label, amount, hint, duration, preferNativePresentation: true);

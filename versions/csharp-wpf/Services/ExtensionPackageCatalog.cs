@@ -32,8 +32,51 @@ public sealed class ExtensionPackageDescriptor
     }
 }
 
-public sealed class ExtensionCatalogEntry
+public sealed class ExtensionCatalogEntry : System.ComponentModel.INotifyPropertyChanged
 {
+ public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+ /// <summary>What this row is doing right now, above its buttons. Empty when idle.</summary>
+ private bool _busy;
+ private string _busyText = "";
+ private string _busyDetail = "";
+ private double _busyPercent;
+ private bool _busyIndeterminate;
+ public bool Busy { get => _busy; set => SetEntry(ref _busy, value); }
+ public string BusyText { get => _busyText; set => SetEntry(ref _busyText, value); }
+ public string BusyDetail { get => _busyDetail; set => SetEntry(ref _busyDetail, value); }
+ public double BusyPercent { get => _busyPercent; set => SetEntry(ref _busyPercent, value); }
+ public bool BusyIndeterminate { get => _busyIndeterminate; set => SetEntry(ref _busyIndeterminate, value); }
+ public System.Windows.Visibility BusyVisibility => _busy ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+    /// <summary>
+    /// Whether the update button may be pressed. False while this row is busy, which is what
+    /// stops a second click from starting a second download of the same file: the first one
+    /// still holds it open, and the second fails with "being used by another process" -- a
+    /// message about the first click, shown to someone who thought the first one missed.
+    /// </summary>
+    public bool CanUpdateNow => HasUpdate && !_busy;
+    /// <summary>Colour of the phase line and the bar. Null while idle, and the block is hidden then.</summary>
+    private System.Windows.Media.Brush? _busyTextBrush;
+    private System.Windows.Media.Brush? _busyBarBrush;
+    public System.Windows.Media.Brush? BusyTextBrush { get => _busyTextBrush; set => SetTone(ref _busyTextBrush, value); }
+    public System.Windows.Media.Brush? BusyBarBrush { get => _busyBarBrush; set => SetTone(ref _busyBarBrush, value); }
+    private void SetTone<T>(ref T field, T value, [System.Runtime.CompilerServices.CallerMemberName] string? name = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value)) return;
+        field = value;
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+    }
+ private void SetEntry<T>(ref T field, T value, [System.Runtime.CompilerServices.CallerMemberName] string? name = null)
+ {
+     if (EqualityComparer<T>.Default.Equals(field, value)) return;
+     field = value;
+     PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+         if (name is nameof(Busy))
+    {
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(BusyVisibility)));
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CanUpdateNow)));
+    }
+ }
     private readonly IReadOnlyList<ExtensionPackageDescriptor> _packages;
     private readonly IReadOnlyList<PetExtensionInfo> _pets;
     private readonly IReadOnlyList<FeatureExtensionInfo> _features;

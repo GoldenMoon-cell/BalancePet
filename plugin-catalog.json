@@ -27,13 +27,13 @@
       "description": "桌宠余额、任务状态、账户切换及系统通知的本地消息中心。",
       "description_en": "A local notification center for pet balance, task state, account changes, and system events.",
       "author": "GoldenMoon-cell",
-      "version": "0.6.3",
+      "version": "0.6.4",
       "min_core_version": "1.0.0",
       "update_url": "https://api.github.com/repos/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases/latest",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases/download/v0.6.3/balancepet.ext.feature.notification-center-0.6.3-win-x64.zip",
-      "sha256": "24187f56ca5ce43debe736039ff88f70d325b73816917a281abfcac71b11044b",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases/download/v0.6.4/balancepet.ext.feature.notification-center-0.6.4-win-x64.zip",
+      "sha256": "08e62ef85b8eb74640897caf75828fa5b47f1f3e535133df20bf05933bf9972f",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases/tag/v0.6.3",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases/tag/v0.6.4",
       "categories": ["消息", "效率"]
     },
     {
