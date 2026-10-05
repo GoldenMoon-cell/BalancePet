@@ -37,7 +37,7 @@ Packages are limited to 4 MB, 16 entries, and the `.json`/`.png` file extensions
 ```json
 {
   "schema_version": 1,
-  "preferred_backdrop": "mica",
+  "backdrops": ["mica", "mica-alt", "solid"],
   "corner_radius": 8,
   "light": {
     "window": "#E8EBF1F0",

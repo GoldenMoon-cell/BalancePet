@@ -2,6 +2,14 @@
   "schema_version": 1,
   "notices": [
       {
+        "seq": 14,
+        "date": "2026-10-05",
+        "area": "扩展规范",
+        "title": "主题格式更新",
+        "summary": "主题的 theme.json 用 backdrops 列表取代单个 preferred_backdrop：条目按优先级排列，宿主据此决定材质下拉里出现哪些选项，实色始终可用作无障碍回退。配色与材质现在是配套声明，不再给用户列出该主题做不好的选择。",
+        "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/theme-v1/README.md"
+      },
+      {
         "seq": 13,
         "date": "2026-10-05",
         "area": "在线内容",
