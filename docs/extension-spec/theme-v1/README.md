@@ -72,7 +72,7 @@ Packages are limited to 4 MB, 16 entries, and the `.json`/`.png` file extensions
 }
 ```
 
-Every color must use `#RRGGBB` or `#AARRGGBB`. `corner_radius` is limited to `0-16`. `preferred_backdrop` is one of `mica`, `mica-alt`, `acrylic`, or `solid`.
+Every color must use `#RRGGBB` or `#AARRGGBB`. `corner_radius` is limited to `0-16`. `backdrops` is a non-empty list whose entries are drawn from `mica`, `mica-alt`, `acrylic`, `solid`, in order of preference; `solid` is always available to the user as the accessibility fallback.
 
 The host, not the extension, invokes Windows backdrop APIs. Windows 11 build 22621 or newer can use Mica, Mica Alt, or Acrylic; Windows 10 uses Acrylic for the transparent choices. High contrast, disabled transparency, and unsupported systems fall back to the theme's window color.
 
