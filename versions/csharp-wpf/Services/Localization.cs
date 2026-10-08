@@ -189,6 +189,10 @@ public static class AppLocalization
         ("上一轮查询尚未完成", "The previous query has not finished"), ("当前不需要更新", "No update is needed"), ("正在更新", "Updating"),
         ("下载并校验中", "Downloading and verifying"), ("安装器已启动", "Installer started"), ("更新完成", "Update complete"),
         ("BalancePet 已重新启动", "BalancePet has restarted"), ("已是最新版本", "You are up to date"),
+        // The version row in Advanced & migration. Its own wording rather than the pet's bubble:
+        // that bubble says 已是最新版本 and is drawn by MainWindow, which this panel does not
+        // touch. 检查更新 and 发现新版本 already exist above and are reused here.
+        ("版本", "Version"), ("检查中…", "Checking…"), ("已是最新", "Up to date"), ("检查失败", "Check failed"),
         ("仅控制自动刷新；手动刷新固定至少间隔 5 秒。", "Controls automatic refresh only; manual refresh has a fixed 5-second cooldown."),
         ("请输入自动刷新秒数，最少 30 秒", "Enter automatic refresh seconds (minimum 30)."),
         ("给这个余额账户起一个容易识别的名称", "Give this balance account an easy-to-recognize name"),

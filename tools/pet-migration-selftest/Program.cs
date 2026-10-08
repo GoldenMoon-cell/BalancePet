@@ -521,8 +521,15 @@ internal static class Program
                 unextractable.Length == 0,
                 $"发布构建会丢掉：{string.Join(",", unextractable)}（未列入 PetStyleCatalog.Extractable）");
 
+            // Every entry in the file has to survive parsing. This used to name a number, which says
+            // nothing about the parser and goes stale the moment a plugin is added or retired: it read
+            // four while the file held three and reported that as a failure. What matters is that none
+            // of them is silently dropped on the way in -- the same thing the checks above ask of the
+            // appearance folder, and for the same reason.
+            var declared = System.Text.Json.JsonDocument.Parse(pluginJson)
+                .RootElement.GetProperty("plugins").GetArrayLength();
             var plugins = PluginCatalogService.Parse(pluginJson);
-            Check("插件目录仍解析出 4 条", plugins.Count == 4, $"实际 {plugins.Count}");
+            Check($"目录里的 {declared} 条插件都能解析出来", plugins.Count == declared, $"实际 {plugins.Count}");
 
             // An appearance nobody here has published, shaped exactly like the ones that
             // are: this is the contract a third party reads, so it is worth knowing that

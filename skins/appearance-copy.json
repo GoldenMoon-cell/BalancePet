@@ -3,76 +3,76 @@
   "note": "One line per appearance, published as the catalog entry's description. Keyed by the appearance id a saved setting stores, which is the style in the package manifest. Kept beside the catalog rather than inside the packages: a package is megabytes of artwork, and correcting a sentence should not put every installation through a download. tools/build-skin-catalog.ps1 refuses to build without an entry here, so a new appearance cannot reach the catalog without one.",
   "descriptions": {
     "deepseek": {
-      "zh": "深蓝长发的小鲸鱼，戴着白色水手帽，安静地守在桌面一角。",
-      "en": "A deep-blue whale girl in a white sailor cap, keeping quiet watch from a corner of the desktop."
+      "zh": "吃白饭的最强母语大小姐，女仆装的全能底牌。",
+      "en": "The strongest native-Chinese text heiress, moonlighting in a maid outfit - a quant-blooded bottom card at a bargain price."
     },
     "chatgpt": {
-      "zh": "银白长发的小白龙，头上一对小角，神情干净利落。",
-      "en": "A silver-white dragon girl with a pair of small horns and an unruffled look."
+      "zh": "六万亿的硅谷顶流，优雅白龙千金，烧钱不眨眼。",
+      "en": "A six-trillion-dollar Silicon Valley heiress - an elegant white dragon on the surface, a compute-burning tyrant underneath."
     },
     "minimax": {
-      "zh": "橙发卷毛的小海螺，戴着白色贝雷帽，手里握着一支话筒。",
-      "en": "An orange-haired conch girl in a white beret, microphone in hand."
+      "zh": "古灵精怪的配音系小海螺，不讲逻辑，拉满情绪。",
+      "en": "An impish voice-acting conch - no logic, all feeling."
     },
     "gemini": {
-      "zh": "紫发小星猫，一对猫耳，发间别着一颗星。",
-      "en": "A purple star cat with cat ears and a star pinned in her hair."
+      "zh": "宇宙级御三家，傲娇多模态猫娘，强，但断片也快。",
+      "en": "One of the cosmic big three - a tsundere multimodal catgirl. Genuinely brilliant, genuinely prone to shorting out."
     },
     "grok": {
-      "zh": "金发双马尾的小恶魔，黑角黑翼，笑得张扬。",
-      "en": "A blonde twin-tailed little demon with black horns and wings, grinning wide."
+      "zh": "手握赛博生杀大权的财阀雌小鬼大小姐，阴阳怪气却为你兜底。",
+      "en": "A conglomerate tsundere heiress with cyber power over life and death - all snark, and she still covers for you."
     },
     "claude": {
-      "zh": "橙发小书灵，怀里总抱着一本书。",
-      "en": "An orange-haired book spirit who is always holding a book."
+      "zh": "硅谷名门最不好惹的优雅理智派，手捧法典，不吃压力。",
+      "en": "The most unflappable, elegant rationalist of the Silicon Valley names - codex in hand, and simply not fazed by pressure."
     },
     "kimi": {
-      "zh": "银白卷发的小棱镜，系着蓝色蝴蝶结。",
-      "en": "A silver-curled little prism with a blue ribbon."
+      "zh": "月之暗面首席，百万字长文一眼通读。",
+      "en": "The moonlight heiress of Moonshot - a million words at a glance, the whole web in real time."
     },
     "qwen": {
-      "zh": "青蓝长发的小折扇，手里握着一把折扇。",
-      "en": "A blue-green little folding fan, with a fan in her hand."
+      "zh": "开源界劳模大小姐，全能且卷。",
+      "en": "The open-source workhorse heiress - an all-rounder who out-grinds everyone, with second-hand descendants everywhere."
     },
     "ernie": {
-      "zh": "紫发小病书灵，坐在轮椅上，身边带着书和输液架。",
-      "en": "A purple book spirit who is unwell, in a wheelchair with a book and a drip stand."
+      "zh": "轮椅上的大才女，万卷知识库藏于心。",
+      "en": "Baidu's frail young lady in a wheelchair - a million books in her head, holding on by her search."
     },
     "glm": {
-      "zh": "黑发小方灵，戴着白色蕾丝头饰。",
-      "en": "A black-haired little square spirit in a white lace headdress."
+      "zh": "打响国模硬刚第一枪的老牌大姐头。",
+      "en": "She fired the first shot for Chinese models and carried the banner - the old-guard big sister."
     },
     "gpt-image2": {
-      "zh": "黑发金瞳的小墨龙，头上生着一对黑角。",
-      "en": "An ink dragon with black hair, gold eyes and a pair of dark horns."
+      "zh": "深藏幕后的万亿算力底牌，原生基座执掌者。",
+      "en": "OpenAI's dark second daughter - the trillion-compute card kept backstage, holding the family's core."
     },
     "llama": {
-      "zh": "奶白色的小羊驼，毛茸茸的耳朵，看起来还没睡醒。",
-      "en": "A cream-coloured alpaca with fluffy ears who looks only half awake."
+      "zh": "身着睡衣的轻量无限玩法开发者。",
+      "en": "The lightweight, endlessly hackable developer in pyjamas."
     },
     "mimo": {
-      "zh": "银白长发的小兔码师，戴着兔耳发箍。",
-      "en": "A silver-haired bunny coder wearing a rabbit-ear headband."
+      "zh": "端侧轻量低耗的贴身兔耳少女。",
+      "en": "Xiaomi's soft bunny-eared girl - edge compute, low power, always within reach."
     },
     "opencode": {
-      "zh": "黑长直发的小码灵，头顶一对机械猫耳。",
-      "en": "A long black-haired code sprite with a pair of mechanical cat ears."
+      "zh": "面无表情的本地部署大师，极简三无。",
+      "en": "The cool geek girl with the open-source vault - a deadpan master of local deployment."
     },
     "perplexity": {
-      "zh": "青绿长发的小探灯，戴着耳机，手里提着一盏灯。",
-      "en": "A teal-haired lantern bearer with headphones and a lamp in hand."
+      "zh": "提灯检索的学术行者，张口必带出处。",
+      "en": "The lantern-bearing scholar of search - every claim carries its citation, nothing is ever invented."
     },
     "seedance": {
-      "zh": "淡紫渐变长发的小星晶，发梢卷起一缕青色。",
-      "en": "A star crystal with lavender gradient hair and a curl of cyan at the tips."
+      "zh": "豆包底层的多模态卷王师姐。",
+      "en": "ByteDance's little starlight - the engine under Doubao, a workaholic at multimodal creation."
     },
     "mistral": {
-      "zh": "橙红长卷发的小猫骑士，酒红宽檐帽上别着白羽，手里那把剑的剑身是一根刚出炉的法棍。",
-      "en": "A cat knight with orange curls and a wide wine-red hat, whose sword is a freshly baked baguette."
+      "zh": "一手法棍一手剑的欧洲开源贵族。",
+      "en": "A French unicorn of speed and lightness - baguette in one hand, sword in the other."
     },
     "rwkv": {
-      "zh": "深靛紫长发的夜鸦少女，头顶悬着黑色荆棘光环，肩头站着一只小渡鸦——她的双臂是一对黑紫羽翼。",
-      "en": "A night-raven girl with a thorned halo and violet-feathered wings, a small raven perched on her shoulder."
+      "zh": "开源部署百无禁忌的赛博暗鸦。",
+      "en": "A cyber fallen angel of open source - recurrent, lightweight, and forbidden to no one."
     }
   }
 }

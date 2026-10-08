@@ -806,6 +806,25 @@
         </TabItem.Header>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
           <StackPanel Margin="2">
+            <!-- The program's own version and its update check, reported here rather than in a
+                 bubble: the pet's right-click and tray path is a separate feature and stays as
+                 it is. The version comes from the assembly, so there is nothing to keep in step. -->
+            <TextBlock Text="版本" FontWeight="SemiBold" FontSize="15"/>
+            <Grid Margin="0,8,0,0">
+              <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+              <!-- Trims rather than wraps: the row is shared with the button, and a version that
+                   wrapped would move the button off the baseline it sits on. -->
+              <TextBlock x:Name="AppVersionText" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+              <Button Grid.Column="1" x:Name="PanelUpdateButton" Content="检查更新" Click="OnPanelUpdateClick" Padding="12,6" Margin="12,0,0,0"/>
+            </Grid>
+            <ProgressBar x:Name="PanelUpdateBar" Height="6" Margin="0,8,0,0" IsIndeterminate="True" Visibility="Collapsed"/>
+            <!-- The status line keeps its row while it is empty, so the sections below do not
+                 move down the moment a result appears in it. -->
+            <TextBlock x:Name="PanelUpdateText" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+
+            <!-- The same margin as the separator above 设置迁移, so the two section breaks on
+                 this page keep one rhythm. -->
+            <Separator Margin="0,0,0,14"/>
             <TextBlock Text="应用偏好" FontWeight="SemiBold" FontSize="15"/>
             <TextBlock Text="自动检查更新" Margin="0,12,0,0"/>
             <ComboBox x:Name="UpdateCheckBox" SelectionChanged="OnComboSelectionChanged" DropDownClosed="OnComboDropDownClosed" Margin="0,5,0,14"><ComboBoxItem Tag="startup">每次启动时</ComboBoxItem><ComboBoxItem Tag="daily">每天一次（推荐）</ComboBoxItem><ComboBoxItem Tag="weekly">每周一次</ComboBoxItem><ComboBoxItem Tag="manual">仅手动检查</ComboBoxItem></ComboBox>

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.Win32;
 using System.Windows;
@@ -1272,6 +1273,7 @@ try
             UpdateExtensionButtons();
             RefreshExtensionActionLabels(language);
             RefreshPluginCatalogLabels(language);
+            RefreshVersionPanelLabels(language);
         }
         finally
         {
@@ -1290,6 +1292,10 @@ try
             var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
             AppLocalization.Apply(selectedTab, language);
             SyncAllComboDisplays();
+            // Redrawn after the pass above, which translates by looking a label's text up in the
+            // dictionary: a result naming a release is not in it, and would stay in the language
+            // it was written in.
+            RefreshVersionPanelLabels(language);
         }
         finally { _suppressChangeTracking = false; }
         AnimatePageChange();
@@ -1405,6 +1411,110 @@ try
         ExtensionImportButton.ToolTip = AppLocalization.Text(language, "导入 ZIP 到扩展库", "Import ZIP to extension library");
         ExtensionCleanupButton.ToolTip = AppLocalization.Text(language, "清理旧版扩展资源", "Remove old extension versions");
         ExtensionCheckButton.ToolTip = AppLocalization.Text(language, "检查扩展更新", "Check extension updates");
+    }
+
+    /// <summary>
+    /// What the version row's own update check last reported, and the release it named.
+    /// </summary>
+    /// <remarks>
+    /// Kept as state rather than left in the label, because switching language redraws the row
+    /// from what the check found. The result sentence carries a version number, so it cannot be
+    /// translated by looking the label's text up in the dictionary the way a fixed string can:
+    /// that sentence is not in the dictionary, and a switch to English would leave it in Chinese.
+    /// </remarks>
+    private string _panelUpdateState = "";
+    private string _panelUpdateRelease = "";
+
+    /// <summary>
+    /// The version this window shows, and the version its update check compares against.
+    /// </summary>
+    /// <remarks>
+    /// Read from the assembly rather than written out beside the label: a second copy of a
+    /// version number is a copy that goes stale the moment the build stamps a new one, and the
+    /// check would then compare a release against a version this program does not have.
+    ///
+    /// The informational version is what the build carries. It can hold build metadata after a
+    /// '+', which is not part of the version, so that suffix is dropped. The assembly version is
+    /// the fallback for an assembly that carries no informational one.
+    ///
+    /// Taken from this type's assembly and not from the entry assembly, because this window is
+    /// also rendered by the screenshot tool: there the entry assembly is the tool, and reading
+    /// it would report the tool's version instead of the program's.
+    /// </remarks>
+    private static string CurrentVersionText()
+    {
+        var assembly = typeof(SettingsWindow).Assembly;
+        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(informational)) return informational.Split('+')[0];
+
+        var version = assembly.GetName().Version;
+        if (version is null) return "";
+        return version.Revision > 0
+            ? $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}"
+            : $"{version.Major}.{version.Minor}.{version.Build}";
+    }
+
+    /// <summary>
+    /// Draws the version row: the version, the button's label, and the last result.
+    /// </summary>
+    /// <remarks>
+    /// Reading the state instead of being told what to write is what lets a language change
+    /// redraw a result that is already on screen.
+    /// </remarks>
+    private void RefreshVersionPanelLabels(string language)
+    {
+        if (AppVersionText is null) return;
+        AppVersionText.Text = CurrentVersionText();
+        PanelUpdateButton.Content = AppLocalization.Text(language, "检查更新", "Check for updates");
+        PanelUpdateText.Text = _panelUpdateState switch
+        {
+            "checking" => AppLocalization.Text(language, "检查中…", "Checking…"),
+            "latest" => AppLocalization.Text(language, "已是最新", "Up to date"),
+            "found" => AppLocalization.Text(language, $"发现新版本 {_panelUpdateRelease}", $"New version available: {_panelUpdateRelease}"),
+            "failed" => AppLocalization.Text(language, "检查失败", "Check failed"),
+            _ => ""
+        };
+    }
+
+    /// <summary>
+    /// Checks for a program update from the panel, and answers inside the panel.
+    /// </summary>
+    /// <remarks>
+    /// The service is built and called here rather than borrowed from the pet's own check: that
+    /// path answers with a speech bubble, and this one must not. Nothing about the pet's
+    /// right-click menu, its tray entry or its bubble is touched by this.
+    /// </remarks>
+    private async void OnPanelUpdateClick(object sender, RoutedEventArgs e)
+    {
+        if (PanelUpdateButton is null || !PanelUpdateButton.IsEnabled) return;
+        PanelUpdateButton.IsEnabled = false;
+        PanelUpdateBar.Visibility = Visibility.Visible;
+        _panelUpdateState = "checking";
+        RefreshVersionPanelLabels(LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language));
+        try
+        {
+            var release = await new UpdateService(_extensionUpdateHttpClient).CheckAsync(CurrentVersionText());
+            _panelUpdateRelease = release?.TagName ?? "";
+            _panelUpdateState = release is null ? "latest" : "found";
+        }
+        catch (Exception)
+        {
+            // Every failure reads the same here. A relay briefly unreachable, an allowance spent
+            // by a shared address and a malformed answer are one thing to somebody who asked
+            // whether a newer version exists: the question went unanswered. Caught as Exception
+            // because this is an async void handler, and anything that escapes it ends the
+            // process rather than the check.
+            _panelUpdateRelease = "";
+            _panelUpdateState = "failed";
+        }
+        finally
+        {
+            PanelUpdateBar.Visibility = Visibility.Collapsed;
+            PanelUpdateButton.IsEnabled = true;
+            // Read again rather than reused from before the await: the check takes as long as
+            // the network takes, and the language can change while it runs.
+            RefreshVersionPanelLabels(LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language));
+        }
     }
 
     private readonly HashSet<string> _pluginCatalogBusyIds = new(StringComparer.OrdinalIgnoreCase);
@@ -3254,6 +3364,7 @@ private async void ImportAndInstallPackage(string sourcePath)
         RefreshExtensionList();
         RefreshExtensionActionLabels(language);
         RefreshPluginCatalogLabels(language);
+        RefreshVersionPanelLabels(language);
         RebuildPluginCatalogItems();
         ApplyNavigationState();
     }
