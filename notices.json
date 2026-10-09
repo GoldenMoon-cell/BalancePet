@@ -2,6 +2,14 @@
   "schema_version": 1,
   "notices": [
       {
+        "seq": 16,
+        "date": "2026-10-09",
+        "area": "在线内容",
+        "title": "形象介绍与台词",
+        "summary": "十八套形象的在线介绍全部改写：原来的外貌描写换成身份与性格，例如「银白长发的小白龙，头上一对小角」改为「六万亿的硅谷顶流，优雅白龙千金，烧钱不眨眼」；中英两份都重写，英文按英文习惯另写而不是直译。同时每套形象各新增一条启动气泡台词，接在原有五条之后。介绍随形象目录 catalog.json 发布，台词随 lines.json 发布，都不必重新发布形象包，已安装的用户下次联网刷新即可收到。",
+        "url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/blob/main/catalog.json"
+      },
+      {
         "seq": 15,
         "date": "2026-10-05",
         "area": "扩展规范",
