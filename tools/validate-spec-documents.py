@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # on -- if only one of them still matches its schema, that is worth knowing.
 PAIRS = [
     ("skins/catalog.json", "docs/extension-spec/appearance-v1/catalog.schema.json"),
-    ("skins/lines.json", "docs/extension-spec/appearance-v1/lines.schema.json"),
+    ("skins/lines.json", "docs/extension-spec/appearance-v2/lines.schema.json"),
     ("plugin-catalog.json", "docs/extension-spec/feature-v1/catalog.schema.json"),
     ("notices.json", "docs/extension-spec/notices-v1/notice.schema.json"),
 ]
@@ -161,10 +161,90 @@ def main() -> int:
         else:
             print(f"ok    {document_path}  ({schema_path})")
 
+    # Package-local copies are the offline source of truth. Validate every one,
+    # including the built-in placeholder, against the current additive line schema.
+    schema_path = ROOT / "docs/extension-spec/appearance-v2/lines.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    pet_root = ROOT / "versions/csharp-wpf/assets/pets"
+    for document_file in sorted(pet_root.glob("*/lines.json")):
+        document_path = document_file.relative_to(ROOT).as_posix()
+        document = json.loads(document_file.read_text(encoding="utf-8"))
+        errors: list[str] = []
+        try:
+            check(document, schema["$defs"]["lineSet"], schema, document_path, errors)
+        except ValueError as error:
+            print(f"FAIL  {document_path}: {error}")
+            failures += 1
+            continue
+        if errors:
+            failures += 1
+            print(f"FAIL  {document_path} against docs/extension-spec/appearance-v2/lines.schema.json")
+            for error in errors[:12]:
+                print(f"        {error}")
+            if len(errors) > 12:
+                print(f"        ... and {len(errors) - 12} more")
+        else:
+            print(f"ok    {document_path}  (appearance lines v2)")
+
+    # The catalog and served lines are generated from authored/package sources.
+    # A valid JSON document can still be stale, so check that the generated copy
+    # actually reflects those inputs as well as matching its schema.
+    copy_path = ROOT / "skins/appearance-copy.json"
+    catalog = json.loads((ROOT / "skins/catalog.json").read_text(encoding="utf-8"))
+    authored = json.loads(copy_path.read_text(encoding="utf-8")).get("descriptions", {})
+    catalog_by_style = {
+        entry["id"][4:]: entry for entry in catalog.get("appearances", [])
+        if isinstance(entry.get("id"), str) and entry["id"].startswith("pet.")
+    }
+    copy_issues = []
+    if set(authored) != set(catalog_by_style):
+        copy_issues.append(
+            f"appearance-copy/catalog ids differ: missing catalog={sorted(set(authored) - set(catalog_by_style))}; "
+            f"missing copy={sorted(set(catalog_by_style) - set(authored))}"
+        )
+    for style, copy in authored.items():
+        entry = catalog_by_style.get(style)
+        if entry is None:
+            continue
+        if entry.get("description") != copy.get("zh") or entry.get("description_en") != copy.get("en"):
+            copy_issues.append(f"{style}: catalog description is stale")
+    if copy_issues:
+        failures += 1
+        print("FAIL  skins/catalog.json vs skins/appearance-copy.json")
+        for issue in copy_issues[:12]:
+            print(f"        {issue}")
+    else:
+        print(f"ok    skins/catalog.json descriptions match all {len(authored)} authored bilingual entries")
+
+    published_lines = json.loads((ROOT / "skins/lines.json").read_text(encoding="utf-8")).get("lines", {})
+    source_lines = {}
+    for document_file in sorted(pet_root.glob("*/lines.json")):
+        if document_file.parent.name.startswith("_"):
+            continue
+        line_set = json.loads(document_file.read_text(encoding="utf-8"))
+        line_set.pop("schema_version", None)
+        source_lines[document_file.parent.name] = line_set
+    line_issues = []
+    if set(source_lines) != set(published_lines):
+        line_issues.append(
+            f"package/catalog line ids differ: missing published={sorted(set(source_lines) - set(published_lines))}; "
+            f"missing source={sorted(set(published_lines) - set(source_lines))}"
+        )
+    for style, source in source_lines.items():
+        if published_lines.get(style) != source:
+            line_issues.append(f"{style}: served lines are stale versus package source")
+    if line_issues:
+        failures += 1
+        print("FAIL  skins/lines.json vs package-local lines.json")
+        for issue in line_issues[:12]:
+            print(f"        {issue}")
+    else:
+        print(f"ok    skins/lines.json matches all {len(source_lines)} package-local sources")
+
     if failures:
-        print(f"\n{failures} document(s) do not match their schema.")
+        print(f"\n{failures} document(s) do not match their schema or source.")
         return 1
-    print("\nAll documents match their schemas.")
+    print("\nAll documents match their schemas and generated sources.")
     return 0
 
 

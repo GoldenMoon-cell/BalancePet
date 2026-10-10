@@ -594,7 +594,7 @@ internal static class Program
                 {
                     using var document = JsonDocument.Parse(File.ReadAllText(path));
                     var root = document.RootElement;
-                    if (root.GetProperty("schema_version").GetInt32() != 1) problems.Add($"{style}：schema_version 不是 1");
+                    if (root.GetProperty("schema_version").GetInt32() != PetLineCatalog.CurrentSchemaVersion) problems.Add($"{style}：没有使用当前双语台词 schema");
 
                     var labels = new List<string>();
                     foreach (var key in new[] { "inactive", "bubble", "streak" })
@@ -623,6 +623,36 @@ internal static class Program
             }
             Check($"有美术的形象都带自己的文案（{withArt.Length} 套 × 4 类）", problems.Count == 0, string.Join("；", problems));
 
+            var englishProblems = new List<string>();
+            foreach (var styleId in publishable)
+            {
+                var style = styleId["pet.".Length..];
+                var path = Path.Combine(appRoot, "assets", "pets", style, "lines.json");
+                if (!File.Exists(path)) { englishProblems.Add($"{style}：没有 lines.json"); continue; }
+                try
+                {
+                    using var document = JsonDocument.Parse(File.ReadAllText(path));
+                    foreach (var category in new[] { "inactive", "bubble", "streak" })
+                    {
+                        if (!document.RootElement.TryGetProperty(category, out var entries)) continue;
+                        CheckEnglishEntries(entries, $"{style}.{category}", englishProblems);
+                    }
+                    if (document.RootElement.TryGetProperty("touch", out var touch))
+                        foreach (var zone in touch.EnumerateObject())
+                            CheckEnglishEntries(zone.Value, $"{style}.touch.{zone.Name}", englishProblems);
+                }
+                catch (JsonException error) { englishProblems.Add($"{style}：JSON 解析失败 {error.Message}"); }
+            }
+            Check($"全部 {publishable.Length} 套形象的彩蛋都有完整英文版本", englishProblems.Count == 0, string.Join("；", englishProblems.Take(8)));
+
+            var englishPlaceholder = PetLineCatalog.Resolve("_placeholder", "bubble")
+                .Select(line => line.ForLanguage("en-US")).ToArray();
+            Check("英文界面采用双语台词的英文版本",
+                englishPlaceholder.Length > 0 && englishPlaceholder.All(line => !ContainsCjk(line.Label) && !ContainsCjk(line.Amount) && !ContainsCjk(line.Hint)),
+                string.Join(" / ", englishPlaceholder.Select(line => $"{line.Label} | {line.Amount} | {line.Hint}")));
+            Check("中文界面仍使用原始中文台词",
+                PetLineCatalog.Resolve("_placeholder", "bubble").FirstOrDefault()?.Label.Contains("占位") == true);
+
             Check("澄芽说的是自己的话", ReadLabels(appRoot, "seedance").Any(label => label.Contains("澄芽")));
             Check("橙析说的是自己的话", ReadLabels(appRoot, "mimo").Any(label => label.Contains("橙析")));
             // The placeholder is what a fresh offline install shows, so it says what it is
@@ -633,6 +663,7 @@ internal static class Program
             // authored against a future schema still has to draw.
             Check("未知 schema 回落到中性文案", PetLineCatalog.IsReadable("""{"schema_version":99,"inactive":[]}""") == false);
             Check("空文件回落到中性文案", PetLineCatalog.IsReadable("") == false);
+            Check("旧版单语 lines schema 仍可读", PetLineCatalog.IsReadable("""{"schema_version":1,"inactive":[]}""") == true);
             Check("正常文件可读", PetLineCatalog.IsReadable(File.ReadAllText(Path.Combine(appRoot, "assets", "pets", "chatgpt", "lines.json"))));
 
             // --- 12. The served lines layer ------------------------------------
@@ -645,7 +676,7 @@ internal static class Program
             // generated from these very package files, so it cannot tell "the served lines
             // were used" apart from "the package's were" -- a label that appears nowhere else
             // can. This runs last because publishing replaces what every later lookup sees.
-            const string marker = """{"schema_version":1,"lines":{"chatgpt":{"bubble":[{"label":"在线文案生效","amount":"ok","hint":"h"}]}}}""";
+            const string marker = """{"schema_version":1,"lines":{"chatgpt":{"bubble":[{"label":"在线文案生效","amount":"ok","hint":"h"}]},"_placeholder":{"bubble":[{"label":"旧版占位在线","amount":"ok","hint":"h"}]}}}""";
             Check("在线文案优先于包内文案",
                 PetLineCatalog.PublishRemote(marker)
                 && PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label).SingleOrDefault() == "在线文案生效",
@@ -657,6 +688,9 @@ internal static class Program
                 && PetLineCatalog.PublishRemote("{ not json") == false
                 && PetLineCatalog.PublishRemote("") == false
                 && PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label).SingleOrDefault() == "在线文案生效");
+            var legacyFallback = PetLineCatalog.Resolve("_placeholder", "bubble").FirstOrDefault()?.ForLanguage("en-US").Label;
+            Check("旧版在线文案缺少英文时回退到包内文案",
+                legacyFallback == "Oh, friend—there you are", legacyFallback ?? "<none>");
 
             var servedJson = File.ReadAllText(Path.Combine(repoRoot, "skins", "lines.json"));
             using (var servedDocument = JsonDocument.Parse(servedJson))
@@ -676,6 +710,12 @@ internal static class Program
             Check("在线文案生效后形象仍说自己的话",
                 PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label).Any(label => label.Contains("霁珑")),
                 string.Join(" / ", PetLineCatalog.Resolve("chatgpt", "bubble").Select(line => line.Label)));
+            Check("在线目录的英文版本可被采用",
+                PetLineCatalog.Resolve("chatgpt", "bubble").Any(line =>
+                    !string.IsNullOrWhiteSpace(line.EnglishLabel)
+                    && line.ForLanguage("en-US").Label == line.EnglishLabel
+                    && line.ForLanguage("en-US").Amount == line.EnglishAmount
+                    && line.ForLanguage("en-US").Hint == line.EnglishHint));
 
             // --- 13. Changelog notices -----------------------------------------
             // A notice is about something that changed outside a release. The watermark is
@@ -1159,6 +1199,30 @@ internal static class Program
         Console.WriteLine(_failures == 0 ? "\nALL CHECKS PASSED" : $"\n{_failures} CHECK(S) FAILED");
         return _failures == 0 ? 0 : 1;
     }
+
+    private static void CheckEnglishEntries(JsonElement entries, string path, List<string> problems)
+    {
+        var index = 0;
+        foreach (var entry in entries.EnumerateArray())
+        {
+            if (!entry.TryGetProperty("en", out var english) || english.ValueKind != JsonValueKind.Object)
+            {
+                problems.Add($"{path}[{index}]：缺少 en");
+                index++;
+                continue;
+            }
+            foreach (var field in new[] { "label", "amount", "hint" })
+            {
+                if (!english.TryGetProperty(field, out var value) || value.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(value.GetString()))
+                    problems.Add($"{path}[{index}]：英文 {field} 为空");
+                else if (ContainsCjk(value.GetString()!))
+                    problems.Add($"{path}[{index}]：英文 {field} 含有中文");
+            }
+            index++;
+        }
+    }
+
+    private static bool ContainsCjk(string value) => value.Any(character => character is >= '\u3400' and <= '\u9fff');
 
     private static void Check(string what, bool ok, string detail = "")
     {
