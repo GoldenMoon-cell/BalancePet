@@ -41,3 +41,23 @@ extensions/**/release-notes-*.md
 # Resize backups kept locally; never publish these to GitHub
 /versions/csharp-wpf/assets/pets/_backup-*/
 /tools/check-pet-image.py
+
+# The 1.6.3 reference binary and the BAML/IL dump used to compare against it:
+# material to inspect, not material to ship.
+_ref163/
+
+# The GPU material probes: experiments kept for reference, not shipped.
+/tools/dxgi-probe/
+/tools/dxgi-wpf-probe/
+/tools/winui-glass-probe/
+/tools/glass-probe/
+/tools/glass-capture-probe/
+
+# The local agent toolchain's lock file, not a product file. Listed here rather than
+# named in a commit command so it cannot be swept in by a careless `git add -A`.
+/skills-lock.json
+
+# The Android client is a separate application with its own build and its own release
+# cadence. Ignored rather than merely left unadded, so it reaches its own branch as a
+# first commit of its own instead of as a stray directory inside a desktop release.
+/android/
