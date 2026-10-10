@@ -9,7 +9,8 @@
         FontFamily="{DynamicResource UiFontFamily}" SnapsToDevicePixels="True" UseLayoutRounding="True"
         Loaded="OnWindowLoaded" SourceInitialized="OnWindowSourceInitialized">
   <shell:WindowChrome.WindowChrome>
-    <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
+    <!-- Preserve the complete DWM frame from the recovered 1.6.3 BAML; zero disables client-area glass extension. -->
+    <shell:WindowChrome CaptionHeight="48" ResizeBorderThickness="6" GlassFrameThickness="-1" CornerRadius="0" UseAeroCaptionButtons="False"/>
   </shell:WindowChrome.WindowChrome>
   <Window.Resources>
     <ResourceDictionary>
@@ -745,11 +746,20 @@
                   <ComboBoxItem Tag="dark">深色</ComboBoxItem>
                 </ComboBox>
               </StackPanel>
-              <StackPanel Grid.Column="1" Margin="8,0,0,0">
+              <!-- The whole panel goes, label included, when the selected theme offers a single
+                   material: one entry is not a choice, and a label over a one-item list reads
+                   as a decision the user still has to make. 实色 is not in the list at all:
+                   it was handed to every theme whichever materials that theme declared, and
+                   "no material" is not one of them: the window falls back to the theme's
+                   solid colour on its own when the system cannot compose a material
+                   (WindowThemeService.ApplyBackdrop). What remains is the theme's own
+                   materials, in the order its theme.json declares them. -->
+              <StackPanel x:Name="ThemeBackdropPanel" Grid.Column="1" Margin="8,0,0,0">
                 <TextBlock Text="窗口材质" FontWeight="SemiBold"/>
                 <ComboBox x:Name="ThemeBackdropBox" SelectionChanged="OnThemeOptionChanged" DropDownClosed="OnComboDropDownClosed" Margin="0,6,0,0">
                   <ComboBoxItem Tag="mica" ToolTip="跟随桌面壁纸取色，窗口会随壁纸变化。">云母</ComboBoxItem>
-                  <ComboBoxItem Tag="solid" ToolTip="不使用任何系统材质，窗口完全不透明。">实色</ComboBoxItem>
+                  <ComboBoxItem Tag="mica-alt" ToolTip="云母的另一种变体：层次更明显，适合带标题栏的窗口。">云母 Alt</ComboBoxItem>
+                  <ComboBoxItem Tag="acrylic" ToolTip="系统自带的亚克力材质：磨砂、半透明。">亚克力</ComboBoxItem>
                 </ComboBox>
               </StackPanel>
             </Grid>
