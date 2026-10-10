@@ -1,38 +1,54 @@
 {
   "schema_version": 1,
   "notices": [
-      {
-        "seq": 18,
-        "date": "2026-10-10",
-        "area": "扩展规范",
-        "title": "实色不再是材质",
-        "summary": "主题规范里写着 solid 始终作为无障碍回退对用户可用，而实现里它早已不是材质下拉里的选项：窗口无法合成材质时（高对比度、关闭透明效果、系统不支持）自动落到实色。规范措辞与实现对齐：solid 是宿主自动施加的回退，不是用户可选的材质。",
-        "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/theme-v1/README.md"
-      },
-      {
-        "seq": 15,
-        "date": "2026-10-05",
-        "area": "扩展规范",
-        "title": "主题目录独立",
-        "summary": "主题搬进自己的仓库 BalancePet-Themes，一个仓库放多个主题，catalog.json 是它们的目录。主程序新增第三个目录源读取它，插件目录里原来的主题条目已移除，避免同一主题出现两次。以后新增主题只需在该仓库加一个目录并发布，不再需要新仓库与新的目录条目。",
-        "url": "https://github.com/GoldenMoon-cell/BalancePet-Themes"
-      },
-      {
-        "seq": 14,
-        "date": "2026-10-05",
-        "area": "扩展规范",
-        "title": "主题格式更新",
-        "summary": "主题的 theme.json 用 backdrops 列表取代单个 preferred_backdrop：条目按优先级排列，宿主据此决定材质下拉里出现哪些选项，实色始终可用作无障碍回退。配色与材质现在是配套声明，不再给用户列出该主题做不好的选择。",
-        "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/theme-v1/README.md"
-      },
-      {
-        "seq": 13,
-        "date": "2026-10-05",
-        "area": "在线内容",
-        "title": "插件目录更新",
-        "summary": "在线插件目录里消息中心的版本停在 0.6.3，而仓库已发布 0.6.4：目录的版本号、下载地址与哈希已同步，升级说明里的版本引用也一并更正。目录只描述发布了什么，不重复发布说明。",
-        "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/plugin-catalog.json"
-      },
+    {
+      "seq": 18,
+      "date": "2026-10-10",
+      "area": "扩展规范",
+      "title": "实色不再是材质",
+      "summary": "主题规范里写着 solid 始终作为无障碍回退对用户可用，而实现里它早已不是材质下拉里的选项：窗口无法合成材质时（高对比度、关闭透明效果、系统不支持）自动落到实色。规范措辞与实现对齐：solid 是宿主自动施加的回退，不是用户可选的材质。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/theme-v1/README.md"
+    },
+    {
+      "seq": 17,
+      "date": "2026-10-09",
+      "area": "在线内容",
+      "title": "英文台词重写",
+      "summary": "十八套形象的英文台词全部重写。原来的英文是十八套共用的一套模板，只把名字换掉：每套的待机台词都是「X is still on watch · Still here」，点击台词都是「Oh, there you are · Aha!」。现在每套按自己的性格说话，并带上各自的声音与符号：DeepSeek 冒气泡说 blub，Llama 打着哈欠说 yawn~，MiniMax 唱 la la~，Gemini 会 beep 和 bzzt，Perplexity 每句都带引用角标，opencode 只用小写命令行语气。中文一个字没有改。台词随 lines.json 发布，已安装的用户下次联网刷新即可收到。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/blob/main/lines.json"
+    },
+    {
+      "seq": 16,
+      "date": "2026-10-09",
+      "area": "在线内容",
+      "title": "形象介绍与台词",
+      "summary": "十八套形象的在线介绍全部改写：原来的外貌描写换成身份与性格，例如「银白长发的小白龙，头上一对小角」改为「六万亿的硅谷顶流，优雅白龙千金，烧钱不眨眼」；中英两份都重写，英文按英文习惯另写而不是直译。同时每套形象各新增一条启动气泡台词，接在原有五条之后。介绍随形象目录 catalog.json 发布，台词随 lines.json 发布，都不必重新发布形象包，已安装的用户下次联网刷新即可收到。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/blob/main/catalog.json"
+    },
+    {
+      "seq": 15,
+      "date": "2026-10-05",
+      "area": "扩展规范",
+      "title": "主题目录独立",
+      "summary": "主题搬进自己的仓库 BalancePet-Themes，一个仓库放多个主题，catalog.json 是它们的目录。主程序新增第三个目录源读取它，插件目录里原来的主题条目已移除，避免同一主题出现两次。以后新增主题只需在该仓库加一个目录并发布，不再需要新仓库与新的目录条目。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet-Themes"
+    },
+    {
+      "seq": 14,
+      "date": "2026-10-05",
+      "area": "扩展规范",
+      "title": "主题格式更新",
+      "summary": "主题的 theme.json 用 backdrops 列表取代单个 preferred_backdrop：条目按优先级排列，宿主据此决定材质下拉里出现哪些选项，实色始终可用作无障碍回退。配色与材质现在是配套声明，不再给用户列出该主题做不好的选择。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/theme-v1/README.md"
+    },
+    {
+      "seq": 13,
+      "date": "2026-10-05",
+      "area": "在线内容",
+      "title": "插件目录更新",
+      "summary": "在线插件目录里消息中心的版本停在 0.6.3，而仓库已发布 0.6.4：目录的版本号、下载地址与哈希已同步，升级说明里的版本引用也一并更正。目录只描述发布了什么，不重复发布说明。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/plugin-catalog.json"
+    },
     {
       "seq": 12,
       "date": "2026-10-04",
@@ -40,7 +56,8 @@
       "title": "分区上限与开关",
       "summary": "消息中心读取事件流时对所有类别共用一个「最新 500 条」上限，而事件流里互动 1187 条、任务 688 条，两者就把上限占满，其余类别一条也进不来：账户与系统两个分区内容为空，余额与刷新各只剩 1 条，更新记录 8 条只显示 3 条。现改为按类别各设上限。另新增「卡片插入动画」开关，关闭后记录卡片直接出现，不再从左逐条滑入。",
       "url": "https://github.com/GoldenMoon-cell/BalancePet-Ext-Feature-NotificationCenter/releases/tag/v0.6.3"
-    },    {
+    },
+    {
       "seq": 11,
       "date": "2026-10-04",
       "area": "在线内容",
@@ -63,21 +80,24 @@
       "title": "说明文档改版",
       "summary": "主程序与五个扩展仓库的说明文档统一改版：首页保持中文，英文版另存为 README.en.md 并由首页一行链接跳转，不再占首页；各节加标题图案；原本挤成一整段的长条目按句拆分。顺手修正若干过期内容，包括形象仓库的形象表由十六套补为十八套、商店预览图的说明由「从立绘裁脸」改为「手绘方形头像」，以及用量统计文档中中英文互相矛盾、且都与清单不符的版本号。各仓库另加一份索引式变更记录，只列版本与日期。",
       "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/README.md"
-    },    {
+    },
+    {
       "seq": 8,
       "date": "2026-10-04",
       "area": "在线内容",
       "title": "形象图标与缓存",
       "summary": "每个 AI 形象新增一张方形头像图（圆角方底、手绘大头），扩展列表与商店列表统一使用它，不再从立绘里裁剪。图标下载一次即缓存于本机，按条目 ID 与版本为键，重发形象时自动更新；主程序「高级与迁移」页新增图标缓存占用显示与清除按钮。未带新头像的旧形象包行为不变，仍回退使用立绘。",
       "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/skins/previews"
-    },    {
+    },
+    {
       "seq": 7,
       "date": "2026-10-04",
       "area": "规范",
       "title": "消息中心跟随主题",
       "summary": "功能扩展的状态快照新增可选的 appearance 字段：主程序把自己窗口正在用的明暗模式、界面字体与八个颜色报出来，扩展据此让自己的窗口与主程序一致，不必去找主题包、也不必猜哪套主题是激活的。缺哪个颜色就沿用扩展自己的颜色，整个字段缺失则一切照旧。",
       "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/feature-v1/notification-state.schema.json"
-    },    {
+    },
+    {
       "seq": 6,
       "date": "2026-10-03",
       "area": "在线内容",
