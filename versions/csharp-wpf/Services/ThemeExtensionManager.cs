@@ -41,11 +41,43 @@ public sealed class ThemePalette
 
 public sealed class ThemeDocument
 {
+    private static readonly string[] DefaultBackdrops = ["mica", "solid"];
+    private static readonly HashSet<string> ValidBackdrops = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "mica", "mica-alt", "acrylic", "solid"
+    };
+
     [JsonPropertyName("schema_version")] public int SchemaVersion { get; set; }
-    [JsonPropertyName("preferred_backdrop")] public string PreferredBackdrop { get; set; } = "mica";
+    [JsonPropertyName("backdrops")] public List<string> Backdrops { get; set; } = [];
+    // Read the pre-list spelling so themes made before the v1 document update still open.
+    [JsonPropertyName("preferred_backdrop")] public string? LegacyPreferredBackdrop { get; set; }
     [JsonPropertyName("corner_radius")] public double CornerRadius { get; set; } = 8;
     [JsonPropertyName("light")] public ThemePalette Light { get; set; } = new();
     [JsonPropertyName("dark")] public ThemePalette Dark { get; set; } = new();
+
+    [JsonIgnore]
+    public IReadOnlyList<string> SupportedBackdrops
+    {
+        get
+        {
+            var declared = Backdrops is { Count: > 0 }
+                ? (IEnumerable<string>)Backdrops
+                : new[] { LegacyPreferredBackdrop ?? "mica" };
+            return declared
+                .Where(backdrop => ValidBackdrops.Contains(backdrop))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+    }
+
+    [JsonIgnore]
+    public string PreferredBackdrop => SupportedBackdrops.FirstOrDefault() ?? DefaultBackdrops[0];
+
+    public bool SupportsBackdrop(string backdrop)
+        => SupportedBackdrops.Contains(backdrop, StringComparer.OrdinalIgnoreCase);
+
+    public static bool IsValidBackdrop(string? backdrop)
+        => !string.IsNullOrWhiteSpace(backdrop) && ValidBackdrops.Contains(backdrop);
 }
 
 public sealed class ThemeExtensionInfo
@@ -259,7 +291,14 @@ public sealed class ThemeExtensionManager
     private static bool IsValidTheme(ThemeDocument theme, out string error)
     {
         if (theme.SchemaVersion != 1) { error = "主题令牌 schema_version 必须为 1。"; return false; }
-        if (theme.PreferredBackdrop is not ("mica" or "mica-alt" or "acrylic" or "solid")) { error = "preferred_backdrop 只能是 mica、mica-alt、acrylic 或 solid。"; return false; }
+        var declaredBackdrops = theme.Backdrops is { Count: > 0 }
+            ? (IEnumerable<string>)theme.Backdrops
+            : new[] { theme.LegacyPreferredBackdrop ?? "mica" };
+        if (!declaredBackdrops.Any() || declaredBackdrops.Any(backdrop => !ThemeDocument.IsValidBackdrop(backdrop)))
+        {
+            error = "backdrops 必须是非空列表，且只能包含 mica、mica-alt、acrylic 或 solid。";
+            return false;
+        }
         if (theme.CornerRadius is < 0 or > 16) { error = "corner_radius 必须在 0 到 16 之间。"; return false; }
         if (!IsValidPalette(theme.Light) || !IsValidPalette(theme.Dark)) { error = "主题颜色必须使用 #RRGGBB 或 #AARRGGBB 格式。"; return false; }
         error = "";

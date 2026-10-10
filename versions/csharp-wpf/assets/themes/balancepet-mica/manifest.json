@@ -3,7 +3,7 @@
   "type": "theme",
   "name": "BalancePet 云母",
   "name_en": "BalancePet Mica",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "api_version": 1,
   "min_core_version": "1.0.0",
   "theme_file": "theme.json",

@@ -347,8 +347,9 @@ public partial class SettingsWindow : Window
             box.SelectedItem = item;
             return;
         }
-        if (box.Items.Count > 0)
-            box.SelectedIndex = 0;
+        var firstEnabled = box.Items.OfType<ComboBoxItem>().FirstOrDefault(item => item.IsEnabled && item.Visibility == Visibility.Visible);
+        if (firstEnabled is not null)
+            box.SelectedItem = firstEnabled;
     }
 
     private static string SelectedTag(System.Windows.Controls.ComboBox box, string fallback)
@@ -420,6 +421,7 @@ public partial class SettingsWindow : Window
             _selectedThemeId = SelectedTag(ThemeBox, requested ?? ThemeExtensionManager.BundledThemeId);
         }
         finally { _suppressThemeChange = false; }
+        ApplyThemeBackdropChoices(SelectedTheme());
         UpdateThemeSummary();
     }
 
@@ -427,6 +429,54 @@ public partial class SettingsWindow : Window
     {
         var id = _selectedThemeId;
         return _themes.GetLatestEnabled(id) ?? _themes.GetLatestEnabled(ThemeExtensionManager.BundledThemeId) ?? _themes.GetLatestEnabled().FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Offers the theme's own materials, and nothing when it has only one.
+    /// </summary>
+    /// <remarks>
+    /// The list is the theme document's, not the program's. 实色 used to be appended to
+    /// every theme whichever materials that theme declared, which made a theme's
+    /// <c>backdrops</c> list advisory rather than binding, and made 实色 look like a
+    /// material. It is not one: the window is painted with the theme's solid colour
+    /// whenever the system cannot compose a material — high contrast, transparency
+    /// switched off, no DWM backdrop (WindowThemeService.ApplyBackdrop) — so the entry
+    /// claimed a choice the user never had.
+    ///
+    /// A theme that declares 实色 is declaring what it falls back to, not asking for a
+    /// menu entry; it is filtered out of the list along with the other materials the
+    /// theme does not declare. A theme left with a single material gets no dropdown and
+    /// no label: one entry is not a choice, and hiding only the control would leave a
+    /// label pointing at nothing.
+    /// </remarks>
+    private void ApplyThemeBackdropChoices(ThemeExtensionInfo? theme)
+    {
+        if (ThemeBackdropBox is null) return;
+
+        var supported = theme?.Theme.SupportedBackdrops
+            ?? new[] { "mica" };
+        var allowed = new HashSet<string>(supported, StringComparer.OrdinalIgnoreCase);
+        var offered = 0;
+        foreach (var item in ThemeBackdropBox.Items.OfType<ComboBoxItem>())
+        {
+            var tag = item.Tag?.ToString() ?? "";
+            var visible = allowed.Contains(tag);
+            item.IsEnabled = visible;
+            item.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            if (visible) offered++;
+        }
+
+        // Nothing to choose from leaves the box holding an item that belongs to the theme
+        // before this one, and its tag would then be read back as the current material.
+        if (offered == 0) ThemeBackdropBox.SelectedItem = null;
+
+        var current = _selectedThemeBackdrop;
+        if (!allowed.Contains(current)) current = theme?.Theme.PreferredBackdrop ?? "mica";
+        SelectByTag(ThemeBackdropBox, current);
+        _selectedThemeBackdrop = SelectedTag(ThemeBackdropBox, current);
+        if (ThemeBackdropPanel is not null)
+            ThemeBackdropPanel.Visibility = offered > 1 ? Visibility.Visible : Visibility.Collapsed;
+        SyncComboDisplay(ThemeBackdropBox);
     }
 
     /// <summary>One entry in the interface-font list.</summary>
@@ -773,11 +823,7 @@ public partial class SettingsWindow : Window
         if (!string.IsNullOrWhiteSpace(selectedItem?.Tag?.ToString())) _selectedThemeId = selectedItem.Tag.ToString()!;
         SyncComboDisplay(ThemeBox, selectedItem?.Content?.ToString());
         var theme = SelectedTheme();
-        if (theme is not null && ThemeBackdropBox is not null)
-        {
-            SelectByTag(ThemeBackdropBox, theme.Theme.PreferredBackdrop);
-            SyncComboDisplay(ThemeBackdropBox);
-        }
+        ApplyThemeBackdropChoices(theme);
         ApplySelectedTheme();
         MarkSettingsDirty();
     }
@@ -2620,7 +2666,13 @@ private async void ImportAndInstallPackage(string sourcePath)
         }
         else
         {
-            profile.PresetId = BalancePresetCatalog.Custom;
+            // Keep the preset's identity instead of flattening it to "custom".
+            // A fixed-endpoint preset (DeepSeek) takes this branch, so the old
+            // constant write turned it into a custom endpoint the next time the
+            // account was read back: the dropdown showed "Custom endpoint" and
+            // the preset name was gone. The fields below still come from the
+            // form, which is what this branch means to save.
+            profile.PresetId = BalancePresetCatalog.NormalizeId(presetId);
             profile.Endpoint = EndpointBox.Text.Trim();
             profile.AuthMode = SelectedTag(AuthModeBox, "bearer");
             profile.HeaderName = HeaderBox.Text.Trim();
