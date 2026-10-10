@@ -34,6 +34,19 @@ public partial class MainWindow : Window
     // reconnects. Keep the short-lived marker only for that transport race.
     private static readonly TimeSpan TaskStopReorderWindow = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan RetiredTaskWindow = TimeSpan.FromMinutes(2);
+    // The pet says one line of its own a few seconds after a launch, and deliberately not
+    // on the first frame: the window is still being laid out, its settings are still being
+    // loaded and its first balance refresh is starting, so a bubble opened into that
+    // competes with the launch itself rather than greeting the user after it.
+    private static readonly TimeSpan StartupLineDelay = TimeSpan.FromSeconds(4);
+    // A launch can also be announcing a balance, a failed refresh or a changelog entry, and
+    // the window has exactly one bubble. The line waits for that bubble to be taken down
+    // instead of replacing a message that has not been read yet.
+    private static readonly TimeSpan StartupLineRetry = TimeSpan.FromSeconds(1);
+    // How long that waiting lasts, counted from the launch. Past it the launch is not a
+    // quiet one -- an update download holds the bubble for as long as it runs -- and the
+    // line is dropped for this launch rather than interrupting whatever owns the bubble.
+    private static readonly TimeSpan StartupLineWaitLimit = TimeSpan.FromSeconds(20);
 
     private readonly SettingsStore _settingsStore = new();
     private readonly DpapiTokenStore _tokenStore = new();
@@ -62,6 +75,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _stateTimer;
     private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _inactiveTimer;
+    private readonly DispatcherTimer _startupLineTimer;
     private readonly DispatcherTimer _bubbleAnimationTimer;
     private readonly DispatcherTimer _bubbleContentTimer;
     private readonly DispatcherTimer _amountAnimationTimer;
@@ -134,6 +148,13 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, DateTimeOffset> _recordedTaskStops = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _retiredTaskKeys = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Queue<string>> _easterEggHistory = new(StringComparer.Ordinal);
+    /// <summary>
+    /// Whether the launch greeting has already been decided for this process, so a later
+    /// settings reload -- which re-runs the rest of the launch path -- cannot produce a
+    /// second one.
+    /// </summary>
+    private bool _startupLineSettled;
+    private DateTimeOffset _startupLineScheduledAt;
     private string _lastCompletedTaskSource = "AI 任务";
     private EventWaitHandle? _usageRefreshRequest;
     private CancellationTokenSource? _usageRefreshRequestCancellation;
@@ -287,6 +308,8 @@ public partial class MainWindow : Window
         _frameTimer.Tick += (_, _) => AdvancePetFrame();
         _inactiveTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(15) };
         _inactiveTimer.Tick += (_, _) => OnInactiveTimerElapsed();
+        _startupLineTimer = new DispatcherTimer { Interval = StartupLineDelay };
+        _startupLineTimer.Tick += (_, _) => OnStartupLineTimerElapsed();
         _bubbleAnimationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _bubbleAnimationTimer.Tick += (_, _) => AnimateBubble();
         _bubbleContentTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
@@ -325,6 +348,7 @@ public partial class MainWindow : Window
                 await NotificationPresentationBridge.WaitForExternalPresenterAsync(TimeSpan.FromMilliseconds(800));
             }
             LoadSettingsAndPosition(allowImmediateRefresh: true);
+            ScheduleStartupLine();
             _usageCostSyncTimer.Start();
             if (ShowPostUpdateConfirmation()) return;
             await RefreshAsync(false);
@@ -1060,6 +1084,77 @@ public partial class MainWindow : Window
         var lines = ToEasterEggLines(PetLineCatalog.Resolve(style, "inactive"));
         var line = PickEasterEggLine($"inactive|{style}", lines);
         ShowEasterEggBubble(line.Label, line.Amount, line.Hint, TimeSpan.FromSeconds(4.2));
+    }
+
+    /// <summary>
+    /// Arms the one line the pet says for itself when a session starts.
+    /// </summary>
+    /// <remarks>
+    /// The idle easter egg speaks for a pet that has been left alone and the click speaks
+    /// for one that has been touched; neither of them says anything about the pet having
+    /// just arrived, so the line an appearance opens with was never reached at all.
+    ///
+    /// Called once, from the first <c>Loaded</c>, and only after the window has been shown:
+    /// the pet is the entire window, so a greeting raised while it is still hidden would
+    /// be a line spent on nothing.
+    /// </remarks>
+    private void ScheduleStartupLine()
+    {
+        if (_startupLineSettled || _startupLineTimer.IsEnabled) return;
+        _startupLineScheduledAt = DateTimeOffset.UtcNow;
+        _startupLineTimer.Interval = StartupLineDelay;
+        _startupLineTimer.Start();
+    }
+
+    /// <summary>
+    /// Says one of the appearance's <c>bubble</c> lines, once per launch.
+    /// </summary>
+    /// <remarks>
+    /// The text, the language and the switches are the ones the other easter eggs already
+    /// use, and the only thing this path adds is patience. The launch's own messages -- a
+    /// balance, a failed refresh, a changelog entry, an update -- are announcements, and
+    /// one bubble cannot carry two messages, so this waits for the bubble to be free rather
+    /// than cutting in front of something the user has not read. Waiting is bounded: a
+    /// download can hold the bubble for minutes, and a greeting that arrives in the middle
+    /// of one is worse than a greeting that is skipped until the next launch.
+    /// </remarks>
+    private void OnStartupLineTimerElapsed()
+    {
+        _startupLineTimer.Stop();
+        if (_startupLineSettled) return;
+        // Either switch being off means the user has said they do not want unasked-for
+        // speech, which is what this line is. Nothing is retried after that: turning a
+        // switch back on mid-session must not resurrect a greeting for a launch that has
+        // already happened.
+        if (!_settings.Bubble || !_settings.RandomEasterEggs || _closing || !IsVisible)
+        {
+            _startupLineSettled = true;
+            return;
+        }
+        if (BubbleGroup.Visibility == Visibility.Visible)
+        {
+            if (DateTimeOffset.UtcNow - _startupLineScheduledAt < StartupLineWaitLimit)
+            {
+                _startupLineTimer.Interval = StartupLineRetry;
+                _startupLineTimer.Start();
+            }
+            else
+            {
+                _startupLineSettled = true;
+            }
+            return;
+        }
+
+        _startupLineSettled = true;
+        var style = NormalizePetStyle(_settings.PetStyle);
+        var lines = ToEasterEggLines(PetLineCatalog.Resolve(style, "bubble"));
+        // The same context key as the click line, because it draws from the same set of
+        // lines: sharing the history is what keeps the greeting and the first click from
+        // being the same sentence twice in a row.
+        var line = PickEasterEggLine($"bubble|{style}", lines);
+        // No explicit duration: the default already lengthens the bubble for a long hint,
+        // and one of these opening lines carries a much longer one than the rest.
+        ShowEasterEggBubble(line.Label, line.Amount, line.Hint);
     }
 
     private void EnsurePetTransforms()
@@ -2415,8 +2510,9 @@ public partial class MainWindow : Window
     /// <summary>
     /// Adapts the appearance's own lines to the shape the bubble picker works in.
     /// </summary>
-    private static EasterEggLine[] ToEasterEggLines(IReadOnlyList<PetLine> lines)
-        => lines.Select(line => new EasterEggLine(line.Label, line.Amount, line.Hint)).ToArray();
+    private EasterEggLine[] ToEasterEggLines(IReadOnlyList<PetLine> lines)
+        => lines.Select(line => line.ForLanguage(_settings.Language))
+            .Select(line => new EasterEggLine(line.Label, line.Amount, line.Hint)).ToArray();
 
     private EasterEggLine PickEasterEggLine(string context, IReadOnlyList<EasterEggLine> candidates)
     {

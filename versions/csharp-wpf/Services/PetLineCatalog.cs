@@ -5,7 +5,26 @@ using System.Text.Json.Serialization;
 namespace BalancePet.Wpf.Services;
 
 /// <summary>One thing an appearance says when it is idle, clicked, or touched.</summary>
-public sealed record PetLine(string Label, string Amount, string Hint);
+public sealed record PetLine(
+    string Label,
+    string Amount,
+    string Hint,
+    string? EnglishLabel = null,
+    string? EnglishAmount = null,
+    string? EnglishHint = null)
+{
+    /// <summary>Returns the authored English variant when requested, otherwise the original line.</summary>
+    public PetLine ForLanguage(string? language)
+    {
+        if (!AppLocalization.IsEnglish(language)) return this;
+        return this with
+        {
+            Label = string.IsNullOrWhiteSpace(EnglishLabel) ? Label : EnglishLabel,
+            Amount = string.IsNullOrWhiteSpace(EnglishAmount) ? Amount : EnglishAmount,
+            Hint = string.IsNullOrWhiteSpace(EnglishHint) ? Hint : EnglishHint
+        };
+    }
+}
 
 /// <summary>
 /// The lines an appearance speaks, read from <c>lines.json</c> beside its artwork.
@@ -27,7 +46,9 @@ public sealed record PetLine(string Label, string Amount, string Hint);
 public static class PetLineCatalog
 {
     public const string FileName = "lines.json";
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
+
+    private static bool IsSupportedSchemaVersion(int version) => version is 1 or CurrentSchemaVersion;
 
     /// <summary>Anything longer than this is not a lines file, whatever it claims.</summary>
     private const long MaxBytes = 128 * 1024;
@@ -125,10 +146,21 @@ public static class PetLineCatalog
 
     private static IReadOnlyList<PetLine> FromFile(string? style, string category, string? kind)
     {
-        var file = Load(style);
-        if (file is null) return Array.Empty<PetLine>();
+        var remote = LoadRemote(style);
+        var package = LoadPackage(style);
+        var source = remote ?? package;
+        var entries = SelectEntries(source, category, kind);
+        // A previously cached v1 online document has no English copy. Keep its updated
+        // Chinese lines, but borrow the matching package translation until the online
+        // catalog is refreshed; line order is stable within a published appearance.
+        var packageEntries = remote is null ? null : SelectEntries(package, category, kind);
+        return ToLines(entries, packageEntries);
+    }
 
-        var entries = category.ToLowerInvariant() switch
+    private static List<LineFile.Entry>? SelectEntries(LineFile? file, string category, string? kind)
+    {
+        if (file is null) return null;
+        return category.ToLowerInvariant() switch
         {
             "inactive" => file.Inactive,
             "bubble" => file.Bubble,
@@ -138,36 +170,42 @@ public static class PetLineCatalog
             "touch" => kind is not null && (file.Touch?.TryGetValue(kind, out var zoned) ?? false) ? zoned : null,
             _ => null
         };
-        return ToLines(entries);
     }
 
-    private static IReadOnlyList<PetLine> ToLines(List<LineFile.Entry>? entries)
+    private static IReadOnlyList<PetLine> ToLines(List<LineFile.Entry>? entries, List<LineFile.Entry>? packageFallback = null)
     {
         if (entries is null || entries.Count == 0) return Array.Empty<PetLine>();
         var lines = new List<PetLine>(Math.Min(entries.Count, MaxLinesPerCategory));
-        foreach (var entry in entries)
+        for (var index = 0; index < entries.Count && lines.Count < MaxLinesPerCategory; index++)
         {
-            if (lines.Count >= MaxLinesPerCategory) break;
+            var entry = entries[index];
             // A line with nothing in it would render as an empty bubble, so a partially
             // filled entry is dropped rather than shown.
             if (string.IsNullOrWhiteSpace(entry.Label) && string.IsNullOrWhiteSpace(entry.Amount)) continue;
-            lines.Add(new PetLine(entry.Label ?? "", entry.Amount ?? "", entry.Hint ?? ""));
+            var fallbackEnglish = packageFallback is not null && index < packageFallback.Count
+                ? packageFallback[index].English
+                : null;
+            lines.Add(new PetLine(
+                entry.Label ?? "", entry.Amount ?? "", entry.Hint ?? "",
+                EnglishOrFallback(entry.English?.Label, fallbackEnglish?.Label),
+                EnglishOrFallback(entry.English?.Amount, fallbackEnglish?.Amount),
+                EnglishOrFallback(entry.English?.Hint, fallbackEnglish?.Hint)));
         }
         return lines;
     }
 
-    private static LineFile? Load(string? style)
+    private static string? EnglishOrFallback(string? english, string? packageEnglish)
+        => string.IsNullOrWhiteSpace(english) ? packageEnglish : english;
+
+    private static LineFile? LoadRemote(string? style)
     {
         var id = PetStyleCatalog.NormalizeId(style);
+        lock (Gate) return _remote is not null && _remote.TryGetValue(id, out var served) ? served : null;
+    }
 
-        // The served document is checked first, because a line corrected there is meant to
-        // reach an installation that already has the package and will never download it
-        // again. The package's own file is the fallback, not the other way round.
-        lock (Gate)
-        {
-            if (_remote is not null && _remote.TryGetValue(id, out var served)) return served;
-        }
-
+    private static LineFile? LoadPackage(string? style)
+    {
+        var id = PetStyleCatalog.NormalizeId(style);
         string directory;
         try { directory = PetStyleCatalog.ResolveAssetDirectory(id); }
         catch (Exception error) when (error is IOException or ArgumentException or InvalidOperationException) { return null; }
@@ -205,7 +243,7 @@ public static class PetLineCatalog
         try
         {
             var document = JsonSerializer.Deserialize<ServedFile>(json, Options);
-            if (document is null || document.SchemaVersion != CurrentSchemaVersion) return null;
+            if (document is null || !IsSupportedSchemaVersion(document.SchemaVersion)) return null;
             if (document.Lines is null) return null;
 
             var map = new Dictionary<string, LineFile>(StringComparer.OrdinalIgnoreCase);
@@ -248,7 +286,7 @@ public static class PetLineCatalog
         try
         {
             var document = JsonSerializer.Deserialize<LineFile>(json, Options);
-            return document is not null && document.SchemaVersion == CurrentSchemaVersion ? document : null;
+            return document is not null && IsSupportedSchemaVersion(document.SchemaVersion) ? document : null;
         }
         catch (JsonException) { return null; }
     }
@@ -272,6 +310,14 @@ public static class PetLineCatalog
         [JsonPropertyName("touch")] public Dictionary<string, List<Entry>>? Touch { get; set; }
 
         internal sealed class Entry
+        {
+            [JsonPropertyName("label")] public string? Label { get; set; }
+            [JsonPropertyName("amount")] public string? Amount { get; set; }
+            [JsonPropertyName("hint")] public string? Hint { get; set; }
+            [JsonPropertyName("en")] public EnglishEntry? English { get; set; }
+        }
+
+        internal sealed class EnglishEntry
         {
             [JsonPropertyName("label")] public string? Label { get; set; }
             [JsonPropertyName("amount")] public string? Amount { get; set; }
