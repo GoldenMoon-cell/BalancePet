@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BalancePet appearance lines v2",
+  "description": "Appearance lines with optional authored English variants. v1 documents remain supported.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lines"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 2
+    },
+    "lines": {
+      "type": "object",
+      "maxProperties": 100,
+      "propertyNames": {
+        "pattern": "^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/lineSet"
+      }
+    }
+  },
+  "$defs": {
+    "lineSet": {
+      "description": "One appearance's lines. Every category is independent and optional; a category that is absent falls back to the neutral set.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "description": "Present only when an entry was copied verbatim from a package file. Ignored: the document's own value is the one that counts.",
+          "const": 2
+        },
+        "inactive": {
+          "$ref": "#/$defs/entries"
+        },
+        "bubble": {
+          "$ref": "#/$defs/entries"
+        },
+        "streak": {
+          "$ref": "#/$defs/entries"
+        },
+        "touch": {
+          "description": "Keyed by the part that was touched. One part's lines are never reused for another part.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "hair": {
+              "$ref": "#/$defs/entries"
+            },
+            "mouth": {
+              "$ref": "#/$defs/entries"
+            },
+            "body": {
+              "$ref": "#/$defs/entries"
+            }
+          }
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "amount": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "hint": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "en": {
+            "description": "Optional character-voiced English copy for an English-language UI. It is an adaptation, not a word-for-word translation.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "label",
+              "amount",
+              "hint"
+            ],
+            "properties": {
+              "label": {
+                "type": "string",
+                "maxLength": 40
+              },
+              "amount": {
+                "type": "string",
+                "maxLength": 40
+              },
+              "hint": {
+                "type": "string",
+                "maxLength": 120
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

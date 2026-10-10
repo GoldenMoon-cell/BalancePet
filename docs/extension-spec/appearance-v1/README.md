@@ -1,15 +1,16 @@
-# Appearance repository documents v1
+# Appearance repository documents: catalog v1, lines v2
 
 Two documents are published from the appearance repository, and the application reads
-them from a URL rather than from disk. This specification describes both. It is separate
-from [Resource Extension Specification v1](../v1/README.md) because a package and a
-repository index are different things: the package is what a user installs, and these
-are how the application finds out what exists.
+them from a URL rather than from disk. The catalog remains at schema v1; the line document
+uses the independently versioned bilingual schema v2. This is separate from
+[Resource Extension Specification v1](../v1/README.md) because a package and a repository
+index are different things: the package is what a user installs, and these are how the
+application finds out what exists.
 
 | Document | Read when |
 | --- | --- |
-| [`catalog.json`](#catalogjson) | The online library is opened. Lists installable appearances. |
-| [`lines.json`](#linesjson) | Once per launch. Supplies what each appearance says. |
+| [`catalog.json`](#catalogjson) · schema v1 | The online library is opened. Lists installable appearances. |
+| [`lines.json`](#linesjson) · schema v2 | Once per launch. Supplies what each appearance says, with optional English variants. |
 
 Both are fetched over the network and are therefore treated as untrusted: a wrong
 document has to be recognisable as wrong rather than silently believed.
@@ -102,14 +103,14 @@ One line saying what the appearance is, shown under its name. It is the only pla
 reader is told anything about the character before downloading it, which is why the
 generator refuses to build a catalog without one.
 
-## `lines.json`
+## `lines.json` · schema v2
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "lines": {
     "deepseek": {
-      "inactive": [ { "label": "澜汐在等你", "amount": "慢慢来", "hint": "需要时点我一下就好" } ],
+      "inactive": [ { "label": "澜汐在等你", "amount": "慢慢来", "hint": "需要时点我一下就好", "en": { "label": "Lanxi is still here", "amount": "Take your time", "hint": "Pfft—your maid heiress is keeping watch." } } ],
       "bubble":   [ { "label": "澜汐在看着", "amount": "放心吧", "hint": "余额变动会告诉你" } ],
       "streak":   [ { "label": "被发现了", "amount": "眨眨眼", "hint": "连续互动彩蛋" } ],
       "touch": {
@@ -124,18 +125,16 @@ generator refuses to build a catalog without one.
 
 Rules:
 
-- Each value under `lines` has the shape defined by
-  [Resource Extension Specification v1 → Optional lines](../v1/README.md#optional-lines),
-  including its neutral fallback, its per-category independence, its 24-line ceiling and
-  its rule that an unknown `schema_version` means the file is not read.
+- Each value under `lines` follows [appearance lines v2](../appearance-v2/README.md),
+  including its neutral fallback, per-category independence, 24-line ceiling and optional
+  authored English copy. Schema v1 documents remain supported without translation fields.
 - The key is the appearance id — the same value a package declares as `style`, not the
   package `id`. A key that does not match an installed appearance is ignored.
 - The document describes only the appearances its publisher ships. That is what keeps it
   from being a way for one publisher to speak for another's character.
 - A document declaring an unknown `schema_version` replaces nothing, rather than
-  replacing the lines with an empty set. The copies inside installed packages then stay
-  in force, so the outcome is words that are merely older rather than an appearance that
-  has lost its voice.
+  replacing the lines with an empty set. Both v1 and v2 are understood; the v2 reader uses
+  English copy when present and falls back to the package's authored copy otherwise.
 - This layer is optional and a host may have none. It exists because a package is almost
   entirely artwork, so correcting one word by republishing the package costs a download
   of megabytes to deliver a few hundred bytes.
@@ -153,7 +152,7 @@ never reached the network reads.
 
 Neither document is authored by hand. `tools/build-skin-catalog.ps1` derives the catalog
 from the built packages, so an entry cannot disagree with the artifact it points at, and
-`tools/build-appearance-lines.ps1` collects the lines from the per-appearance files.
+`tools/build-appearance-lines.ps1` collects the schema-v2 bilingual lines from the per-appearance files.
 
 Two parts of an entry are authored rather than derived, and both live in this repository
 rather than inside the packages, because a package is megabytes of artwork and correcting

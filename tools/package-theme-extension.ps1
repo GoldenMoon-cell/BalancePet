@@ -20,7 +20,9 @@ if ($manifest.type -ne 'theme') { throw 'manifest.json type must be theme.' }
 if ($manifest.api_version -ne 1) { throw 'manifest.json api_version must be 1.' }
 if ($manifest.theme_file -ne 'theme.json') { throw 'manifest.json theme_file must be theme.json.' }
 if ($theme.schema_version -ne 1) { throw 'theme.json schema_version must be 1.' }
-if ($theme.preferred_backdrop -notin @('mica', 'mica-alt', 'acrylic', 'solid')) { throw 'theme.json preferred_backdrop is invalid.' }
+$backdrops = @($theme.backdrops)
+if ($backdrops.Count -eq 0 -and $theme.preferred_backdrop) { $backdrops = @($theme.preferred_backdrop) }
+if ($backdrops.Count -eq 0 -or ($backdrops | Where-Object { $_ -notin @('mica', 'mica-alt', 'acrylic', 'solid') }).Count -gt 0) { throw 'theme.json backdrops must be a non-empty list of mica, mica-alt, acrylic, or solid.' }
 
 $files = Get-ChildItem -LiteralPath $source -File -Recurse
 if ($files.Count -gt 16) { throw 'Theme extensions may contain at most 16 files.' }

@@ -72,8 +72,9 @@ Rules:
   Nothing fails and the pet keeps drawing.
 - Each line is three short strings. `label` is the headline and `amount` the one under
   it, so both stay short — a few characters each. `hint` is the smaller line beneath
-  them, and is where an explanation belongs. Lines are shown as written; v1 defines no
-  translation of them, so a package serving several languages has to pick one.
+  them, and is where an explanation belongs. Schema version 1 has no translation fields
+  and is shown as written. Schema version 2 adds an optional authored `en` object to each
+  line; see the [appearance-lines v2 format](../appearance-v2/README.md).
 - A line with neither `label` nor `amount` is dropped rather than shown as an empty
   bubble.
 - `touch` is keyed by the part that was touched: `hair`, `mouth`, and `body` for
@@ -81,9 +82,9 @@ Rules:
   copy on an arm reads as a mistake.
 - At most 24 lines are read per category. Beyond that the file is not being used as
   intended, and the extra entries are ignored rather than shown.
-- `schema_version` must be `1`. A file declaring another version is not read at all:
-  guessing at an unknown shape would put the wrong words in a character's mouth, while
-  the neutral lines are merely generic.
+- `schema_version` must be `1` for this format. The host also supports the additive
+  schema version `2` with optional English variants; unknown versions are ignored rather
+  than guessed at. See the [v2 format](../appearance-v2/README.md).
 
 ### Lines served from a repository
 
@@ -93,8 +94,8 @@ supports it prefers the served copy when it can reach it.
 
 The reason is cost. A package is mostly artwork, so correcting one word by republishing
 the appearance pushes every installation through a download of megabytes to deliver a
-few hundred bytes — measured on the set published by this project, 147 MB of transfer
-for 36 KB of text. Served separately, a line change is one small commit and reaches
+few hundred bytes — the original single-language rollout measured 147 MB of package
+transfer for 36 KB of copy. Served separately, a line change is one small commit and reaches
 installations on their next refresh, with no release and no download.
 
 The served document collects every appearance at once, keyed by the same id a saved

@@ -2,6 +2,14 @@
   "schema_version": 1,
   "notices": [
       {
+        "seq": 18,
+        "date": "2026-10-10",
+        "area": "扩展规范",
+        "title": "实色不再是材质",
+        "summary": "主题规范里写着 solid 始终作为无障碍回退对用户可用，而实现里它早已不是材质下拉里的选项：窗口无法合成材质时（高对比度、关闭透明效果、系统不支持）自动落到实色。规范措辞与实现对齐：solid 是宿主自动施加的回退，不是用户可选的材质。",
+        "url": "https://github.com/GoldenMoon-cell/BalancePet/blob/main/docs/extension-spec/theme-v1/README.md"
+      },
+      {
         "seq": 15,
         "date": "2026-10-05",
         "area": "扩展规范",
