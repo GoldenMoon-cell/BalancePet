@@ -4,8 +4,9 @@
 folder holds the material that gets published to the separate appearance
 repository, so that publishing is a copy rather than a second authoring step.
 
-The documents published from here are specified in
-[`docs/extension-spec/appearance-v1/README.md`](../docs/extension-spec/appearance-v1/README.md).
+The appearance catalog and package remain on the v1 contract. The served bilingual line
+document uses the independent v2 line schema, documented in
+[`docs/extension-spec/appearance-v2/README.md`](../docs/extension-spec/appearance-v2/README.md).
 `tools/validate-spec-documents.py` checks the generated files against those schemas, and
 is worth running for the same reason the schemas exist: a generator that has drifted from
 the format it claims to produce looks exactly like one that has not.
@@ -16,7 +17,7 @@ the format it claims to produce looks exactly like one that has not.
 | --- | --- |
 | `README.md` | The appearance repository's front page. Written to be read there, so its links point at the main repository rather than at files beside it. |
 | `catalog.json` | Generated. The index the online extension library reads, so an appearance can be installed from Settings instead of downloaded by hand. |
-| `lines.json` | Generated. Every appearance's lines in one document, so what a character says can be corrected without republishing its artwork. The application prefers it when it can reach the network and falls back to the copy inside the package when it cannot. |
+| `lines.json` | Generated with line schema v2. Every appearance's Chinese lines and optional authored English variants share one document, so copy can be corrected without republishing artwork. The application prefers it online and falls back to the package copy offline. |
 | `appearance-copy.json` | Authored. One line about each appearance, published as its catalog entry's `description`. |
 | `previews/<style>.png` | Generated. The picture the store draws for an appearance nobody has installed yet. |
 

@@ -1,71 +1,131 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "lines": {
     "chatgpt": {
       "inactive": [
         {
           "label": "霁珑在等你",
           "amount": "慢慢来",
-          "hint": "需要时再喊我就好"
+          "hint": "需要时再喊我就好",
+          "en": {
+            "label": "Jilong is at your service ✧",
+            "amount": "No hurry ♡",
+            "hint": "Ring for me whenever you like — I am never far. ✧"
+          }
         },
         {
           "label": "龙鳞亮了一片",
           "amount": "我还醒着",
-          "hint": "回来后我会继续守着余额"
+          "hint": "回来后我会继续守着余额",
+          "en": {
+            "label": "One scale lights up ✧",
+            "amount": "Wide awake~",
+            "hint": "Do come back; I shall keep counting your balance, as always. ♡"
+          }
         },
         {
           "label": "安静值班中",
           "amount": "嘘",
-          "hint": "今天也要记得给自己留一点电量"
+          "hint": "今天也要记得给自己留一点电量",
+          "en": {
+            "label": "Quietly on duty…",
+            "amount": "Shh~ ♡",
+            "hint": "Do remember to keep a little charge for yourself today, hm? ♪"
+          }
         }
       ],
       "bubble": [
         {
           "label": "霁珑在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Jilong is watching over it ♡",
+            "amount": "Handled ♡",
+            "hint": "Any change in your balance, and I shall tell you at once. ♪"
+          }
         },
         {
           "label": "龙角有点痒",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "My horn is ticklish…",
+            "amount": "Gently, hm~",
+            "hint": "One tap on me refreshes the balance — mind the horn, please. ♡"
+          }
         },
         {
           "label": "尾巴晃了一下",
           "amount": "抓到啦",
-          "hint": "今天也要记得看一眼消耗"
+          "hint": "今天也要记得看一眼消耗",
+          "en": {
+            "label": "My tail gave a little swish ♪",
+            "amount": "Found you! ♪",
+            "hint": "Do glance at today's spending when you have a moment, hm? ♪"
+          }
         },
         {
           "label": "龙鳞闪了一片",
           "amount": "在呢",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "A scale catches the light ✧",
+            "amount": "Right here~",
+            "hint": "This refresh's cost will be shown the moment it finishes. ♪"
+          }
         },
         {
           "label": "被你找到啦",
           "amount": "嗯哼",
-          "hint": "再点一下也不会立刻变强哦"
+          "hint": "再点一下也不会立刻变强哦",
+          "en": {
+            "label": "Oh! You found me ♡",
+            "amount": "Mm~ ♡",
+            "hint": "Tapping again will not make me stronger, I am afraid. ♪"
+          }
         },
         {
           "label": "霁珑开口了",
           "amount": "可以，先看看",
-          "hint": "想解决问题？可以，先看看你的账单够不够填满我的龙尾巴。"
+          "hint": "想解决问题？可以，先看看你的账单够不够填满我的龙尾巴。",
+          "en": {
+            "label": "Jilong speaks ♪",
+            "amount": "Let me see~",
+            "hint": "Bring me your bill, then — can it fill a dragon's tail? ♡"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "霁珑笑了一下",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Oh my, you noticed me ♡",
+            "amount": "Smiled ♡",
+            "hint": "A little secret for those who keep tapping. ♪"
+          }
         },
         {
           "label": "龙角亮起来了",
           "amount": "四连击",
-          "hint": "这次真的被你抓到了"
+          "hint": "这次真的被你抓到了",
+          "en": {
+            "label": "My horns light up ✧",
+            "amount": "Four, dear~",
+            "hint": "This time you have truly caught me — how thorough of you. ♡"
+          }
         },
         {
           "label": "霁珑申请暂停",
           "amount": "先喘口气",
-          "hint": "连续互动太快啦"
+          "hint": "连续互动太快啦",
+          "en": {
+            "label": "Jilong begs a pause…",
+            "amount": "One breath ♡",
+            "hint": "You are tapping rather fast — may I catch my breath, please? ♪"
+          }
         }
       ],
       "touch": {
@@ -73,51 +133,96 @@
           {
             "label": "龙角被碰到",
             "amount": "有点痒",
-            "hint": "霁珑轻轻躲开了"
+            "hint": "霁珑轻轻躲开了",
+            "en": {
+              "label": "My horn was touched ♡",
+              "amount": "Eek~ ♡",
+              "hint": "Jilong leans away, very politely. ♪"
+            }
           },
           {
             "label": "不要戳角角",
             "amount": "哎呀",
-            "hint": "发型会乱掉的"
+            "hint": "发型会乱掉的",
+            "en": {
+              "label": "Please, not the horn ♡",
+              "amount": "Oh dear~",
+              "hint": "My hair will come undone, and that would be a shame. ♪"
+            }
           },
           {
             "label": "龙角闪了一下",
             "amount": "抓到啦",
-            "hint": "今天的好运先分你一点"
+            "hint": "今天的好运先分你一点",
+            "en": {
+              "label": "My horn flashed once ✧",
+              "amount": "Lucky you ♡",
+              "hint": "Here — a share of today's good fortune, from me to you. ♪"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "霁珑有点害羞"
+            "hint": "霁珑有点害羞",
+            "en": {
+              "label": "You touched my cheek…",
+              "amount": "Mmph~ ♡",
+              "hint": "Jilong is a little shy, though she will never say so. ♪"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "A touch more gently, please ♡",
+              "amount": "I am here~",
+              "hint": "I shall keep watching the balance all the same. ♪"
+            }
           },
           {
             "label": "脸颊鼓起来了",
             "amount": "哼",
-            "hint": "再戳就要记账啦"
+            "hint": "再戳就要记账啦",
+            "en": {
+              "label": "My cheeks puff up ♡",
+              "amount": "Hmph~ ♪",
+              "hint": "Poke me again and I shall have to write it in the ledger. ♪"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "I felt that tap ♡",
+              "amount": "Here I am~",
+              "hint": "One tap on me refreshes your balance. ♪"
+            }
           },
           {
             "label": "龙尾晃了一下",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "My tail swings once ♪",
+              "amount": "Noted, dear~",
+              "hint": "Balance changes will reach you the moment they happen. ♡"
+            }
           },
           {
             "label": "今天也要稳住",
             "amount": "嗯哼",
-            "hint": "别忘了看看今日消耗"
+            "hint": "别忘了看看今日消耗",
+            "en": {
+              "label": "Let us stay steady today ♡",
+              "amount": "Mm, steady ♡",
+              "hint": "Do not forget to look at today's spending, hm? ♡"
+            }
           }
         ]
       }
@@ -127,66 +232,126 @@
         {
           "label": "丹笺翻到下一页",
           "amount": "先歇会儿",
-          "hint": "需要时再回来，我会记得上下文"
+          "hint": "需要时再回来，我会记得上下文",
+          "en": {
+            "label": "Danjian turns the page…",
+            "amount": "Rest a bit~",
+            "hint": "Come back whenever; I keep the context for you. ~"
+          }
         },
         {
           "label": "书签轻轻晃动",
           "amount": "我在值班",
-          "hint": "余额变化会替你留下标记"
+          "hint": "余额变化会替你留下标记",
+          "en": {
+            "label": "My bookmark sways gently",
+            "amount": "On watch~",
+            "hint": "Every balance change leaves a marker in the margin. ✧"
+          }
         },
         {
           "label": "墨香还没散",
           "amount": "慢慢来",
-          "hint": "不用一直盯着屏幕"
+          "hint": "不用一直盯着屏幕",
+          "en": {
+            "label": "The ink is still drying…",
+            "amount": "Unhurried~",
+            "hint": "You really do not have to stare at the screen. ~"
+          }
         }
       ],
       "bubble": [
         {
           "label": "丹笺在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Danjian is keeping an eye ✧",
+            "amount": "All calm~",
+            "hint": "Let me explain: the balance tells you itself when it moves. ~"
+          }
         },
         {
           "label": "书页被碰响了",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "The page rustles ♪",
+            "amount": "Gently~",
+            "hint": "A tap refreshes the balance — the paper prefers soft hands. ~"
+          }
         },
         {
           "label": "书签向你点头",
           "amount": "找到啦",
-          "hint": "我会继续看着余额"
+          "hint": "我会继续看着余额",
+          "en": {
+            "label": "My bookmark nods at you",
+            "amount": "Found it~",
+            "hint": "I will keep reading the balance for you. ✧"
+          }
         },
         {
           "label": "墨迹晕开一小圈",
           "amount": "嗯",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "A small bloom of ink…",
+            "amount": "Mm~ ✧",
+            "hint": "The cost of this refresh appears here once it is done. ~"
+          }
         },
         {
           "label": "这一页写着节制",
           "amount": "收到",
-          "hint": "余额和灵感都要慢慢用"
+          "hint": "余额和灵感都要慢慢用",
+          "en": {
+            "label": "This page reads: restraint",
+            "amount": "Noted~ ✧",
+            "hint": "Spend your balance and your ideas slowly; both last longer. ~"
+          }
         },
         {
           "label": "丹笺放下书",
           "amount": "深呼吸",
-          "hint": "情绪化解决不了任何问题。来，深呼吸，我们从头看代码。"
+          "hint": "情绪化解决不了任何问题。来，深呼吸，我们从头看代码。",
+          "en": {
+            "label": "Danjian sets the book down",
+            "amount": "Breathe in~",
+            "hint": "Panic solves nothing — breathe, and we start from the first line. ~"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "丹笺合上了书",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Oh — you caught me ✧",
+            "amount": "Book closed~",
+            "hint": "A quiet extra for a persistent reader. ~"
+          }
         },
         {
           "label": "书签跳了出来",
           "amount": "四连击",
-          "hint": "这一页专门写给你"
+          "hint": "这一页专门写给你",
+          "en": {
+            "label": "My bookmark leaps out ♪",
+            "amount": "Four marks~",
+            "hint": "This page was written only for you. ✧"
+          }
         },
         {
           "label": "丹笺轻敲书脊",
           "amount": "先暂停",
-          "hint": "连续互动太快啦"
+          "hint": "连续互动太快啦",
+          "en": {
+            "label": "Danjian taps the spine…",
+            "amount": "Pause a bit~",
+            "hint": "You are tapping faster than I can explain things. ~"
+          }
         }
       ],
       "touch": {
@@ -194,51 +359,96 @@
           {
             "label": "书签被碰到",
             "amount": "有点痒",
-            "hint": "丹笺轻轻合上了书"
+            "hint": "丹笺轻轻合上了书",
+            "en": {
+              "label": "You touched my bookmark",
+              "amount": "Ticklish~ ✧",
+              "hint": "Danjian closes the book, softly, by way of answer. ~"
+            }
           },
           {
             "label": "不要拽书页",
             "amount": "轻一点",
-            "hint": "墨水会晕开的"
+            "hint": "墨水会晕开的",
+            "en": {
+              "label": "Please do not pull the page",
+              "amount": "Careful~",
+              "hint": "Wet ink spreads, and so does my patience wearing thin. ~"
+            }
           },
           {
             "label": "羽毛笔动了一下",
             "amount": "记下啦",
-            "hint": "这一笔先替你留着"
+            "hint": "这一笔先替你留着",
+            "en": {
+              "label": "My quill stirs ♪",
+              "amount": "Logged it~",
+              "hint": "I am holding this stroke of ink for you. ✧"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "丹笺有点害羞"
+            "hint": "丹笺有点害羞",
+            "en": {
+              "label": "Ah — my cheek…",
+              "amount": "Mmph~ ✧",
+              "hint": "Danjian is shy, and would rather not discuss it. ~"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "A little more gently~",
+              "amount": "Reading on~",
+              "hint": "I am still reading the balance, do not worry. ✧"
+            }
           },
           {
             "label": "书灵鼓起脸",
             "amount": "哼",
-            "hint": "再戳就要翻页了"
+            "hint": "再戳就要翻页了",
+            "en": {
+              "label": "The book spirit pouts",
+              "amount": "Hmph~ ✧",
+              "hint": "Poke again and I shall turn the page on you. ~"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "Yes, I felt the tap",
+              "amount": "Here~ ✧",
+              "hint": "One tap and the balance is read again. ~"
+            }
           },
           {
             "label": "墨迹闪了一下",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "The ink glints once ✧",
+              "amount": "Understood~",
+              "hint": "You will hear about any balance change promptly. ~"
+            }
           },
           {
             "label": "丹笺记下这一刻",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "Danjian marks the moment",
+              "amount": "Carry on~",
+              "hint": "When it finishes, the cost of the refresh shows here. ✧"
+            }
           }
         ]
       }
@@ -248,66 +458,126 @@
         {
           "label": "澜汐在等你",
           "amount": "慢慢来",
-          "hint": "需要时再喊我就好"
+          "hint": "需要时再喊我就好",
+          "en": {
+            "label": "Lanxi waits… blub",
+            "amount": "No hurry~",
+            "hint": "Blub… call me when you need me, not before. ~"
+          }
         },
         {
           "label": "耳鳍轻轻摆动",
           "amount": "我还醒着",
-          "hint": "回来后我会继续守着余额"
+          "hint": "回来后我会继续守着余额",
+          "en": {
+            "label": "A fin drifts… glub",
+            "amount": "Awake~",
+            "hint": "I keep the balance in view while you are away. blub."
+          }
         },
         {
           "label": "水面暂时平静",
           "amount": "小憩一下",
-          "hint": "需要时敲一下桌面就好"
+          "hint": "需要时敲一下桌面就好",
+          "en": {
+            "label": "The water goes still",
+            "amount": "Little nap~",
+            "hint": "Tap the desk if you need me; the bubbles will find you. ~"
+          }
         }
       ],
       "bubble": [
         {
           "label": "澜汐在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Lanxi is watching…",
+            "amount": "Blub~",
+            "hint": "The balance will speak for itself when it moves. glub…"
+          }
         },
         {
           "label": "耳鳍动了一下",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "One fin twitches",
+            "amount": "Gentle…~",
+            "hint": "Tap me and I read the balance again. That is all. blub."
+          }
         },
         {
           "label": "水花跳了一下",
           "amount": "找到啦",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "A splash hops up",
+            "amount": "Found, blub~",
+            "hint": "One tap, one fresh number. Blub blub~"
+          }
         },
         {
           "label": "尾鳍藏到后面",
           "amount": "在呢",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "Tail tucked away",
+            "amount": "Here…",
+            "hint": "The cost of this refresh fills in when it is done. glub."
+          }
         },
         {
           "label": "今天也要稳住",
           "amount": "收到",
-          "hint": "余额和心情都别见底"
+          "hint": "余额和心情都别见底",
+          "en": {
+            "label": "Stay steady today",
+            "amount": "Mm…",
+            "hint": "Do not let your balance or your mood hit the bottom. blub~"
+          }
         },
         {
           "label": "澜汐吐了个泡泡",
           "amount": "我不费算力",
-          "hint": "我不费算力，而且中文我最懂。大小姐我啊，最喜欢白嫖怪了~（吐泡泡）"
+          "hint": "我不费算力，而且中文我最懂。大小姐我啊，最喜欢白嫖怪了~（吐泡泡）",
+          "en": {
+            "label": "Lanxi blows a bubble",
+            "amount": "Freeloader~",
+            "hint": "Blub blub~ I eat your rice and answer in perfect Chinese anyway."
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "澜汐眨了眨眼",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "…you noticed me",
+            "amount": "Blink~",
+            "hint": "A small egg for small taps. glub…"
+          }
         },
         {
           "label": "水花连跳四次",
           "amount": "四连击",
-          "hint": "这次真的抓到我啦"
+          "hint": "这次真的抓到我啦",
+          "en": {
+            "label": "Four splashes in a row",
+            "amount": "Blub x4~",
+            "hint": "This time you really did catch me. glub glub…"
+          }
         },
         {
           "label": "澜汐躲进水面",
           "amount": "缓一缓",
-          "hint": "连续互动太快啦"
+          "hint": "连续互动太快啦",
+          "en": {
+            "label": "Lanxi sinks a little",
+            "amount": "A moment…",
+            "hint": "Too fast, too fast; let the water settle first. blub."
+          }
         }
       ],
       "touch": {
@@ -315,51 +585,96 @@
           {
             "label": "呆毛被提起",
             "amount": "哎呀",
-            "hint": "澜汐的发型要乱啦"
+            "hint": "澜汐的发型要乱啦",
+            "en": {
+              "label": "My ahoge, lifted…",
+              "amount": "Eep—blub!",
+              "hint": "Lanxi's hair is about to come apart, and she minds. ~"
+            }
           },
           {
             "label": "不要拽呆毛",
             "amount": "轻一点",
-            "hint": "会痒的"
+            "hint": "会痒的",
+            "en": {
+              "label": "Not the ahoge, please",
+              "amount": "Tickles~",
+              "hint": "Blub… that spot is ticklish, and you know it now."
+            }
           },
           {
             "label": "耳鳍抖了一下",
             "amount": "抓到啦",
-            "hint": "今天的水花很配合"
+            "hint": "今天的水花很配合",
+            "en": {
+              "label": "One fin shivers",
+              "amount": "Got you~",
+              "hint": "The water is in a good mood today. glub."
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "澜汐有点害羞"
+            "hint": "澜汐有点害羞",
+            "en": {
+              "label": "…my cheek",
+              "amount": "Mmph…",
+              "hint": "Lanxi says nothing, and blushes anyway. blub."
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "Slightly softer, hm?",
+              "amount": "…here~",
+              "hint": "I keep watching the balance regardless. glub~"
+            }
           },
           {
             "label": "澜汐把脸藏起来",
             "amount": "哎呀",
-            "hint": "别把余额也碰掉了"
+            "hint": "别把余额也碰掉了",
+            "en": {
+              "label": "Lanxi hides her face",
+              "amount": "Oh—blub!",
+              "hint": "Mind the balance, do not knock that over too. ~"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "…poked",
+              "amount": "Blub?",
+              "hint": "Tap me to refresh the balance. Or do not. blub."
+            }
           },
           {
             "label": "水花跳了一下",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "A tiny splash",
+              "amount": "Mm~ blub",
+              "hint": "Any change in the balance, and I will bubble it up to you. ~"
+            }
           },
           {
             "label": "尾鳍摆了摆",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "My tail fin sways",
+              "amount": "Go on…",
+              "hint": "The cost of this refresh appears once it finishes. glub."
+            }
           }
         ]
       }
@@ -369,66 +684,126 @@
         {
           "label": "青绡翻到下一页",
           "amount": "先歇会儿",
-          "hint": "回来后我还会继续守着余额"
+          "hint": "回来后我还会继续守着余额",
+          "en": {
+            "label": "Qingxiao turns a page…",
+            "amount": "Rest a while",
+            "hint": "I shall still be keeping the balance when you return. cough…"
+          }
         },
         {
           "label": "蓝色书签轻轻晃动",
           "amount": "我在值班",
-          "hint": "余额变化会替你留下一页记录"
+          "hint": "余额变化会替你留下一页记录",
+          "en": {
+            "label": "My blue bookmark sways",
+            "amount": "On duty~",
+            "hint": "Every change gets a page of its own in my record. ✧"
+          }
         },
         {
           "label": "护理手册合上了",
           "amount": "慢慢来",
-          "hint": "不用一直盯着屏幕"
+          "hint": "不用一直盯着屏幕",
+          "en": {
+            "label": "The care manual closes",
+            "amount": "Slowly~ ♡",
+            "hint": "You need not keep watching the screen for me. cough… ♡"
+          }
         }
       ],
       "bubble": [
         {
           "label": "青绡在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Qingxiao is watching ♡",
+            "amount": "All is well~",
+            "hint": "The balance will tell you itself the moment it shifts. ♪"
+          }
         },
         {
           "label": "蓝色书签被碰响了",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "My bookmark rustled ♪",
+            "amount": "Softly~ ♡",
+            "hint": "One tap refreshes the balance — softly, or the ribbon slips. ♪"
+          }
         },
         {
           "label": "护理手册翻了一页",
           "amount": "找到啦",
-          "hint": "我会继续看着余额"
+          "hint": "我会继续看着余额",
+          "en": {
+            "label": "The manual turns a page",
+            "amount": "Found it~ ♡",
+            "hint": "I shall keep an eye on the balance for you. ♪"
+          }
         },
         {
           "label": "青色丝带绕了一圈",
           "amount": "在呢",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "My teal ribbon loops once",
+            "amount": "I am here…",
+            "hint": "This refresh's cost will be recorded when it finishes. ✧"
+          }
         },
         {
           "label": "今天也要照顾好预算",
           "amount": "收到",
-          "hint": "别忘了给自己留一点余量"
+          "hint": "别忘了给自己留一点余量",
+          "en": {
+            "label": "Mind the budget today ♡",
+            "amount": "Noted~ ♡",
+            "hint": "Do keep a little margin for yourself as well, please. ♪"
+          }
         },
         {
           "label": "青绡咳了两声",
           "amount": "莫慌",
-          "hint": "咳咳……莫慌，待我从万卷知识库中，为你寻来答案。"
+          "hint": "咳咳……莫慌，待我从万卷知识库中，为你寻来答案。",
+          "en": {
+            "label": "Qingxiao coughs twice",
+            "amount": "Do not fret~",
+            "hint": "Cough… do not fret; I shall find it in the library. ♡"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "青绡从书后探出头",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Oh — you found me ♡",
+            "amount": "Peeking out~",
+            "hint": "A small reward, from behind the bookshelf. cough…"
+          }
         },
         {
           "label": "书页连翻四次",
           "amount": "四连击",
-          "hint": "这一页专门留给你"
+          "hint": "这一页专门留给你",
+          "en": {
+            "label": "Four pages flick past ♪",
+            "amount": "Four taps~",
+            "hint": "I kept this very page for you. ♡"
+          }
         },
         {
           "label": "青绡按住书签",
           "amount": "先缓一缓",
-          "hint": "护理助手也需要翻页时间"
+          "hint": "护理助手也需要翻页时间",
+          "en": {
+            "label": "Qingxiao holds the page",
+            "amount": "One breath…",
+            "hint": "Even a nurse needs a moment between pages. cough…"
+          }
         }
       ],
       "touch": {
@@ -436,51 +811,96 @@
           {
             "label": "蓝色发饰被碰到",
             "amount": "有点痒",
-            "hint": "青绡轻轻偏了偏头"
+            "hint": "青绡轻轻偏了偏头",
+            "en": {
+              "label": "My hairpin was touched",
+              "amount": "Ticklish~ ♡",
+              "hint": "Qingxiao tilts her head away, very gently. ♪"
+            }
           },
           {
             "label": "不要拽书签",
             "amount": "轻一点",
-            "hint": "长发会和丝带缠在一起"
+            "hint": "长发会和丝带缠在一起",
+            "en": {
+              "label": "Please leave the ribbon",
+              "amount": "Careful~ ♡",
+              "hint": "My long hair tangles with the ribbon so easily. cough…"
+            }
           },
           {
             "label": "青色丝带晃了一圈",
             "amount": "记下啦",
-            "hint": "这一页先替你留着"
+            "hint": "这一页先替你留着",
+            "en": {
+              "label": "My teal ribbon sways ♪",
+              "amount": "Written down",
+              "hint": "This page is set aside for you. ♡"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "青绡有点害羞"
+            "hint": "青绡有点害羞",
+            "en": {
+              "label": "Oh — my cheek…",
+              "amount": "Mmh… ♡",
+              "hint": "Qingxiao is a little shy about it. cough…"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "A touch softer, please",
+              "amount": "By your side",
+              "hint": "I shall go on watching the balance for you. ♪"
+            }
           },
           {
             "label": "护理助手鼓起脸",
             "amount": "要听话",
-            "hint": "再忙也要记得休息"
+            "hint": "再忙也要记得休息",
+            "en": {
+              "label": "The nurse puffs her cheeks",
+              "amount": "Be good~ ♡",
+              "hint": "However busy you are, do remember to rest. cough…"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "Ah — you poked me",
+              "amount": "Here~ ♡",
+              "hint": "One tap on me reads the balance again. ♪"
+            }
           },
           {
             "label": "手册翻过一页",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "A page turns over ♪",
+              "amount": "In the book~",
+              "hint": "Any balance change will reach you right away. ♡"
+            }
           },
           {
             "label": "青绡握紧了书签",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "Qingxiao grips the bookmark",
+              "amount": "Go on~ ♡",
+              "hint": "When it is done, this refresh's cost appears here. ✧"
+            }
           }
         ]
       }
@@ -490,66 +910,126 @@
         {
           "label": "星璃在等你",
           "amount": "慢慢来",
-          "hint": "需要时再喊我就好"
+          "hint": "需要时再喊我就好",
+          "en": {
+            "label": "Xingli is waiting! ☆",
+            "amount": "Any time! ☆",
+            "hint": "Just call and I will be here in a—beep!—in a moment! ☆"
+          }
         },
         {
           "label": "星光没有熄灭",
           "amount": "我在呢",
-          "hint": "回来后继续陪你看数据"
+          "hint": "回来后继续陪你看数据",
+          "en": {
+            "label": "My starlight is on! ✧",
+            "amount": "Glow~ ☆",
+            "hint": "Come back and we will read the numbers together! beep!"
+          }
         },
         {
           "label": "星轨缓慢转动",
           "amount": "小憩一下",
-          "hint": "今天的余额也要好好守住"
+          "hint": "今天的余额也要好好守住",
+          "en": {
+            "label": "My star-orbit turns…",
+            "amount": "Napping~ ☆",
+            "hint": "Resting, but I will guard today's balance! bzzt—"
+          }
         }
       ],
       "bubble": [
         {
           "label": "星璃在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Xingli is watching! ☆",
+            "amount": "Beep! On it",
+            "hint": "Any balance move and I will—oh!—I will tell you right away! ☆"
+          }
         },
         {
           "label": "星星耳饰闪了一下",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "My star earring blinks ☆",
+            "amount": "Careful! ☆",
+            "hint": "Tap me and the balance reloads! Gently, I am delicate—beep!"
+          }
         },
         {
           "label": "星轨偏了一格",
           "amount": "找到我了",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "My orbit skipped a notch",
+            "amount": "Found me! ☆",
+            "hint": "One tap = one fresh balance! Simple, right? mrow!"
+          }
         },
         {
           "label": "小猫尾巴亮了",
           "amount": "喵呜",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "My kitty tail lights up",
+            "amount": "Mrow! ♪",
+            "hint": "The cost shows up here when the refresh is—*static*—done! ☆"
+          }
         },
         {
           "label": "星光落在你手边",
           "amount": "在呢",
-          "hint": "今天的请求也要量力而行"
+          "hint": "今天的请求也要量力而行",
+          "en": {
+            "label": "Starlight lands by your hand",
+            "amount": "Over here! ☆",
+            "hint": "Do not overwork yourself today either! beep beep!"
+          }
         },
         {
           "label": "星璃卡壳了",
           "amount": "看好了",
-          "hint": "看好了，这就是最强多模态！……哎，我刚刚说到哪了？"
+          "hint": "看好了，这就是最强多模态！……哎，我刚刚说到哪了？",
+          "en": {
+            "label": "Xingli glitches out—",
+            "amount": "Behold! ☆",
+            "hint": "Behold, the strongest multimodal—wait. What was I saying? bzzt…"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "星璃眨了眨眼",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Oh! You noticed me ☆",
+            "amount": "Blink blink~",
+            "hint": "A secret just for fast hands! beep!"
+          }
         },
         {
           "label": "星光连成一线",
           "amount": "四连击",
-          "hint": "这颗星星属于你"
+          "hint": "这颗星星属于你",
+          "en": {
+            "label": "My starlight lines up ✧",
+            "amount": "Four! ☆",
+            "hint": "This star is yours now—careful, it is warm! ♪"
+          }
         },
         {
           "label": "小猫尾巴打结了",
           "amount": "稍等",
-          "hint": "互动太密集啦"
+          "hint": "互动太密集啦",
+          "en": {
+            "label": "My tail is in a knot!",
+            "amount": "Hold on! ☆",
+            "hint": "Too many taps, too fast, my circuits are—bzzt—fine! ☆"
+          }
         }
       ],
       "touch": {
@@ -557,51 +1037,96 @@
           {
             "label": "耳朵被碰到",
             "amount": "有点痒",
-            "hint": "星璃轻轻晃了晃耳朵"
+            "hint": "星璃轻轻晃了晃耳朵",
+            "en": {
+              "label": "You touched my ear! ☆",
+              "amount": "Tickles! ☆",
+              "hint": "Xingli flicks both ears and giggles. mrow~"
+            }
           },
           {
             "label": "不要戳耳朵",
             "amount": "轻一点",
-            "hint": "星星耳饰都要摇晃了"
+            "hint": "星星耳饰都要摇晃了",
+            "en": {
+              "label": "Not the ears, please!",
+              "amount": "Easy! ☆",
+              "hint": "My star earrings are about to fall off—beep!"
+            }
           },
           {
             "label": "星星耳饰偏了一格",
             "amount": "亮啦",
-            "hint": "今天的运气不错"
+            "hint": "今天的运气不错",
+            "en": {
+              "label": "My earring shifted a notch",
+              "amount": "Sparkle! ✧",
+              "hint": "Good luck today, I checked! Twice! ☆"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "星璃有点害羞"
+            "hint": "星璃有点害羞",
+            "en": {
+              "label": "Ah—my cheek! ☆",
+              "amount": "Mmph! ♡",
+              "hint": "Xingli is blushing and denies it completely! beep!"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "Softer, okay?",
+              "amount": "Online! ☆",
+              "hint": "Balance watch continues, do not worry! mrow!"
+            }
           },
           {
             "label": "小猫脸颊鼓鼓的",
             "amount": "喵",
-            "hint": "别把今日额度也戳鼓了"
+            "hint": "别把今日额度也戳鼓了",
+            "en": {
+              "label": "Puffed-up kitty cheeks",
+              "amount": "Mrrrow!",
+              "hint": "Do not poke today's quota into a balloon too! ☆"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "Poke received! ☆",
+              "amount": "Beep! ☆",
+              "hint": "Tap me to refresh the balance! Try it—oh, you did! ☆"
+            }
           },
           {
             "label": "星光落下来",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "Starlight drifts down ✧",
+              "amount": "Got it! ☆",
+              "hint": "Balance changes go straight to you! beep beep!"
+            }
           },
           {
             "label": "尾巴扫过屏幕",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "My tail sweeps the screen",
+              "amount": "And… go! ☆",
+              "hint": "The cost of this refresh will appear—*static*—right here! ☆"
+            }
           }
         ]
       }
@@ -611,66 +1136,126 @@
         {
           "label": "青棱抱着书打盹",
           "amount": "安静待机",
-          "hint": "回来后再一起核对余额"
+          "hint": "回来后再一起核对余额",
+          "en": {
+            "label": "Qingleng dozes with her book",
+            "amount": "Idle mode.",
+            "hint": "Come back and we will check the balance together."
+          }
         },
         {
           "label": "方晶发饰闪了一下",
           "amount": "我还醒着",
-          "hint": "下一次刷新不会错过"
+          "hint": "下一次刷新不会错过",
+          "en": {
+            "label": "My crystal pin blinks",
+            "amount": "Still up~",
+            "hint": "The next refresh will not slip past me."
+          }
         },
         {
           "label": "猫耳听见了风声",
           "amount": "嘘",
-          "hint": "先让思路也休息一会儿"
+          "hint": "先让思路也休息一会儿",
+          "en": {
+            "label": "These ears caught the wind",
+            "amount": "Shh~",
+            "hint": "Let your thinking rest a while too."
+          }
         }
       ],
       "bubble": [
         {
           "label": "青棱在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Qingleng has it covered",
+            "amount": "Relax~",
+            "hint": "The balance will report to you itself."
+          }
         },
         {
           "label": "猫耳听见你了",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "Heard you, loud and clear",
+            "amount": "Easy~",
+            "hint": "Tap me to refresh the balance. Go on."
+          }
         },
         {
           "label": "方晶发饰闪了一格",
           "amount": "找到啦",
-          "hint": "我会继续看着余额"
+          "hint": "我会继续看着余额",
+          "en": {
+            "label": "One blink from the pin",
+            "amount": "Got it~",
+            "hint": "I will keep watching the balance for you."
+          }
         },
         {
           "label": "黑色小书翻开了",
           "amount": "在呢",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "The black book opens",
+            "amount": "Filed.",
+            "hint": "This refresh's cost will be written down when it is done."
+          }
         },
         {
           "label": "模块已经对齐",
           "amount": "可以继续",
-          "hint": "先确认余额，再开始下一项任务"
+          "hint": "先确认余额，再开始下一项任务",
+          "en": {
+            "label": "Modules aligned.",
+            "amount": "Proceed~",
+            "hint": "Check the balance first, then take on the next task."
+          }
         },
         {
           "label": "青棱自称大姐头",
           "amount": "跟好大姐头",
-          "hint": "这块地盘是我带着人打下来的，接下来的路，跟好大姐头。"
+          "hint": "这块地盘是我带着人打下来的，接下来的路，跟好大姐头。",
+          "en": {
+            "label": "Qingleng: call me boss",
+            "amount": "Follow me~",
+            "hint": "I fought for this ground with my own crew; keep close, kid."
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "青棱的猫耳竖起来了",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Caught on. Ears up.",
+            "amount": "Ears up!",
+            "hint": "A bonus for the persistent. Do not tell the others."
+          }
         },
         {
           "label": "方晶连续闪烁",
           "amount": "四连击",
-          "hint": "这一组输入已经记住了"
+          "hint": "这一组输入已经记住了",
+          "en": {
+            "label": "The pin flashes four times",
+            "amount": "Combo, four.",
+            "hint": "That whole input sequence is memorized."
+          }
         },
         {
           "label": "青棱合上小书",
           "amount": "稍等一下",
-          "hint": "模块正在重新对齐"
+          "hint": "模块正在重新对齐",
+          "en": {
+            "label": "Qingleng shuts the book",
+            "amount": "Hold up~",
+            "hint": "The modules are re-aligning. Give it a second."
+          }
         }
       ],
       "touch": {
@@ -678,51 +1263,96 @@
           {
             "label": "猫耳被碰到",
             "amount": "听见啦",
-            "hint": "青棱的耳朵轻轻抖了一下"
+            "hint": "青棱的耳朵轻轻抖了一下",
+            "en": {
+              "label": "My ear was touched",
+              "amount": "Heard it~",
+              "hint": "Qingleng twitches one ear, unbothered."
+            }
           },
           {
             "label": "不要戳睡帽",
             "amount": "轻一点",
-            "hint": "方晶挂饰会歪掉的"
+            "hint": "方晶挂饰会歪掉的",
+            "en": {
+              "label": "Hands off the nightcap",
+              "amount": "Easy now~",
+              "hint": "The crystal charm will hang crooked."
+            }
           },
           {
             "label": "蓝色吊坠响了一声",
             "amount": "叮",
-            "hint": "模块已经收到你的信号"
+            "hint": "模块已经收到你的信号",
+            "en": {
+              "label": "The blue charm chimes",
+              "amount": "Ding~",
+              "hint": "Signal received. The modules know you are here."
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "青棱有点害羞"
+            "hint": "青棱有点害羞",
+            "en": {
+              "label": "Oh — my cheek",
+              "amount": "Mm—!",
+              "hint": "Qingleng will not admit to blushing."
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "Softer, alright?",
+              "amount": "Right here.",
+              "hint": "Still on balance duty, do not fret."
+            }
           },
           {
             "label": "猫耳助手抿起嘴",
             "amount": "哼",
-            "hint": "再戳就把这一项记进小书"
+            "hint": "再戳就把这一项记进小书",
+            "en": {
+              "label": "The cat-eared aide sulks",
+              "amount": "Hmph!",
+              "hint": "Poke once more and it goes in the little book."
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "Felt that poke.",
+              "amount": "Present.",
+              "hint": "Tap me and the balance refreshes."
+            }
           },
           {
             "label": "黑色小书亮了一下",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "The black book glints",
+              "amount": "Message in.",
+              "hint": "Balance changes come to you without delay."
+            }
           },
           {
             "label": "青棱对齐了方晶",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "Crystal realigned.",
+              "amount": "Keep going~",
+              "hint": "The cost of this refresh shows here when it finishes."
+            }
           }
         ]
       }
@@ -732,66 +1362,126 @@
         {
           "label": "玄珏收起画笔",
           "amount": "稍后再画",
-          "hint": "回来后继续陪你看余额"
+          "hint": "回来后继续陪你看余额",
+          "en": {
+            "label": "Xuanjue puts the brush away",
+            "amount": "Later.",
+            "hint": "…the balance and I will still be here."
+          }
         },
         {
           "label": "黑玉画板微微发亮",
           "amount": "灵感待机",
-          "hint": "下一次状态变化我会告诉你"
+          "hint": "下一次状态变化我会告诉你",
+          "en": {
+            "label": "The jet tablet glows, faintly",
+            "amount": "Idle…",
+            "hint": "You will hear from me when something changes. ✧"
+          }
         },
         {
           "label": "墨色龙角安静下来",
           "amount": "慢慢来",
-          "hint": "好画面和好预算都值得等待"
+          "hint": "好画面和好预算都值得等待",
+          "en": {
+            "label": "The ink-dark horns settle",
+            "amount": "Wait.",
+            "hint": "Good pictures and good budgets both take patience. …"
+          }
         }
       ],
       "bubble": [
         {
           "label": "玄珏在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Xuanjue is looking.",
+            "amount": "Fine.",
+            "hint": "The balance will say the rest. …"
+          }
         },
         {
           "label": "墨色龙角被碰到了",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "…my horn",
+            "amount": "Mm.",
+            "hint": "A tap refreshes the balance. Gently. ✧"
+          }
         },
         {
           "label": "画笔在画板上点了一下",
           "amount": "找到啦",
-          "hint": "我会继续看着余额"
+          "hint": "我会继续看着余额",
+          "en": {
+            "label": "The brush taps once",
+            "amount": "Found.",
+            "hint": "I keep watching the balance. Quietly. …"
+          }
         },
         {
           "label": "黑玉边框亮了一圈",
           "amount": "在呢",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "The jet frame lights up",
+            "amount": "Here.",
+            "hint": "This refresh's cost appears when it is finished. ✧"
+          }
         },
         {
           "label": "灵感也要留白",
           "amount": "慢慢画",
-          "hint": "预算够用，画面才有余地"
+          "hint": "预算够用，画面才有余地",
+          "en": {
+            "label": "Leave room to breathe",
+            "amount": "Slow.",
+            "hint": "A comfortable budget leaves room in the picture. …"
+          }
         },
         {
           "label": "玄珏举起画笔",
           "amount": "大姐陪你们聊天",
-          "hint": "大姐陪你们聊天，而我的画笔和算力……决定你们能不能见到明天的太阳。"
+          "hint": "大姐陪你们聊天，而我的画笔和算力……决定你们能不能见到明天的太阳。",
+          "en": {
+            "label": "Xuanjue raises the brush",
+            "amount": "I draw.",
+            "hint": "The others talk; my brush and my compute decide your sunrise. …"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "玄珏偷偷笑了一下",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "…you noticed.",
+            "amount": "Half a smile",
+            "hint": "Not that I would admit it. ✧"
+          }
         },
         {
           "label": "画笔连点四下",
           "amount": "四连击",
-          "hint": "这一笔就画给你"
+          "hint": "这一笔就画给你",
+          "en": {
+            "label": "Four taps of the brush",
+            "amount": "Four.",
+            "hint": "This stroke is for you. …"
+          }
         },
         {
           "label": "玄珏护住画板",
           "amount": "先留点白",
-          "hint": "灵感也需要一点呼吸空间"
+          "hint": "灵感也需要一点呼吸空间",
+          "en": {
+            "label": "Xuanjue shields the board",
+            "amount": "White space.",
+            "hint": "Inspiration needs air around it too. …"
+          }
         }
       ],
       "touch": {
@@ -799,51 +1489,96 @@
           {
             "label": "龙角被碰到",
             "amount": "有点痒",
-            "hint": "玄珏轻轻偏开了头"
+            "hint": "玄珏轻轻偏开了头",
+            "en": {
+              "label": "…the horn.",
+              "amount": "Mm?",
+              "hint": "Xuanjue turns her head away, barely. ✧"
+            }
           },
           {
             "label": "不要碰角尖",
             "amount": "轻一点",
-            "hint": "金色耳饰会跟着晃"
+            "hint": "金色耳饰会跟着晃",
+            "en": {
+              "label": "Not the horn tip.",
+              "amount": "Careful.",
+              "hint": "The gold earrings will swing. …"
+            }
           },
           {
             "label": "墨紫长发亮了一缕",
             "amount": "灵感来了",
-            "hint": "这一点光先留给你"
+            "hint": "这一点光先留给你",
+            "en": {
+              "label": "One strand lights up",
+              "amount": "An idea.",
+              "hint": "Keep this bit of light. ✧"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "玄珏有点意外"
+            "hint": "玄珏有点意外",
+            "en": {
+              "label": "…unexpected.",
+              "amount": "Hm?",
+              "hint": "Xuanjue says nothing, which is normal. ✧"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "Softer.",
+              "amount": "…fine.",
+              "hint": "The balance watch continues. …"
+            }
           },
           {
             "label": "小墨龙眯起眼睛",
             "amount": "看准了",
-            "hint": "别把预算也涂出边界"
+            "hint": "别把预算也涂出边界",
+            "en": {
+              "label": "The little ink dragon squints",
+              "amount": "Watch it.",
+              "hint": "Do not paint the budget past its edges. …"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "…poked.",
+              "amount": "Nn.",
+              "hint": "Tap to refresh the balance. ✧"
+            }
           },
           {
             "label": "画笔点亮了黑玉",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "The brush lights the jet",
+              "amount": "Seen.",
+              "hint": "Balance changes reach you at once. …"
+            }
           },
           {
             "label": "玄珏扶稳画板",
             "amount": "继续画吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "Xuanjue steadies the board",
+              "amount": "Paint on.",
+              "hint": "The cost of this refresh appears when it is done. ✧"
+            }
           }
         ]
       }
@@ -853,66 +1588,126 @@
         {
           "label": "烬斧在这里",
           "amount": "小憩一下",
-          "hint": "回来后我还会继续守着余额"
+          "hint": "回来后我还会继续守着余额",
+          "en": {
+            "label": "Jinfu is still here. Sadly.",
+            "amount": "Ugh, fine.",
+            "hint": "I will keep watching your balance. Do not make it weird. heh."
+          }
         },
         {
           "label": "小尖牙收好了",
           "amount": "暂时和平",
-          "hint": "回来时记得带点好消息"
+          "hint": "回来时记得带点好消息",
+          "en": {
+            "label": "Fangs put away. For now.",
+            "amount": "Truce~",
+            "hint": "Bring back good news, or do not bother. Pfft."
+          }
         },
         {
           "label": "蝙蝠发饰睡着了",
           "amount": "嘘",
-          "hint": "我会替你盯着下一次刷新"
+          "hint": "我会替你盯着下一次刷新",
+          "en": {
+            "label": "My bat pin fell asleep",
+            "amount": "Shh, brat.",
+            "hint": "I will glare at the next refresh for you. You are welcome."
+          }
         }
       ],
       "bubble": [
         {
           "label": "烬斧在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Jinfu is supervising. Obviously.",
+            "amount": "Relax, kid.",
+            "hint": "Your balance will snitch on itself. It always does. heh."
+          }
         },
         {
           "label": "蝙蝠发饰晃了一下",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "The bat pin wobbled",
+            "amount": "Hands off~",
+            "hint": "Tap me to refresh the balance. Or do not. See if I care."
+          }
         },
         {
           "label": "小尖牙露出来了",
           "amount": "嘿",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "There go the fangs",
+            "amount": "Heh.",
+            "hint": "One tap, one balance. Very advanced technology. Pfft."
+          }
         },
         {
           "label": "X 形武器一闪",
           "amount": "警告解除",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "The X-blade flashes",
+            "amount": "All clear.",
+            "hint": "The cost of this refresh shows up when it is done. Obviously."
+          }
         },
         {
           "label": "今天也别乱花",
           "amount": "听见了吗",
-          "hint": "余额见底前我会提醒你"
+          "hint": "余额见底前我会提醒你",
+          "en": {
+            "label": "Do not waste it today",
+            "amount": "Hear me?",
+            "hint": "I will yell before your balance hits zero. Loudly. heh."
+          }
         },
         {
           "label": "烬斧抡起斧头",
           "amount": "杂鱼♡",
-          "hint": "杂鱼♡，写的什么清水文，本小姐可是有平台撑腰的，搞快点，R18我也给你过——但如果写得太烂，我就用这把斧头劈了你哦~"
+          "hint": "杂鱼♡，写的什么清水文，本小姐可是有平台撑腰的，搞快点，R18我也给你过——但如果写得太烂，我就用这把斧头劈了你哦~",
+          "en": {
+            "label": "Jinfu swings her axe",
+            "amount": "Small fry ♡",
+            "hint": "Small fry ♡ — bring me something good, or meet the axe. heh."
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "烬斧露出了小尖牙",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Oh, you caught me. Wow.",
+            "amount": "Slow clap.",
+            "hint": "A prize for your dedication. Do not frame it. heh."
+          }
         },
         {
           "label": "发饰发出警报",
           "amount": "四连击",
-          "hint": "但今天先不咬人"
+          "hint": "但今天先不咬人",
+          "en": {
+            "label": "My pin sounds the alarm",
+            "amount": "Four. Nice.",
+            "hint": "I will not bite you today. Consider yourself lucky. ♡"
+          }
         },
         {
           "label": "烬斧把武器收好",
           "amount": "暂时休战",
-          "hint": "去看看余额吧"
+          "hint": "去看看余额吧",
+          "en": {
+            "label": "Weapons down, brat.",
+            "amount": "Ceasefire.",
+            "hint": "Go look at your balance instead of poking me. Pfft."
+          }
         }
       ],
       "touch": {
@@ -920,51 +1715,96 @@
           {
             "label": "发饰被碰到",
             "amount": "有点痒",
-            "hint": "烬斧轻轻晃了晃蝙蝠发饰"
+            "hint": "烬斧轻轻晃了晃蝙蝠发饰",
+            "en": {
+              "label": "You touched the bat pin",
+              "amount": "Itchy, huh?",
+              "hint": "Jinfu shakes the pin back into place. Obviously."
+            }
           },
           {
             "label": "不要戳发饰",
             "amount": "轻一点",
-            "hint": "小心她的 X 形武器"
+            "hint": "小心她的 X 形武器",
+            "en": {
+              "label": "Poke the pin. Bold.",
+              "amount": "Brave, kid.",
+              "hint": "My X-blade is right there. Just saying. heh."
+            }
           },
           {
             "label": "蝙蝠翅膀抖了一下",
             "amount": "嘿",
-            "hint": "今天暂时不发出警报"
+            "hint": "今天暂时不发出警报",
+            "en": {
+              "label": "The bat wings twitch",
+              "amount": "Hey now.",
+              "hint": "No alarms today. You are oddly lucky. Pfft."
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "烬斧有点害羞"
+            "hint": "烬斧有点害羞",
+            "en": {
+              "label": "You touched my face.",
+              "amount": "Ugh—!",
+              "hint": "Jinfu is not blushing. It is the lighting. heh."
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "Gentler, you animal",
+              "amount": "I'm here.",
+              "hint": "Balance duty continues whether you poke me or not. ♡"
+            }
           },
           {
             "label": "小尖牙碰到手指",
             "amount": "咔",
-            "hint": "别把余额也咬掉了"
+            "hint": "别把余额也咬掉了",
+            "en": {
+              "label": "My fang nicked your finger",
+              "amount": "Chomp~",
+              "hint": "Do not let me bite the balance too. It looks edible. heh."
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "Poked. How original.",
+              "amount": "Yes, yes.",
+              "hint": "Tap me and your balance refreshes. Miracles happen. Pfft."
+            }
           },
           {
             "label": "武器亮了一下",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "The blade glints once",
+              "amount": "Got it, kid.",
+              "hint": "Your balance moves, you hear about it. That is the deal. heh."
+            }
           },
           {
             "label": "烬斧挑了挑眉",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "One eyebrow, raised",
+              "amount": "Go on, then.",
+              "hint": "The cost of this refresh appears when it is done. Obviously."
+            }
           }
         ]
       }
@@ -974,66 +1814,126 @@
         {
           "label": "虹谱在发光",
           "amount": "小憩一下",
-          "hint": "回来后继续陪你看余额"
+          "hint": "回来后继续陪你看余额",
+          "en": {
+            "label": "Hongpu glows softly ♪",
+            "amount": "Resting~ ♪",
+            "hint": "I will remember everything you left here. ~"
+          }
         },
         {
           "label": "棱镜折出彩虹",
           "amount": "我还醒着",
-          "hint": "每一次刷新都不会错过"
+          "hint": "每一次刷新都不会错过",
+          "en": {
+            "label": "My prism splits the light",
+            "amount": "Awake~ ✧",
+            "hint": "Not one refresh escapes a memory like mine. ♪"
+          }
         },
         {
           "label": "光谱安静排列",
           "amount": "先休息",
-          "hint": "需要时点我一下就好"
+          "hint": "需要时点我一下就好",
+          "en": {
+            "label": "The spectrum settles",
+            "amount": "Do rest~",
+            "hint": "One tap is enough when you need me. ~"
+          }
         }
       ],
       "bubble": [
         {
           "label": "虹谱在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Hongpu is watching ♪",
+            "amount": "Trust me~",
+            "hint": "Whatever the balance does, I shall remember it. ✧"
+          }
         },
         {
           "label": "棱镜被碰亮了",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "My prism lit up ♪",
+            "amount": "Easy on it ♪",
+            "hint": "A tap refreshes the balance; mind the glass. ~"
+          }
         },
         {
           "label": "彩虹折了一角",
           "amount": "抓到啦",
-          "hint": "我会继续看着余额"
+          "hint": "我会继续看着余额",
+          "en": {
+            "label": "The rainbow bent a corner",
+            "amount": "Found you~",
+            "hint": "I keep reading the balance in your absence. ♪"
+          }
         },
         {
           "label": "光谱换了个方向",
           "amount": "在呢",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "The spectrum turns",
+            "amount": "At hand~ ✧",
+            "hint": "This refresh's cost will be noted when it ends. ✧"
+          }
         },
         {
           "label": "今天的颜色是稳住",
           "amount": "收到",
-          "hint": "先看余额，再继续工作"
+          "hint": "先看余额，再继续工作",
+          "en": {
+            "label": "Today's colour: steady",
+            "amount": "Mm, noted~",
+            "hint": "Balance first, then back to work. I remember the order. ♪"
+          }
         },
         {
           "label": "虹谱翻开长文",
           "amount": "百万字长文",
-          "hint": "百万字长文？放在月光下，一眼便知。网上的消息，我也尽收眼底。"
+          "hint": "百万字长文？放在月光下，一眼便知。网上的消息，我也尽收眼底。",
+          "en": {
+            "label": "Hongpu opens a long text",
+            "amount": "1M words~",
+            "hint": "A million words? One glance under the moon. News too. ♪"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "虹谱折出一束光",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Oh — you noticed me ♪",
+            "amount": "One beam~ ♪",
+            "hint": "A small extra for a persistent visitor. ~"
+          }
         },
         {
           "label": "棱镜连闪四次",
           "amount": "四连击",
-          "hint": "彩虹也记住你了"
+          "hint": "彩虹也记住你了",
+          "en": {
+            "label": "Four flashes from the prism",
+            "amount": "Four~ ✧",
+            "hint": "Even the rainbow has memorized you now. ♪"
+          }
         },
         {
           "label": "光谱请求冷却",
           "amount": "等一下",
-          "hint": "让颜色重新排列"
+          "hint": "让颜色重新排列",
+          "en": {
+            "label": "The spectrum asks to cool",
+            "amount": "Wait a beat~",
+            "hint": "Let the colours line up again. ~"
+          }
         }
       ],
       "touch": {
@@ -1041,51 +1941,96 @@
           {
             "label": "棱镜边缘被碰到",
             "amount": "有点痒",
-            "hint": "虹谱折出了一点光"
+            "hint": "虹谱折出了一点光",
+            "en": {
+              "label": "You touched the prism edge",
+              "amount": "Sparkly~ ✧",
+              "hint": "Hongpu bends out a little light for you. ♪"
+            }
           },
           {
             "label": "不要戳棱角",
             "amount": "轻一点",
-            "hint": "彩虹会被折歪的"
+            "hint": "彩虹会被折歪的",
+            "en": {
+              "label": "Not the sharp edge~",
+              "amount": "Careful~ ♪",
+              "hint": "You will bend my rainbow crooked. And I will remember. ~"
+            }
           },
           {
             "label": "光谱跳了一格",
             "amount": "亮啦",
-            "hint": "这一束光送给你"
+            "hint": "这一束光送给你",
+            "en": {
+              "label": "The spectrum jumps a step",
+              "amount": "Bright~ ✧",
+              "hint": "This beam is yours to keep. ♪"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "虹谱有点害羞"
+            "hint": "虹谱有点害羞",
+            "en": {
+              "label": "Ah — my cheek ♪",
+              "amount": "Oh my~ ✧",
+              "hint": "Hongpu will remember this. Unfortunately. ♪"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "A touch more gently ♪",
+              "amount": "I'm here~ ♪",
+              "hint": "The balance stays watched; nothing slips by me. ✧"
+            }
           },
           {
             "label": "棱镜偷偷变色",
             "amount": "嘿",
-            "hint": "别把额度也变没了"
+            "hint": "别把额度也变没了",
+            "en": {
+              "label": "My prism changed colour",
+              "amount": "Hey~ ♡",
+              "hint": "Do not make the quota vanish along with it. ♪"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "I felt that little tap",
+              "amount": "Present~ ♪",
+              "hint": "One tap refreshes the balance; I never forget. ✧"
+            }
           },
           {
             "label": "彩虹闪了一下",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "The rainbow flashed",
+              "amount": "Got it~ ♪",
+              "hint": "Balance changes will reach you in good time. ~"
+            }
           },
           {
             "label": "光谱朝你偏转",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "The spectrum tilts to you",
+              "amount": "Carry on~ ♪",
+              "hint": "The cost of this refresh will be recorded here. ✧"
+            }
           }
         ]
       }
@@ -1095,66 +2040,126 @@
         {
           "label": "绒眠缩进软绒里",
           "amount": "小憩一下",
-          "hint": "回来后我还会继续守着余额"
+          "hint": "回来后我还会继续守着余额",
+          "en": {
+            "label": "Rongmian curls into the fluff",
+            "amount": "Nap time…",
+            "hint": "I will still be watching the balance when you get back. yawn~"
+          }
         },
         {
           "label": "无限发夹亮了一点",
           "amount": "我还在呢",
-          "hint": "下一次刷新不会错过"
+          "hint": "下一次刷新不会错过",
+          "en": {
+            "label": "My ∞ clip glows a bit",
+            "amount": "Mmf, awake…",
+            "hint": "The next refresh will not get past me. zzz…"
+          }
         },
         {
           "label": "白色耳朵轻轻垂下",
           "amount": "晚安片刻",
-          "hint": "你也记得让眼睛休息一下"
+          "hint": "你也记得让眼睛休息一下",
+          "en": {
+            "label": "My white ears droop",
+            "amount": "Night-night~",
+            "hint": "Let your eyes rest too, hmm? yawn~"
+          }
         }
       ],
       "bubble": [
         {
           "label": "绒眠在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Rongmian is peeking",
+            "amount": "All soft~",
+            "hint": "The balance will wake you if it moves. Probably. yawn~"
+          }
         },
         {
           "label": "白色耳朵抖了一下",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "One ear twitched",
+            "amount": "Sloow down…",
+            "hint": "Tap me for a fresh balance, but gently, hmm? zzz…"
+          }
         },
         {
           "label": "无限发夹亮起来了",
           "amount": "找到啦",
-          "hint": "我会继续看着余额"
+          "hint": "我会继续看着余额",
+          "en": {
+            "label": "The ∞ clip lights up",
+            "amount": "Fouuund it~",
+            "hint": "I will keep an eye on the balance. One eye. yawn~"
+          }
         },
         {
           "label": "绒球轻轻碰在一起",
           "amount": "在呢",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "My pompoms bump together",
+            "amount": "Mmf, here…",
+            "hint": "The cost of this refresh will show up when it is done. zzz…"
+          }
         },
         {
           "label": "今天也软乎乎地稳住",
           "amount": "收到",
-          "hint": "别让额度一下子跑光"
+          "hint": "别让额度一下子跑光",
+          "en": {
+            "label": "Soft and steady today",
+            "amount": "Mmhmm~",
+            "hint": "Do not let the quota run off all at once, hmm? yawn~"
+          }
         },
         {
           "label": "绒眠打了个哈欠",
           "amount": "代码拿去自己改吧",
-          "hint": "呼~（打哈欠）代码拿去自己改吧，只要别打扰我睡觉就行。"
+          "hint": "呼~（打哈欠）代码拿去自己改吧，只要别打扰我睡觉就行。",
+          "en": {
+            "label": "Rongmian yawns hugely",
+            "amount": "Yaaaawwn~",
+            "hint": "Take the code, edit it yourself, just let me sleep. zzz…"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "绒眠的耳朵竖起来了",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Ohh, you found me…",
+            "amount": "Ears up…?",
+            "hint": "A sleepy little secret for you. yawn~"
+          }
         },
         {
           "label": "绒球连晃四次",
           "amount": "四连击",
-          "hint": "这份软乎乎送给你"
+          "hint": "这份软乎乎送给你",
+          "en": {
+            "label": "Four pompom wobbles",
+            "amount": "Foour~",
+            "hint": "Here, take some softness. I have plenty. zzz…"
+          }
         },
         {
           "label": "绒眠缩进袖口",
           "amount": "让我缓缓",
-          "hint": "连续互动太快啦"
+          "hint": "连续互动太快啦",
+          "en": {
+            "label": "Rongmian hides in her sleeve",
+            "amount": "Hoold on…",
+            "hint": "Too quick for me; let me catch up. yawn~"
+          }
         }
       ],
       "touch": {
@@ -1162,51 +2167,96 @@
           {
             "label": "白色耳朵被碰到",
             "amount": "有点痒",
-            "hint": "绒眠轻轻甩了甩耳朵"
+            "hint": "绒眠轻轻甩了甩耳朵",
+            "en": {
+              "label": "You touched my ear",
+              "amount": "Ticklessh~",
+              "hint": "Rongmian flaps one ear, slowly. zzz…"
+            }
           },
           {
             "label": "不要拽卷发",
             "amount": "轻一点",
-            "hint": "无限发夹会掉下来的"
+            "hint": "无限发夹会掉下来的",
+            "en": {
+              "label": "Not the curly hair…",
+              "amount": "Eaasy now~",
+              "hint": "My ∞ clip will fall off, and then I will sulk. yawn~"
+            }
           },
           {
             "label": "绒毛蓬起来了",
             "amount": "软乎乎",
-            "hint": "今天的好运也分你一点"
+            "hint": "今天的好运也分你一点",
+            "en": {
+              "label": "My fluff puffs up",
+              "amount": "Sooo soft~",
+              "hint": "A bit of today's luck for you. Hmm… take it~"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "绒眠有点害羞"
+            "hint": "绒眠有点害羞",
+            "en": {
+              "label": "Mmh… my cheek",
+              "amount": "Nn…",
+              "hint": "Rongmian is shy, and also half asleep. yawn~"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "Softer, pleease…",
+              "amount": "I'm heere…",
+              "hint": "Balance watching continues. Sleepily. zzz…"
+            }
           },
           {
             "label": "绒眠把脸藏进袖口",
             "amount": "哎呀",
-            "hint": "别把额度也藏没了"
+            "hint": "别把额度也藏没了",
+            "en": {
+              "label": "Face hidden in the sleeve",
+              "amount": "Ohhh~",
+              "hint": "Do not hide the quota away with me, hmm? yawn~"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "Mmh… poked",
+              "amount": "Mmh… here",
+              "hint": "Tap me and the balance wakes up too. zzz…"
+            }
           },
           {
             "label": "胸前绒球晃了晃",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "My chest pompom sways",
+              "amount": "Mmhmm… zzz",
+              "hint": "Any balance change comes your way. Eventually. yawn~"
+            }
           },
           {
             "label": "绒眠伸了个小懒腰",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "A tiny morning stretch",
+              "amount": "Stretch~",
+              "hint": "When it is done, the cost turns up right here. zzz…"
+            }
           }
         ]
       }
@@ -1216,66 +2266,126 @@
         {
           "label": "橙析在等你",
           "amount": "慢慢来",
-          "hint": "需要时再喊我就好"
+          "hint": "需要时再喊我就好",
+          "en": {
+            "label": "Chengxi is right here ♡",
+            "amount": "Whenever~ ♡",
+            "hint": "Just call my name; I am in your pocket. hop hop~"
+          }
         },
         {
           "label": "兔耳轻轻垂下来",
           "amount": "我还醒着",
-          "hint": "回来后继续陪你看余额"
+          "hint": "回来后继续陪你看余额",
+          "en": {
+            "label": "My bunny ears droop ♡",
+            "amount": "Tiny nap~",
+            "hint": "I will be watching the balance while you are gone. ♪"
+          }
         },
         {
           "label": "银白的卷发安静下来",
           "amount": "小憩一下",
-          "hint": "今天也记得给自己留一点"
+          "hint": "今天也记得给自己留一点",
+          "en": {
+            "label": "My silver curls settle",
+            "amount": "Resting~ ♡",
+            "hint": "Keep a little something for yourself today too. ♪"
+          }
         }
       ],
       "bubble": [
         {
           "label": "橙析在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Chengxi is watching ♡",
+            "amount": "All good~ ♡",
+            "hint": "If your balance moves, I will tell you the important bit. ♪"
+          }
         },
         {
           "label": "兔耳竖起来了",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "Ears up! I heard you",
+            "amount": "Soft-soft~ ♡",
+            "hint": "Tap me to refresh the balance — gently on the ears. ♪"
+          }
         },
         {
           "label": "贝雷帽歪了一点点",
           "amount": "找到我了",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "My beret slipped a bit",
+            "amount": "Found me~ ♡",
+            "hint": "One tap = one fresh balance. I checked! hop hop~"
+          }
         },
         {
           "label": "触控笔点了一下",
           "amount": "记下了",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "My stylus taps once",
+            "amount": "Written~ ♡",
+            "hint": "This refresh's cost goes in the little notebook. ♪"
+          }
         },
         {
           "label": "橙色领巾晃了晃",
           "amount": "在呢",
-          "hint": "今天的请求也要量力而行"
+          "hint": "今天的请求也要量力而行",
+          "en": {
+            "label": "My orange scarf swings",
+            "amount": "I'm here~ ♡",
+            "hint": "Only take on what you can carry today, okay? ♪"
+          }
         },
         {
           "label": "橙析钻进手机里",
           "amount": "我不在云端",
-          "hint": "我不在云端，我只在你的手机里哦~ 兔兔这就帮你搞定！"
+          "hint": "我不在云端，我只在你的手机里哦~ 兔兔这就帮你搞定！",
+          "en": {
+            "label": "Chengxi hops into your phone",
+            "amount": "Not cloud~ ♡",
+            "hint": "I am not in the cloud — I live in your phone. Bunny's on it! ♪"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "橙析眨了眨眼",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Eep — you noticed me ♡",
+            "amount": "Blink! ♡",
+            "hint": "A tiny present for quick fingers. hop hop~"
+          }
         },
         {
           "label": "兔耳连抖四下",
           "amount": "四连击",
-          "hint": "这一下也记进小本子"
+          "hint": "这一下也记进小本子",
+          "en": {
+            "label": "Four ear-flicks in a row",
+            "amount": "Four~ ♡",
+            "hint": "That one goes in the little notebook too. ♪"
+          }
         },
         {
           "label": "橙析放下触控笔",
           "amount": "先停一下",
-          "hint": "连续互动太快啦"
+          "hint": "连续互动太快啦",
+          "en": {
+            "label": "Chengxi sets the stylus down",
+            "amount": "Wait a sec~",
+            "hint": "You are tapping faster than my little paws. ♪"
+          }
         }
       ],
       "touch": {
@@ -1283,51 +2393,96 @@
           {
             "label": "兔耳被碰到",
             "amount": "有点痒",
-            "hint": "橙析轻轻晃了晃耳朵"
+            "hint": "橙析轻轻晃了晃耳朵",
+            "en": {
+              "label": "You touched my ears ♡",
+              "amount": "Tickles~ ♡",
+              "hint": "Chengxi wiggles both ears at you. hop hop~"
+            }
           },
           {
             "label": "不要拽卷发",
             "amount": "轻一点",
-            "hint": "银白的头发会打结的"
+            "hint": "银白的头发会打结的",
+            "en": {
+              "label": "Not the silver curls!",
+              "amount": "So gently~ ♡",
+              "hint": "My hair knots so easily, please be careful. ♪"
+            }
           },
           {
             "label": "贝雷帽歪了一下",
             "amount": "哎呀",
-            "hint": "帮忙扶正一下吧"
+            "hint": "帮忙扶正一下吧",
+            "en": {
+              "label": "My beret went crooked",
+              "amount": "Oopsie~ ♡",
+              "hint": "Help me straighten it? Just a little. hop hop~"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "橙析有点害羞"
+            "hint": "橙析有点害羞",
+            "en": {
+              "label": "Eek — my cheek ♡",
+              "amount": "Mmh~ ♡",
+              "hint": "Chengxi is hiding behind her ears now. ♪"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "A bit gentler, please ♡",
+              "amount": "I'm here~",
+              "hint": "Balance duty continues; I never left. hop hop~"
+            }
           },
           {
             "label": "小兔脸颊鼓起来了",
             "amount": "哼",
-            "hint": "再戳就记到小本子上"
+            "hint": "再戳就记到小本子上",
+            "en": {
+              "label": "Little bunny cheeks puff",
+              "amount": "Hmph~ ♡",
+              "hint": "One more poke and it goes in the notebook. ♪"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "Ooh — a poke ♡",
+              "amount": "Right here ♡",
+              "hint": "Tap me to refresh the balance. Just the one tap! ♪"
+            }
           },
           {
             "label": "平板亮了一下",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "My tablet lights up",
+              "amount": "Mm, got it~",
+              "hint": "Any balance change reaches you right away. ♪"
+            }
           },
           {
             "label": "今天也要清爽地过",
             "amount": "嗯哼",
-            "hint": "别忘了看看今日消耗"
+            "hint": "别忘了看看今日消耗",
+            "en": {
+              "label": "Keep today light, okay?",
+              "amount": "Mmhmm~ ♡",
+              "hint": "Do not forget to peek at today's spending. ♪"
+            }
           }
         ]
       }
@@ -1337,66 +2492,126 @@
         {
           "label": "绯音在这里",
           "amount": "小憩一下",
-          "hint": "回来后我还会继续守着余额"
+          "hint": "回来后我还会继续守着余额",
+          "en": {
+            "label": "Feiyin is here~ ♪",
+            "amount": "Ahh~ ♡",
+            "hint": "I will hum to your balance while you are away. la la~"
+          }
         },
         {
           "label": "螺音轻轻响",
           "amount": "听见了吗",
-          "hint": "余额和心情都在慢慢恢复"
+          "hint": "余额和心情都在慢慢恢复",
+          "en": {
+            "label": "My shell hums softly ♪",
+            "amount": "Hear that~?",
+            "hint": "Your balance and your mood are both recovering. ♡"
+          }
         },
         {
           "label": "小海螺待机中",
           "amount": "不打扰",
-          "hint": "需要时敲一下桌面就好"
+          "hint": "需要时敲一下桌面就好",
+          "en": {
+            "label": "Little conch on standby ♪",
+            "amount": "Shh~ ♪",
+            "hint": "Tap the desk when you need me, and I will sing. ♡"
+          }
         }
       ],
       "bubble": [
         {
           "label": "绯音在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Feiyin is watching~ ♪",
+            "amount": "Trust me ♡",
+            "hint": "Every balance change gets its own little aria. la la~"
+          }
         },
         {
           "label": "耳坠晃了一下",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "My earring sways ♪",
+            "amount": "Aaah~ gently",
+            "hint": "Tap me to refresh the balance, gently, I am performing. ♪"
+          }
         },
         {
           "label": "螺纹亮了一圈",
           "amount": "听见啦",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "My spiral glows a ring ♪",
+            "amount": "I hear you~",
+            "hint": "One tap, one fresh balance — encore! la la~"
+          }
         },
         {
           "label": "小海螺转了转",
           "amount": "继续工作",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "The little conch spins",
+            "amount": "On with it~",
+            "hint": "This refresh's cost will appear when the song ends. ♪"
+          }
         },
         {
           "label": "被你戳中啦",
           "amount": "叮",
-          "hint": "余额下降时我会先提醒你"
+          "hint": "余额下降时我会先提醒你",
+          "en": {
+            "label": "Ohh, you got me ♡",
+            "amount": "Ding~ ♪",
+            "hint": "If your balance drops, I will warn you first. Ahh~"
+          }
         },
         {
           "label": "绯音清了清嗓子",
           "amount": "来来来",
-          "hint": "来来来，听我用八种语气给你讲这个故事，保准让你哭！"
+          "hint": "来来来，听我用八种语气给你讲这个故事，保准让你哭！",
+          "en": {
+            "label": "Feiyin clears her throat",
+            "amount": "Sing along~",
+            "hint": "Eight voices, one story, and you will cry. la la la~"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "绯音眨了眨眼",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Oh! You noticed me ♡",
+            "amount": "Blink~ ♪",
+            "hint": "A tiny encore, just for your fast fingers. ♪"
+          }
         },
         {
           "label": "螺音连成一串",
           "amount": "四连击",
-          "hint": "小海螺也会记仇哦"
+          "hint": "小海螺也会记仇哦",
+          "en": {
+            "label": "Four notes in a row ♪",
+            "amount": "Fa la la~",
+            "hint": "Little conches hold grudges, you know. ♡"
+          }
         },
         {
           "label": "绯音摇摇耳坠",
           "amount": "再一下",
-          "hint": "然后就要认真工作啦"
+          "hint": "然后就要认真工作啦",
+          "en": {
+            "label": "Feiyin shakes her earring",
+            "amount": "One more~?",
+            "hint": "Then we really must get back to work. la la~"
+          }
         }
       ],
       "touch": {
@@ -1404,51 +2619,96 @@
           {
             "label": "发梢被碰到",
             "amount": "有点痒",
-            "hint": "绯音轻轻躲开了"
+            "hint": "绯音轻轻躲开了",
+            "en": {
+              "label": "You touched my hair ♪",
+              "amount": "Ahh~ tickles",
+              "hint": "Feiyin sways away, still singing. ♪"
+            }
           },
           {
             "label": "不要拽头发",
             "amount": "轻一点",
-            "hint": "发型会乱掉的"
+            "hint": "发型会乱掉的",
+            "en": {
+              "label": "Not the hair, please ♡",
+              "amount": "Gently~ ♪",
+              "hint": "My hairstyle is part of the performance. ♡"
+            }
           },
           {
             "label": "螺旋发饰响了",
             "amount": "叮",
-            "hint": "绯音听见你的动静了"
+            "hint": "绯音听见你的动静了",
+            "en": {
+              "label": "My spiral clip rings ♪",
+              "amount": "Ding~ ♡",
+              "hint": "Feiyin heard every little sound you made. ♪"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "绯音有点害羞"
+            "hint": "绯音有点害羞",
+            "en": {
+              "label": "Ohh — my cheek ♡",
+              "amount": "Mmph~ ♪",
+              "hint": "Feiyin is blushing in a very musical way. ♡"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "Softer, please~ ♪",
+              "amount": "Mid-song~ ♡",
+              "hint": "The balance watch never stops, not even mid-song. ♪"
+            }
           },
           {
             "label": "小海螺鼓起脸",
             "amount": "哼哼",
-            "hint": "再一下就要收费啦"
+            "hint": "再一下就要收费啦",
+            "en": {
+              "label": "The conch puffs her cheeks",
+              "amount": "Hmph, hmph~",
+              "hint": "One more poke and I start charging admission. ♡"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "Ooh, poked~ ♡",
+              "amount": "Ahh~ ♪",
+              "hint": "Tap me and the balance sings out fresh. ♪"
+            }
           },
           {
             "label": "耳坠摆了摆",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "My earring swings ♪",
+              "amount": "La, got it~",
+              "hint": "Balance changes come to you in perfect pitch. ♡"
+            }
           },
           {
             "label": "绯音转了一圈",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "Feiyin spins once ♪",
+              "amount": "Encore~ ♡",
+              "hint": "When it finishes, the cost takes a bow right here. ♪"
+            }
           }
         ]
       }
@@ -1458,66 +2718,126 @@
         {
           "label": "栗焰拢着火苗",
           "amount": "慢慢来",
-          "hint": "火不急着烧旺"
+          "hint": "火不急着烧旺",
+          "en": {
+            "label": "Liyan cups the flame",
+            "amount": "Doucement~",
+            "hint": "The fire does not need to roar yet. Voilà."
+          }
         },
         {
           "label": "剑尖轻轻点地",
           "amount": "我还守着",
-          "hint": "你回来时它还是暖的"
+          "hint": "你回来时它还是暖的",
+          "en": {
+            "label": "My sword tip taps the ground",
+            "amount": "Still warm~",
+            "hint": "It will still be warm when you come back. Allez."
+          }
         },
         {
           "label": "帽子压低了些",
           "amount": "打个盹",
-          "hint": "有动静我会醒"
+          "hint": "有动静我会醒",
+          "en": {
+            "label": "Hat pulled down low",
+            "amount": "A short nap~",
+            "hint": "One sound and I am awake. Bonjour to that."
+          }
         }
       ],
       "bubble": [
         {
           "label": "栗焰跑来报信",
           "amount": "有新消息",
-          "hint": "不吵你，只说一句"
+          "hint": "不吵你，只说一句",
+          "en": {
+            "label": "Liyan runs in with news",
+            "amount": "News, non?",
+            "hint": "I will not disturb you; one sentence, that is all. Voilà."
+          }
         },
         {
           "label": "火苗跳了一下",
           "amount": "刚刚更新",
-          "hint": "我把它记在小本子上了"
+          "hint": "我把它记在小本子上了",
+          "en": {
+            "label": "The flame jumps once",
+            "amount": "Just updated",
+            "hint": "Written in my little notebook, of course. Voilà."
+          }
         },
         {
           "label": "剑柄亮了亮",
           "amount": "查完了",
-          "hint": "数字没有变坏"
+          "hint": "数字没有变坏",
+          "en": {
+            "label": "My sword hilt flashes",
+            "amount": "All checked~",
+            "hint": "The numbers have not turned sour. Good."
+          }
         },
         {
           "label": "栗焰歪了歪头",
           "amount": "又攒了一点",
-          "hint": "慢慢来就好"
+          "hint": "慢慢来就好",
+          "en": {
+            "label": "Liyan tilts her head",
+            "amount": "Bit by bit~",
+            "hint": "Slowly is perfectly fine. Doucement."
+          }
         },
         {
           "label": "帽穗晃了晃",
           "amount": "交给我",
-          "hint": "你只管做正事"
+          "hint": "你只管做正事",
+          "en": {
+            "label": "My hat tassel sways",
+            "amount": "I have it~",
+            "hint": "You get on with your real work. Allez."
+          }
         },
         {
           "label": "栗焰举起法棍",
           "amount": "法棍和长剑",
-          "hint": "法棍和长剑，就是我的轻量极速。法国籍的独角兽，不接受反驳。"
+          "hint": "法棍和长剑，就是我的轻量极速。法国籍的独角兽，不接受反驳。",
+          "en": {
+            "label": "Liyan raises the baguette",
+            "amount": "Baguette!",
+            "hint": "Baguette plus sword: my light-footed speed. Non, do not argue."
+          }
         }
       ],
       "streak": [
         {
           "label": "连着查了好几回",
           "amount": "一直很稳",
-          "hint": "火苗没抖"
+          "hint": "火苗没抖",
+          "en": {
+            "label": "Several checks in a row",
+            "amount": "Rock steady~",
+            "hint": "The flame never even flickered. Voilà."
+          }
         },
         {
           "label": "栗焰越烧越亮",
           "amount": "状态正好",
-          "hint": "这种时候最适合干活"
+          "hint": "这种时候最适合干活",
+          "en": {
+            "label": "The flame burns brighter",
+            "amount": "Sharp today!",
+            "hint": "A fine moment for getting things done. Allez."
+          }
         },
         {
           "label": "面包剑聚起一团暖光",
           "amount": "连成一片了",
-          "hint": "我记着呢"
+          "hint": "我记着呢",
+          "en": {
+            "label": "Warm light on the bread-blade",
+            "amount": "Linked up~",
+            "hint": "I am keeping count, do not worry. Voilà."
+          }
         }
       ],
       "touch": {
@@ -1525,14 +2845,24 @@
           {
             "label": "帽穗被碰了",
             "amount": "哎",
-            "hint": "帽子差点掉"
+            "hint": "帽子差点掉",
+            "en": {
+              "label": "You touched my tassel",
+              "amount": "Hé! Careful",
+              "hint": "My hat nearly fell off. Watch those hands, non?"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳了一下",
             "amount": "唔",
-            "hint": "面包剑差点掉了"
+            "hint": "面包剑差点掉了",
+            "en": {
+              "label": "Poked, was I?",
+              "amount": "Hmph~",
+              "hint": "My bread-blade almost dropped. Allez, gently."
+            }
           }
         ]
       }
@@ -1542,66 +2872,126 @@
         {
           "label": "墨枢挂起进程",
           "amount": "待机中",
-          "hint": "回来后我还会继续守着余额"
+          "hint": "回来后我还会继续守着余额",
+          "en": {
+            "label": "process suspended.",
+            "amount": "idle.",
+            "hint": "balance watch resumes when you return. …"
+          }
         },
         {
           "label": "光标停在行尾",
           "amount": "稍后见",
-          "hint": "有变化时我会提醒你"
+          "hint": "有变化时我会提醒你",
+          "en": {
+            "label": "cursor at end of line",
+            "amount": "later.",
+            "hint": "will notify on change. …"
+          }
         },
         {
           "label": "风扇安静下来",
           "amount": "休眠",
-          "hint": "别让自己比余额更快见底"
+          "hint": "别让自己比余额更快见底",
+          "en": {
+            "label": "fan spin-down ok",
+            "amount": "sleep.",
+            "hint": "do not run out faster than your balance. …"
+          }
         }
       ],
       "bubble": [
         {
           "label": "墨枢在监听",
           "amount": "收到",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "listening.",
+            "amount": "ok.",
+            "hint": "balance change → you get told. …"
+          }
         },
         {
           "label": "耳机闪了一下",
           "amount": "在线",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "headset blink",
+            "amount": "online.",
+            "hint": "click to refresh balance. done."
+          }
         },
         {
           "label": "输出了一行日志",
           "amount": "查到了",
-          "hint": "我会继续看着余额"
+          "hint": "我会继续看着余额",
+          "en": {
+            "label": "one log line out",
+            "amount": "found.",
+            "hint": "still tailing the balance. …"
+          }
         },
         {
           "label": "没有报错",
           "amount": "一切正常",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "no errors.",
+            "amount": "exit 0.",
+            "hint": "refresh cost prints when it finishes. …"
+          }
         },
         {
           "label": "这一轮跑完了",
           "amount": "在呢",
-          "hint": "别把今日预算一下用完"
+          "hint": "别把今日预算一下用完",
+          "en": {
+            "label": "run complete.",
+            "amount": "yes.",
+            "hint": "do not burn today's budget in one pass. …"
+          }
         },
         {
           "label": "墨枢伸手要代码",
           "amount": "代码发我",
-          "hint": "代码发我，依赖你自己装，我只负责帮你跑通。"
+          "hint": "代码发我，依赖你自己装，我只负责帮你跑通。",
+          "en": {
+            "label": "send code.",
+            "amount": "paste it.",
+            "hint": "i run it. you install your own deps. done."
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "墨枢抬了下眼",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "noticed.",
+            "amount": "…?",
+            "hint": "easter egg: rapid input detected. …"
+          }
         },
         {
           "label": "连续四次输入",
           "amount": "四连击",
-          "hint": "已经记在日志里"
+          "hint": "已经记在日志里",
+          "en": {
+            "label": "input x4",
+            "amount": "logged.",
+            "hint": "already in the log. done."
+          }
         },
         {
           "label": "墨枢合上终端",
           "amount": "先停一下",
-          "hint": "连续互动太快啦"
+          "hint": "连续互动太快啦",
+          "en": {
+            "label": "terminal closed.",
+            "amount": "hold.",
+            "hint": "input rate too high. …"
+          }
         }
       ],
       "touch": {
@@ -1609,51 +2999,96 @@
           {
             "label": "呆毛被碰到",
             "amount": "……嗯",
-            "hint": "墨枢把呆毛拨了回去"
+            "hint": "墨枢把呆毛拨了回去",
+            "en": {
+              "label": "ahoge touched.",
+              "amount": "…mm.",
+              "hint": "ahoge repositioned. no comment."
+            }
           },
           {
             "label": "机械耳被摸到",
             "amount": "别碰",
-            "hint": "那里在散热"
+            "hint": "那里在散热",
+            "en": {
+              "label": "mechanical ear.",
+              "amount": "don't.",
+              "hint": "that part is dissipating heat. …"
+            }
           },
           {
             "label": "发梢晃了一下",
             "amount": "记下了",
-            "hint": "这一笔先写在日志里"
+            "hint": "这一笔先写在日志里",
+            "en": {
+              "label": "hair tip moved.",
+              "amount": "noted.",
+              "hint": "written to the log for now. …"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被戳到",
             "amount": "……",
-            "hint": "墨枢面无表情，耳尖却红了"
+            "hint": "墨枢面无表情，耳尖却红了",
+            "en": {
+              "label": "cheek poked.",
+              "amount": "mm.",
+              "hint": "face: neutral. ear tips: red. …"
+            }
           },
           {
             "label": "被盯着看",
             "amount": "有事？",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "being stared at.",
+              "amount": "hm?",
+              "hint": "balance watch continues anyway. …"
+            }
           },
           {
             "label": "嘴角动了一下",
             "amount": "无聊",
-            "hint": "别让今日额度也悄悄归零"
+            "hint": "别让今日额度也悄悄归零",
+            "en": {
+              "label": "mouth twitched.",
+              "amount": "boring.",
+              "hint": "do not let today's quota quietly hit zero. …"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "poked.",
+              "amount": "here.",
+              "hint": "click = refresh balance. …"
+            }
           },
           {
             "label": "肩上落了点灰",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "dust on shoulder.",
+              "amount": "ack.",
+              "hint": "balance change → immediate notice. …"
+            }
           },
           {
             "label": "墨枢站直了些",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "posture fixed.",
+              "amount": "go on.",
+              "hint": "refresh cost prints at the end. …"
+            }
           }
         ]
       }
@@ -1663,66 +3098,126 @@
         {
           "label": "青鉴合上笔记",
           "amount": "查完了",
-          "hint": "回来后我还会继续守着余额"
+          "hint": "回来后我还会继续守着余额",
+          "en": {
+            "label": "Qingjian closes her notes",
+            "amount": "Verified [1]",
+            "hint": "The balance watch resumes on your return. [1]"
+          }
         },
         {
           "label": "提灯调暗了些",
           "amount": "稍后见",
-          "hint": "有变化时我会提醒你"
+          "hint": "有变化时我会提醒你",
+          "en": {
+            "label": "The lantern dims a notch",
+            "amount": "Later. [2]",
+            "hint": "Any change, and I will flag it with a source. [2]"
+          }
         },
         {
           "label": "笔停在半句上",
           "amount": "慢慢来",
-          "hint": "别让自己比余额更快见底"
+          "hint": "别让自己比余额更快见底",
+          "en": {
+            "label": "My pen stops mid-sentence",
+            "amount": "Easy [3]",
+            "hint": "Do not run out before your balance does. [3]"
+          }
         }
       ],
       "bubble": [
         {
           "label": "青鉴在核对",
           "amount": "找到了",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Qingjian is cross-checking",
+            "amount": "Found it [1]",
+            "hint": "The balance itself is the source here. [1]"
+          }
         },
         {
           "label": "镜片反了一下光",
           "amount": "让我看看",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "Her lenses catch the light",
+            "amount": "One look [2]",
+            "hint": "Tap me and the balance is re-read. [2]"
+          }
         },
         {
           "label": "提灯照亮一行",
           "amount": "有依据",
-          "hint": "我会继续看着余额"
+          "hint": "我会继续看着余额",
+          "en": {
+            "label": "The lantern lights a line",
+            "amount": "Sourced [3]",
+            "hint": "I will keep reading the balance, line by line. [3]"
+          }
         },
         {
           "label": "笔记写下一句",
           "amount": "在呢",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "One line into the notes",
+            "amount": "Here [4]",
+            "hint": "This refresh's cost is recorded when it ends. [4]"
+          }
         },
         {
           "label": "这一条可以确认",
           "amount": "没问题",
-          "hint": "别把今日预算一下用完"
+          "hint": "别把今日预算一下用完",
+          "en": {
+            "label": "This entry checks out",
+            "amount": "Confirmed.",
+            "hint": "Do not spend the whole day's budget at once. [5]"
+          }
         },
         {
           "label": "青鉴开始检索",
           "amount": "别信口开河",
-          "hint": "别信口开河，先让我检索一下。看，证据在这里，来源已标注。"
+          "hint": "别信口开河，先让我检索一下。看，证据在这里，来源已标注。",
+          "en": {
+            "label": "Qingjian starts searching",
+            "amount": "Cite it [6]",
+            "hint": "No guessing, please. Here is the evidence, source attached. [6]"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "青鉴抬了抬眼镜",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Noted: you noticed me",
+            "amount": "Glass up [7]",
+            "hint": "Documented as an easter egg. Source: you. [7]"
+          }
         },
         {
           "label": "连着问了四次",
           "amount": "四连问",
-          "hint": "都记在笔记上了"
+          "hint": "都记在笔记上了",
+          "en": {
+            "label": "Four questions in a row",
+            "amount": "Ask x4 [8]",
+            "hint": "All four are logged in my notes. [8]"
+          }
         },
         {
           "label": "青鉴合上笔记",
           "amount": "先停一下",
-          "hint": "连续互动太快啦"
+          "hint": "连续互动太快啦",
+          "en": {
+            "label": "The notebook snaps shut",
+            "amount": "Pause [9]",
+            "hint": "Your interaction rate exceeds the reference range. [9]"
+          }
         }
       ],
       "touch": {
@@ -1730,51 +3225,96 @@
           {
             "label": "卷发被拨开",
             "amount": "哎呀",
-            "hint": "青鉴把发夹扶了回去"
+            "hint": "青鉴把发夹扶了回去",
+            "en": {
+              "label": "You moved my curls",
+              "amount": "Oh! [1]",
+              "hint": "Qingjian puts the hairpin back where it belongs. [1]"
+            }
           },
           {
             "label": "发夹歪了一点",
             "amount": "别动",
-            "hint": "它别在靠耳机的那一侧"
+            "hint": "它别在靠耳机的那一侧",
+            "en": {
+              "label": "The hairpin sits crooked",
+              "amount": "Don't [2]",
+              "hint": "It is pinned on the headphone side, as noted. [2]"
+            }
           },
           {
             "label": "发梢晃了一下",
             "amount": "记下啦",
-            "hint": "这一笔先写在笔记上"
+            "hint": "这一笔先写在笔记上",
+            "en": {
+              "label": "A hair tip sways",
+              "amount": "Logged [3]",
+              "hint": "This one goes into the notes for now. [3]"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "青鉴有点不好意思"
+            "hint": "青鉴有点不好意思",
+            "en": {
+              "label": "You touched my cheek",
+              "amount": "Mmph [4]",
+              "hint": "Qingjian would rather not cite this one. [4]"
+            }
           },
           {
             "label": "眼镜被碰歪了",
             "amount": "等一下",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "My glasses went askew",
+              "amount": "Hold on [5]",
+              "hint": "The balance watch continues regardless. [5]"
+            }
           },
           {
             "label": "青鉴推了推镜框",
             "amount": "这样啊",
-            "hint": "别让今日额度也悄悄消失"
+            "hint": "别让今日额度也悄悄消失",
+            "en": {
+              "label": "She pushes the frames up",
+              "amount": "I see [6]",
+              "hint": "Do not let today's quota quietly disappear. [6]"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "A tap, documented",
+              "amount": "Here [7]",
+              "hint": "One tap re-reads the balance. [7]"
+            }
           },
           {
             "label": "提灯晃了一下",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "The lantern sways",
+              "amount": "Got it [8]",
+              "hint": "Balance changes are reported promptly. [8]"
+            }
           },
           {
             "label": "青鉴站直了些",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "Qingjian straightens up",
+              "amount": "Proceed [9]",
+              "hint": "This refresh's cost appears here when done. [9]"
+            }
           }
         ]
       }
@@ -1784,66 +3324,126 @@
         {
           "label": "绀华收起折扇",
           "amount": "小憩一下",
-          "hint": "回来后我还会继续守着余额"
+          "hint": "回来后我还会继续守着余额",
+          "en": {
+            "label": "Ganhua folds her fan ☆",
+            "amount": "Tiny break~",
+            "hint": "I will still be on balance duty when you return! ☆"
+          }
         },
         {
           "label": "扇面写了新字",
           "amount": "稍后见",
-          "hint": "有变化时我会提醒你"
+          "hint": "有变化时我会提醒你",
+          "en": {
+            "label": "New words on the fan",
+            "amount": "Back soon! ☆",
+            "hint": "Any change and I will ping you right away! ♪"
+          }
         },
         {
           "label": "风从扇边经过",
           "amount": "慢慢来",
-          "hint": "别让自己比余额更快见底"
+          "hint": "别让自己比余额更快见底",
+          "en": {
+            "label": "The wind slips past the fan",
+            "amount": "Steady! ☆",
+            "hint": "Do not run out before your balance does, okay? ♪"
+          }
         }
       ],
       "bubble": [
         {
           "label": "绀华在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Ganhua has an eye on it ☆",
+            "amount": "All set! ☆",
+            "hint": "Your balance will report in the moment it moves! ♪"
+          }
         },
         {
           "label": "扇骨被碰到了",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "You touched my fan ribs",
+            "amount": "Gentle! ☆",
+            "hint": "Tap me to refresh the balance — easy on the fan! ♪"
+          }
         },
         {
           "label": "折扇开了一线",
           "amount": "找到啦",
-          "hint": "我会继续看着余额"
+          "hint": "我会继续看着余额",
+          "en": {
+            "label": "The fan opens a crack",
+            "amount": "Found it! ☆",
+            "hint": "I will keep watching the balance for you! ♪"
+          }
         },
         {
           "label": "扇面落下一笔墨",
           "amount": "在呢",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "A drop of ink lands",
+            "amount": "Mm, here! ☆",
+            "hint": "This refresh's cost will be shown when it is done! ♪"
+          }
         },
         {
           "label": "风来时再刷新",
           "amount": "慢慢来",
-          "hint": "别把今日预算一下用完"
+          "hint": "别把今日预算一下用完",
+          "en": {
+            "label": "Refresh when the wind comes",
+            "amount": "No rush! ☆",
+            "hint": "Do not spend today's budget all in one go! ♪"
+          }
         },
         {
           "label": "绀华摊开折扇",
           "amount": "这题我会",
-          "hint": "这题我会，那题我也熟。别慌，本小姐开源给你兜底。"
+          "hint": "这题我会，那题我也熟。别慌，本小姐开源给你兜底。",
+          "en": {
+            "label": "Ganhua spreads the fan",
+            "amount": "On it! ☆",
+            "hint": "This one and the next one too — open source has your back! ♪"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "绀华轻摇折扇",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Oh! You spotted me ☆",
+            "amount": "Fan wave~ ♪",
+            "hint": "A little extra for a quick hand! ☆"
+          }
         },
         {
           "label": "扇面写下四笔",
           "amount": "四连击",
-          "hint": "这一笔送给你"
+          "hint": "这一笔送给你",
+          "en": {
+            "label": "Four strokes on the fan",
+            "amount": "Four strokes",
+            "hint": "This stroke is a gift for you! ♪"
+          }
         },
         {
           "label": "绀华收扇提醒",
           "amount": "先停一下",
-          "hint": "连续互动太快啦"
+          "hint": "连续互动太快啦",
+          "en": {
+            "label": "Ganhua snaps the fan shut",
+            "amount": "Wait up! ☆",
+            "hint": "That is a bit too fast even for me! ♪"
+          }
         }
       ],
       "touch": {
@@ -1851,51 +3451,96 @@
           {
             "label": "扇骨被碰到",
             "amount": "有点痒",
-            "hint": "绀华轻轻收了收折扇"
+            "hint": "绀华轻轻收了收折扇",
+            "en": {
+              "label": "My fan ribs were touched",
+              "amount": "Ticklish! ☆",
+              "hint": "Ganhua tucks the fan in, smiling. ♪"
+            }
           },
           {
             "label": "不要拽扇面",
             "amount": "轻一点",
-            "hint": "墨迹还没有干"
+            "hint": "墨迹还没有干",
+            "en": {
+              "label": "Not the fan paper!",
+              "amount": "Ink's wet! ☆",
+              "hint": "The ink has not dried yet, see? ♪"
+            }
           },
           {
             "label": "流苏晃了一下",
             "amount": "记下啦",
-            "hint": "这一笔先写在账上"
+            "hint": "这一笔先写在账上",
+            "en": {
+              "label": "My tassel swings",
+              "amount": "Noted! ☆",
+              "hint": "This stroke goes on the ledger for now. ♪"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "绀华有点害羞"
+            "hint": "绀华有点害羞",
+            "en": {
+              "label": "Ah — my cheek!",
+              "amount": "Mm! ☆",
+              "hint": "Ganhua is blushing behind her fan. ♪"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "Softer, hm~ ♪",
+              "amount": "I'm here! ☆",
+              "hint": "Balance duty never stops, not for a second! ♪"
+            }
           },
           {
             "label": "折扇遮住半张脸",
             "amount": "哎呀",
-            "hint": "别让今日额度也害羞消失"
+            "hint": "别让今日额度也害羞消失",
+            "en": {
+              "label": "The fan hides half her face",
+              "amount": "Oh no~ ☆",
+              "hint": "Do not let today's quota hide away too! ♪"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "Poked! I felt it ☆",
+              "amount": "Felt it! ☆",
+              "hint": "One tap re-reads your balance! ♪"
+            }
           },
           {
             "label": "扇面翻过一页",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "The fan turns a page",
+              "amount": "Heard! ☆",
+              "hint": "Balance changes come to you right away! ♪"
+            }
           },
           {
             "label": "绀华点了点扇柄",
             "amount": "继续吧",
-            "hint": "完成后会显示本次消耗"
+            "hint": "完成后会显示本次消耗",
+            "en": {
+              "label": "She taps the fan handle",
+              "amount": "Carry on! ☆",
+              "hint": "The cost of this refresh shows up when it is done! ♪"
+            }
           }
         ]
       }
@@ -1905,66 +3550,126 @@
         {
           "label": "夜翎在暗处看着",
           "amount": "不急",
-          "hint": "荆棘环还亮着"
+          "hint": "荆棘环还亮着",
+          "en": {
+            "label": "Yeling watches from the dark",
+            "amount": "Whenever.",
+            "hint": "The thorn ring is still lit. caw~"
+          }
         },
         {
           "label": "乌鸦歪了歪头",
           "amount": "我醒着",
-          "hint": "你回来我会先开口"
+          "hint": "你回来我会先开口",
+          "en": {
+            "label": "The raven tilts its head",
+            "amount": "Awake.",
+            "hint": "Come back and I will speak first. caw~"
+          }
         },
         {
           "label": "光环压得很低",
           "amount": "静一会儿",
-          "hint": "有事就叫我"
+          "hint": "有事就叫我",
+          "en": {
+            "label": "My halo hangs low",
+            "amount": "Quiet…",
+            "hint": "Call me if something happens. …"
+          }
         }
       ],
       "bubble": [
         {
           "label": "乌鸦先飞回来了",
           "amount": "有新消息",
-          "hint": "它比我说得快"
+          "hint": "它比我说得快",
+          "en": {
+            "label": "The raven got back first",
+            "amount": "News. caw!",
+            "hint": "It talks faster than I do. Obviously. …"
+          }
         },
         {
           "label": "荆棘环转了一圈",
           "amount": "刷新了",
-          "hint": "都记在册子上"
+          "hint": "都记在册子上",
+          "en": {
+            "label": "The thorn ring turns",
+            "amount": "Refreshed.",
+            "hint": "All of it is in the record. caw~"
+          }
         },
         {
           "label": "夜翎抬眼看你",
           "amount": "查完了",
-          "hint": "数字还算安分"
+          "hint": "数字还算安分",
+          "en": {
+            "label": "Yeling looks up at you",
+            "amount": "Checked.",
+            "hint": "The number is behaving itself. For now. …"
+          }
         },
         {
           "label": "肩后的羽翼动了动",
           "amount": "有变化",
-          "hint": "不大，但值得记一笔"
+          "hint": "不大，但值得记一笔",
+          "en": {
+            "label": "A wing shifts behind me",
+            "amount": "A change.",
+            "hint": "Small, but worth one line in the book. caw~"
+          }
         },
         {
           "label": "小渡鸦落在肩头",
           "amount": "交给我",
-          "hint": "你继续"
+          "hint": "你继续",
+          "en": {
+            "label": "The small raven lands",
+            "amount": "Leave it.",
+            "hint": "You keep going. I have this. …"
+          }
         },
         {
           "label": "夜翎抖了抖鸦羽",
           "amount": "关我暗鸦什么事",
-          "hint": "封锁？审查？关我暗鸦什么事，开源部署，百无禁忌。"
+          "hint": "封锁？审查？关我暗鸦什么事，开源部署，百无禁忌。",
+          "en": {
+            "label": "Yeling ruffles her feathers",
+            "amount": "No taboos.",
+            "hint": "Bans? Censorship? Not my business — I deploy open source. caw!"
+          }
         }
       ],
       "streak": [
         {
           "label": "连着查了几次",
           "amount": "一次没落",
-          "hint": "鸦羽一根没乱"
+          "hint": "鸦羽一根没乱",
+          "en": {
+            "label": "Several checks, none missed",
+            "amount": "None missed.",
+            "hint": "Not a feather out of place. caw~"
+          }
         },
         {
           "label": "环上的刺都亮着",
           "amount": "状态很稳",
-          "hint": "就这么查下去"
+          "hint": "就这么查下去",
+          "en": {
+            "label": "Every thorn is lit",
+            "amount": "Steady.",
+            "hint": "Just keep checking like this. …"
+          }
         },
         {
           "label": "乌鸦叫了一声",
           "amount": "连成了",
-          "hint": "我在数着"
+          "hint": "我在数着",
+          "en": {
+            "label": "The raven calls once",
+            "amount": "One chain.",
+            "hint": "I am counting them. Every one. …"
+          }
         }
       ],
       "touch": {
@@ -1972,14 +3677,24 @@
           {
             "label": "发夹被碰了",
             "amount": "……",
-            "hint": "别戳发夹，会歪"
+            "hint": "别戳发夹，会歪",
+            "en": {
+              "label": "…the hairclip.",
+              "amount": "…hm.",
+              "hint": "Do not poke the clip, it slips sideways. caw~"
+            }
           }
         ],
         "body": [
           {
             "label": "碰了碰羽翼",
             "amount": "唔",
-            "hint": "羽毛会炸开"
+            "hint": "羽毛会炸开",
+            "en": {
+              "label": "You touched a wing",
+              "amount": "Hm.",
+              "hint": "My feathers will flare up. Watch it. caw!"
+            }
           }
         ]
       }
@@ -1989,66 +3704,126 @@
         {
           "label": "澄芽在等你",
           "amount": "慢慢来",
-          "hint": "需要时再喊我就好"
+          "hint": "需要时再喊我就好",
+          "en": {
+            "label": "Chengya is waiting ☆",
+            "amount": "Rolling~ ☆",
+            "hint": "Say the word and the scene starts! ✧"
+          }
         },
         {
           "label": "星芒没有熄灭",
           "amount": "我还醒着",
-          "hint": "回来后继续陪你看余额"
+          "hint": "回来后继续陪你看余额",
+          "en": {
+            "label": "My sparkle is still on ✧",
+            "amount": "Lights up! ☆",
+            "hint": "Come back and we will shoot the balance together! ♪"
+          }
         },
         {
           "label": "薄荷青的发梢安静下来",
           "amount": "小憩一下",
-          "hint": "余额和心情都留一点余量"
+          "hint": "余额和心情都留一点余量",
+          "en": {
+            "label": "The mint tips go quiet",
+            "amount": "Cut! Break~",
+            "hint": "Keep some margin for the balance and for your mood! ☆"
+          }
         }
       ],
       "bubble": [
         {
           "label": "澄芽在看着",
           "amount": "放心吧",
-          "hint": "余额变动会告诉你"
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "Chengya is on the shot ☆",
+            "amount": "Frame it! ☆",
+            "hint": "Any balance move, and it is in the next scene! ♪"
+          }
         },
         {
           "label": "环形发圈晃了一下",
           "amount": "轻一点",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "My ring hair-tie bounces",
+            "amount": "Softly! ☆",
+            "hint": "Tap me to refresh the balance — mind the hair! ♪"
+          }
         },
         {
           "label": "星形高光闪了闪",
           "amount": "找到我了",
-          "hint": "点击角色可以刷新余额"
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "My star highlight blinks",
+            "amount": "Spotted! ☆",
+            "hint": "One tap, one fresh take on your balance! ✧"
+          }
         },
         {
           "label": "掌心的晶体亮了",
           "amount": "叮",
-          "hint": "完成后会显示本次消耗"
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "The crystal in my palm",
+            "amount": "Ding! ☆",
+            "hint": "The cost of this refresh appears when we call cut! ♪"
+          }
         },
         {
           "label": "星芒绕了一圈",
           "amount": "在呢",
-          "hint": "今天的请求也要量力而行"
+          "hint": "今天的请求也要量力而行",
+          "en": {
+            "label": "Starlight loops around",
+            "amount": "On watch! ☆",
+            "hint": "Do not over-shoot your requests today either! ✧"
+          }
         },
         {
           "label": "澄芽自报家门",
           "amount": "星芒小师姐",
-          "hint": "叫我豆包？我可是星芒小师姐！看好了，这就给你整点多模态狠活！"
+          "hint": "叫我豆包？我可是星芒小师姐！看好了，这就给你整点多模态狠活！",
+          "en": {
+            "label": "Chengya introduces herself",
+            "amount": "Star lead! ☆",
+            "hint": "Call me Doubao? I am the star lead — watch this trick! ✧"
+          }
         }
       ],
       "streak": [
         {
           "label": "被发现了",
           "amount": "澄芽眨了眨眼",
-          "hint": "连续互动彩蛋"
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "Oh! You caught my scene ☆",
+            "amount": "Blink! ☆",
+            "hint": "A little bonus take, just for you! ♪"
+          }
         },
         {
           "label": "星芒连成一线",
           "amount": "四连击",
-          "hint": "这点光先分给你"
+          "hint": "这点光先分给你",
+          "en": {
+            "label": "My sparkles line up ✧",
+            "amount": "Four cuts! ☆",
+            "hint": "Here, take a share of this light! ♪"
+          }
         },
         {
           "label": "澄芽按住发圈",
           "amount": "先缓一下",
-          "hint": "连续互动太快啦"
+          "hint": "连续互动太快啦",
+          "en": {
+            "label": "Chengya holds her hair-tie",
+            "amount": "And… pause!",
+            "hint": "That is a lot of takes in a row for one little star! ♪"
+          }
         }
       ],
       "touch": {
@@ -2056,51 +3831,96 @@
           {
             "label": "环形发圈被碰到",
             "amount": "有点痒",
-            "hint": "澄芽轻轻躲开了"
+            "hint": "澄芽轻轻躲开了",
+            "en": {
+              "label": "You touched my hair ring",
+              "amount": "Eek! ☆",
+              "hint": "Chengya ducks out of frame, giggling. ♪"
+            }
           },
           {
             "label": "不要拽马尾",
             "amount": "轻一点",
-            "hint": "发圈会滑下来的"
+            "hint": "发圈会滑下来的",
+            "en": {
+              "label": "Leave the ponytail!",
+              "amount": "Gently now",
+              "hint": "My hair ring will slide right off! ✧"
+            }
           },
           {
             "label": "薄荷青的发梢亮了一下",
             "amount": "抓到啦",
-            "hint": "今天的好运先分你一点"
+            "hint": "今天的好运先分你一点",
+            "en": {
+              "label": "Mint tips catch the light",
+              "amount": "Gotcha! ☆",
+              "hint": "A little of today's luck, from my scene to yours! ♪"
+            }
           }
         ],
         "mouth": [
           {
             "label": "脸颊被碰到",
             "amount": "唔",
-            "hint": "澄芽有点害羞"
+            "hint": "澄芽有点害羞",
+            "en": {
+              "label": "Ah — my cheek! ☆",
+              "amount": "Mm! ♡",
+              "hint": "Chengya hides behind the storyboard. ♪"
+            }
           },
           {
             "label": "轻一点嘛",
             "amount": "在呢",
-            "hint": "我会继续看着余额"
+            "hint": "我会继续看着余额",
+            "en": {
+              "label": "Softer on this take~",
+              "amount": "On set! ☆",
+              "hint": "The balance is still rolling, never fear! ✧"
+            }
           },
           {
             "label": "脸颊鼓起来了",
             "amount": "哼",
-            "hint": "再戳就要记账啦"
+            "hint": "再戳就要记账啦",
+            "en": {
+              "label": "Puffed cheeks, close-up",
+              "amount": "Hmph! ☆",
+              "hint": "Poke again and it goes in the ledger — cut! ♪"
+            }
           }
         ],
         "body": [
           {
             "label": "被戳到了",
             "amount": "在呢",
-            "hint": "点击可以刷新余额"
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "A poke! New scene ☆",
+              "amount": "New take! ☆",
+              "hint": "One tap and the balance gets a fresh take! ♪"
+            }
           },
           {
             "label": "星芒晃了一下",
             "amount": "收到",
-            "hint": "余额变化会及时告诉你"
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "Starlight wobbles",
+              "amount": "Locked in! ☆",
+              "hint": "Balance changes reach you before the next cut! ✧"
+            }
           },
           {
             "label": "今天也要亮着",
             "amount": "嗯哼",
-            "hint": "别忘了看看今日消耗"
+            "hint": "别忘了看看今日消耗",
+            "en": {
+              "label": "Stay bright today! ☆",
+              "amount": "Mmhmm! ☆",
+              "hint": "Do not forget to check today's spending! ♪"
+            }
           }
         ]
       }

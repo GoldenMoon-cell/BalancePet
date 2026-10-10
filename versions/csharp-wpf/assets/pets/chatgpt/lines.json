@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "霁珑在等你",
       "amount": "慢慢来",
-      "hint": "需要时再喊我就好"
+      "hint": "需要时再喊我就好",
+      "en": {
+        "label": "Jilong is at your service ✧",
+        "amount": "No hurry ♡",
+        "hint": "Ring for me whenever you like — I am never far. ✧"
+      }
     },
     {
       "label": "龙鳞亮了一片",
       "amount": "我还醒着",
-      "hint": "回来后我会继续守着余额"
+      "hint": "回来后我会继续守着余额",
+      "en": {
+        "label": "One scale lights up ✧",
+        "amount": "Wide awake~",
+        "hint": "Do come back; I shall keep counting your balance, as always. ♡"
+      }
     },
     {
       "label": "安静值班中",
       "amount": "嘘",
-      "hint": "今天也要记得给自己留一点电量"
+      "hint": "今天也要记得给自己留一点电量",
+      "en": {
+        "label": "Quietly on duty…",
+        "amount": "Shh~ ♡",
+        "hint": "Do remember to keep a little charge for yourself today, hm? ♪"
+      }
     }
   ],
   "bubble": [
     {
       "label": "霁珑在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Jilong is watching over it ♡",
+        "amount": "Handled ♡",
+        "hint": "Any change in your balance, and I shall tell you at once. ♪"
+      }
     },
     {
       "label": "龙角有点痒",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "My horn is ticklish…",
+        "amount": "Gently, hm~",
+        "hint": "One tap on me refreshes the balance — mind the horn, please. ♡"
+      }
     },
     {
       "label": "尾巴晃了一下",
       "amount": "抓到啦",
-      "hint": "今天也要记得看一眼消耗"
+      "hint": "今天也要记得看一眼消耗",
+      "en": {
+        "label": "My tail gave a little swish ♪",
+        "amount": "Found you! ♪",
+        "hint": "Do glance at today's spending when you have a moment, hm? ♪"
+      }
     },
     {
       "label": "龙鳞闪了一片",
       "amount": "在呢",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "A scale catches the light ✧",
+        "amount": "Right here~",
+        "hint": "This refresh's cost will be shown the moment it finishes. ♪"
+      }
     },
     {
       "label": "被你找到啦",
       "amount": "嗯哼",
-      "hint": "再点一下也不会立刻变强哦"
+      "hint": "再点一下也不会立刻变强哦",
+      "en": {
+        "label": "Oh! You found me ♡",
+        "amount": "Mm~ ♡",
+        "hint": "Tapping again will not make me stronger, I am afraid. ♪"
+      }
     },
     {
       "label": "霁珑开口了",
       "amount": "可以，先看看",
-      "hint": "想解决问题？可以，先看看你的账单够不够填满我的龙尾巴。"
+      "hint": "想解决问题？可以，先看看你的账单够不够填满我的龙尾巴。",
+      "en": {
+        "label": "Jilong speaks ♪",
+        "amount": "Let me see~",
+        "hint": "Bring me your bill, then — can it fill a dragon's tail? ♡"
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "霁珑笑了一下",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Oh my, you noticed me ♡",
+        "amount": "Smiled ♡",
+        "hint": "A little secret for those who keep tapping. ♪"
+      }
     },
     {
       "label": "龙角亮起来了",
       "amount": "四连击",
-      "hint": "这次真的被你抓到了"
+      "hint": "这次真的被你抓到了",
+      "en": {
+        "label": "My horns light up ✧",
+        "amount": "Four, dear~",
+        "hint": "This time you have truly caught me — how thorough of you. ♡"
+      }
     },
     {
       "label": "霁珑申请暂停",
       "amount": "先喘口气",
-      "hint": "连续互动太快啦"
+      "hint": "连续互动太快啦",
+      "en": {
+        "label": "Jilong begs a pause…",
+        "amount": "One breath ♡",
+        "hint": "You are tapping rather fast — may I catch my breath, please? ♪"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "龙角被碰到",
         "amount": "有点痒",
-        "hint": "霁珑轻轻躲开了"
+        "hint": "霁珑轻轻躲开了",
+        "en": {
+          "label": "My horn was touched ♡",
+          "amount": "Eek~ ♡",
+          "hint": "Jilong leans away, very politely. ♪"
+        }
       },
       {
         "label": "不要戳角角",
         "amount": "哎呀",
-        "hint": "发型会乱掉的"
+        "hint": "发型会乱掉的",
+        "en": {
+          "label": "Please, not the horn ♡",
+          "amount": "Oh dear~",
+          "hint": "My hair will come undone, and that would be a shame. ♪"
+        }
       },
       {
         "label": "龙角闪了一下",
         "amount": "抓到啦",
-        "hint": "今天的好运先分你一点"
+        "hint": "今天的好运先分你一点",
+        "en": {
+          "label": "My horn flashed once ✧",
+          "amount": "Lucky you ♡",
+          "hint": "Here — a share of today's good fortune, from me to you. ♪"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "霁珑有点害羞"
+        "hint": "霁珑有点害羞",
+        "en": {
+          "label": "You touched my cheek…",
+          "amount": "Mmph~ ♡",
+          "hint": "Jilong is a little shy, though she will never say so. ♪"
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "A touch more gently, please ♡",
+          "amount": "I am here~",
+          "hint": "I shall keep watching the balance all the same. ♪"
+        }
       },
       {
         "label": "脸颊鼓起来了",
         "amount": "哼",
-        "hint": "再戳就要记账啦"
+        "hint": "再戳就要记账啦",
+        "en": {
+          "label": "My cheeks puff up ♡",
+          "amount": "Hmph~ ♪",
+          "hint": "Poke me again and I shall have to write it in the ledger. ♪"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "I felt that tap ♡",
+          "amount": "Here I am~",
+          "hint": "One tap on me refreshes your balance. ♪"
+        }
       },
       {
         "label": "龙尾晃了一下",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "My tail swings once ♪",
+          "amount": "Noted, dear~",
+          "hint": "Balance changes will reach you the moment they happen. ♡"
+        }
       },
       {
         "label": "今天也要稳住",
         "amount": "嗯哼",
-        "hint": "别忘了看看今日消耗"
+        "hint": "别忘了看看今日消耗",
+        "en": {
+          "label": "Let us stay steady today ♡",
+          "amount": "Mm, steady ♡",
+          "hint": "Do not forget to look at today's spending, hm? ♡"
+        }
       }
     ]
   }

@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "丹笺翻到下一页",
       "amount": "先歇会儿",
-      "hint": "需要时再回来，我会记得上下文"
+      "hint": "需要时再回来，我会记得上下文",
+      "en": {
+        "label": "Danjian turns the page…",
+        "amount": "Rest a bit~",
+        "hint": "Come back whenever; I keep the context for you. ~"
+      }
     },
     {
       "label": "书签轻轻晃动",
       "amount": "我在值班",
-      "hint": "余额变化会替你留下标记"
+      "hint": "余额变化会替你留下标记",
+      "en": {
+        "label": "My bookmark sways gently",
+        "amount": "On watch~",
+        "hint": "Every balance change leaves a marker in the margin. ✧"
+      }
     },
     {
       "label": "墨香还没散",
       "amount": "慢慢来",
-      "hint": "不用一直盯着屏幕"
+      "hint": "不用一直盯着屏幕",
+      "en": {
+        "label": "The ink is still drying…",
+        "amount": "Unhurried~",
+        "hint": "You really do not have to stare at the screen. ~"
+      }
     }
   ],
   "bubble": [
     {
       "label": "丹笺在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Danjian is keeping an eye ✧",
+        "amount": "All calm~",
+        "hint": "Let me explain: the balance tells you itself when it moves. ~"
+      }
     },
     {
       "label": "书页被碰响了",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "The page rustles ♪",
+        "amount": "Gently~",
+        "hint": "A tap refreshes the balance — the paper prefers soft hands. ~"
+      }
     },
     {
       "label": "书签向你点头",
       "amount": "找到啦",
-      "hint": "我会继续看着余额"
+      "hint": "我会继续看着余额",
+      "en": {
+        "label": "My bookmark nods at you",
+        "amount": "Found it~",
+        "hint": "I will keep reading the balance for you. ✧"
+      }
     },
     {
       "label": "墨迹晕开一小圈",
       "amount": "嗯",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "A small bloom of ink…",
+        "amount": "Mm~ ✧",
+        "hint": "The cost of this refresh appears here once it is done. ~"
+      }
     },
     {
       "label": "这一页写着节制",
       "amount": "收到",
-      "hint": "余额和灵感都要慢慢用"
+      "hint": "余额和灵感都要慢慢用",
+      "en": {
+        "label": "This page reads: restraint",
+        "amount": "Noted~ ✧",
+        "hint": "Spend your balance and your ideas slowly; both last longer. ~"
+      }
     },
     {
       "label": "丹笺放下书",
       "amount": "深呼吸",
-      "hint": "情绪化解决不了任何问题。来，深呼吸，我们从头看代码。"
+      "hint": "情绪化解决不了任何问题。来，深呼吸，我们从头看代码。",
+      "en": {
+        "label": "Danjian sets the book down",
+        "amount": "Breathe in~",
+        "hint": "Panic solves nothing — breathe, and we start from the first line. ~"
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "丹笺合上了书",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Oh — you caught me ✧",
+        "amount": "Book closed~",
+        "hint": "A quiet extra for a persistent reader. ~"
+      }
     },
     {
       "label": "书签跳了出来",
       "amount": "四连击",
-      "hint": "这一页专门写给你"
+      "hint": "这一页专门写给你",
+      "en": {
+        "label": "My bookmark leaps out ♪",
+        "amount": "Four marks~",
+        "hint": "This page was written only for you. ✧"
+      }
     },
     {
       "label": "丹笺轻敲书脊",
       "amount": "先暂停",
-      "hint": "连续互动太快啦"
+      "hint": "连续互动太快啦",
+      "en": {
+        "label": "Danjian taps the spine…",
+        "amount": "Pause a bit~",
+        "hint": "You are tapping faster than I can explain things. ~"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "书签被碰到",
         "amount": "有点痒",
-        "hint": "丹笺轻轻合上了书"
+        "hint": "丹笺轻轻合上了书",
+        "en": {
+          "label": "You touched my bookmark",
+          "amount": "Ticklish~ ✧",
+          "hint": "Danjian closes the book, softly, by way of answer. ~"
+        }
       },
       {
         "label": "不要拽书页",
         "amount": "轻一点",
-        "hint": "墨水会晕开的"
+        "hint": "墨水会晕开的",
+        "en": {
+          "label": "Please do not pull the page",
+          "amount": "Careful~",
+          "hint": "Wet ink spreads, and so does my patience wearing thin. ~"
+        }
       },
       {
         "label": "羽毛笔动了一下",
         "amount": "记下啦",
-        "hint": "这一笔先替你留着"
+        "hint": "这一笔先替你留着",
+        "en": {
+          "label": "My quill stirs ♪",
+          "amount": "Logged it~",
+          "hint": "I am holding this stroke of ink for you. ✧"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "丹笺有点害羞"
+        "hint": "丹笺有点害羞",
+        "en": {
+          "label": "Ah — my cheek…",
+          "amount": "Mmph~ ✧",
+          "hint": "Danjian is shy, and would rather not discuss it. ~"
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "A little more gently~",
+          "amount": "Reading on~",
+          "hint": "I am still reading the balance, do not worry. ✧"
+        }
       },
       {
         "label": "书灵鼓起脸",
         "amount": "哼",
-        "hint": "再戳就要翻页了"
+        "hint": "再戳就要翻页了",
+        "en": {
+          "label": "The book spirit pouts",
+          "amount": "Hmph~ ✧",
+          "hint": "Poke again and I shall turn the page on you. ~"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "Yes, I felt the tap",
+          "amount": "Here~ ✧",
+          "hint": "One tap and the balance is read again. ~"
+        }
       },
       {
         "label": "墨迹闪了一下",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "The ink glints once ✧",
+          "amount": "Understood~",
+          "hint": "You will hear about any balance change promptly. ~"
+        }
       },
       {
         "label": "丹笺记下这一刻",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "Danjian marks the moment",
+          "amount": "Carry on~",
+          "hint": "When it finishes, the cost of the refresh shows here. ✧"
+        }
       }
     ]
   }

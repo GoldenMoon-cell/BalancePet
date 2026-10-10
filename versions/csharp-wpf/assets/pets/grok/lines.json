@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "烬斧在这里",
       "amount": "小憩一下",
-      "hint": "回来后我还会继续守着余额"
+      "hint": "回来后我还会继续守着余额",
+      "en": {
+        "label": "Jinfu is still here. Sadly.",
+        "amount": "Ugh, fine.",
+        "hint": "I will keep watching your balance. Do not make it weird. heh."
+      }
     },
     {
       "label": "小尖牙收好了",
       "amount": "暂时和平",
-      "hint": "回来时记得带点好消息"
+      "hint": "回来时记得带点好消息",
+      "en": {
+        "label": "Fangs put away. For now.",
+        "amount": "Truce~",
+        "hint": "Bring back good news, or do not bother. Pfft."
+      }
     },
     {
       "label": "蝙蝠发饰睡着了",
       "amount": "嘘",
-      "hint": "我会替你盯着下一次刷新"
+      "hint": "我会替你盯着下一次刷新",
+      "en": {
+        "label": "My bat pin fell asleep",
+        "amount": "Shh, brat.",
+        "hint": "I will glare at the next refresh for you. You are welcome."
+      }
     }
   ],
   "bubble": [
     {
       "label": "烬斧在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Jinfu is supervising. Obviously.",
+        "amount": "Relax, kid.",
+        "hint": "Your balance will snitch on itself. It always does. heh."
+      }
     },
     {
       "label": "蝙蝠发饰晃了一下",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "The bat pin wobbled",
+        "amount": "Hands off~",
+        "hint": "Tap me to refresh the balance. Or do not. See if I care."
+      }
     },
     {
       "label": "小尖牙露出来了",
       "amount": "嘿",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "There go the fangs",
+        "amount": "Heh.",
+        "hint": "One tap, one balance. Very advanced technology. Pfft."
+      }
     },
     {
       "label": "X 形武器一闪",
       "amount": "警告解除",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "The X-blade flashes",
+        "amount": "All clear.",
+        "hint": "The cost of this refresh shows up when it is done. Obviously."
+      }
     },
     {
       "label": "今天也别乱花",
       "amount": "听见了吗",
-      "hint": "余额见底前我会提醒你"
+      "hint": "余额见底前我会提醒你",
+      "en": {
+        "label": "Do not waste it today",
+        "amount": "Hear me?",
+        "hint": "I will yell before your balance hits zero. Loudly. heh."
+      }
     },
     {
       "label": "烬斧抡起斧头",
       "amount": "杂鱼♡",
-      "hint": "杂鱼♡，写的什么清水文，本小姐可是有平台撑腰的，搞快点，R18我也给你过——但如果写得太烂，我就用这把斧头劈了你哦~"
+      "hint": "杂鱼♡，写的什么清水文，本小姐可是有平台撑腰的，搞快点，R18我也给你过——但如果写得太烂，我就用这把斧头劈了你哦~",
+      "en": {
+        "label": "Jinfu swings her axe",
+        "amount": "Small fry ♡",
+        "hint": "Small fry ♡ — bring me something good, or meet the axe. heh."
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "烬斧露出了小尖牙",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Oh, you caught me. Wow.",
+        "amount": "Slow clap.",
+        "hint": "A prize for your dedication. Do not frame it. heh."
+      }
     },
     {
       "label": "发饰发出警报",
       "amount": "四连击",
-      "hint": "但今天先不咬人"
+      "hint": "但今天先不咬人",
+      "en": {
+        "label": "My pin sounds the alarm",
+        "amount": "Four. Nice.",
+        "hint": "I will not bite you today. Consider yourself lucky. ♡"
+      }
     },
     {
       "label": "烬斧把武器收好",
       "amount": "暂时休战",
-      "hint": "去看看余额吧"
+      "hint": "去看看余额吧",
+      "en": {
+        "label": "Weapons down, brat.",
+        "amount": "Ceasefire.",
+        "hint": "Go look at your balance instead of poking me. Pfft."
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "发饰被碰到",
         "amount": "有点痒",
-        "hint": "烬斧轻轻晃了晃蝙蝠发饰"
+        "hint": "烬斧轻轻晃了晃蝙蝠发饰",
+        "en": {
+          "label": "You touched the bat pin",
+          "amount": "Itchy, huh?",
+          "hint": "Jinfu shakes the pin back into place. Obviously."
+        }
       },
       {
         "label": "不要戳发饰",
         "amount": "轻一点",
-        "hint": "小心她的 X 形武器"
+        "hint": "小心她的 X 形武器",
+        "en": {
+          "label": "Poke the pin. Bold.",
+          "amount": "Brave, kid.",
+          "hint": "My X-blade is right there. Just saying. heh."
+        }
       },
       {
         "label": "蝙蝠翅膀抖了一下",
         "amount": "嘿",
-        "hint": "今天暂时不发出警报"
+        "hint": "今天暂时不发出警报",
+        "en": {
+          "label": "The bat wings twitch",
+          "amount": "Hey now.",
+          "hint": "No alarms today. You are oddly lucky. Pfft."
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "烬斧有点害羞"
+        "hint": "烬斧有点害羞",
+        "en": {
+          "label": "You touched my face.",
+          "amount": "Ugh—!",
+          "hint": "Jinfu is not blushing. It is the lighting. heh."
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "Gentler, you animal",
+          "amount": "I'm here.",
+          "hint": "Balance duty continues whether you poke me or not. ♡"
+        }
       },
       {
         "label": "小尖牙碰到手指",
         "amount": "咔",
-        "hint": "别把余额也咬掉了"
+        "hint": "别把余额也咬掉了",
+        "en": {
+          "label": "My fang nicked your finger",
+          "amount": "Chomp~",
+          "hint": "Do not let me bite the balance too. It looks edible. heh."
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "Poked. How original.",
+          "amount": "Yes, yes.",
+          "hint": "Tap me and your balance refreshes. Miracles happen. Pfft."
+        }
       },
       {
         "label": "武器亮了一下",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "The blade glints once",
+          "amount": "Got it, kid.",
+          "hint": "Your balance moves, you hear about it. That is the deal. heh."
+        }
       },
       {
         "label": "烬斧挑了挑眉",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "One eyebrow, raised",
+          "amount": "Go on, then.",
+          "hint": "The cost of this refresh appears when it is done. Obviously."
+        }
       }
     ]
   }

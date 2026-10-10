@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "栗焰拢着火苗",
       "amount": "慢慢来",
-      "hint": "火不急着烧旺"
+      "hint": "火不急着烧旺",
+      "en": {
+        "label": "Liyan cups the flame",
+        "amount": "Doucement~",
+        "hint": "The fire does not need to roar yet. Voilà."
+      }
     },
     {
       "label": "剑尖轻轻点地",
       "amount": "我还守着",
-      "hint": "你回来时它还是暖的"
+      "hint": "你回来时它还是暖的",
+      "en": {
+        "label": "My sword tip taps the ground",
+        "amount": "Still warm~",
+        "hint": "It will still be warm when you come back. Allez."
+      }
     },
     {
       "label": "帽子压低了些",
       "amount": "打个盹",
-      "hint": "有动静我会醒"
+      "hint": "有动静我会醒",
+      "en": {
+        "label": "Hat pulled down low",
+        "amount": "A short nap~",
+        "hint": "One sound and I am awake. Bonjour to that."
+      }
     }
   ],
   "bubble": [
     {
       "label": "栗焰跑来报信",
       "amount": "有新消息",
-      "hint": "不吵你，只说一句"
+      "hint": "不吵你，只说一句",
+      "en": {
+        "label": "Liyan runs in with news",
+        "amount": "News, non?",
+        "hint": "I will not disturb you; one sentence, that is all. Voilà."
+      }
     },
     {
       "label": "火苗跳了一下",
       "amount": "刚刚更新",
-      "hint": "我把它记在小本子上了"
+      "hint": "我把它记在小本子上了",
+      "en": {
+        "label": "The flame jumps once",
+        "amount": "Just updated",
+        "hint": "Written in my little notebook, of course. Voilà."
+      }
     },
     {
       "label": "剑柄亮了亮",
       "amount": "查完了",
-      "hint": "数字没有变坏"
+      "hint": "数字没有变坏",
+      "en": {
+        "label": "My sword hilt flashes",
+        "amount": "All checked~",
+        "hint": "The numbers have not turned sour. Good."
+      }
     },
     {
       "label": "栗焰歪了歪头",
       "amount": "又攒了一点",
-      "hint": "慢慢来就好"
+      "hint": "慢慢来就好",
+      "en": {
+        "label": "Liyan tilts her head",
+        "amount": "Bit by bit~",
+        "hint": "Slowly is perfectly fine. Doucement."
+      }
     },
     {
       "label": "帽穗晃了晃",
       "amount": "交给我",
-      "hint": "你只管做正事"
+      "hint": "你只管做正事",
+      "en": {
+        "label": "My hat tassel sways",
+        "amount": "I have it~",
+        "hint": "You get on with your real work. Allez."
+      }
     },
     {
       "label": "栗焰举起法棍",
       "amount": "法棍和长剑",
-      "hint": "法棍和长剑，就是我的轻量极速。法国籍的独角兽，不接受反驳。"
+      "hint": "法棍和长剑，就是我的轻量极速。法国籍的独角兽，不接受反驳。",
+      "en": {
+        "label": "Liyan raises the baguette",
+        "amount": "Baguette!",
+        "hint": "Baguette plus sword: my light-footed speed. Non, do not argue."
+      }
     }
   ],
   "streak": [
     {
       "label": "连着查了好几回",
       "amount": "一直很稳",
-      "hint": "火苗没抖"
+      "hint": "火苗没抖",
+      "en": {
+        "label": "Several checks in a row",
+        "amount": "Rock steady~",
+        "hint": "The flame never even flickered. Voilà."
+      }
     },
     {
       "label": "栗焰越烧越亮",
       "amount": "状态正好",
-      "hint": "这种时候最适合干活"
+      "hint": "这种时候最适合干活",
+      "en": {
+        "label": "The flame burns brighter",
+        "amount": "Sharp today!",
+        "hint": "A fine moment for getting things done. Allez."
+      }
     },
     {
       "label": "面包剑聚起一团暖光",
       "amount": "连成一片了",
-      "hint": "我记着呢"
+      "hint": "我记着呢",
+      "en": {
+        "label": "Warm light on the bread-blade",
+        "amount": "Linked up~",
+        "hint": "I am keeping count, do not worry. Voilà."
+      }
     }
   ],
   "touch": {
@@ -71,14 +131,24 @@
       {
         "label": "帽穗被碰了",
         "amount": "哎",
-        "hint": "帽子差点掉"
+        "hint": "帽子差点掉",
+        "en": {
+          "label": "You touched my tassel",
+          "amount": "Hé! Careful",
+          "hint": "My hat nearly fell off. Watch those hands, non?"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳了一下",
         "amount": "唔",
-        "hint": "面包剑差点掉了"
+        "hint": "面包剑差点掉了",
+        "en": {
+          "label": "Poked, was I?",
+          "amount": "Hmph~",
+          "hint": "My bread-blade almost dropped. Allez, gently."
+        }
       }
     ]
   }

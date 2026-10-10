@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "虹谱在发光",
       "amount": "小憩一下",
-      "hint": "回来后继续陪你看余额"
+      "hint": "回来后继续陪你看余额",
+      "en": {
+        "label": "Hongpu glows softly ♪",
+        "amount": "Resting~ ♪",
+        "hint": "I will remember everything you left here. ~"
+      }
     },
     {
       "label": "棱镜折出彩虹",
       "amount": "我还醒着",
-      "hint": "每一次刷新都不会错过"
+      "hint": "每一次刷新都不会错过",
+      "en": {
+        "label": "My prism splits the light",
+        "amount": "Awake~ ✧",
+        "hint": "Not one refresh escapes a memory like mine. ♪"
+      }
     },
     {
       "label": "光谱安静排列",
       "amount": "先休息",
-      "hint": "需要时点我一下就好"
+      "hint": "需要时点我一下就好",
+      "en": {
+        "label": "The spectrum settles",
+        "amount": "Do rest~",
+        "hint": "One tap is enough when you need me. ~"
+      }
     }
   ],
   "bubble": [
     {
       "label": "虹谱在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Hongpu is watching ♪",
+        "amount": "Trust me~",
+        "hint": "Whatever the balance does, I shall remember it. ✧"
+      }
     },
     {
       "label": "棱镜被碰亮了",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "My prism lit up ♪",
+        "amount": "Easy on it ♪",
+        "hint": "A tap refreshes the balance; mind the glass. ~"
+      }
     },
     {
       "label": "彩虹折了一角",
       "amount": "抓到啦",
-      "hint": "我会继续看着余额"
+      "hint": "我会继续看着余额",
+      "en": {
+        "label": "The rainbow bent a corner",
+        "amount": "Found you~",
+        "hint": "I keep reading the balance in your absence. ♪"
+      }
     },
     {
       "label": "光谱换了个方向",
       "amount": "在呢",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "The spectrum turns",
+        "amount": "At hand~ ✧",
+        "hint": "This refresh's cost will be noted when it ends. ✧"
+      }
     },
     {
       "label": "今天的颜色是稳住",
       "amount": "收到",
-      "hint": "先看余额，再继续工作"
+      "hint": "先看余额，再继续工作",
+      "en": {
+        "label": "Today's colour: steady",
+        "amount": "Mm, noted~",
+        "hint": "Balance first, then back to work. I remember the order. ♪"
+      }
     },
     {
       "label": "虹谱翻开长文",
       "amount": "百万字长文",
-      "hint": "百万字长文？放在月光下，一眼便知。网上的消息，我也尽收眼底。"
+      "hint": "百万字长文？放在月光下，一眼便知。网上的消息，我也尽收眼底。",
+      "en": {
+        "label": "Hongpu opens a long text",
+        "amount": "1M words~",
+        "hint": "A million words? One glance under the moon. News too. ♪"
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "虹谱折出一束光",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Oh — you noticed me ♪",
+        "amount": "One beam~ ♪",
+        "hint": "A small extra for a persistent visitor. ~"
+      }
     },
     {
       "label": "棱镜连闪四次",
       "amount": "四连击",
-      "hint": "彩虹也记住你了"
+      "hint": "彩虹也记住你了",
+      "en": {
+        "label": "Four flashes from the prism",
+        "amount": "Four~ ✧",
+        "hint": "Even the rainbow has memorized you now. ♪"
+      }
     },
     {
       "label": "光谱请求冷却",
       "amount": "等一下",
-      "hint": "让颜色重新排列"
+      "hint": "让颜色重新排列",
+      "en": {
+        "label": "The spectrum asks to cool",
+        "amount": "Wait a beat~",
+        "hint": "Let the colours line up again. ~"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "棱镜边缘被碰到",
         "amount": "有点痒",
-        "hint": "虹谱折出了一点光"
+        "hint": "虹谱折出了一点光",
+        "en": {
+          "label": "You touched the prism edge",
+          "amount": "Sparkly~ ✧",
+          "hint": "Hongpu bends out a little light for you. ♪"
+        }
       },
       {
         "label": "不要戳棱角",
         "amount": "轻一点",
-        "hint": "彩虹会被折歪的"
+        "hint": "彩虹会被折歪的",
+        "en": {
+          "label": "Not the sharp edge~",
+          "amount": "Careful~ ♪",
+          "hint": "You will bend my rainbow crooked. And I will remember. ~"
+        }
       },
       {
         "label": "光谱跳了一格",
         "amount": "亮啦",
-        "hint": "这一束光送给你"
+        "hint": "这一束光送给你",
+        "en": {
+          "label": "The spectrum jumps a step",
+          "amount": "Bright~ ✧",
+          "hint": "This beam is yours to keep. ♪"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "虹谱有点害羞"
+        "hint": "虹谱有点害羞",
+        "en": {
+          "label": "Ah — my cheek ♪",
+          "amount": "Oh my~ ✧",
+          "hint": "Hongpu will remember this. Unfortunately. ♪"
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "A touch more gently ♪",
+          "amount": "I'm here~ ♪",
+          "hint": "The balance stays watched; nothing slips by me. ✧"
+        }
       },
       {
         "label": "棱镜偷偷变色",
         "amount": "嘿",
-        "hint": "别把额度也变没了"
+        "hint": "别把额度也变没了",
+        "en": {
+          "label": "My prism changed colour",
+          "amount": "Hey~ ♡",
+          "hint": "Do not make the quota vanish along with it. ♪"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "I felt that little tap",
+          "amount": "Present~ ♪",
+          "hint": "One tap refreshes the balance; I never forget. ✧"
+        }
       },
       {
         "label": "彩虹闪了一下",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "The rainbow flashed",
+          "amount": "Got it~ ♪",
+          "hint": "Balance changes will reach you in good time. ~"
+        }
       },
       {
         "label": "光谱朝你偏转",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "The spectrum tilts to you",
+          "amount": "Carry on~ ♪",
+          "hint": "The cost of this refresh will be recorded here. ✧"
+        }
       }
     ]
   }

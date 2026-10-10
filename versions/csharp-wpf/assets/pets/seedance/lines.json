@@ -1,38 +1,227 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
-    { "label": "澄芽在等你", "amount": "慢慢来", "hint": "需要时再喊我就好" },
-    { "label": "星芒没有熄灭", "amount": "我还醒着", "hint": "回来后继续陪你看余额" },
-    { "label": "薄荷青的发梢安静下来", "amount": "小憩一下", "hint": "余额和心情都留一点余量" }
+    {
+      "label": "澄芽在等你",
+      "amount": "慢慢来",
+      "hint": "需要时再喊我就好",
+      "en": {
+        "label": "Chengya is waiting ☆",
+        "amount": "Rolling~ ☆",
+        "hint": "Say the word and the scene starts! ✧"
+      }
+    },
+    {
+      "label": "星芒没有熄灭",
+      "amount": "我还醒着",
+      "hint": "回来后继续陪你看余额",
+      "en": {
+        "label": "My sparkle is still on ✧",
+        "amount": "Lights up! ☆",
+        "hint": "Come back and we will shoot the balance together! ♪"
+      }
+    },
+    {
+      "label": "薄荷青的发梢安静下来",
+      "amount": "小憩一下",
+      "hint": "余额和心情都留一点余量",
+      "en": {
+        "label": "The mint tips go quiet",
+        "amount": "Cut! Break~",
+        "hint": "Keep some margin for the balance and for your mood! ☆"
+      }
+    }
   ],
   "bubble": [
-    { "label": "澄芽在看着", "amount": "放心吧", "hint": "余额变动会告诉你" },
-    { "label": "环形发圈晃了一下", "amount": "轻一点", "hint": "点击角色可以刷新余额" },
-    { "label": "星形高光闪了闪", "amount": "找到我了", "hint": "点击角色可以刷新余额" },
-    { "label": "掌心的晶体亮了", "amount": "叮", "hint": "完成后会显示本次消耗" },
-    { "label": "星芒绕了一圈", "amount": "在呢", "hint": "今天的请求也要量力而行" },
-    { "label": "澄芽自报家门", "amount": "星芒小师姐", "hint": "叫我豆包？我可是星芒小师姐！看好了，这就给你整点多模态狠活！" }
+    {
+      "label": "澄芽在看着",
+      "amount": "放心吧",
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Chengya is on the shot ☆",
+        "amount": "Frame it! ☆",
+        "hint": "Any balance move, and it is in the next scene! ♪"
+      }
+    },
+    {
+      "label": "环形发圈晃了一下",
+      "amount": "轻一点",
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "My ring hair-tie bounces",
+        "amount": "Softly! ☆",
+        "hint": "Tap me to refresh the balance — mind the hair! ♪"
+      }
+    },
+    {
+      "label": "星形高光闪了闪",
+      "amount": "找到我了",
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "My star highlight blinks",
+        "amount": "Spotted! ☆",
+        "hint": "One tap, one fresh take on your balance! ✧"
+      }
+    },
+    {
+      "label": "掌心的晶体亮了",
+      "amount": "叮",
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "The crystal in my palm",
+        "amount": "Ding! ☆",
+        "hint": "The cost of this refresh appears when we call cut! ♪"
+      }
+    },
+    {
+      "label": "星芒绕了一圈",
+      "amount": "在呢",
+      "hint": "今天的请求也要量力而行",
+      "en": {
+        "label": "Starlight loops around",
+        "amount": "On watch! ☆",
+        "hint": "Do not over-shoot your requests today either! ✧"
+      }
+    },
+    {
+      "label": "澄芽自报家门",
+      "amount": "星芒小师姐",
+      "hint": "叫我豆包？我可是星芒小师姐！看好了，这就给你整点多模态狠活！",
+      "en": {
+        "label": "Chengya introduces herself",
+        "amount": "Star lead! ☆",
+        "hint": "Call me Doubao? I am the star lead — watch this trick! ✧"
+      }
+    }
   ],
   "streak": [
-    { "label": "被发现了", "amount": "澄芽眨了眨眼", "hint": "连续互动彩蛋" },
-    { "label": "星芒连成一线", "amount": "四连击", "hint": "这点光先分给你" },
-    { "label": "澄芽按住发圈", "amount": "先缓一下", "hint": "连续互动太快啦" }
+    {
+      "label": "被发现了",
+      "amount": "澄芽眨了眨眼",
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Oh! You caught my scene ☆",
+        "amount": "Blink! ☆",
+        "hint": "A little bonus take, just for you! ♪"
+      }
+    },
+    {
+      "label": "星芒连成一线",
+      "amount": "四连击",
+      "hint": "这点光先分给你",
+      "en": {
+        "label": "My sparkles line up ✧",
+        "amount": "Four cuts! ☆",
+        "hint": "Here, take a share of this light! ♪"
+      }
+    },
+    {
+      "label": "澄芽按住发圈",
+      "amount": "先缓一下",
+      "hint": "连续互动太快啦",
+      "en": {
+        "label": "Chengya holds her hair-tie",
+        "amount": "And… pause!",
+        "hint": "That is a lot of takes in a row for one little star! ♪"
+      }
+    }
   ],
   "touch": {
     "hair": [
-      { "label": "环形发圈被碰到", "amount": "有点痒", "hint": "澄芽轻轻躲开了" },
-      { "label": "不要拽马尾", "amount": "轻一点", "hint": "发圈会滑下来的" },
-      { "label": "薄荷青的发梢亮了一下", "amount": "抓到啦", "hint": "今天的好运先分你一点" }
+      {
+        "label": "环形发圈被碰到",
+        "amount": "有点痒",
+        "hint": "澄芽轻轻躲开了",
+        "en": {
+          "label": "You touched my hair ring",
+          "amount": "Eek! ☆",
+          "hint": "Chengya ducks out of frame, giggling. ♪"
+        }
+      },
+      {
+        "label": "不要拽马尾",
+        "amount": "轻一点",
+        "hint": "发圈会滑下来的",
+        "en": {
+          "label": "Leave the ponytail!",
+          "amount": "Gently now",
+          "hint": "My hair ring will slide right off! ✧"
+        }
+      },
+      {
+        "label": "薄荷青的发梢亮了一下",
+        "amount": "抓到啦",
+        "hint": "今天的好运先分你一点",
+        "en": {
+          "label": "Mint tips catch the light",
+          "amount": "Gotcha! ☆",
+          "hint": "A little of today's luck, from my scene to yours! ♪"
+        }
+      }
     ],
     "mouth": [
-      { "label": "脸颊被碰到", "amount": "唔", "hint": "澄芽有点害羞" },
-      { "label": "轻一点嘛", "amount": "在呢", "hint": "我会继续看着余额" },
-      { "label": "脸颊鼓起来了", "amount": "哼", "hint": "再戳就要记账啦" }
+      {
+        "label": "脸颊被碰到",
+        "amount": "唔",
+        "hint": "澄芽有点害羞",
+        "en": {
+          "label": "Ah — my cheek! ☆",
+          "amount": "Mm! ♡",
+          "hint": "Chengya hides behind the storyboard. ♪"
+        }
+      },
+      {
+        "label": "轻一点嘛",
+        "amount": "在呢",
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "Softer on this take~",
+          "amount": "On set! ☆",
+          "hint": "The balance is still rolling, never fear! ✧"
+        }
+      },
+      {
+        "label": "脸颊鼓起来了",
+        "amount": "哼",
+        "hint": "再戳就要记账啦",
+        "en": {
+          "label": "Puffed cheeks, close-up",
+          "amount": "Hmph! ☆",
+          "hint": "Poke again and it goes in the ledger — cut! ♪"
+        }
+      }
     ],
     "body": [
-      { "label": "被戳到了", "amount": "在呢", "hint": "点击可以刷新余额" },
-      { "label": "星芒晃了一下", "amount": "收到", "hint": "余额变化会及时告诉你" },
-      { "label": "今天也要亮着", "amount": "嗯哼", "hint": "别忘了看看今日消耗" }
+      {
+        "label": "被戳到了",
+        "amount": "在呢",
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "A poke! New scene ☆",
+          "amount": "New take! ☆",
+          "hint": "One tap and the balance gets a fresh take! ♪"
+        }
+      },
+      {
+        "label": "星芒晃了一下",
+        "amount": "收到",
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "Starlight wobbles",
+          "amount": "Locked in! ☆",
+          "hint": "Balance changes reach you before the next cut! ✧"
+        }
+      },
+      {
+        "label": "今天也要亮着",
+        "amount": "嗯哼",
+        "hint": "别忘了看看今日消耗",
+        "en": {
+          "label": "Stay bright today! ☆",
+          "amount": "Mmhmm! ☆",
+          "hint": "Do not forget to check today's spending! ♪"
+        }
+      }
     ]
   }
 }

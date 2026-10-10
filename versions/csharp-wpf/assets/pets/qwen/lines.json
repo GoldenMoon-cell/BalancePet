@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "绀华收起折扇",
       "amount": "小憩一下",
-      "hint": "回来后我还会继续守着余额"
+      "hint": "回来后我还会继续守着余额",
+      "en": {
+        "label": "Ganhua folds her fan ☆",
+        "amount": "Tiny break~",
+        "hint": "I will still be on balance duty when you return! ☆"
+      }
     },
     {
       "label": "扇面写了新字",
       "amount": "稍后见",
-      "hint": "有变化时我会提醒你"
+      "hint": "有变化时我会提醒你",
+      "en": {
+        "label": "New words on the fan",
+        "amount": "Back soon! ☆",
+        "hint": "Any change and I will ping you right away! ♪"
+      }
     },
     {
       "label": "风从扇边经过",
       "amount": "慢慢来",
-      "hint": "别让自己比余额更快见底"
+      "hint": "别让自己比余额更快见底",
+      "en": {
+        "label": "The wind slips past the fan",
+        "amount": "Steady! ☆",
+        "hint": "Do not run out before your balance does, okay? ♪"
+      }
     }
   ],
   "bubble": [
     {
       "label": "绀华在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Ganhua has an eye on it ☆",
+        "amount": "All set! ☆",
+        "hint": "Your balance will report in the moment it moves! ♪"
+      }
     },
     {
       "label": "扇骨被碰到了",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "You touched my fan ribs",
+        "amount": "Gentle! ☆",
+        "hint": "Tap me to refresh the balance — easy on the fan! ♪"
+      }
     },
     {
       "label": "折扇开了一线",
       "amount": "找到啦",
-      "hint": "我会继续看着余额"
+      "hint": "我会继续看着余额",
+      "en": {
+        "label": "The fan opens a crack",
+        "amount": "Found it! ☆",
+        "hint": "I will keep watching the balance for you! ♪"
+      }
     },
     {
       "label": "扇面落下一笔墨",
       "amount": "在呢",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "A drop of ink lands",
+        "amount": "Mm, here! ☆",
+        "hint": "This refresh's cost will be shown when it is done! ♪"
+      }
     },
     {
       "label": "风来时再刷新",
       "amount": "慢慢来",
-      "hint": "别把今日预算一下用完"
+      "hint": "别把今日预算一下用完",
+      "en": {
+        "label": "Refresh when the wind comes",
+        "amount": "No rush! ☆",
+        "hint": "Do not spend today's budget all in one go! ♪"
+      }
     },
     {
       "label": "绀华摊开折扇",
       "amount": "这题我会",
-      "hint": "这题我会，那题我也熟。别慌，本小姐开源给你兜底。"
+      "hint": "这题我会，那题我也熟。别慌，本小姐开源给你兜底。",
+      "en": {
+        "label": "Ganhua spreads the fan",
+        "amount": "On it! ☆",
+        "hint": "This one and the next one too — open source has your back! ♪"
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "绀华轻摇折扇",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Oh! You spotted me ☆",
+        "amount": "Fan wave~ ♪",
+        "hint": "A little extra for a quick hand! ☆"
+      }
     },
     {
       "label": "扇面写下四笔",
       "amount": "四连击",
-      "hint": "这一笔送给你"
+      "hint": "这一笔送给你",
+      "en": {
+        "label": "Four strokes on the fan",
+        "amount": "Four strokes",
+        "hint": "This stroke is a gift for you! ♪"
+      }
     },
     {
       "label": "绀华收扇提醒",
       "amount": "先停一下",
-      "hint": "连续互动太快啦"
+      "hint": "连续互动太快啦",
+      "en": {
+        "label": "Ganhua snaps the fan shut",
+        "amount": "Wait up! ☆",
+        "hint": "That is a bit too fast even for me! ♪"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "扇骨被碰到",
         "amount": "有点痒",
-        "hint": "绀华轻轻收了收折扇"
+        "hint": "绀华轻轻收了收折扇",
+        "en": {
+          "label": "My fan ribs were touched",
+          "amount": "Ticklish! ☆",
+          "hint": "Ganhua tucks the fan in, smiling. ♪"
+        }
       },
       {
         "label": "不要拽扇面",
         "amount": "轻一点",
-        "hint": "墨迹还没有干"
+        "hint": "墨迹还没有干",
+        "en": {
+          "label": "Not the fan paper!",
+          "amount": "Ink's wet! ☆",
+          "hint": "The ink has not dried yet, see? ♪"
+        }
       },
       {
         "label": "流苏晃了一下",
         "amount": "记下啦",
-        "hint": "这一笔先写在账上"
+        "hint": "这一笔先写在账上",
+        "en": {
+          "label": "My tassel swings",
+          "amount": "Noted! ☆",
+          "hint": "This stroke goes on the ledger for now. ♪"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "绀华有点害羞"
+        "hint": "绀华有点害羞",
+        "en": {
+          "label": "Ah — my cheek!",
+          "amount": "Mm! ☆",
+          "hint": "Ganhua is blushing behind her fan. ♪"
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "Softer, hm~ ♪",
+          "amount": "I'm here! ☆",
+          "hint": "Balance duty never stops, not for a second! ♪"
+        }
       },
       {
         "label": "折扇遮住半张脸",
         "amount": "哎呀",
-        "hint": "别让今日额度也害羞消失"
+        "hint": "别让今日额度也害羞消失",
+        "en": {
+          "label": "The fan hides half her face",
+          "amount": "Oh no~ ☆",
+          "hint": "Do not let today's quota hide away too! ♪"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "Poked! I felt it ☆",
+          "amount": "Felt it! ☆",
+          "hint": "One tap re-reads your balance! ♪"
+        }
       },
       {
         "label": "扇面翻过一页",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "The fan turns a page",
+          "amount": "Heard! ☆",
+          "hint": "Balance changes come to you right away! ♪"
+        }
       },
       {
         "label": "绀华点了点扇柄",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "She taps the fan handle",
+          "amount": "Carry on! ☆",
+          "hint": "The cost of this refresh shows up when it is done! ♪"
+        }
       }
     ]
   }

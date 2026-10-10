@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "绯音在这里",
       "amount": "小憩一下",
-      "hint": "回来后我还会继续守着余额"
+      "hint": "回来后我还会继续守着余额",
+      "en": {
+        "label": "Feiyin is here~ ♪",
+        "amount": "Ahh~ ♡",
+        "hint": "I will hum to your balance while you are away. la la~"
+      }
     },
     {
       "label": "螺音轻轻响",
       "amount": "听见了吗",
-      "hint": "余额和心情都在慢慢恢复"
+      "hint": "余额和心情都在慢慢恢复",
+      "en": {
+        "label": "My shell hums softly ♪",
+        "amount": "Hear that~?",
+        "hint": "Your balance and your mood are both recovering. ♡"
+      }
     },
     {
       "label": "小海螺待机中",
       "amount": "不打扰",
-      "hint": "需要时敲一下桌面就好"
+      "hint": "需要时敲一下桌面就好",
+      "en": {
+        "label": "Little conch on standby ♪",
+        "amount": "Shh~ ♪",
+        "hint": "Tap the desk when you need me, and I will sing. ♡"
+      }
     }
   ],
   "bubble": [
     {
       "label": "绯音在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Feiyin is watching~ ♪",
+        "amount": "Trust me ♡",
+        "hint": "Every balance change gets its own little aria. la la~"
+      }
     },
     {
       "label": "耳坠晃了一下",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "My earring sways ♪",
+        "amount": "Aaah~ gently",
+        "hint": "Tap me to refresh the balance, gently, I am performing. ♪"
+      }
     },
     {
       "label": "螺纹亮了一圈",
       "amount": "听见啦",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "My spiral glows a ring ♪",
+        "amount": "I hear you~",
+        "hint": "One tap, one fresh balance — encore! la la~"
+      }
     },
     {
       "label": "小海螺转了转",
       "amount": "继续工作",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "The little conch spins",
+        "amount": "On with it~",
+        "hint": "This refresh's cost will appear when the song ends. ♪"
+      }
     },
     {
       "label": "被你戳中啦",
       "amount": "叮",
-      "hint": "余额下降时我会先提醒你"
+      "hint": "余额下降时我会先提醒你",
+      "en": {
+        "label": "Ohh, you got me ♡",
+        "amount": "Ding~ ♪",
+        "hint": "If your balance drops, I will warn you first. Ahh~"
+      }
     },
     {
       "label": "绯音清了清嗓子",
       "amount": "来来来",
-      "hint": "来来来，听我用八种语气给你讲这个故事，保准让你哭！"
+      "hint": "来来来，听我用八种语气给你讲这个故事，保准让你哭！",
+      "en": {
+        "label": "Feiyin clears her throat",
+        "amount": "Sing along~",
+        "hint": "Eight voices, one story, and you will cry. la la la~"
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "绯音眨了眨眼",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Oh! You noticed me ♡",
+        "amount": "Blink~ ♪",
+        "hint": "A tiny encore, just for your fast fingers. ♪"
+      }
     },
     {
       "label": "螺音连成一串",
       "amount": "四连击",
-      "hint": "小海螺也会记仇哦"
+      "hint": "小海螺也会记仇哦",
+      "en": {
+        "label": "Four notes in a row ♪",
+        "amount": "Fa la la~",
+        "hint": "Little conches hold grudges, you know. ♡"
+      }
     },
     {
       "label": "绯音摇摇耳坠",
       "amount": "再一下",
-      "hint": "然后就要认真工作啦"
+      "hint": "然后就要认真工作啦",
+      "en": {
+        "label": "Feiyin shakes her earring",
+        "amount": "One more~?",
+        "hint": "Then we really must get back to work. la la~"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "发梢被碰到",
         "amount": "有点痒",
-        "hint": "绯音轻轻躲开了"
+        "hint": "绯音轻轻躲开了",
+        "en": {
+          "label": "You touched my hair ♪",
+          "amount": "Ahh~ tickles",
+          "hint": "Feiyin sways away, still singing. ♪"
+        }
       },
       {
         "label": "不要拽头发",
         "amount": "轻一点",
-        "hint": "发型会乱掉的"
+        "hint": "发型会乱掉的",
+        "en": {
+          "label": "Not the hair, please ♡",
+          "amount": "Gently~ ♪",
+          "hint": "My hairstyle is part of the performance. ♡"
+        }
       },
       {
         "label": "螺旋发饰响了",
         "amount": "叮",
-        "hint": "绯音听见你的动静了"
+        "hint": "绯音听见你的动静了",
+        "en": {
+          "label": "My spiral clip rings ♪",
+          "amount": "Ding~ ♡",
+          "hint": "Feiyin heard every little sound you made. ♪"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "绯音有点害羞"
+        "hint": "绯音有点害羞",
+        "en": {
+          "label": "Ohh — my cheek ♡",
+          "amount": "Mmph~ ♪",
+          "hint": "Feiyin is blushing in a very musical way. ♡"
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "Softer, please~ ♪",
+          "amount": "Mid-song~ ♡",
+          "hint": "The balance watch never stops, not even mid-song. ♪"
+        }
       },
       {
         "label": "小海螺鼓起脸",
         "amount": "哼哼",
-        "hint": "再一下就要收费啦"
+        "hint": "再一下就要收费啦",
+        "en": {
+          "label": "The conch puffs her cheeks",
+          "amount": "Hmph, hmph~",
+          "hint": "One more poke and I start charging admission. ♡"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "Ooh, poked~ ♡",
+          "amount": "Ahh~ ♪",
+          "hint": "Tap me and the balance sings out fresh. ♪"
+        }
       },
       {
         "label": "耳坠摆了摆",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "My earring swings ♪",
+          "amount": "La, got it~",
+          "hint": "Balance changes come to you in perfect pitch. ♡"
+        }
       },
       {
         "label": "绯音转了一圈",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "Feiyin spins once ♪",
+          "amount": "Encore~ ♡",
+          "hint": "When it finishes, the cost takes a bow right here. ♪"
+        }
       }
     ]
   }

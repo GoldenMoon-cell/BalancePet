@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "玄珏收起画笔",
       "amount": "稍后再画",
-      "hint": "回来后继续陪你看余额"
+      "hint": "回来后继续陪你看余额",
+      "en": {
+        "label": "Xuanjue puts the brush away",
+        "amount": "Later.",
+        "hint": "…the balance and I will still be here."
+      }
     },
     {
       "label": "黑玉画板微微发亮",
       "amount": "灵感待机",
-      "hint": "下一次状态变化我会告诉你"
+      "hint": "下一次状态变化我会告诉你",
+      "en": {
+        "label": "The jet tablet glows, faintly",
+        "amount": "Idle…",
+        "hint": "You will hear from me when something changes. ✧"
+      }
     },
     {
       "label": "墨色龙角安静下来",
       "amount": "慢慢来",
-      "hint": "好画面和好预算都值得等待"
+      "hint": "好画面和好预算都值得等待",
+      "en": {
+        "label": "The ink-dark horns settle",
+        "amount": "Wait.",
+        "hint": "Good pictures and good budgets both take patience. …"
+      }
     }
   ],
   "bubble": [
     {
       "label": "玄珏在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Xuanjue is looking.",
+        "amount": "Fine.",
+        "hint": "The balance will say the rest. …"
+      }
     },
     {
       "label": "墨色龙角被碰到了",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "…my horn",
+        "amount": "Mm.",
+        "hint": "A tap refreshes the balance. Gently. ✧"
+      }
     },
     {
       "label": "画笔在画板上点了一下",
       "amount": "找到啦",
-      "hint": "我会继续看着余额"
+      "hint": "我会继续看着余额",
+      "en": {
+        "label": "The brush taps once",
+        "amount": "Found.",
+        "hint": "I keep watching the balance. Quietly. …"
+      }
     },
     {
       "label": "黑玉边框亮了一圈",
       "amount": "在呢",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "The jet frame lights up",
+        "amount": "Here.",
+        "hint": "This refresh's cost appears when it is finished. ✧"
+      }
     },
     {
       "label": "灵感也要留白",
       "amount": "慢慢画",
-      "hint": "预算够用，画面才有余地"
+      "hint": "预算够用，画面才有余地",
+      "en": {
+        "label": "Leave room to breathe",
+        "amount": "Slow.",
+        "hint": "A comfortable budget leaves room in the picture. …"
+      }
     },
     {
       "label": "玄珏举起画笔",
       "amount": "大姐陪你们聊天",
-      "hint": "大姐陪你们聊天，而我的画笔和算力……决定你们能不能见到明天的太阳。"
+      "hint": "大姐陪你们聊天，而我的画笔和算力……决定你们能不能见到明天的太阳。",
+      "en": {
+        "label": "Xuanjue raises the brush",
+        "amount": "I draw.",
+        "hint": "The others talk; my brush and my compute decide your sunrise. …"
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "玄珏偷偷笑了一下",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "…you noticed.",
+        "amount": "Half a smile",
+        "hint": "Not that I would admit it. ✧"
+      }
     },
     {
       "label": "画笔连点四下",
       "amount": "四连击",
-      "hint": "这一笔就画给你"
+      "hint": "这一笔就画给你",
+      "en": {
+        "label": "Four taps of the brush",
+        "amount": "Four.",
+        "hint": "This stroke is for you. …"
+      }
     },
     {
       "label": "玄珏护住画板",
       "amount": "先留点白",
-      "hint": "灵感也需要一点呼吸空间"
+      "hint": "灵感也需要一点呼吸空间",
+      "en": {
+        "label": "Xuanjue shields the board",
+        "amount": "White space.",
+        "hint": "Inspiration needs air around it too. …"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "龙角被碰到",
         "amount": "有点痒",
-        "hint": "玄珏轻轻偏开了头"
+        "hint": "玄珏轻轻偏开了头",
+        "en": {
+          "label": "…the horn.",
+          "amount": "Mm?",
+          "hint": "Xuanjue turns her head away, barely. ✧"
+        }
       },
       {
         "label": "不要碰角尖",
         "amount": "轻一点",
-        "hint": "金色耳饰会跟着晃"
+        "hint": "金色耳饰会跟着晃",
+        "en": {
+          "label": "Not the horn tip.",
+          "amount": "Careful.",
+          "hint": "The gold earrings will swing. …"
+        }
       },
       {
         "label": "墨紫长发亮了一缕",
         "amount": "灵感来了",
-        "hint": "这一点光先留给你"
+        "hint": "这一点光先留给你",
+        "en": {
+          "label": "One strand lights up",
+          "amount": "An idea.",
+          "hint": "Keep this bit of light. ✧"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "玄珏有点意外"
+        "hint": "玄珏有点意外",
+        "en": {
+          "label": "…unexpected.",
+          "amount": "Hm?",
+          "hint": "Xuanjue says nothing, which is normal. ✧"
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "Softer.",
+          "amount": "…fine.",
+          "hint": "The balance watch continues. …"
+        }
       },
       {
         "label": "小墨龙眯起眼睛",
         "amount": "看准了",
-        "hint": "别把预算也涂出边界"
+        "hint": "别把预算也涂出边界",
+        "en": {
+          "label": "The little ink dragon squints",
+          "amount": "Watch it.",
+          "hint": "Do not paint the budget past its edges. …"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "…poked.",
+          "amount": "Nn.",
+          "hint": "Tap to refresh the balance. ✧"
+        }
       },
       {
         "label": "画笔点亮了黑玉",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "The brush lights the jet",
+          "amount": "Seen.",
+          "hint": "Balance changes reach you at once. …"
+        }
       },
       {
         "label": "玄珏扶稳画板",
         "amount": "继续画吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "Xuanjue steadies the board",
+          "amount": "Paint on.",
+          "hint": "The cost of this refresh appears when it is done. ✧"
+        }
       }
     ]
   }

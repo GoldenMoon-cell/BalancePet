@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "青鉴合上笔记",
       "amount": "查完了",
-      "hint": "回来后我还会继续守着余额"
+      "hint": "回来后我还会继续守着余额",
+      "en": {
+        "label": "Qingjian closes her notes",
+        "amount": "Verified [1]",
+        "hint": "The balance watch resumes on your return. [1]"
+      }
     },
     {
       "label": "提灯调暗了些",
       "amount": "稍后见",
-      "hint": "有变化时我会提醒你"
+      "hint": "有变化时我会提醒你",
+      "en": {
+        "label": "The lantern dims a notch",
+        "amount": "Later. [2]",
+        "hint": "Any change, and I will flag it with a source. [2]"
+      }
     },
     {
       "label": "笔停在半句上",
       "amount": "慢慢来",
-      "hint": "别让自己比余额更快见底"
+      "hint": "别让自己比余额更快见底",
+      "en": {
+        "label": "My pen stops mid-sentence",
+        "amount": "Easy [3]",
+        "hint": "Do not run out before your balance does. [3]"
+      }
     }
   ],
   "bubble": [
     {
       "label": "青鉴在核对",
       "amount": "找到了",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Qingjian is cross-checking",
+        "amount": "Found it [1]",
+        "hint": "The balance itself is the source here. [1]"
+      }
     },
     {
       "label": "镜片反了一下光",
       "amount": "让我看看",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "Her lenses catch the light",
+        "amount": "One look [2]",
+        "hint": "Tap me and the balance is re-read. [2]"
+      }
     },
     {
       "label": "提灯照亮一行",
       "amount": "有依据",
-      "hint": "我会继续看着余额"
+      "hint": "我会继续看着余额",
+      "en": {
+        "label": "The lantern lights a line",
+        "amount": "Sourced [3]",
+        "hint": "I will keep reading the balance, line by line. [3]"
+      }
     },
     {
       "label": "笔记写下一句",
       "amount": "在呢",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "One line into the notes",
+        "amount": "Here [4]",
+        "hint": "This refresh's cost is recorded when it ends. [4]"
+      }
     },
     {
       "label": "这一条可以确认",
       "amount": "没问题",
-      "hint": "别把今日预算一下用完"
+      "hint": "别把今日预算一下用完",
+      "en": {
+        "label": "This entry checks out",
+        "amount": "Confirmed.",
+        "hint": "Do not spend the whole day's budget at once. [5]"
+      }
     },
     {
       "label": "青鉴开始检索",
       "amount": "别信口开河",
-      "hint": "别信口开河，先让我检索一下。看，证据在这里，来源已标注。"
+      "hint": "别信口开河，先让我检索一下。看，证据在这里，来源已标注。",
+      "en": {
+        "label": "Qingjian starts searching",
+        "amount": "Cite it [6]",
+        "hint": "No guessing, please. Here is the evidence, source attached. [6]"
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "青鉴抬了抬眼镜",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Noted: you noticed me",
+        "amount": "Glass up [7]",
+        "hint": "Documented as an easter egg. Source: you. [7]"
+      }
     },
     {
       "label": "连着问了四次",
       "amount": "四连问",
-      "hint": "都记在笔记上了"
+      "hint": "都记在笔记上了",
+      "en": {
+        "label": "Four questions in a row",
+        "amount": "Ask x4 [8]",
+        "hint": "All four are logged in my notes. [8]"
+      }
     },
     {
       "label": "青鉴合上笔记",
       "amount": "先停一下",
-      "hint": "连续互动太快啦"
+      "hint": "连续互动太快啦",
+      "en": {
+        "label": "The notebook snaps shut",
+        "amount": "Pause [9]",
+        "hint": "Your interaction rate exceeds the reference range. [9]"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "卷发被拨开",
         "amount": "哎呀",
-        "hint": "青鉴把发夹扶了回去"
+        "hint": "青鉴把发夹扶了回去",
+        "en": {
+          "label": "You moved my curls",
+          "amount": "Oh! [1]",
+          "hint": "Qingjian puts the hairpin back where it belongs. [1]"
+        }
       },
       {
         "label": "发夹歪了一点",
         "amount": "别动",
-        "hint": "它别在靠耳机的那一侧"
+        "hint": "它别在靠耳机的那一侧",
+        "en": {
+          "label": "The hairpin sits crooked",
+          "amount": "Don't [2]",
+          "hint": "It is pinned on the headphone side, as noted. [2]"
+        }
       },
       {
         "label": "发梢晃了一下",
         "amount": "记下啦",
-        "hint": "这一笔先写在笔记上"
+        "hint": "这一笔先写在笔记上",
+        "en": {
+          "label": "A hair tip sways",
+          "amount": "Logged [3]",
+          "hint": "This one goes into the notes for now. [3]"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "青鉴有点不好意思"
+        "hint": "青鉴有点不好意思",
+        "en": {
+          "label": "You touched my cheek",
+          "amount": "Mmph [4]",
+          "hint": "Qingjian would rather not cite this one. [4]"
+        }
       },
       {
         "label": "眼镜被碰歪了",
         "amount": "等一下",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "My glasses went askew",
+          "amount": "Hold on [5]",
+          "hint": "The balance watch continues regardless. [5]"
+        }
       },
       {
         "label": "青鉴推了推镜框",
         "amount": "这样啊",
-        "hint": "别让今日额度也悄悄消失"
+        "hint": "别让今日额度也悄悄消失",
+        "en": {
+          "label": "She pushes the frames up",
+          "amount": "I see [6]",
+          "hint": "Do not let today's quota quietly disappear. [6]"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "A tap, documented",
+          "amount": "Here [7]",
+          "hint": "One tap re-reads the balance. [7]"
+        }
       },
       {
         "label": "提灯晃了一下",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "The lantern sways",
+          "amount": "Got it [8]",
+          "hint": "Balance changes are reported promptly. [8]"
+        }
       },
       {
         "label": "青鉴站直了些",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "Qingjian straightens up",
+          "amount": "Proceed [9]",
+          "hint": "This refresh's cost appears here when done. [9]"
+        }
       }
     ]
   }

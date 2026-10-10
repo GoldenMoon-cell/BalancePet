@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "绒眠缩进软绒里",
       "amount": "小憩一下",
-      "hint": "回来后我还会继续守着余额"
+      "hint": "回来后我还会继续守着余额",
+      "en": {
+        "label": "Rongmian curls into the fluff",
+        "amount": "Nap time…",
+        "hint": "I will still be watching the balance when you get back. yawn~"
+      }
     },
     {
       "label": "无限发夹亮了一点",
       "amount": "我还在呢",
-      "hint": "下一次刷新不会错过"
+      "hint": "下一次刷新不会错过",
+      "en": {
+        "label": "My ∞ clip glows a bit",
+        "amount": "Mmf, awake…",
+        "hint": "The next refresh will not get past me. zzz…"
+      }
     },
     {
       "label": "白色耳朵轻轻垂下",
       "amount": "晚安片刻",
-      "hint": "你也记得让眼睛休息一下"
+      "hint": "你也记得让眼睛休息一下",
+      "en": {
+        "label": "My white ears droop",
+        "amount": "Night-night~",
+        "hint": "Let your eyes rest too, hmm? yawn~"
+      }
     }
   ],
   "bubble": [
     {
       "label": "绒眠在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Rongmian is peeking",
+        "amount": "All soft~",
+        "hint": "The balance will wake you if it moves. Probably. yawn~"
+      }
     },
     {
       "label": "白色耳朵抖了一下",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "One ear twitched",
+        "amount": "Sloow down…",
+        "hint": "Tap me for a fresh balance, but gently, hmm? zzz…"
+      }
     },
     {
       "label": "无限发夹亮起来了",
       "amount": "找到啦",
-      "hint": "我会继续看着余额"
+      "hint": "我会继续看着余额",
+      "en": {
+        "label": "The ∞ clip lights up",
+        "amount": "Fouuund it~",
+        "hint": "I will keep an eye on the balance. One eye. yawn~"
+      }
     },
     {
       "label": "绒球轻轻碰在一起",
       "amount": "在呢",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "My pompoms bump together",
+        "amount": "Mmf, here…",
+        "hint": "The cost of this refresh will show up when it is done. zzz…"
+      }
     },
     {
       "label": "今天也软乎乎地稳住",
       "amount": "收到",
-      "hint": "别让额度一下子跑光"
+      "hint": "别让额度一下子跑光",
+      "en": {
+        "label": "Soft and steady today",
+        "amount": "Mmhmm~",
+        "hint": "Do not let the quota run off all at once, hmm? yawn~"
+      }
     },
     {
       "label": "绒眠打了个哈欠",
       "amount": "代码拿去自己改吧",
-      "hint": "呼~（打哈欠）代码拿去自己改吧，只要别打扰我睡觉就行。"
+      "hint": "呼~（打哈欠）代码拿去自己改吧，只要别打扰我睡觉就行。",
+      "en": {
+        "label": "Rongmian yawns hugely",
+        "amount": "Yaaaawwn~",
+        "hint": "Take the code, edit it yourself, just let me sleep. zzz…"
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "绒眠的耳朵竖起来了",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Ohh, you found me…",
+        "amount": "Ears up…?",
+        "hint": "A sleepy little secret for you. yawn~"
+      }
     },
     {
       "label": "绒球连晃四次",
       "amount": "四连击",
-      "hint": "这份软乎乎送给你"
+      "hint": "这份软乎乎送给你",
+      "en": {
+        "label": "Four pompom wobbles",
+        "amount": "Foour~",
+        "hint": "Here, take some softness. I have plenty. zzz…"
+      }
     },
     {
       "label": "绒眠缩进袖口",
       "amount": "让我缓缓",
-      "hint": "连续互动太快啦"
+      "hint": "连续互动太快啦",
+      "en": {
+        "label": "Rongmian hides in her sleeve",
+        "amount": "Hoold on…",
+        "hint": "Too quick for me; let me catch up. yawn~"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "白色耳朵被碰到",
         "amount": "有点痒",
-        "hint": "绒眠轻轻甩了甩耳朵"
+        "hint": "绒眠轻轻甩了甩耳朵",
+        "en": {
+          "label": "You touched my ear",
+          "amount": "Ticklessh~",
+          "hint": "Rongmian flaps one ear, slowly. zzz…"
+        }
       },
       {
         "label": "不要拽卷发",
         "amount": "轻一点",
-        "hint": "无限发夹会掉下来的"
+        "hint": "无限发夹会掉下来的",
+        "en": {
+          "label": "Not the curly hair…",
+          "amount": "Eaasy now~",
+          "hint": "My ∞ clip will fall off, and then I will sulk. yawn~"
+        }
       },
       {
         "label": "绒毛蓬起来了",
         "amount": "软乎乎",
-        "hint": "今天的好运也分你一点"
+        "hint": "今天的好运也分你一点",
+        "en": {
+          "label": "My fluff puffs up",
+          "amount": "Sooo soft~",
+          "hint": "A bit of today's luck for you. Hmm… take it~"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "绒眠有点害羞"
+        "hint": "绒眠有点害羞",
+        "en": {
+          "label": "Mmh… my cheek",
+          "amount": "Nn…",
+          "hint": "Rongmian is shy, and also half asleep. yawn~"
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "Softer, pleease…",
+          "amount": "I'm heere…",
+          "hint": "Balance watching continues. Sleepily. zzz…"
+        }
       },
       {
         "label": "绒眠把脸藏进袖口",
         "amount": "哎呀",
-        "hint": "别把额度也藏没了"
+        "hint": "别把额度也藏没了",
+        "en": {
+          "label": "Face hidden in the sleeve",
+          "amount": "Ohhh~",
+          "hint": "Do not hide the quota away with me, hmm? yawn~"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "Mmh… poked",
+          "amount": "Mmh… here",
+          "hint": "Tap me and the balance wakes up too. zzz…"
+        }
       },
       {
         "label": "胸前绒球晃了晃",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "My chest pompom sways",
+          "amount": "Mmhmm… zzz",
+          "hint": "Any balance change comes your way. Eventually. yawn~"
+        }
       },
       {
         "label": "绒眠伸了个小懒腰",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "A tiny morning stretch",
+          "amount": "Stretch~",
+          "hint": "When it is done, the cost turns up right here. zzz…"
+        }
       }
     ]
   }

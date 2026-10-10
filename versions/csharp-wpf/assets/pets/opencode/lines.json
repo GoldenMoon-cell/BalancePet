@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "墨枢挂起进程",
       "amount": "待机中",
-      "hint": "回来后我还会继续守着余额"
+      "hint": "回来后我还会继续守着余额",
+      "en": {
+        "label": "process suspended.",
+        "amount": "idle.",
+        "hint": "balance watch resumes when you return. …"
+      }
     },
     {
       "label": "光标停在行尾",
       "amount": "稍后见",
-      "hint": "有变化时我会提醒你"
+      "hint": "有变化时我会提醒你",
+      "en": {
+        "label": "cursor at end of line",
+        "amount": "later.",
+        "hint": "will notify on change. …"
+      }
     },
     {
       "label": "风扇安静下来",
       "amount": "休眠",
-      "hint": "别让自己比余额更快见底"
+      "hint": "别让自己比余额更快见底",
+      "en": {
+        "label": "fan spin-down ok",
+        "amount": "sleep.",
+        "hint": "do not run out faster than your balance. …"
+      }
     }
   ],
   "bubble": [
     {
       "label": "墨枢在监听",
       "amount": "收到",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "listening.",
+        "amount": "ok.",
+        "hint": "balance change → you get told. …"
+      }
     },
     {
       "label": "耳机闪了一下",
       "amount": "在线",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "headset blink",
+        "amount": "online.",
+        "hint": "click to refresh balance. done."
+      }
     },
     {
       "label": "输出了一行日志",
       "amount": "查到了",
-      "hint": "我会继续看着余额"
+      "hint": "我会继续看着余额",
+      "en": {
+        "label": "one log line out",
+        "amount": "found.",
+        "hint": "still tailing the balance. …"
+      }
     },
     {
       "label": "没有报错",
       "amount": "一切正常",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "no errors.",
+        "amount": "exit 0.",
+        "hint": "refresh cost prints when it finishes. …"
+      }
     },
     {
       "label": "这一轮跑完了",
       "amount": "在呢",
-      "hint": "别把今日预算一下用完"
+      "hint": "别把今日预算一下用完",
+      "en": {
+        "label": "run complete.",
+        "amount": "yes.",
+        "hint": "do not burn today's budget in one pass. …"
+      }
     },
     {
       "label": "墨枢伸手要代码",
       "amount": "代码发我",
-      "hint": "代码发我，依赖你自己装，我只负责帮你跑通。"
+      "hint": "代码发我，依赖你自己装，我只负责帮你跑通。",
+      "en": {
+        "label": "send code.",
+        "amount": "paste it.",
+        "hint": "i run it. you install your own deps. done."
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "墨枢抬了下眼",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "noticed.",
+        "amount": "…?",
+        "hint": "easter egg: rapid input detected. …"
+      }
     },
     {
       "label": "连续四次输入",
       "amount": "四连击",
-      "hint": "已经记在日志里"
+      "hint": "已经记在日志里",
+      "en": {
+        "label": "input x4",
+        "amount": "logged.",
+        "hint": "already in the log. done."
+      }
     },
     {
       "label": "墨枢合上终端",
       "amount": "先停一下",
-      "hint": "连续互动太快啦"
+      "hint": "连续互动太快啦",
+      "en": {
+        "label": "terminal closed.",
+        "amount": "hold.",
+        "hint": "input rate too high. …"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "呆毛被碰到",
         "amount": "……嗯",
-        "hint": "墨枢把呆毛拨了回去"
+        "hint": "墨枢把呆毛拨了回去",
+        "en": {
+          "label": "ahoge touched.",
+          "amount": "…mm.",
+          "hint": "ahoge repositioned. no comment."
+        }
       },
       {
         "label": "机械耳被摸到",
         "amount": "别碰",
-        "hint": "那里在散热"
+        "hint": "那里在散热",
+        "en": {
+          "label": "mechanical ear.",
+          "amount": "don't.",
+          "hint": "that part is dissipating heat. …"
+        }
       },
       {
         "label": "发梢晃了一下",
         "amount": "记下了",
-        "hint": "这一笔先写在日志里"
+        "hint": "这一笔先写在日志里",
+        "en": {
+          "label": "hair tip moved.",
+          "amount": "noted.",
+          "hint": "written to the log for now. …"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被戳到",
         "amount": "……",
-        "hint": "墨枢面无表情，耳尖却红了"
+        "hint": "墨枢面无表情，耳尖却红了",
+        "en": {
+          "label": "cheek poked.",
+          "amount": "mm.",
+          "hint": "face: neutral. ear tips: red. …"
+        }
       },
       {
         "label": "被盯着看",
         "amount": "有事？",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "being stared at.",
+          "amount": "hm?",
+          "hint": "balance watch continues anyway. …"
+        }
       },
       {
         "label": "嘴角动了一下",
         "amount": "无聊",
-        "hint": "别让今日额度也悄悄归零"
+        "hint": "别让今日额度也悄悄归零",
+        "en": {
+          "label": "mouth twitched.",
+          "amount": "boring.",
+          "hint": "do not let today's quota quietly hit zero. …"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "poked.",
+          "amount": "here.",
+          "hint": "click = refresh balance. …"
+        }
       },
       {
         "label": "肩上落了点灰",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "dust on shoulder.",
+          "amount": "ack.",
+          "hint": "balance change → immediate notice. …"
+        }
       },
       {
         "label": "墨枢站直了些",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "posture fixed.",
+          "amount": "go on.",
+          "hint": "refresh cost prints at the end. …"
+        }
       }
     ]
   }

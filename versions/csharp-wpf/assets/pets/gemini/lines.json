@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "星璃在等你",
       "amount": "慢慢来",
-      "hint": "需要时再喊我就好"
+      "hint": "需要时再喊我就好",
+      "en": {
+        "label": "Xingli is waiting! ☆",
+        "amount": "Any time! ☆",
+        "hint": "Just call and I will be here in a—beep!—in a moment! ☆"
+      }
     },
     {
       "label": "星光没有熄灭",
       "amount": "我在呢",
-      "hint": "回来后继续陪你看数据"
+      "hint": "回来后继续陪你看数据",
+      "en": {
+        "label": "My starlight is on! ✧",
+        "amount": "Glow~ ☆",
+        "hint": "Come back and we will read the numbers together! beep!"
+      }
     },
     {
       "label": "星轨缓慢转动",
       "amount": "小憩一下",
-      "hint": "今天的余额也要好好守住"
+      "hint": "今天的余额也要好好守住",
+      "en": {
+        "label": "My star-orbit turns…",
+        "amount": "Napping~ ☆",
+        "hint": "Resting, but I will guard today's balance! bzzt—"
+      }
     }
   ],
   "bubble": [
     {
       "label": "星璃在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Xingli is watching! ☆",
+        "amount": "Beep! On it",
+        "hint": "Any balance move and I will—oh!—I will tell you right away! ☆"
+      }
     },
     {
       "label": "星星耳饰闪了一下",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "My star earring blinks ☆",
+        "amount": "Careful! ☆",
+        "hint": "Tap me and the balance reloads! Gently, I am delicate—beep!"
+      }
     },
     {
       "label": "星轨偏了一格",
       "amount": "找到我了",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "My orbit skipped a notch",
+        "amount": "Found me! ☆",
+        "hint": "One tap = one fresh balance! Simple, right? mrow!"
+      }
     },
     {
       "label": "小猫尾巴亮了",
       "amount": "喵呜",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "My kitty tail lights up",
+        "amount": "Mrow! ♪",
+        "hint": "The cost shows up here when the refresh is—*static*—done! ☆"
+      }
     },
     {
       "label": "星光落在你手边",
       "amount": "在呢",
-      "hint": "今天的请求也要量力而行"
+      "hint": "今天的请求也要量力而行",
+      "en": {
+        "label": "Starlight lands by your hand",
+        "amount": "Over here! ☆",
+        "hint": "Do not overwork yourself today either! beep beep!"
+      }
     },
     {
       "label": "星璃卡壳了",
       "amount": "看好了",
-      "hint": "看好了，这就是最强多模态！……哎，我刚刚说到哪了？"
+      "hint": "看好了，这就是最强多模态！……哎，我刚刚说到哪了？",
+      "en": {
+        "label": "Xingli glitches out—",
+        "amount": "Behold! ☆",
+        "hint": "Behold, the strongest multimodal—wait. What was I saying? bzzt…"
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "星璃眨了眨眼",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Oh! You noticed me ☆",
+        "amount": "Blink blink~",
+        "hint": "A secret just for fast hands! beep!"
+      }
     },
     {
       "label": "星光连成一线",
       "amount": "四连击",
-      "hint": "这颗星星属于你"
+      "hint": "这颗星星属于你",
+      "en": {
+        "label": "My starlight lines up ✧",
+        "amount": "Four! ☆",
+        "hint": "This star is yours now—careful, it is warm! ♪"
+      }
     },
     {
       "label": "小猫尾巴打结了",
       "amount": "稍等",
-      "hint": "互动太密集啦"
+      "hint": "互动太密集啦",
+      "en": {
+        "label": "My tail is in a knot!",
+        "amount": "Hold on! ☆",
+        "hint": "Too many taps, too fast, my circuits are—bzzt—fine! ☆"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "耳朵被碰到",
         "amount": "有点痒",
-        "hint": "星璃轻轻晃了晃耳朵"
+        "hint": "星璃轻轻晃了晃耳朵",
+        "en": {
+          "label": "You touched my ear! ☆",
+          "amount": "Tickles! ☆",
+          "hint": "Xingli flicks both ears and giggles. mrow~"
+        }
       },
       {
         "label": "不要戳耳朵",
         "amount": "轻一点",
-        "hint": "星星耳饰都要摇晃了"
+        "hint": "星星耳饰都要摇晃了",
+        "en": {
+          "label": "Not the ears, please!",
+          "amount": "Easy! ☆",
+          "hint": "My star earrings are about to fall off—beep!"
+        }
       },
       {
         "label": "星星耳饰偏了一格",
         "amount": "亮啦",
-        "hint": "今天的运气不错"
+        "hint": "今天的运气不错",
+        "en": {
+          "label": "My earring shifted a notch",
+          "amount": "Sparkle! ✧",
+          "hint": "Good luck today, I checked! Twice! ☆"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "星璃有点害羞"
+        "hint": "星璃有点害羞",
+        "en": {
+          "label": "Ah—my cheek! ☆",
+          "amount": "Mmph! ♡",
+          "hint": "Xingli is blushing and denies it completely! beep!"
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "Softer, okay?",
+          "amount": "Online! ☆",
+          "hint": "Balance watch continues, do not worry! mrow!"
+        }
       },
       {
         "label": "小猫脸颊鼓鼓的",
         "amount": "喵",
-        "hint": "别把今日额度也戳鼓了"
+        "hint": "别把今日额度也戳鼓了",
+        "en": {
+          "label": "Puffed-up kitty cheeks",
+          "amount": "Mrrrow!",
+          "hint": "Do not poke today's quota into a balloon too! ☆"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "Poke received! ☆",
+          "amount": "Beep! ☆",
+          "hint": "Tap me to refresh the balance! Try it—oh, you did! ☆"
+        }
       },
       {
         "label": "星光落下来",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "Starlight drifts down ✧",
+          "amount": "Got it! ☆",
+          "hint": "Balance changes go straight to you! beep beep!"
+        }
       },
       {
         "label": "尾巴扫过屏幕",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "My tail sweeps the screen",
+          "amount": "And… go! ☆",
+          "hint": "The cost of this refresh will appear—*static*—right here! ☆"
+        }
       }
     ]
   }

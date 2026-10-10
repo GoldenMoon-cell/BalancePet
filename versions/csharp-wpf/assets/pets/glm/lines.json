@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "青棱抱着书打盹",
       "amount": "安静待机",
-      "hint": "回来后再一起核对余额"
+      "hint": "回来后再一起核对余额",
+      "en": {
+        "label": "Qingleng dozes with her book",
+        "amount": "Idle mode.",
+        "hint": "Come back and we will check the balance together."
+      }
     },
     {
       "label": "方晶发饰闪了一下",
       "amount": "我还醒着",
-      "hint": "下一次刷新不会错过"
+      "hint": "下一次刷新不会错过",
+      "en": {
+        "label": "My crystal pin blinks",
+        "amount": "Still up~",
+        "hint": "The next refresh will not slip past me."
+      }
     },
     {
       "label": "猫耳听见了风声",
       "amount": "嘘",
-      "hint": "先让思路也休息一会儿"
+      "hint": "先让思路也休息一会儿",
+      "en": {
+        "label": "These ears caught the wind",
+        "amount": "Shh~",
+        "hint": "Let your thinking rest a while too."
+      }
     }
   ],
   "bubble": [
     {
       "label": "青棱在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Qingleng has it covered",
+        "amount": "Relax~",
+        "hint": "The balance will report to you itself."
+      }
     },
     {
       "label": "猫耳听见你了",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "Heard you, loud and clear",
+        "amount": "Easy~",
+        "hint": "Tap me to refresh the balance. Go on."
+      }
     },
     {
       "label": "方晶发饰闪了一格",
       "amount": "找到啦",
-      "hint": "我会继续看着余额"
+      "hint": "我会继续看着余额",
+      "en": {
+        "label": "One blink from the pin",
+        "amount": "Got it~",
+        "hint": "I will keep watching the balance for you."
+      }
     },
     {
       "label": "黑色小书翻开了",
       "amount": "在呢",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "The black book opens",
+        "amount": "Filed.",
+        "hint": "This refresh's cost will be written down when it is done."
+      }
     },
     {
       "label": "模块已经对齐",
       "amount": "可以继续",
-      "hint": "先确认余额，再开始下一项任务"
+      "hint": "先确认余额，再开始下一项任务",
+      "en": {
+        "label": "Modules aligned.",
+        "amount": "Proceed~",
+        "hint": "Check the balance first, then take on the next task."
+      }
     },
     {
       "label": "青棱自称大姐头",
       "amount": "跟好大姐头",
-      "hint": "这块地盘是我带着人打下来的，接下来的路，跟好大姐头。"
+      "hint": "这块地盘是我带着人打下来的，接下来的路，跟好大姐头。",
+      "en": {
+        "label": "Qingleng: call me boss",
+        "amount": "Follow me~",
+        "hint": "I fought for this ground with my own crew; keep close, kid."
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "青棱的猫耳竖起来了",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Caught on. Ears up.",
+        "amount": "Ears up!",
+        "hint": "A bonus for the persistent. Do not tell the others."
+      }
     },
     {
       "label": "方晶连续闪烁",
       "amount": "四连击",
-      "hint": "这一组输入已经记住了"
+      "hint": "这一组输入已经记住了",
+      "en": {
+        "label": "The pin flashes four times",
+        "amount": "Combo, four.",
+        "hint": "That whole input sequence is memorized."
+      }
     },
     {
       "label": "青棱合上小书",
       "amount": "稍等一下",
-      "hint": "模块正在重新对齐"
+      "hint": "模块正在重新对齐",
+      "en": {
+        "label": "Qingleng shuts the book",
+        "amount": "Hold up~",
+        "hint": "The modules are re-aligning. Give it a second."
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "猫耳被碰到",
         "amount": "听见啦",
-        "hint": "青棱的耳朵轻轻抖了一下"
+        "hint": "青棱的耳朵轻轻抖了一下",
+        "en": {
+          "label": "My ear was touched",
+          "amount": "Heard it~",
+          "hint": "Qingleng twitches one ear, unbothered."
+        }
       },
       {
         "label": "不要戳睡帽",
         "amount": "轻一点",
-        "hint": "方晶挂饰会歪掉的"
+        "hint": "方晶挂饰会歪掉的",
+        "en": {
+          "label": "Hands off the nightcap",
+          "amount": "Easy now~",
+          "hint": "The crystal charm will hang crooked."
+        }
       },
       {
         "label": "蓝色吊坠响了一声",
         "amount": "叮",
-        "hint": "模块已经收到你的信号"
+        "hint": "模块已经收到你的信号",
+        "en": {
+          "label": "The blue charm chimes",
+          "amount": "Ding~",
+          "hint": "Signal received. The modules know you are here."
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "青棱有点害羞"
+        "hint": "青棱有点害羞",
+        "en": {
+          "label": "Oh — my cheek",
+          "amount": "Mm—!",
+          "hint": "Qingleng will not admit to blushing."
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "Softer, alright?",
+          "amount": "Right here.",
+          "hint": "Still on balance duty, do not fret."
+        }
       },
       {
         "label": "猫耳助手抿起嘴",
         "amount": "哼",
-        "hint": "再戳就把这一项记进小书"
+        "hint": "再戳就把这一项记进小书",
+        "en": {
+          "label": "The cat-eared aide sulks",
+          "amount": "Hmph!",
+          "hint": "Poke once more and it goes in the little book."
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "Felt that poke.",
+          "amount": "Present.",
+          "hint": "Tap me and the balance refreshes."
+        }
       },
       {
         "label": "黑色小书亮了一下",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "The black book glints",
+          "amount": "Message in.",
+          "hint": "Balance changes come to you without delay."
+        }
       },
       {
         "label": "青棱对齐了方晶",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "Crystal realigned.",
+          "amount": "Keep going~",
+          "hint": "The cost of this refresh shows here when it finishes."
+        }
       }
     ]
   }

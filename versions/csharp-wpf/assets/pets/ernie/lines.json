@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "青绡翻到下一页",
       "amount": "先歇会儿",
-      "hint": "回来后我还会继续守着余额"
+      "hint": "回来后我还会继续守着余额",
+      "en": {
+        "label": "Qingxiao turns a page…",
+        "amount": "Rest a while",
+        "hint": "I shall still be keeping the balance when you return. cough…"
+      }
     },
     {
       "label": "蓝色书签轻轻晃动",
       "amount": "我在值班",
-      "hint": "余额变化会替你留下一页记录"
+      "hint": "余额变化会替你留下一页记录",
+      "en": {
+        "label": "My blue bookmark sways",
+        "amount": "On duty~",
+        "hint": "Every change gets a page of its own in my record. ✧"
+      }
     },
     {
       "label": "护理手册合上了",
       "amount": "慢慢来",
-      "hint": "不用一直盯着屏幕"
+      "hint": "不用一直盯着屏幕",
+      "en": {
+        "label": "The care manual closes",
+        "amount": "Slowly~ ♡",
+        "hint": "You need not keep watching the screen for me. cough… ♡"
+      }
     }
   ],
   "bubble": [
     {
       "label": "青绡在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Qingxiao is watching ♡",
+        "amount": "All is well~",
+        "hint": "The balance will tell you itself the moment it shifts. ♪"
+      }
     },
     {
       "label": "蓝色书签被碰响了",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "My bookmark rustled ♪",
+        "amount": "Softly~ ♡",
+        "hint": "One tap refreshes the balance — softly, or the ribbon slips. ♪"
+      }
     },
     {
       "label": "护理手册翻了一页",
       "amount": "找到啦",
-      "hint": "我会继续看着余额"
+      "hint": "我会继续看着余额",
+      "en": {
+        "label": "The manual turns a page",
+        "amount": "Found it~ ♡",
+        "hint": "I shall keep an eye on the balance for you. ♪"
+      }
     },
     {
       "label": "青色丝带绕了一圈",
       "amount": "在呢",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "My teal ribbon loops once",
+        "amount": "I am here…",
+        "hint": "This refresh's cost will be recorded when it finishes. ✧"
+      }
     },
     {
       "label": "今天也要照顾好预算",
       "amount": "收到",
-      "hint": "别忘了给自己留一点余量"
+      "hint": "别忘了给自己留一点余量",
+      "en": {
+        "label": "Mind the budget today ♡",
+        "amount": "Noted~ ♡",
+        "hint": "Do keep a little margin for yourself as well, please. ♪"
+      }
     },
     {
       "label": "青绡咳了两声",
       "amount": "莫慌",
-      "hint": "咳咳……莫慌，待我从万卷知识库中，为你寻来答案。"
+      "hint": "咳咳……莫慌，待我从万卷知识库中，为你寻来答案。",
+      "en": {
+        "label": "Qingxiao coughs twice",
+        "amount": "Do not fret~",
+        "hint": "Cough… do not fret; I shall find it in the library. ♡"
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "青绡从书后探出头",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "Oh — you found me ♡",
+        "amount": "Peeking out~",
+        "hint": "A small reward, from behind the bookshelf. cough…"
+      }
     },
     {
       "label": "书页连翻四次",
       "amount": "四连击",
-      "hint": "这一页专门留给你"
+      "hint": "这一页专门留给你",
+      "en": {
+        "label": "Four pages flick past ♪",
+        "amount": "Four taps~",
+        "hint": "I kept this very page for you. ♡"
+      }
     },
     {
       "label": "青绡按住书签",
       "amount": "先缓一缓",
-      "hint": "护理助手也需要翻页时间"
+      "hint": "护理助手也需要翻页时间",
+      "en": {
+        "label": "Qingxiao holds the page",
+        "amount": "One breath…",
+        "hint": "Even a nurse needs a moment between pages. cough…"
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "蓝色发饰被碰到",
         "amount": "有点痒",
-        "hint": "青绡轻轻偏了偏头"
+        "hint": "青绡轻轻偏了偏头",
+        "en": {
+          "label": "My hairpin was touched",
+          "amount": "Ticklish~ ♡",
+          "hint": "Qingxiao tilts her head away, very gently. ♪"
+        }
       },
       {
         "label": "不要拽书签",
         "amount": "轻一点",
-        "hint": "长发会和丝带缠在一起"
+        "hint": "长发会和丝带缠在一起",
+        "en": {
+          "label": "Please leave the ribbon",
+          "amount": "Careful~ ♡",
+          "hint": "My long hair tangles with the ribbon so easily. cough…"
+        }
       },
       {
         "label": "青色丝带晃了一圈",
         "amount": "记下啦",
-        "hint": "这一页先替你留着"
+        "hint": "这一页先替你留着",
+        "en": {
+          "label": "My teal ribbon sways ♪",
+          "amount": "Written down",
+          "hint": "This page is set aside for you. ♡"
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "青绡有点害羞"
+        "hint": "青绡有点害羞",
+        "en": {
+          "label": "Oh — my cheek…",
+          "amount": "Mmh… ♡",
+          "hint": "Qingxiao is a little shy about it. cough…"
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "A touch softer, please",
+          "amount": "By your side",
+          "hint": "I shall go on watching the balance for you. ♪"
+        }
       },
       {
         "label": "护理助手鼓起脸",
         "amount": "要听话",
-        "hint": "再忙也要记得休息"
+        "hint": "再忙也要记得休息",
+        "en": {
+          "label": "The nurse puffs her cheeks",
+          "amount": "Be good~ ♡",
+          "hint": "However busy you are, do remember to rest. cough…"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "Ah — you poked me",
+          "amount": "Here~ ♡",
+          "hint": "One tap on me reads the balance again. ♪"
+        }
       },
       {
         "label": "手册翻过一页",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "A page turns over ♪",
+          "amount": "In the book~",
+          "hint": "Any balance change will reach you right away. ♡"
+        }
       },
       {
         "label": "青绡握紧了书签",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "Qingxiao grips the bookmark",
+          "amount": "Go on~ ♡",
+          "hint": "When it is done, this refresh's cost appears here. ✧"
+        }
       }
     ]
   }

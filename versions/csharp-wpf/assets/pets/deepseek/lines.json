@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "澜汐在等你",
       "amount": "慢慢来",
-      "hint": "需要时再喊我就好"
+      "hint": "需要时再喊我就好",
+      "en": {
+        "label": "Lanxi waits… blub",
+        "amount": "No hurry~",
+        "hint": "Blub… call me when you need me, not before. ~"
+      }
     },
     {
       "label": "耳鳍轻轻摆动",
       "amount": "我还醒着",
-      "hint": "回来后我会继续守着余额"
+      "hint": "回来后我会继续守着余额",
+      "en": {
+        "label": "A fin drifts… glub",
+        "amount": "Awake~",
+        "hint": "I keep the balance in view while you are away. blub."
+      }
     },
     {
       "label": "水面暂时平静",
       "amount": "小憩一下",
-      "hint": "需要时敲一下桌面就好"
+      "hint": "需要时敲一下桌面就好",
+      "en": {
+        "label": "The water goes still",
+        "amount": "Little nap~",
+        "hint": "Tap the desk if you need me; the bubbles will find you. ~"
+      }
     }
   ],
   "bubble": [
     {
       "label": "澜汐在看着",
       "amount": "放心吧",
-      "hint": "余额变动会告诉你"
+      "hint": "余额变动会告诉你",
+      "en": {
+        "label": "Lanxi is watching…",
+        "amount": "Blub~",
+        "hint": "The balance will speak for itself when it moves. glub…"
+      }
     },
     {
       "label": "耳鳍动了一下",
       "amount": "轻一点",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "One fin twitches",
+        "amount": "Gentle…~",
+        "hint": "Tap me and I read the balance again. That is all. blub."
+      }
     },
     {
       "label": "水花跳了一下",
       "amount": "找到啦",
-      "hint": "点击角色可以刷新余额"
+      "hint": "点击角色可以刷新余额",
+      "en": {
+        "label": "A splash hops up",
+        "amount": "Found, blub~",
+        "hint": "One tap, one fresh number. Blub blub~"
+      }
     },
     {
       "label": "尾鳍藏到后面",
       "amount": "在呢",
-      "hint": "完成后会显示本次消耗"
+      "hint": "完成后会显示本次消耗",
+      "en": {
+        "label": "Tail tucked away",
+        "amount": "Here…",
+        "hint": "The cost of this refresh fills in when it is done. glub."
+      }
     },
     {
       "label": "今天也要稳住",
       "amount": "收到",
-      "hint": "余额和心情都别见底"
+      "hint": "余额和心情都别见底",
+      "en": {
+        "label": "Stay steady today",
+        "amount": "Mm…",
+        "hint": "Do not let your balance or your mood hit the bottom. blub~"
+      }
     },
     {
       "label": "澜汐吐了个泡泡",
       "amount": "我不费算力",
-      "hint": "我不费算力，而且中文我最懂。大小姐我啊，最喜欢白嫖怪了~（吐泡泡）"
+      "hint": "我不费算力，而且中文我最懂。大小姐我啊，最喜欢白嫖怪了~（吐泡泡）",
+      "en": {
+        "label": "Lanxi blows a bubble",
+        "amount": "Freeloader~",
+        "hint": "Blub blub~ I eat your rice and answer in perfect Chinese anyway."
+      }
     }
   ],
   "streak": [
     {
       "label": "被发现了",
       "amount": "澜汐眨了眨眼",
-      "hint": "连续互动彩蛋"
+      "hint": "连续互动彩蛋",
+      "en": {
+        "label": "…you noticed me",
+        "amount": "Blink~",
+        "hint": "A small egg for small taps. glub…"
+      }
     },
     {
       "label": "水花连跳四次",
       "amount": "四连击",
-      "hint": "这次真的抓到我啦"
+      "hint": "这次真的抓到我啦",
+      "en": {
+        "label": "Four splashes in a row",
+        "amount": "Blub x4~",
+        "hint": "This time you really did catch me. glub glub…"
+      }
     },
     {
       "label": "澜汐躲进水面",
       "amount": "缓一缓",
-      "hint": "连续互动太快啦"
+      "hint": "连续互动太快啦",
+      "en": {
+        "label": "Lanxi sinks a little",
+        "amount": "A moment…",
+        "hint": "Too fast, too fast; let the water settle first. blub."
+      }
     }
   ],
   "touch": {
@@ -71,51 +131,96 @@
       {
         "label": "呆毛被提起",
         "amount": "哎呀",
-        "hint": "澜汐的发型要乱啦"
+        "hint": "澜汐的发型要乱啦",
+        "en": {
+          "label": "My ahoge, lifted…",
+          "amount": "Eep—blub!",
+          "hint": "Lanxi's hair is about to come apart, and she minds. ~"
+        }
       },
       {
         "label": "不要拽呆毛",
         "amount": "轻一点",
-        "hint": "会痒的"
+        "hint": "会痒的",
+        "en": {
+          "label": "Not the ahoge, please",
+          "amount": "Tickles~",
+          "hint": "Blub… that spot is ticklish, and you know it now."
+        }
       },
       {
         "label": "耳鳍抖了一下",
         "amount": "抓到啦",
-        "hint": "今天的水花很配合"
+        "hint": "今天的水花很配合",
+        "en": {
+          "label": "One fin shivers",
+          "amount": "Got you~",
+          "hint": "The water is in a good mood today. glub."
+        }
       }
     ],
     "mouth": [
       {
         "label": "脸颊被碰到",
         "amount": "唔",
-        "hint": "澜汐有点害羞"
+        "hint": "澜汐有点害羞",
+        "en": {
+          "label": "…my cheek",
+          "amount": "Mmph…",
+          "hint": "Lanxi says nothing, and blushes anyway. blub."
+        }
       },
       {
         "label": "轻一点嘛",
         "amount": "在呢",
-        "hint": "我会继续看着余额"
+        "hint": "我会继续看着余额",
+        "en": {
+          "label": "Slightly softer, hm?",
+          "amount": "…here~",
+          "hint": "I keep watching the balance regardless. glub~"
+        }
       },
       {
         "label": "澜汐把脸藏起来",
         "amount": "哎呀",
-        "hint": "别把余额也碰掉了"
+        "hint": "别把余额也碰掉了",
+        "en": {
+          "label": "Lanxi hides her face",
+          "amount": "Oh—blub!",
+          "hint": "Mind the balance, do not knock that over too. ~"
+        }
       }
     ],
     "body": [
       {
         "label": "被戳到了",
         "amount": "在呢",
-        "hint": "点击可以刷新余额"
+        "hint": "点击可以刷新余额",
+        "en": {
+          "label": "…poked",
+          "amount": "Blub?",
+          "hint": "Tap me to refresh the balance. Or do not. blub."
+        }
       },
       {
         "label": "水花跳了一下",
         "amount": "收到",
-        "hint": "余额变化会及时告诉你"
+        "hint": "余额变化会及时告诉你",
+        "en": {
+          "label": "A tiny splash",
+          "amount": "Mm~ blub",
+          "hint": "Any change in the balance, and I will bubble it up to you. ~"
+        }
       },
       {
         "label": "尾鳍摆了摆",
         "amount": "继续吧",
-        "hint": "完成后会显示本次消耗"
+        "hint": "完成后会显示本次消耗",
+        "en": {
+          "label": "My tail fin sways",
+          "amount": "Go on…",
+          "hint": "The cost of this refresh appears once it finishes. glub."
+        }
       }
     ]
   }

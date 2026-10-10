@@ -25,7 +25,7 @@ $ErrorActionPreference = 'Stop'
 
 if (-not (Test-Path $PetsDirectory)) { throw "找不到形象素材目录：$PetsDirectory" }
 
-$SchemaVersion = 1
+$SchemaVersion = 2
 $lines = [ordered]@{}
 $skipped = @()
 

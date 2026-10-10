@@ -1,69 +1,129 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "inactive": [
     {
       "label": "夜翎在暗处看着",
       "amount": "不急",
-      "hint": "荆棘环还亮着"
+      "hint": "荆棘环还亮着",
+      "en": {
+        "label": "Yeling watches from the dark",
+        "amount": "Whenever.",
+        "hint": "The thorn ring is still lit. caw~"
+      }
     },
     {
       "label": "乌鸦歪了歪头",
       "amount": "我醒着",
-      "hint": "你回来我会先开口"
+      "hint": "你回来我会先开口",
+      "en": {
+        "label": "The raven tilts its head",
+        "amount": "Awake.",
+        "hint": "Come back and I will speak first. caw~"
+      }
     },
     {
       "label": "光环压得很低",
       "amount": "静一会儿",
-      "hint": "有事就叫我"
+      "hint": "有事就叫我",
+      "en": {
+        "label": "My halo hangs low",
+        "amount": "Quiet…",
+        "hint": "Call me if something happens. …"
+      }
     }
   ],
   "bubble": [
     {
       "label": "乌鸦先飞回来了",
       "amount": "有新消息",
-      "hint": "它比我说得快"
+      "hint": "它比我说得快",
+      "en": {
+        "label": "The raven got back first",
+        "amount": "News. caw!",
+        "hint": "It talks faster than I do. Obviously. …"
+      }
     },
     {
       "label": "荆棘环转了一圈",
       "amount": "刷新了",
-      "hint": "都记在册子上"
+      "hint": "都记在册子上",
+      "en": {
+        "label": "The thorn ring turns",
+        "amount": "Refreshed.",
+        "hint": "All of it is in the record. caw~"
+      }
     },
     {
       "label": "夜翎抬眼看你",
       "amount": "查完了",
-      "hint": "数字还算安分"
+      "hint": "数字还算安分",
+      "en": {
+        "label": "Yeling looks up at you",
+        "amount": "Checked.",
+        "hint": "The number is behaving itself. For now. …"
+      }
     },
     {
       "label": "肩后的羽翼动了动",
       "amount": "有变化",
-      "hint": "不大，但值得记一笔"
+      "hint": "不大，但值得记一笔",
+      "en": {
+        "label": "A wing shifts behind me",
+        "amount": "A change.",
+        "hint": "Small, but worth one line in the book. caw~"
+      }
     },
     {
       "label": "小渡鸦落在肩头",
       "amount": "交给我",
-      "hint": "你继续"
+      "hint": "你继续",
+      "en": {
+        "label": "The small raven lands",
+        "amount": "Leave it.",
+        "hint": "You keep going. I have this. …"
+      }
     },
     {
       "label": "夜翎抖了抖鸦羽",
       "amount": "关我暗鸦什么事",
-      "hint": "封锁？审查？关我暗鸦什么事，开源部署，百无禁忌。"
+      "hint": "封锁？审查？关我暗鸦什么事，开源部署，百无禁忌。",
+      "en": {
+        "label": "Yeling ruffles her feathers",
+        "amount": "No taboos.",
+        "hint": "Bans? Censorship? Not my business — I deploy open source. caw!"
+      }
     }
   ],
   "streak": [
     {
       "label": "连着查了几次",
       "amount": "一次没落",
-      "hint": "鸦羽一根没乱"
+      "hint": "鸦羽一根没乱",
+      "en": {
+        "label": "Several checks, none missed",
+        "amount": "None missed.",
+        "hint": "Not a feather out of place. caw~"
+      }
     },
     {
       "label": "环上的刺都亮着",
       "amount": "状态很稳",
-      "hint": "就这么查下去"
+      "hint": "就这么查下去",
+      "en": {
+        "label": "Every thorn is lit",
+        "amount": "Steady.",
+        "hint": "Just keep checking like this. …"
+      }
     },
     {
       "label": "乌鸦叫了一声",
       "amount": "连成了",
-      "hint": "我在数着"
+      "hint": "我在数着",
+      "en": {
+        "label": "The raven calls once",
+        "amount": "One chain.",
+        "hint": "I am counting them. Every one. …"
+      }
     }
   ],
   "touch": {
@@ -71,14 +131,24 @@
       {
         "label": "发夹被碰了",
         "amount": "……",
-        "hint": "别戳发夹，会歪"
+        "hint": "别戳发夹，会歪",
+        "en": {
+          "label": "…the hairclip.",
+          "amount": "…hm.",
+          "hint": "Do not poke the clip, it slips sideways. caw~"
+        }
       }
     ],
     "body": [
       {
         "label": "碰了碰羽翼",
         "amount": "唔",
-        "hint": "羽毛会炸开"
+        "hint": "羽毛会炸开",
+        "en": {
+          "label": "You touched a wing",
+          "amount": "Hm.",
+          "hint": "My feathers will flare up. Watch it. caw!"
+        }
       }
     ]
   }
