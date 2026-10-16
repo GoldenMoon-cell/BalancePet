@@ -19,10 +19,21 @@ using BalancePet.Wpf.Services;
 
 namespace BalancePet.Wpf;
 
-public partial class SettingsWindow : Window
+public partial class SettingsWindow : Window, INotifyPropertyChanged
 {
     public bool SettingsApplied { get; private set; }
     public event EventHandler? SettingsAppliedChanged;
+
+    /// <summary>Interface implementation, and deliberately not public: a window is not a view model.</summary>
+    event PropertyChangedEventHandler? INotifyPropertyChanged.PropertyChanged
+    {
+        add => _propertyChanged += value;
+        remove => _propertyChanged -= value;
+    }
+
+    private PropertyChangedEventHandler? _propertyChanged;
+
+    private void RaisePropertyChanged(string name) => _propertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
     private readonly SettingsStore _store;
     private readonly DpapiTokenStore _tokens;
@@ -48,6 +59,26 @@ public partial class SettingsWindow : Window
     private readonly CancellationTokenSource _pluginCatalogCancellation = new();
     private IReadOnlyList<PluginCatalogRecord> _pluginCatalogEntries = Array.Empty<PluginCatalogRecord>();
     private readonly List<MonitorProfile> _profiles;
+    /// <summary>One declared client-to-account binding per client, shown on the AI page.</summary>
+    private readonly List<ClientBindingRow> _clientBindings = new();
+
+    /// <summary>
+    /// A client and the account its tasks are billed to, as the user declared it.
+    /// </summary>
+    /// <remarks>
+    /// The combo box carries the account id in its Tag, so the row is the declaration
+    /// itself rather than a copy that could drift from what is on screen when the user
+    /// changes their mind without saving.
+    /// </remarks>
+    private sealed record ClientBindingRow(string Provider, string Label, bool IsBuiltIn)
+    {
+        // Mandatory, and non-nullable: every row is built from a box and is the only
+        // thing holding that box alive, so a row without one is not a row this window
+        // knows how to read back. Left optional it would have to be null-checked at
+        // each of the two places the declaration is read, and a null there would be
+        // reported as "no declaration" — a binding the user made, silently dropped.
+        public required System.Windows.Controls.ComboBox Box { get; init; }
+    }
     private string _currentProfileId = "";
     private bool _suppressProfileChange;
     private bool _suppressRefreshChange;
@@ -114,6 +145,7 @@ public partial class SettingsWindow : Window
             ? settings.Monitors.Select(CloneProfile).ToList()
             : new List<MonitorProfile> { CreateProfileFromLegacy(settings) };
         RefreshProfileList(settings.SelectedMonitorId);
+        BuildClientBindingRows(settings.ClientAccountBindings);
         SelectByTag(PetStyleBox, settings.PetStyle); SelectByTag(InteractionBox, settings.InteractionMode); SelectByTag(UpdateCheckBox, settings.UpdateCheckMode); SelectByTag(ExtensionUpdateCheckBox, settings.ExtensionUpdateCheckMode);
         _suppressLanguageChange = true;
         SelectByTag(LanguageBox, settings.Language);
@@ -432,7 +464,8 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// Offers the theme's own materials, and nothing when it has only one.
+    /// Offers the theme's own materials, and turns the box read-only when there is nothing
+    /// left to choose.
     /// </summary>
     /// <remarks>
     /// The list is the theme document's, not the program's. 实色 used to be appended to
@@ -444,10 +477,17 @@ public partial class SettingsWindow : Window
     /// claimed a choice the user never had.
     ///
     /// A theme that declares 实色 is declaring what it falls back to, not asking for a
-    /// menu entry; it is filtered out of the list along with the other materials the
-    /// theme does not declare. A theme left with a single material gets no dropdown and
-    /// no label: one entry is not a choice, and hiding only the control would leave a
-    /// label pointing at nothing.
+    /// menu entry; it is left out of the count along with the other materials the theme
+    /// does not declare, and the box shows it only when the theme declared no material at
+    /// all. That is the one case where the box would otherwise be blank, and a blank box
+    /// reads as a control that failed to load rather than as the theme's answer.
+    ///
+    /// One material is not a choice, so the box becomes read-only: it keeps the same
+    /// chrome, the same text colour and the same size, loses its arrow, and stops taking
+    /// hit tests and focus, which is what keeps the list from being opened with a click,
+    /// the wheel, Tab, F4 or Alt+Down. It is not disabled: a greyed-out field would claim
+    /// the value is unavailable, and this field is showing a value. Collapsing the box was
+    /// tried first and was wrong — the row lost a field that still had an answer.
     /// </remarks>
     private void ApplyThemeBackdropChoices(ThemeExtensionInfo? theme)
     {
@@ -459,24 +499,62 @@ public partial class SettingsWindow : Window
         var offered = 0;
         foreach (var item in ThemeBackdropBox.Items.OfType<ComboBoxItem>())
         {
-            var tag = item.Tag?.ToString() ?? "";
-            var visible = allowed.Contains(tag);
+            if (IsSolidEntry(item)) continue;
+            var visible = allowed.Contains(item.Tag?.ToString() ?? "");
             item.IsEnabled = visible;
             item.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
             if (visible) offered++;
         }
 
-        // Nothing to choose from leaves the box holding an item that belongs to the theme
-        // before this one, and its tag would then be read back as the current material.
-        if (offered == 0) ThemeBackdropBox.SelectedItem = null;
+        // 实色 is the fallback, never a choice: it is offered only when the theme declared
+        // no material at all, and then it is what the window is actually drawn with.
+        if (SolidEntry() is { } solid)
+        {
+            solid.IsEnabled = offered == 0;
+            solid.Visibility = offered == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
 
         var current = _selectedThemeBackdrop;
         if (!allowed.Contains(current)) current = theme?.Theme.PreferredBackdrop ?? "mica";
         SelectByTag(ThemeBackdropBox, current);
         _selectedThemeBackdrop = SelectedTag(ThemeBackdropBox, current);
-        if (ThemeBackdropPanel is not null)
-            ThemeBackdropPanel.Visibility = offered > 1 ? Visibility.Visible : Visibility.Collapsed;
+
+        // The box stays, and it stays the same box: only the arrow and the ways of opening
+        // the list go. IsHitTestVisible covers the mouse and the wheel, Focusable and
+        // IsTabStop cover Tab and every key (F4 and Alt+Down only ever reach a focused
+        // control), and OnThemeBackdropDropDownOpened is the backstop for a list opened by
+        // something that ignores both.
+        var readOnly = offered <= 1;
+        ThemeBackdropBox.Tag = readOnly ? ReadOnlyComboTag : null;
+        ThemeBackdropBox.IsHitTestVisible = !readOnly;
+        ThemeBackdropBox.Focusable = !readOnly;
+        ThemeBackdropBox.IsTabStop = !readOnly;
         SyncComboDisplay(ThemeBackdropBox);
+    }
+
+    // A ComboBox carrying this tag draws without its arrow; see Themes/FluentControls.xaml.
+    private const string ReadOnlyComboTag = "readonly";
+    // The window's own fallback, not one of a theme's materials.
+    private const string SolidBackdropTag = "solid";
+
+    private static bool IsSolidEntry(ComboBoxItem item)
+        => string.Equals(item.Tag?.ToString(), SolidBackdropTag, StringComparison.OrdinalIgnoreCase);
+
+    private ComboBoxItem? SolidEntry()
+        => ThemeBackdropBox.Items.OfType<ComboBoxItem>().FirstOrDefault(IsSolidEntry);
+
+    /// <summary>
+    /// Closes a list that was opened anyway on a box that has nothing to choose.
+    /// </summary>
+    /// <remarks>
+    /// Hiding the arrow and refusing hit tests and focus already leaves no path a user can
+    /// take, so this is the backstop for the paths that ignore them: a key handed straight
+    /// to the control, or code that sets IsDropDownOpen. Closing it here means the popup
+    /// never reaches the screen, rather than appearing and being taken away again.
+    /// </remarks>
+    private void OnThemeBackdropDropDownOpened(object sender, EventArgs e)
+    {
+        if (ThemeBackdropBox.Tag as string == ReadOnlyComboTag) ThemeBackdropBox.IsDropDownOpen = false;
     }
 
     /// <summary>One entry in the interface-font list.</summary>
@@ -1614,6 +1692,38 @@ try
     private readonly Dictionary<string, PluginCatalogItemView> _pluginIconRows = new(StringComparer.OrdinalIgnoreCase);
     private bool _pluginIconsLoading;
 
+    /// <summary>Whether a catalog refresh is in flight.</summary>
+    /// <remarks>
+    /// True from before the first await until the read finishes, so the header can show that
+    /// the click was received. Before this there was nothing at all: the button greyed out
+    /// while the list stayed exactly as it was, and a refresh that had to wait on the network
+    /// looked like a click that had been ignored.
+    /// </remarks>
+    private bool _pluginCatalogLoading;
+
+    /// <summary>
+    /// Whether the header shows the refresh mark: the catalog read, or pictures still arriving.
+    /// </summary>
+    /// <remarks>
+    /// A <see cref="Visibility"/> rather than a bool, because this is bound straight to one and a
+    /// bool cannot be written into it: WPF does not convert between the two by itself, the binding
+    /// fails as UpdateTargetError, and a failed binding is silent — the element keeps whatever it
+    /// was last given, which on a fresh window is Visible. That is a mark that can never come down,
+    /// which is worse than the thing it was added for.
+    ///
+    /// The rows turn on their own while they wait for a picture, and on a warm icon cache no row
+    /// ever waits — every picture is already on the disk, which is the ordinary second visit. So
+    /// the read needs a mark of its own rather than borrowing the rows': making every row turn on
+    /// every refresh would re-download up to twenty-one pictures and flicker the whole list, which
+    /// is the opposite of what the cache is for. The pending-picture half is kept so a refresh
+    /// that really does have pictures to fetch still shows this one.
+    /// </remarks>
+    public Visibility PluginCatalogBusyMark
+        => _pluginCatalogLoading || HasPendingPluginIcons() ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Reports the refresh mark after whatever decides it has changed.</summary>
+    private void RefreshPluginCatalogBusyIndicator() => RaisePropertyChanged(nameof(PluginCatalogBusyMark));
+
     /// <summary>Decoded preview thumbnails, dropped when the appearance changes.</summary>
     /// <remarks>
     /// Concurrent because the decoding happens on a worker: building nine frozen
@@ -1650,7 +1760,7 @@ try
         ExtensionManagementHintText.Text = AppLocalization.Text(language, "在线插件库负责发现扩展；功能扩展安装即启用，后台能力会自动运行。", "Discover extensions online; feature extensions enable on installation, and background capabilities start automatically.");
         OnlineLibraryTabText.Text = AppLocalization.Text(language, "在线插件库", "Online plugin catalog");
         PluginCatalogHintText.Text = AppLocalization.Text(language, "从 BalancePet 官方目录发现插件；下载后仍会执行本地安全校验。", "Discover plugins from the curated BalancePet catalog; every download is still verified locally.");
-        PluginCatalogRefreshButton.Content = AppLocalization.Text(language, "刷新目录", "Refresh catalog");
+        PluginCatalogRefreshLabel.Text = AppLocalization.Text(language, "刷新目录", "Refresh catalog");
         PluginCatalogRefreshButton.ToolTip = AppLocalization.Text(language, "刷新在线插件目录", "Refresh the online plugin catalog");
         PluginCatalogSearchBox.ToolTip = AppLocalization.Text(language, "搜索插件名称、作者或分类", "Search by plugin name, author, or category");
         CatalogCategoryAllText.Text = AppLocalization.Text(language, "全部", "All");
@@ -1668,42 +1778,64 @@ try
     private void OnPluginCatalogSearchChanged(object sender, TextChangedEventArgs e)
         => RebuildPluginCatalogItems();
 
+    /// <summary>
+    /// Reads the online catalogs and shows the result on the catalog page.
+    /// </summary>
+    /// <remarks>
+    /// Everything after the read is put back on the window's thread rather than assumed to be
+    /// on it. It was assumed, and the assumption holds except in the one case that matters: when
+    /// the read ends by timing out, the continuation comes back on a pool thread, and the first
+    /// line that touches a control throws "调用线程无法访问此对象". That exception is not one the
+    /// catch below names, so it left an async void handler and ended the process — the crash log
+    /// on this machine has two entries of exactly that shape. It is also why the page could keep
+    /// a refresh mark forever: the line that clears it is inside the same failed block.
+    /// </remarks>
     private async Task LoadPluginCatalogAsync(bool manual)
     {
         if (PluginCatalogRefreshButton is null) return;
-        PluginCatalogRefreshButton.IsEnabled = false;
         var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
-        PluginCatalogStatusText.Text = AppLocalization.Text(language, "正在读取在线插件目录…", "Loading the online plugin catalog…");
+        _pluginCatalogLoading = true;
         try
         {
+            await OnUiAsync(() =>
+            {
+                PluginCatalogRefreshButton.IsEnabled = false;
+                // Set before the first await: everything in this block runs before the read
+                // starts, and a mark that appears after it has started is a mark nobody sees.
+                RefreshPluginCatalogBusyIndicator();
+                PluginCatalogStatusText.Text = AppLocalization.Text(language, "正在读取在线插件目录…", "Loading the online plugin catalog…");
+            });
             var result = await _pluginCatalog.LoadAsync(_pluginCatalogCancellation.Token);
-            if (_pluginCatalogCancellation.IsCancellationRequested) return;
-            _pluginCatalogEntries = result.Entries;
-            // Read before the list is built, so the rows that can be drawn from the
-            // disk cache are drawn in the first paint rather than a frame later.
-            _pluginIcons.LoadFromDisk(_pluginCatalogEntries);
-            RebuildPluginCatalogItems();
-            if (result.FromRemote)
+            await OnUiAsync(() =>
             {
-                // A source that failed while another succeeded is still worth saying:
-                // an empty category looks like "nothing is published" otherwise.
-                var partial = string.IsNullOrWhiteSpace(result.Error) ? "" : $"（{result.Error}）";
-                // Said out loud because the mirror caches a branch for hours: a catalog
-                // that looks a version behind is the mirror, not a mistake.
-                var via = result.Mirrored ? AppLocalization.Text(language, "（经镜像）", " (via mirror)") : "";
-                PluginCatalogStatusText.Text = AppLocalization.Text(language,
-                    $"已从官方目录加载 {_pluginCatalogEntries.Count} 个扩展。{partial}{via}",
-                    $"Loaded {_pluginCatalogEntries.Count} extension(s) from the curated catalogs.{(string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error}")}{(result.Mirrored ? " (via mirror)" : "")}");
-            }
-            else if (_pluginCatalogEntries.Count > 0)
-            {
-                var suffix = string.IsNullOrWhiteSpace(result.Error) ? "" : $"（在线目录暂时不可用：{result.Error}）";
-                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"网络不可用，已使用本地缓存，共 {_pluginCatalogEntries.Count} 个扩展{suffix}", $"Online catalogs unavailable; showing {_pluginCatalogEntries.Count} cached extension(s).{(string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error}")}");
-            }
-            else
-            {
-                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"扩展目录加载失败：{result.Error ?? "暂无可用条目"}", $"Could not load the catalogs: {result.Error ?? "No entries are available."}");
-            }
+                if (_pluginCatalogCancellation.IsCancellationRequested) return;
+                _pluginCatalogEntries = result.Entries;
+                // Read before the list is built, so the rows that can be drawn from the
+                // disk cache are drawn in the first paint rather than a frame later.
+                _pluginIcons.LoadFromDisk(_pluginCatalogEntries);
+                RebuildPluginCatalogItems();
+                if (result.FromRemote)
+                {
+                    // A source that failed while another succeeded is still worth saying:
+                    // an empty category looks like "nothing is published" otherwise.
+                    var partial = string.IsNullOrWhiteSpace(result.Error) ? "" : $"（{result.Error}）";
+                    // Said out loud because the mirror caches a branch for hours: a catalog
+                    // that looks a version behind is the mirror, not a mistake.
+                    var via = result.Mirrored ? AppLocalization.Text(language, "（经镜像）", " (via mirror)") : "";
+                    PluginCatalogStatusText.Text = AppLocalization.Text(language,
+                        $"已从官方目录加载 {_pluginCatalogEntries.Count} 个扩展。{partial}{via}",
+                        $"Loaded {_pluginCatalogEntries.Count} extension(s) from the curated catalogs.{(string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error}")}{(result.Mirrored ? " (via mirror)" : "")}");
+                }
+                else if (_pluginCatalogEntries.Count > 0)
+                {
+                    var suffix = string.IsNullOrWhiteSpace(result.Error) ? "" : $"（在线目录暂时不可用：{result.Error}）";
+                    PluginCatalogStatusText.Text = AppLocalization.Text(language, $"网络不可用，已使用本地缓存，共 {_pluginCatalogEntries.Count} 个扩展{suffix}", $"Online catalogs unavailable; showing {_pluginCatalogEntries.Count} cached extension(s).{(string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error}")}");
+                }
+                else
+                {
+                    PluginCatalogStatusText.Text = AppLocalization.Text(language, $"扩展目录加载失败：{result.Error ?? "暂无可用条目"}", $"Could not load the catalogs: {result.Error ?? "No entries are available."}");
+                }
+            });
         }
         catch (Exception error) when (error is HttpRequestException or IOException or InvalidDataException or JsonException
             or TaskCanceledException or OperationCanceledException or ObjectDisposedException)
@@ -1716,14 +1848,60 @@ try
             // pointing at this method and a disposed HttpClient.
             if (!_pluginCatalogCancellation.IsCancellationRequested)
             {
-                PluginCatalogStatusText.Text = AppLocalization.Text(language, $"扩展目录加载失败：{error.Message}", $"Could not load the catalogs: {error.Message}");
-                if (manual) ShowExtensionError($"扩展目录加载失败：{error.Message}", $"Could not load the catalogs: {error.Message}");
+                await OnUiAsync(() =>
+                {
+                    PluginCatalogStatusText.Text = AppLocalization.Text(language, $"扩展目录加载失败：{error.Message}", $"Could not load the catalogs: {error.Message}");
+                    if (manual) ShowExtensionError($"扩展目录加载失败：{error.Message}", $"Could not load the catalogs: {error.Message}");
+                });
             }
         }
         finally
         {
-            if (!_pluginCatalogCancellation.IsCancellationRequested) PluginCatalogRefreshButton.IsEnabled = true;
+            await OnUiAsync(() =>
+            {
+                _pluginCatalogLoading = false;
+                // With the read finished, what is left to show is a picture still on its way.
+                RefreshPluginCatalogBusyIndicator();
+                // Enabled whatever happened to the round. This used to stay disabled when the
+                // token had been cancelled — and a timeout cancels it — so a catalog read that
+                // timed out left the button dead: the one control that could try again was the
+                // one the failure had switched off, and the page said 「点「刷新目录」重新读取」
+                // about a button that could not be clicked.
+                PluginCatalogRefreshButton.IsEnabled = true;
+            });
         }
+    }
+
+    /// <summary>
+    /// Runs a piece of interface work on the window's thread and waits for it.
+    /// </summary>
+    /// <remarks>
+    /// Straight through when this is already that thread, which is the ordinary case and has to
+    /// stay free of a dispatcher round trip; marshalled when it is not. The exception, if there
+    /// is one, is raised inside the returned task rather than on the dispatcher: a caller that
+    /// awaits this catches it where it always did.
+    /// </remarks>
+    private Task OnUiAsync(Action work)
+    {
+        if (Dispatcher.CheckAccess())
+        {
+            work();
+            return Task.CompletedTask;
+        }
+        var completion = new TaskCompletionSource();
+        Dispatcher.Invoke(() =>
+        {
+            try
+            {
+                work();
+                completion.SetResult();
+            }
+            catch (Exception error)
+            {
+                completion.SetException(error);
+            }
+        });
+        return completion.Task;
     }
 
     /// <summary>
@@ -1786,6 +1964,7 @@ try
             // A row that arrived while this pass was running was never in the list it
             // walked, and nothing else would come back for it: it would turn forever.
             if (HasPendingPluginIcons()) QueuePluginIconFetch();
+            RefreshPluginCatalogBusyIndicator();
         }
     }
 
@@ -1854,6 +2033,9 @@ try
           if (string.IsNullOrEmpty(view.BusyText)) view.BusyText = AppLocalization.Text(_settings.Language, "正在下载更新包…", "Downloading the update package…");
       }
         QueuePluginIconFetch();
+        // The rebuilt rows are what decides the picture half of the mark, so it is reported
+        // after them: switching the category can add a row whose picture is not on the disk.
+        RefreshPluginCatalogBusyIndicator();
         // Two true numbers that read as a contradiction when a category is selected,
         // so the count says which is which rather than leaving the user to guess.
         PluginCatalogCountText.Text = views.Length == _pluginCatalogEntries.Count
@@ -2505,6 +2687,139 @@ private async void ImportAndInstallPackage(string sourcePath)
         _suppressProfileChange = false;
         if (ProfileBox.SelectedItem is ComboBoxItem item) LoadProfile(item.Tag?.ToString() ?? "");
         UpdateAccountSummary();
+        // The rows name accounts, so they have to follow the account list. The declared
+        // bindings are read from the loaded settings only the first time; after that the
+        // rows themselves are the source, so rebuilding cannot discard an edit.
+        BuildClientBindingRows(_clientBindings.Count == 0 ? _settings.ClientAccountBindings : null);
+    }
+
+    /// <summary>
+    /// </summary>
+    /// <remarks>
+    /// Rows come from the same client list the switches above use, so a client can never
+    /// have a switch with no binding row. The rows are rebuilt whenever the account list
+    /// changes, and they carry an account id in each item's Tag rather than an index:
+    /// the account list is sorted and edited elsewhere, and an index would silently come
+    /// to mean a different account after a delete.
+    ///
+    /// A binding that names an account which no longer exists is not dropped. It is kept
+    /// in the list, unselected and labelled, because silently discarding what the user
+    /// declared is how a stale binding becomes an invisible one — and the save path
+    /// would then delete it for real.
+    /// </remarks>
+    private void BuildClientBindingRows(Dictionary<string, string>? declared)
+    {
+        if (ClientBindingPanel is null) return;
+        var language = LanguageBox is null ? _settings.Language : SelectedTag(LanguageBox, _settings.Language);
+        // The binding is matched by the provider text the client reports, and the two
+        // spellings "generic" and "其他客户端" are the same client to the user.
+        var clients = new (string Provider, string Label, bool BuiltIn)[]
+        {
+            (CodexTaskBridge.DeepSeekHarnessProvider, "DeepSeek Harness", true),
+            (CodexTaskBridge.CodexProvider, "Codex", true),
+            (CodexTaskBridge.GeminiProvider, "Gemini CLI", true),
+            (CodexTaskBridge.QwenProvider, "Qwen Code", true),
+            (CodexTaskBridge.ClaudeProvider, "Claude Code", true),
+            (CodexTaskBridge.GenericProvider, "其他客户端", false),
+        };
+
+        var previous = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in _clientBindings)
+        {
+            var value = SelectedTag(row.Box, "");
+            if (value.Length > 0) previous[row.Provider] = value;
+        }
+
+        _clientBindings.Clear();
+        ClientBindingPanel.Children.Clear();
+        var missing = false;
+
+        foreach (var (provider, label, builtIn) in clients)
+        {
+            var combo = new System.Windows.Controls.ComboBox
+            {
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            combo.Items.Add(new ComboBoxItem { Content = AppLocalization.Text(language, "不声明（未归属）", "No declaration (unassigned)"), Tag = "" });
+            foreach (var profile in _profiles)
+                combo.Items.Add(new ComboBoxItem { Content = profile.Name, Tag = profile.Id });
+
+            var wanted = previous.TryGetValue(provider, out var chosen) && chosen.Length > 0
+                ? chosen
+                : (declared is not null && declared.TryGetValue(provider, out var fromSettings) ? fromSettings : "");
+            var index = -1;
+            for (var i = 0; i < combo.Items.Count; i++)
+            {
+                if (combo.Items[i] is ComboBoxItem candidate && string.Equals(candidate.Tag?.ToString(), wanted, StringComparison.OrdinalIgnoreCase))
+                {
+                    index = i;
+                    break;
+                }
+            }
+            if (index < 0 && wanted.Length > 0)
+            {
+                // Remembered but no longer a configured account: shown as such rather
+                // than quietly reassigned to whatever is now first in the list.
+                var unknown = AppLocalization.Text(language, "已删除的账户", "deleted account");
+                combo.Items.Add(new ComboBoxItem { Content = $"{wanted}（{unknown}）", Tag = wanted });
+                index = combo.Items.Count - 1;
+                missing = true;
+            }
+            combo.SelectedIndex = Math.Max(0, index);
+            _suppressChangeTracking = true;
+            SyncComboDisplay(combo);
+            _suppressChangeTracking = false;
+            combo.SelectionChanged += OnClientBindingChanged;
+            combo.DropDownClosed += OnComboDropDownClosed;
+
+            var grid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.35, GridUnitType.Star) });
+            var caption = new TextBlock
+            {
+                Text = AppLocalization.Text(language, label, label),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            Grid.SetColumn(caption, 0);
+            Grid.SetColumn(combo, 1);
+            grid.Children.Add(caption);
+            grid.Children.Add(combo);
+            ClientBindingPanel.Children.Add(grid);
+
+            _clientBindings.Add(new ClientBindingRow(provider, label, builtIn) { Box = combo });
+        }
+
+        if (ClientBindingHint is not null)
+        {
+            ClientBindingHint.Text = missing
+                ? AppLocalization.Text(language,
+                    "有绑定指向已经删除的账户：该客户端目前按未归属记录，改选一个账户或选择不声明即可清除。",
+                    "A binding names a deleted account: that client is currently recorded as unassigned. Pick an account, or choose no declaration, to clear it.")
+                : AppLocalization.Text(language,
+                    "留空表示不声明：该客户端没有被声明过账户的任务会记作未归属，不会记到当前账户名下。",
+                    "Leaving a row empty declares nothing: tasks from that client with no account of their own are recorded as unassigned, never charged to the current account.");
+        }
+    }
+
+    private void OnClientBindingChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressChangeTracking) return;
+        MarkSettingsDirty();
+        if (sender is System.Windows.Controls.ComboBox box) SyncComboDisplay(box);
+    }
+
+    /// <summary>The declarations to persist, read off the rows the user is looking at.</summary>
+    private Dictionary<string, string> ReadClientAccountBindings()
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in _clientBindings)
+        {
+            var value = SelectedTag(row.Box, "");
+            if (value.Length > 0) result[row.Provider] = value;
+        }
+        return result;
     }
 
     private void LoadProfile(string profileId)
@@ -2888,6 +3203,9 @@ private async void ImportAndInstallPackage(string sourcePath)
             _profiles.Clear();
             if (imported.Monitors is { Count: > 0 }) _profiles.AddRange(imported.Monitors.Select(CloneProfile));
             else _profiles.Add(CreateProfileFromLegacy(imported));
+            // Rebuilt from the imported declarations, which is what makes an imported
+            // file's bindings visible instead of leaving them in a list nobody can see.
+            BuildClientBindingRows(imported.ClientAccountBindings);
             RefreshProfileList(imported.SelectedMonitorId);
             SelectByTag(PetStyleBox, imported.PetStyle); SelectByTag(InteractionBox, imported.InteractionMode); SelectByTag(UpdateCheckBox, imported.UpdateCheckMode); SelectByTag(ExtensionUpdateCheckBox, imported.ExtensionUpdateCheckMode);
             SelectByTag(LanguageBox, imported.Language);
@@ -2954,6 +3272,7 @@ private async void ImportAndInstallPackage(string sourcePath)
                 qwen_task_integration = FollowQwenBox.IsChecked == true,
                 claude_task_integration = FollowClaudeBox.IsChecked == true,
                 other_task_integration = FollowOtherBox.IsChecked == true,
+                client_account_bindings = ReadClientAccountBindings(),
                 start_with_windows = StartupBox.IsChecked == true,
                 selected_monitor_id = selected.Id,
                 monitors = _profiles.Select(profile => new
@@ -3087,6 +3406,10 @@ private async void ImportAndInstallPackage(string sourcePath)
                 QwenTaskIntegration = FollowQwenBox.IsChecked == true,
                 ClaudeTaskIntegration = FollowClaudeBox.IsChecked == true,
                 OtherTaskIntegration = FollowOtherBox.IsChecked == true,
+                // Read off the rows rather than carried over from the loaded settings:
+                // the user may have changed a binding in this same session, and the
+                // dialog assembles a fresh snapshot on save.
+                ClientAccountBindings = ReadClientAccountBindings(),
                 StartWithWindows = startupEnabled,
                 WindowX = _settings.WindowX,
                 WindowY = _settings.WindowY,

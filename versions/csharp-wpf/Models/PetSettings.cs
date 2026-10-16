@@ -79,5 +79,19 @@ public sealed class PetSettings
     [JsonPropertyName("notices_notify")] public bool NoticesNotify { get; set; } = true;
     [JsonPropertyName("start_with_windows")] public bool StartWithWindows { get; set; }
     [JsonPropertyName("monitors")] public List<MonitorProfile> Monitors { get; set; } = new();
+    /// <summary>
+    /// Which account each client's tasks are billed to, declared by the user.
+    /// </summary>
+    /// <remarks>
+    /// Keyed by the provider name a client reports, and holding an account id.
+    ///
+    /// This exists because a client that does not name an account leaves the host
+    /// with nothing to attribute its work to, and the host used to guess — the
+    /// current account — which charged one account for another's work. A client
+    /// that names an account itself still wins: this is the fallback, not an
+    /// override, so a multi-account client is not flattened onto one account by a
+    /// setting the user wrote once.
+    /// </remarks>
+    [JsonPropertyName("client_account_bindings")] public Dictionary<string, string> ClientAccountBindings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [JsonPropertyName("selected_monitor_id")] public string SelectedMonitorId { get; set; } = "";
 }

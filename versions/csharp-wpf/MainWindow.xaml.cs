@@ -21,7 +21,7 @@ namespace BalancePet.Wpf;
 
 public partial class MainWindow : Window
 {
-    private static readonly TimeSpan ManualRefreshCooldown = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ManualRefreshCooldown = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan RefreshOperationTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan UsageBackfillWindow = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan UsageBackfillPoll = TimeSpan.FromSeconds(2);
@@ -117,6 +117,17 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, double?> _codexStartBalances = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Account ids as they were before the settings dialog opened.</summary>
     private HashSet<string> _monitorIdsBeforeSettings = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>
+    /// Account ids declared by tasks that are no longer configured accounts.
+    /// </summary>
+    /// <remarks>
+    /// A deleted account does not make its records unknown: the id is still an answer,
+    /// and it is what lets the menu say the account was removed and its record kept,
+    /// rather than showing the work as belonging to nobody. Nothing is ever merged into
+    /// another account from here.
+    /// </remarks>
+    private readonly HashSet<string> _archivedAccountIds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _trayArchivedRows = new();
     private double? _lastBalance;
     private double _todayUsage;
     private bool _hasBalance;
@@ -142,7 +153,11 @@ public partial class MainWindow : Window
     private uint _taskbarCreatedMessage;
     private readonly HashSet<string> _activeCodexTurns = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _activeTaskSources = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _activeTaskProfiles = new(StringComparer.Ordinal);
+    /// <summary>
+    /// The account each active task was resolved to when it started, so its completion
+    /// is attributed to the account that actually ran it.
+    /// </summary>
+    private readonly Dictionary<string, ResolvedTaskAccount> _activeTaskAccounts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _activeTaskStartedAt = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _recentTaskStops = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> _recordedTaskStops = new(StringComparer.Ordinal);
@@ -165,9 +180,17 @@ public partial class MainWindow : Window
     private double _bubbleAnimationFrom;
     private double _bubbleAnimationTo;
     private bool _bubbleOpening;
-    private string _pendingBubbleLabel = "";
-    private string _pendingBubbleAmount = "";
-    private string _pendingBubbleHint = "";
+    /// <summary>
+    /// The bubble currently going up, and the ones waiting behind it.
+    /// </summary>
+    /// <remarks>
+    /// One bubble is visible at a time, so a second message has to wait for the
+    /// first rather than replacing it: a balance that was on screen for a tenth of a
+    /// second was never read. Entries that can be merged are, and only balance
+    /// refreshes merge — two prompts are not the same message.
+    /// </remarks>
+    private BubbleRequest? _pendingBubble;
+    private readonly List<BubbleRequest> _bubbleQueue = new();
     private double _displayBalance;
     private double _amountFrom;
     private double _amountTo;
@@ -265,6 +288,47 @@ public partial class MainWindow : Window
     }
 
     private sealed record EasterEggLine(string Label, string Amount, string Hint);
+
+    /// <summary>Where a bubble came from, which decides how it is queued.</summary>
+    private enum BubbleOrigin
+    {
+        /// <summary>Anything else the user did: an appearance change, a failed save.</summary>
+        Interaction,
+        /// <summary>An answer to something the user asked for. Goes to the front.</summary>
+        UserRequest,
+        /// <summary>
+        /// A balance answer produced by a refresh. Queued behind the bubble on
+        /// screen, merged per account, and never allowed to overtake one.
+        /// </summary>
+        Refresh,
+        /// <summary>
+        /// What the task integration reports: one finished, or one is still running.
+        /// Merged per source for the same reason a refresh merges, and more urgently:
+        /// a working session finishes tasks faster than anyone can read them, so one
+        /// bubble per completion is a machine for interrupting its own owner.
+        /// </summary>
+        TaskDone
+    }
+
+    private sealed record BubbleRequest(string Label, string Amount, string Hint, TimeSpan? Duration, BubbleOrigin Origin, string AccountId = "")
+    {
+        /// <summary>
+        /// Refresh and task bubbles merge, and only with the same key: an account for
+        /// one, a task source for the other. Two prompts that happen to say the same
+        /// words are still two things that happened, so deduplicating by text would
+        /// silently swallow the second one.
+        /// </summary>
+        public bool CanMergeWith(BubbleRequest other)
+            => Origin == other.Origin
+                && (Origin == BubbleOrigin.Refresh || Origin == BubbleOrigin.TaskDone)
+                && !string.IsNullOrEmpty(AccountId)
+                && string.Equals(AccountId, other.AccountId, StringComparison.OrdinalIgnoreCase);
+
+        public bool IsSameTextAs(BubbleRequest other)
+            => string.Equals(Label, other.Label, StringComparison.Ordinal)
+                && string.Equals(Amount, other.Amount, StringComparison.Ordinal)
+                && string.Equals(Hint, other.Hint, StringComparison.Ordinal);
+    }
 
     [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left; public int Top; public int Right; public int Bottom; }
     [StructLayout(LayoutKind.Sequential)] private struct MonitorInfo { public int Size; public NativeRect Monitor; public NativeRect Work; public uint Flags; }
@@ -418,7 +482,7 @@ public partial class MainWindow : Window
         _usageEventBridge.Stop();
         _activeCodexTurns.Clear();
         _activeTaskSources.Clear();
-        _activeTaskProfiles.Clear();
+        _activeTaskAccounts.Clear();
         _activeTaskStartedAt.Clear();
         _recentTaskStops.Clear();
         _recordedTaskStops.Clear();
@@ -670,7 +734,7 @@ public partial class MainWindow : Window
         return trimmed.StartsWith('#') ? trimmed : "#" + trimmed;
     }
 
-    private async Task RefreshAsync(bool manual, bool selectedOnly = false, bool force = false, bool suppressResultBubble = false)
+    private async Task RefreshAsync(bool manual, bool selectedOnly = false, bool force = false)
     {
         if (_closing) return;
         if (manual) ResetInactiveTimer();
@@ -717,11 +781,21 @@ public partial class MainWindow : Window
             else SetUnavailable("接口未配置", "--", "请在设置中填写已启用账户的余额 API 地址", manual);
             return;
         }
-        if (_refreshing)
+        if (_refreshing && !manual)
         {
-            if (manual) ShowRefreshBubble("正在刷新", "--", "上一轮查询尚未完成");
+            // Automatic rounds take turns: one is enough. A click is not a round to
+            // schedule, it is a person asking a question, and refusing it because an
+            // automatic round happens to be in flight answers a click with an excuse
+            // instead of a balance. Manual rounds may overlap; the later answer wins.
             return;
         }
+        // The refresh gate used to stand here: while a balance answer was still on screen or
+        // waiting to be, a round was refused and a click during that window was answered with
+        // 「余额刷新正在进行中…」 instead of a refresh. Removed on the report that clicking to
+        // refresh made the pet stutter, took a long time to produce a bubble, and stuttered
+        // again when the bubble finally arrived — which is what waiting for someone else's
+        // bubble to finish looks like from the outside. A click now always refreshes; the only
+        // cost is that two rounds can be in flight at once, and the second one's numbers win.
         var now = DateTimeOffset.UtcNow;
         var due = profiles.Where(runtime =>
             force || (manual
@@ -733,7 +807,7 @@ public partial class MainWindow : Window
             if (manual)
             {
                 var remaining = Math.Max(1, Math.Ceiling((ManualRefreshCooldown - (now - _lastManualRefreshAttempt)).TotalSeconds));
-                ShowRefreshBubble("请稍候", $"{remaining:0} 秒", "手动刷新至少间隔 5 秒；自动刷新间隔可在设置中调整");
+                ShowRefreshBubble("请稍候", $"{remaining:0} 秒", "手动刷新至少间隔 3 秒；自动刷新间隔可在设置中调整");
             }
             return;
         }
@@ -750,7 +824,7 @@ public partial class MainWindow : Window
                 if (_activeCodexTurns.Count == 0) SetVisualState(PetVisualState.Loading);
                 if (manual) ShowRefreshBubble("正在刷新", "--", due.Length == 1 ? $"正在联系 {due[0].Profile.Name}" : $"正在查询 {due.Length} 个账户");
             }
-            await Task.WhenAll(due.Select(runtime => RefreshMonitorAsync(runtime, manual, refreshCancellation.Token, suppressResultBubble)));
+            await Task.WhenAll(due.Select(runtime => RefreshMonitorAsync(runtime, manual, refreshCancellation.Token)));
         }
         catch (OperationCanceledException) when (refreshCancellation.IsCancellationRequested)
         {
@@ -762,11 +836,31 @@ public partial class MainWindow : Window
             if (ReferenceEquals(_refreshCancellation, refreshCancellation)) _refreshCancellation = null;
             _refreshing = false;
             PublishBalanceUsageSnapshot();
-            ReconcileSelectedRefreshUi(manual && !suppressResultBubble, selectedRefreshStarted);
+            ReconcileSelectedRefreshUi(selectedRefreshStarted);
         }
     }
 
-    private void ReconcileSelectedRefreshUi(bool manual, bool selectedRefreshStarted)
+    /// <summary>
+    /// Says why clicking refresh did nothing this time.
+    /// </summary>
+    /// <remarks>
+    /// Refused work has to say so. A menu item or a pet that silently ignores a click
+    /// reads as broken, and the reason here is not obvious from the screen: the
+    /// balance answers that are still going up are the previous click's.
+    ///
+    /// It is deliberately a refresh-origin bubble keyed to the refresh gate, so
+    /// clicking again rewrites this same bubble's timer rather than queueing another
+    /// copy, and so it counts as part of the refresh the user is waiting on.
+    /// </remarks>
+    private void ShowPendingRefreshBubble()
+        => ShowRefreshBubble(
+            AppLocalization.Text(_settings.Language, "余额刷新正在进行中…", "Balance refresh in progress…"),
+            "",
+            AppLocalization.Text(_settings.Language, "等待余额刷新完成", "Waiting for the current balance refresh to finish"),
+            TimeSpan.FromSeconds(3.4),
+            RefreshGateAccountId);
+
+    private void ReconcileSelectedRefreshUi(bool selectedRefreshStarted)
     {
         if (_closing || !selectedRefreshStarted) return;
 
@@ -777,8 +871,11 @@ public partial class MainWindow : Window
             if (_visualState == PetVisualState.Loading)
             {
                 SetVisualState(PetVisualState.CodexWorking);
-                ShowAiIntegrationBubble(
-                    $"{CurrentTaskSourceLabel()} 工作中",
+                var working = AccumulateTaskBubble(CurrentTaskSourceLabel(), "working",
+                    $"{CurrentTaskSourceLabel()} 工作中", 0, countInLabel: false);
+                ShowTaskBubble(
+                    working.Key,
+                    working.Label,
                     _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
                     "任务完成或停止后会自动切换状态");
             }
@@ -786,16 +883,15 @@ public partial class MainWindow : Window
         }
 
         if (_visualState != PetVisualState.Loading) return;
+        // The per-account answer bubbles are queued by RefreshMonitorAsync itself, so
+        // there is nothing to say here beyond putting the artwork back: a second
+        // message for the same account would be a duplicate of the one already
+        // waiting, and the wrong account's would be worse than that.
         var selected = SelectedMonitor;
         if (selected?.HasBalance == true && selected.LastBalance.HasValue && selected.LastError is null)
         {
             var low = selected.LastBalance.Value <= selected.Profile.LowThreshold;
             SetVisualState(low ? PetVisualState.Low : PetVisualState.Success, low ? 0 : 1800);
-            if (manual)
-            {
-                var currency = string.IsNullOrWhiteSpace(selected.Profile.Currency) ? "USD" : selected.Profile.Currency;
-                ShowRefreshBubble("账户余额", $"{selected.LastBalance.Value:0.00} {currency}", $"{selected.Profile.Name} · 刷新完成");
-            }
         }
         else
         {
@@ -811,7 +907,7 @@ public partial class MainWindow : Window
         ShowRefreshBubble(title, amount, detail);
     }
 
-    private async Task RefreshMonitorAsync(MonitorRuntime runtime, bool manual, CancellationToken cancellationToken, bool suppressResultBubble = false)
+    private async Task RefreshMonitorAsync(MonitorRuntime runtime, bool manual, CancellationToken cancellationToken)
     {
         var attemptAt = DateTimeOffset.UtcNow;
         runtime.LastRefreshAttempt = attemptAt;
@@ -823,6 +919,7 @@ public partial class MainWindow : Window
             var snapshot = await new JsonBalanceProvider(_httpClient).FetchWithRetryAsync(runtime.Profile, token, cancellationToken);
             if (!string.IsNullOrWhiteSpace(snapshot.Currency)) runtime.Profile.Currency = snapshot.Currency;
             var hadBalance = runtime.HasBalance;
+            var previousBalance = runtime.LastBalance;
             var wasLow = hadBalance && runtime.LastBalance <= runtime.Profile.LowThreshold;
             var observation = runtime.UsageStore.Record(snapshot.Amount, snapshot.Currency, snapshot.UpdatedAt);
             runtime.CacheStore.Save(snapshot);
@@ -837,28 +934,52 @@ public partial class MainWindow : Window
             if (string.Equals(snapshot.ResolvedPresetId, BalancePresetCatalog.V1Usage, StringComparison.OrdinalIgnoreCase))
                 _ = RefreshServerUsageSummaryAsync(runtime.Profile, token);
 
-            if (!IsSelectedMonitor(runtime)) return;
-            SyncSelectedMonitorState();
-            SetStatus(snapshot.Amount <= runtime.Profile.LowThreshold ? "余额偏低" : "查询成功");
-            if (manual) PlaySound(_releaseSound);
+            var isSelected = IsSelectedMonitor(runtime);
+            if (isSelected) SyncSelectedMonitorState();
             // Automatic polling keeps the task artwork authoritative. A user
             // initiated refresh must still show its result even if an older
             // client missed its Stop event; the state timer returns to working
             // afterward when a task is genuinely still active.
-            if (_activeCodexTurns.Count > 0 && _visualState == PetVisualState.CodexWorking && !manual) return;
-            if (observation.Spent > 0.000001)
+            var taskOwnsArtwork = _activeCodexTurns.Count > 0 && _visualState == PetVisualState.CodexWorking && !manual;
+            if (isSelected)
             {
-                SetVisualState(PetVisualState.Clicked, 1200);
-                if (!suppressResultBubble)
-                    ShowRefreshBubble("本次消耗", $"-{observation.Spent:0.00} {observation.Currency}", $"{runtime.Profile.Name} · 当前 {snapshot.Amount:0.00} {observation.Currency} · 今日已用 {observation.TodayUsage:0.00}");
+                SetStatus(snapshot.Amount <= runtime.Profile.LowThreshold ? "余额偏低" : "查询成功");
+                if (manual) PlaySound(_releaseSound);
             }
-            else
+
+            // One message per account that actually moved, and none at all for a
+            // poll that found the same number — a poll is not news. `manual` and the
+            // first sighting of an account are the exceptions, because those are
+            // answers the user asked for or has never seen.
+            var balanceChanged = !hadBalance
+                || !previousBalance.HasValue
+                || Math.Abs(previousBalance.Value - snapshot.Amount) > 0.000001;
+            if (!taskOwnsArtwork)
             {
-                var low = snapshot.Amount <= runtime.Profile.LowThreshold;
-                var temporaryMs = low && _activeCodexTurns.Count > 0 && manual ? 1800 : low ? 0 : 1800;
-                SetVisualState(low ? PetVisualState.Low : PetVisualState.Success, temporaryMs);
-                if (!suppressResultBubble && (manual || !hadBalance)) ShowRefreshBubble("账户余额", $"{snapshot.Amount:0.00} {snapshot.Currency}", $"{runtime.Profile.Name} · 更新于 {snapshot.UpdatedAt:HH:mm:ss} · 今日已用 {observation.TodayUsage:0.00}");
+                if (observation.Spent > 0.000001)
+                {
+                    if (isSelected) SetVisualState(PetVisualState.Clicked, 1200);
+                    ShowRefreshBubble("本次消耗", $"-{observation.Spent:0.00} {observation.Currency}", $"{runtime.Profile.Name} · 当前 {snapshot.Amount:0.00} {observation.Currency} · 今日已用 {observation.TodayUsage:0.00}", accountId: runtime.Profile.Id);
+                }
+                else
+                {
+                    var low = snapshot.Amount <= runtime.Profile.LowThreshold;
+                    if (isSelected)
+                    {
+                        var temporaryMs = low && _activeCodexTurns.Count > 0 && manual ? 1800 : low ? 0 : 1800;
+                        SetVisualState(low ? PetVisualState.Low : PetVisualState.Success, temporaryMs);
+                    }
+                    // A click gets an answer whether or not the number moved. The rule above
+                    // is about polls — a poll that found the same balance is not news — but
+                    // a person who clicked asked a question, and answering the second click
+                    // with silence is how the pet looks broken while it is working. This is
+                    // the second place the same mistake was made: the comment said manual
+                    // was an exception and the condition asked for `manual && changed`.
+                    if (manual || balanceChanged || !hadBalance)
+                        ShowRefreshBubble("账户余额", $"{snapshot.Amount:0.00} {snapshot.Currency}", $"{runtime.Profile.Name} · 更新于 {snapshot.UpdatedAt:HH:mm:ss} · 今日已用 {observation.TodayUsage:0.00}", accountId: runtime.Profile.Id);
+                }
             }
+            if (!isSelected) return;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -871,16 +992,22 @@ public partial class MainWindow : Window
                 if (_activeCodexTurns.Count == 0)
                 {
                     RestoreSteadyVisualState();
-                    if (manual) ShowRefreshBubble("刷新失败", "--", $"{runtime.Profile.Name} 请求超时或已取消，请稍后重试");
+                    // A poll that timed out is not worth a message; a refresh the user
+                    // asked for and did not get is.
+                    if (manual) ShowRefreshBubble("刷新失败", "--", $"{runtime.Profile.Name} 请求超时或已取消，请稍后重试", accountId: runtime.Profile.Id);
                 }
                 else if (_visualState != PetVisualState.CodexWorking)
                 {
                     SetVisualState(PetVisualState.CodexWorking);
-                    if (!suppressResultBubble)
-                        ShowAiIntegrationBubble(
-                            $"{CurrentTaskSourceLabel()} 工作中",
-                            _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
-                            "任务完成或停止后会自动切换状态");
+                    // Through the merged path, so a poll that fails while a session is
+                    // running does not leave a trail of identical bubbles behind it.
+                    var working = AccumulateTaskBubble(CurrentTaskSourceLabel(), "working",
+                        $"{CurrentTaskSourceLabel()} 工作中", 0, countInLabel: false);
+                    ShowTaskBubble(
+                        working.Key,
+                        working.Label,
+                        _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
+                        "任务完成或停止后会自动切换状态");
                 }
             }
         }
@@ -895,11 +1022,15 @@ public partial class MainWindow : Window
                 if (_visualState != PetVisualState.CodexWorking)
                 {
                     SetVisualState(PetVisualState.CodexWorking);
-                    if (!suppressResultBubble)
-                        ShowAiIntegrationBubble(
-                            $"{CurrentTaskSourceLabel()} 工作中",
-                            _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
-                            "任务完成或停止后会自动切换状态");
+                    // Through the merged path, so a poll that fails while a session is
+                    // running does not leave a trail of identical bubbles behind it.
+                    var working = AccumulateTaskBubble(CurrentTaskSourceLabel(), "working",
+                        $"{CurrentTaskSourceLabel()} 工作中", 0, countInLabel: false);
+                    ShowTaskBubble(
+                        working.Key,
+                        working.Label,
+                        _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
+                        "任务完成或停止后会自动切换状态");
                 }
                 return;
             }
@@ -911,10 +1042,10 @@ public partial class MainWindow : Window
                 runtime.HasBalance = true;
                 SyncSelectedMonitorState();
                 AnimateAmountTo(cached.Amount, cached.Currency);
-                if (!suppressResultBubble)
-                    ShowRefreshBubble("上次余额", $"{cached.Amount:0.00} {cached.Currency}", $"{runtime.Profile.Name} 网络波动，暂用缓存 · {detail}");
+                if (manual)
+                    ShowRefreshBubble("上次余额", $"{cached.Amount:0.00} {cached.Currency}", $"{runtime.Profile.Name} 网络波动，暂用缓存 · {detail}", accountId: runtime.Profile.Id);
             }
-            else if (!suppressResultBubble) ShowRefreshBubble("刷新失败", "--", $"{runtime.Profile.Name} · {detail}");
+            else if (manual) ShowRefreshBubble("刷新失败", "--", $"{runtime.Profile.Name} · {detail}", accountId: runtime.Profile.Id);
         }
         finally { runtime.Refreshing = false; }
     }
@@ -1316,10 +1447,26 @@ public partial class MainWindow : Window
         catch (InvalidOperationException) { }
     }
 
+    /// <summary>
+    /// A refresh the user asked for by clicking the pet.
+    /// </summary>
+    /// <remarks>
+    /// It covers every enabled account rather than only the current one, because the
+    /// question a click asks is "where does everything stand", and one answer at a
+    /// time is what the bubble queue is for. <c>force</c> is what makes that safe
+    /// against the per-account interval: a user does not have to wait out a poll they
+    /// did not schedule. The 30-second floor and the global 5-second cooldown are
+    /// untouched; the refresh gate is what keeps a second click from starting a
+    /// second round while the first round's answers are still being read.
+    /// </remarks>
     private async Task RefreshAfterClickAsync()
     {
         if (_closing) return;
-        await RefreshAsync(true, true);
+        // The selected account, not every account: a click on the pet asks for the balance
+        // it is already showing, and refreshing the rest turned one answer into a line of
+        // bubbles arriving one after another — a queue, for a question only the first
+        // bubble was asked. What was recorded under each account stays recorded there.
+        await RefreshAsync(true, selectedOnly: true, force: true);
     }
 
     private void KickReleaseBounce()
@@ -1343,12 +1490,18 @@ public partial class MainWindow : Window
             _interactionTargetY = _lockedKind == "hair" ? dy * .16 : 0;
         }
     }
-    private async void OnRefreshClick(object sender, RoutedEventArgs e) => await RefreshAsync(true, true);
+    private async void OnRefreshClick(object sender, RoutedEventArgs e)
+        => await RefreshAsync(true, selectedOnly: false, force: true);
 
     private void OnPetContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         ApplyLocalization();
         RefreshFeatureExtensionMenuItems();
+        // Rebuilt every time it opens. The rows carry a balance and a state, and both
+        // of those change while the menu is closed, so a menu built once at startup
+        // would describe the accounts as they were then.
+        UpdateContextMonitorMenu();
+        UpdateTrayMonitorMenu();
         BubbleMenuItem.Header = BubbleGroup.Visibility == Visibility.Visible
             ? AppLocalization.Text(_settings.Language, "隐藏气泡", "Hide bubble")
             : AppLocalization.Text(_settings.Language, "显示气泡", "Show bubble");
@@ -1377,7 +1530,8 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void OnContextRefreshClick(object sender, RoutedEventArgs e) => await RefreshAsync(true, true);
+    private async void OnContextRefreshClick(object sender, RoutedEventArgs e)
+        => await RefreshAsync(true, selectedOnly: false, force: true);
 
     private void OnContextBubbleClick(object sender, RoutedEventArgs e)
     {
@@ -1392,11 +1546,15 @@ public partial class MainWindow : Window
             var selected = SelectedMonitor;
             var currency = selected?.Profile.Currency ?? _settings.Currency;
             var name = selected?.Profile.Name ?? "当前账户";
-            ShowRefreshBubble("账户余额", $"{_lastBalance:0.00} {currency}", $"{name} · 今日已用 {_todayUsage:0.00} {currency}");
+            // Keyed to the account it describes, so the refresh result that follows
+            // updates this very bubble instead of adding a second one for the same
+            // account and the same number.
+            ShowRefreshBubble("账户余额", $"{_lastBalance:0.00} {currency}", $"{name} · 今日已用 {_todayUsage:0.00} {currency}",
+                accountId: selected?.Profile.Id ?? "");
             // Show what is already known immediately, then replace it with live
             // numbers: the cached figure can be minutes old, and the user opened
             // this bubble precisely because they want the balance right now.
-            _ = RefreshAsync(true, true);
+            _ = RefreshAsync(true, selectedOnly: false, force: true);
         }
         else
             ShowRefreshBubble("还没查询", "--", "点击立即刷新获取余额");
@@ -1549,6 +1707,21 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// One line per recorded account: name, balance and state.
+    /// </summary>
+    /// <remarks>
+    /// Built from the same rows for the tray and for the pet's right-click menu, because
+    /// the two describe the same accounts and a second implementation would eventually
+    /// disagree with the first about what a state is called.
+    ///
+    /// These rows do not switch accounts. Switching was a way to aim the pet at one
+    /// account, and the pet no longer needs aiming: a task is attributed to the account
+    /// that ran it, and a refresh covers every account. Removing the gesture removes the
+    /// way to be misled by it, since a checked row read as "this is the account the
+    /// balance belongs to" — which was exactly the confusion being fixed. Accounts are
+    /// still added, edited and removed in Settings, where they always were.
+    /// </remarks>
     private void UpdateTrayMonitorMenu()
     {
         if (_trayMonitorMenu is null) return;
@@ -1556,12 +1729,15 @@ public partial class MainWindow : Window
         _trayMonitorItems.Clear();
         foreach (var runtime in _monitorStates.Values.OrderBy(value => value.Profile.Name, StringComparer.CurrentCultureIgnoreCase))
         {
-            var item = new Forms.ToolStripMenuItem(runtime.Profile.Name)
+            var item = new Forms.ToolStripMenuItem(AccountMenuRow(runtime))
             {
                 Tag = runtime.Profile.Id,
                 CheckOnClick = false,
-                Checked = IsSelectedMonitor(runtime),
-                Enabled = runtime.Profile.Enabled
+                // Clickable again. The row reports state and now also selects the account
+                // it reports on: the list is read for the balances, and reading which
+                // account the pet is showing should not require going to Settings. The
+                // check mark says which one that is.
+                Checked = IsSelectedMonitor(runtime)
             };
             item.Click += (_, _) => SelectMonitor(runtime.Profile.Id);
             _trayMonitorItems[runtime.Profile.Id] = item;
@@ -1578,17 +1754,45 @@ public partial class MainWindow : Window
         {
             var item = new MenuItem
             {
-                Header = runtime.Profile.Name,
+                Header = AccountMenuRow(runtime),
                 Tag = runtime.Profile.Id,
                 IsCheckable = true,
-                IsChecked = IsSelectedMonitor(runtime),
-                IsEnabled = runtime.Profile.Enabled
+                IsChecked = IsSelectedMonitor(runtime)
             };
             item.Click += (_, _) => SelectMonitor(runtime.Profile.Id);
             MonitorMenuItem.Items.Add(item);
         }
         if (MonitorMenuItem.Items.Count == 0)
             MonitorMenuItem.Items.Add(new MenuItem { Header = AppLocalization.Text(_settings.Language, "未配置账户", "No accounts configured"), IsEnabled = false });
+    }
+
+    /// <summary>Name · balance, then how that account is billed and how its last refresh went.</summary>
+    private string AccountMenuRow(MonitorRuntime runtime)
+    {
+        var profile = runtime.Profile;
+        var balance = runtime.HasBalance && runtime.LastBalance.HasValue
+            ? FormatAccountBalance(runtime.LastBalance.Value, profile.Currency)
+            : "--";
+        var marks = new List<string> { balance };
+        // Subscription accounts publish no per-request billing at all, so a balance that
+        // never moves means nothing for them. Saying so on the row is what stops the
+        // figure from being read as evidence.
+        marks.Add(AppLocalization.Text(_settings.Language,
+            profile.IsSubscription ? "订阅" : "API",
+            profile.IsSubscription ? "subscription" : "API"));
+        marks.Add(AccountStateText(runtime));
+        return $"{profile.Name} · {string.Join(" · ", marks)}";
+    }
+
+    private string AccountStateText(MonitorRuntime runtime)
+    {
+        var language = _settings.Language;
+        if (!runtime.Profile.Enabled) return AppLocalization.Text(language, "未启用", "disabled");
+        if (runtime.Refreshing) return AppLocalization.Text(language, "刷新中", "refreshing");
+        if (runtime.LastError is not null) return AppLocalization.Text(language, "刷新失败", "refresh failed");
+        return runtime.HasBalance
+            ? AppLocalization.Text(language, "已刷新", "refreshed")
+            : AppLocalization.Text(language, "未刷新", "not refreshed");
     }
 
     private void SelectMonitor(string profileId, bool announce = true, bool refreshWhenMissing = true)
@@ -1627,7 +1831,7 @@ public partial class MainWindow : Window
         AppLocalization.Apply(this, _settings.Language);
         ContextRefreshMenuItem.Header = AppLocalization.Text(_settings.Language, "立即刷新", "Refresh now");
         ContextStyleMenuItem.Header = AppLocalization.Text(_settings.Language, "切换形象", "Change appearance");
-        MonitorMenuItem.Header = AppLocalization.Text(_settings.Language, "当前账户", "Current account");
+        MonitorMenuItem.Header = AppLocalization.Text(_settings.Language, "已收录账户", "Recorded accounts");
         ContextSettingsMenuItem.Header = AppLocalization.Text(_settings.Language, "设置面板", "Settings");
         ContextUpdateMenuItem.Header = AppLocalization.Text(_settings.Language, "检查更新", "Check for updates");
         ContextUsageMenuItem.Header = AppLocalization.Text(_settings.Language, "用量统计", "Usage");
@@ -1643,7 +1847,7 @@ public partial class MainWindow : Window
         if (_trayRefreshItem is not null) _trayRefreshItem.Text = AppLocalization.Text(_settings.Language, "立即刷新", "Refresh now");
         if (_traySettingsItem is not null) _traySettingsItem.Text = AppLocalization.Text(_settings.Language, "设置面板", "Settings");
         if (_trayStyleMenuItem is not null) _trayStyleMenuItem.Text = AppLocalization.Text(_settings.Language, "切换形象", "Change appearance");
-        if (_trayMonitorMenu is not null) _trayMonitorMenu.Text = AppLocalization.Text(_settings.Language, "当前账户", "Current account");
+        if (_trayMonitorMenu is not null) _trayMonitorMenu.Text = AppLocalization.Text(_settings.Language, "已收录账户", "Recorded accounts");
         if (_trayUpdateItem is not null) _trayUpdateItem.Text = AppLocalization.Text(_settings.Language, "检查更新", "Check for updates");
         if (_trayUsageItem is not null) _trayUsageItem.Text = AppLocalization.Text(_settings.Language, "用量统计", "Usage");
         if (_trayNotificationItem is not null) _trayNotificationItem.Text = AppLocalization.Text(_settings.Language, "消息中心", "Messages");
@@ -1775,7 +1979,7 @@ public partial class MainWindow : Window
         _trayShowItem.Click += (_, _) => { Show(); Activate(); };
         menu.Items.Add(_trayShowItem);
         _trayRefreshItem = new Forms.ToolStripMenuItem();
-        _trayRefreshItem.Click += async (_, _) => await RefreshAsync(true, true);
+        _trayRefreshItem.Click += async (_, _) => await RefreshAsync(true, selectedOnly: true, force: true);
         menu.Items.Add(_trayRefreshItem);
         _traySettingsItem = new Forms.ToolStripMenuItem();
         _traySettingsItem.Click += (_, _) => OnSettingsClick(this, new RoutedEventArgs());
@@ -1804,7 +2008,13 @@ public partial class MainWindow : Window
         _trayExitItem.Click += (_, _) => { _closing = true; System.Windows.Application.Current.Shutdown(); };
         menu.Items.Add(_trayExitItem);
         _trayMenu = menu;
-        menu.Opening += (_, _) => RefreshFeatureExtensionMenuItems();
+        // Rebuilt on every open, for the same reason the pet's own menu is: each row
+        // carries a balance and a state, and both move while the menu is closed.
+        menu.Opening += (_, _) =>
+        {
+            RefreshFeatureExtensionMenuItems();
+            UpdateTrayMonitorMenu();
+        };
         // Assign the icon before making the shell icon visible. Some Explorer
         // versions do not repaint a NotifyIcon that started with Icon == null.
         _trayIcon = new Forms.NotifyIcon
@@ -2304,23 +2514,29 @@ public partial class MainWindow : Window
     }
 
     private void ShowEasterEggBubble(string label, string amount, string hint, TimeSpan? duration = null)
-        => ShowBubble(label, amount, hint, duration, allowExternalPresenter: false);
+        => ShowBubble(label, amount, hint, duration, allowExternalPresenter: false, origin: BubbleOrigin.UserRequest);
 
     /// <summary>Shows an extension download on the pet, rather than in the notification centre.</summary>
     public void ShowDownloadProgress(string label, string amount, string hint)
         => ShowBubble(label, amount, hint, TimeSpan.FromSeconds(6), allowExternalPresenter: false);
 
-    private void ShowRefreshBubble(string label, string amount, string hint, TimeSpan? duration = null)
-        => ShowBubble(label, amount, hint, duration, preferNativePresentation: true);
+    /// <summary>
+    /// A balance answer produced by a refresh, for one account.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="accountId"/> is what makes the merge possible: a second refresh
+    /// answer for the same account updates the number in place instead of adding
+    /// another bubble to read, which is what keeps a burst of manual refreshes from
+    /// turning into a wall of overlapping messages. It is also what marks the bubble as
+    /// belonging to the refresh gate below, so the gate opens only once these have all
+    /// been taken down.
+    /// </remarks>
+    private void ShowRefreshBubble(string label, string amount, string hint, TimeSpan? duration = null, string accountId = "")
+        => ShowBubble(label, amount, hint, duration, preferNativePresentation: true,
+            origin: BubbleOrigin.Refresh, accountId: accountId);
 
     private void ShowNativeBubble(string label, string amount, string hint, TimeSpan? duration = null)
-        => ShowBubble(label, amount, hint, duration, preferNativePresentation: true);
-
-    // Settings and task-integration feedback belongs to the pet itself. Keep
-    // recording these events for Notification Center, but always present the
-    // immediate feedback through the built-in bubble next to the pet.
-    private void ShowAiIntegrationBubble(string label, string amount, string hint, TimeSpan? duration = null)
-        => ShowNativeBubble(label, amount, hint, duration);
+        => ShowBubble(label, amount, hint, duration, preferNativePresentation: true, origin: BubbleOrigin.UserRequest);
 
     /// <summary>
     /// Says that something went wrong and that the program is still here.
@@ -2336,8 +2552,68 @@ public partial class MainWindow : Window
     internal void MentionProblem()
         => ShowBubble("遇到一个问题", "", "已继续运行，详情见 crash.log", TimeSpan.FromSeconds(8));
 
+    /// <summary>
+    /// True while a bubble produced by a refresh is on screen or waiting to be.
+    /// </summary>
+    /// <remarks>
+    /// This is the refresh gate. A refresh bubble is queued, so the answer to "did
+    /// that account's balance change" is still being read; starting another round
+    /// would race it and make the last bubble's number describe a moment that has
+    /// already passed. Automatic polling asks this and skips the round silently,
+    /// because nobody is waiting on it; a click asks it and gets told why instead.
+    /// </remarks>
+    private bool BalanceRefreshBubblePending
+        => _pendingBubble?.Origin == BubbleOrigin.Refresh
+            || _bubbleQueue.Any(bubble => bubble.Origin == BubbleOrigin.Refresh);
+
+    /// <summary>
+    /// The merge key for the "refresh already running" prompt.
+    /// </summary>
+    /// <remarks>
+    /// It has to be a non-empty account id, because that is what makes two refresh
+    /// bubbles merge — and merging is exactly what keeps a string of clicks from
+    /// stacking copies of the same sentence. It is deliberately not shaped like a
+    /// real account id, so it can never collide with one: no account id is wrapped
+    /// in underscores, and the resolver only ever matches declared ids it was given.
+    /// </remarks>
+    private const string RefreshGateAccountId = "__refresh_in_progress__";
+
+    private readonly TaskBubbleCounter _taskBubbles = new();
+
+    /// <summary>
+    /// Folds a repeat of the same task source into the bubble that is already there.
+    /// </summary>
+    /// <remarks>
+    /// The counting itself lives in <see cref="TaskBubbleCounter"/>, which knows nothing
+    /// about windows; the sentence is finished here because only the window knows the
+    /// language the label is currently written in.
+    /// </remarks>
+    private (string Key, string Label, double Spent) AccumulateTaskBubble(
+        string source, string kind, string label, double spent, bool countInLabel = true)
+    {
+        var reading = _taskBubbles.Register(source, kind, spent, DateTime.UtcNow);
+        if (!countInLabel || reading.Count <= 1) return (reading.Key, label, reading.Spent);
+        return (reading.Key,
+            AppLocalization.Text(_settings.Language, $"{label} · 共 {reading.Count} 个任务", $"{label} · {reading.Count} tasks"),
+            reading.Spent);
+    }
+
+    /// <summary>
+    /// Shows one of those, through the merged path rather than the front of the queue.
+    /// </summary>
+    /// <remarks>
+    /// Task feedback belongs to the pet itself: the event is still recorded for
+    /// Notification Center, but the immediate word is always the built-in bubble next
+    /// to the pet. It goes through the merge branch rather than the native one because
+    /// what it has to say repeats by construction — see <see cref="AccumulateTaskBubble"/>.
+    /// </remarks>
+    private void ShowTaskBubble(string key, string label, string amount, string hint, TimeSpan? duration = null)
+        => ShowBubble(label, amount, hint, duration, allowExternalPresenter: true,
+            preferNativePresentation: true, origin: BubbleOrigin.TaskDone, accountId: key);
+
     private void ShowBubble(string label, string amount, string hint, TimeSpan? duration = null,
-        bool allowExternalPresenter = true, bool preferNativePresentation = false)
+        bool allowExternalPresenter = true, bool preferNativePresentation = false,
+        BubbleOrigin origin = BubbleOrigin.Interaction, string accountId = "")
     {
         var isRefreshProgress = string.Equals(label, "正在刷新", StringComparison.OrdinalIgnoreCase);
         var displayAmount = string.Equals(amount.Trim(), "--", StringComparison.Ordinal) ? "" : amount;
@@ -2346,15 +2622,128 @@ public partial class MainWindow : Window
         // dot. It is deliberately not a notification-center event or bubble.
         if (isRefreshProgress) return;
         if (!_settings.Bubble || (allowExternalPresenter && !preferNativePresentation && NotificationPresentationBridge.IsExternalPresenterActive())) return;
-        label = AppLocalization.Translate(label, _settings.Language);
-        amount = AppLocalization.Translate(displayAmount, _settings.Language);
-        hint = AppLocalization.Translate(hint, _settings.Language);
-        _pendingBubbleLabel = label;
-        _pendingBubbleAmount = amount;
-        _pendingBubbleHint = hint;
+        EnqueueBubble(new BubbleRequest(
+            AppLocalization.Translate(label, _settings.Language),
+            AppLocalization.Translate(displayAmount, _settings.Language),
+            AppLocalization.Translate(hint, _settings.Language),
+            duration,
+            origin,
+            accountId));
+    }
+
+    private void EnqueueBubble(BubbleRequest request)
+    {
+        // Nothing new can start while the bubble on screen is still the update
+        // progress one: it is redrawn in place by the download and never takes
+        // itself down, so a queued entry behind it would wait forever.
+        if (_updateProgressShown) return;
+
+        // No queue — the mechanism 1.6.4 had, restored on the report that clicking the pet
+        // made its answer wait behind whatever was already on screen. A bubble is the answer
+        // to something that just happened, and an answer that waits for the previous answer
+        // to finish is a queue; the newest one now replaces the one being shown, in place,
+        // without the earlier one having to finish its sentence first.
+        _bubbleQueue.Clear();
+        if (_pendingBubble is not null)
+        {
+            var replacing = _pendingBubble with
+            {
+                Label = request.Label,
+                Amount = request.Amount,
+                Hint = request.Hint,
+                Duration = request.Duration,
+                Origin = request.Origin,
+                AccountId = request.AccountId
+            };
+            _pendingBubble = replacing;
+            FadeBubbleContentTo(replacing);
+            RestartBubbleTimer(replacing);
+            return;
+        }
+
+        switch (request.Origin)
+        {
+            case BubbleOrigin.Refresh:
+            case BubbleOrigin.TaskDone:
+            {
+                // Merge first, so a repeat of what is already showing refreshes its
+                // timer rather than queueing a second copy of the same sentence. A
+                // task bubble that changed what it says is updated in place, which is
+                // what lets one line count up while the session it describes keeps
+                // working, instead of leaving a trail of finished ones behind it.
+                if (_pendingBubble is not null && _pendingBubble.CanMergeWith(request))
+                {
+                    if (_pendingBubble.IsSameTextAs(request))
+                    {
+                        RestartBubbleTimer(_pendingBubble);
+                        return;
+                    }
+                    var shown = _pendingBubble with { Amount = request.Amount, Hint = request.Hint, Duration = request.Duration };
+                    _pendingBubble = shown;
+                    FadeBubbleContentTo(shown);
+                    RestartBubbleTimer(shown);
+                    return;
+                }
+
+                var waiting = _bubbleQueue.FindIndex(bubble => bubble.CanMergeWith(request));
+                if (waiting >= 0)
+                {
+                    if (_bubbleQueue[waiting].IsSameTextAs(request)) return;
+                    _bubbleQueue[waiting] = _bubbleQueue[waiting] with
+                    {
+                        Amount = request.Amount,
+                        Hint = request.Hint,
+                        Duration = request.Duration
+                    };
+                    return;
+                }
+
+                // Behind whatever is already waiting: balance answers arrive in the
+                // order the accounts answered, and reordering them would make the
+                // queue unreadable. A refresh is the exception — it is the answer to a
+                // click, and one that arrives after the session notices that were
+                // already queued is an answer to a question nobody is asking any more.
+                if (request.Origin == BubbleOrigin.Refresh) _bubbleQueue.Insert(0, request);
+                else _bubbleQueue.Add(request);
+                break;
+            }
+
+            case BubbleOrigin.UserRequest:
+            {
+                // An answer to something the user did goes to the front, ahead of
+                // balances nobody is waiting for. Identical text already at the
+                // front is refreshed rather than repeated: the user who clicks the
+                // same thing twice asked one question.
+                if (_bubbleQueue.Count > 0 && _bubbleQueue[0].IsSameTextAs(request)) return;
+                _bubbleQueue.Insert(0, request);
+                break;
+            }
+
+            default:
+                _bubbleQueue.Add(request);
+                break;
+        }
+
+        if (_pendingBubble is null) PopBubble();
+    }
+
+    private void PopBubble()
+    {
+        if (_bubbleQueue.Count == 0)
+        {
+            _pendingBubble = null;
+            _bubbleTimer.Stop();
+            if (BubbleGroup.Visibility == Visibility.Visible) HideBubble();
+            return;
+        }
+
+        var next = _bubbleQueue[0];
+        _bubbleQueue.RemoveAt(0);
+        _pendingBubble = next;
+
         if (BubbleGroup.Visibility != Visibility.Visible)
         {
-            SetBubbleText(label, amount, hint);
+            SetBubbleText(next.Label, next.Amount, next.Hint);
             BubbleContent.Opacity = 1;
             BubbleGroup.Visibility = Visibility.Visible;
             _bubbleAnimationProgress = 0;
@@ -2365,21 +2754,39 @@ public partial class MainWindow : Window
         }
         else
         {
-            BubbleContent.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(80))
-            {
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
-            });
-            _bubbleContentTimer.Stop();
-            _bubbleContentTimer.Start();
+            FadeBubbleContentTo(next);
         }
+        RestartBubbleTimer(next);
+    }
+
+    /// <summary>Swaps the words in the standing bubble, crossfading so it reads as a change.</summary>
+    private void FadeBubbleContentTo(BubbleRequest request)
+    {
+        BubbleContent.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(80))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        });
+        _bubbleContentTimer.Stop();
+        _bubbleContentTimer.Start();
+    }
+
+    private void RestartBubbleTimer(BubbleRequest request)
+    {
         _bubbleTimer.Stop();
-        _bubbleTimer.Interval = duration ?? TimeSpan.FromSeconds(hint.Length > 36 ? 7 : 5.5);
+        _bubbleTimer.Interval = request.Duration ?? TimeSpan.FromSeconds(request.Hint.Length > 36 ? 7 : 5.5);
         _bubbleTimer.Start();
     }
+
     private void HideBubble()
     {
         _bubbleTimer.Stop();
-        if (BubbleGroup.Visibility != Visibility.Visible) return;
+        if (BubbleGroup.Visibility != Visibility.Visible)
+        {
+            // Nothing was on screen, so the queue can move on immediately. Leaving
+            // this out is what would strand the next bubble after a hide.
+            if (_pendingBubble is not null) PopBubble();
+            return;
+        }
         _bubbleAnimationProgress = 0;
         _bubbleAnimationFrom = 1;
         _bubbleAnimationTo = 0;
@@ -2560,6 +2967,10 @@ public partial class MainWindow : Window
             {
                 BubbleGroup.Visibility = Visibility.Collapsed;
                 BubbleGroup.Opacity = 0;
+                // The hide finished, so the next bubble can take the screen. This is
+                // the moment HideBubble() alone cannot cover: it runs off the timer,
+                // and the next queued answer may have arrived while this one stood.
+                PopBubble();
             }
         }
     }
@@ -2567,7 +2978,7 @@ public partial class MainWindow : Window
     private void AnimateBubbleContent()
     {
         _bubbleContentTimer.Stop();
-        SetBubbleText(_pendingBubbleLabel, _pendingBubbleAmount, _pendingBubbleHint);
+        if (_pendingBubble is not null) SetBubbleText(_pendingBubble.Label, _pendingBubble.Amount, _pendingBubble.Hint);
         BubbleContent.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
@@ -2787,7 +3198,11 @@ public partial class MainWindow : Window
         ReplaceActiveTaskForSession(activity);
         if (!_activeCodexTurns.Add(activity.Key)) return Task.CompletedTask;
         _activeTaskSources[activity.Key] = TaskSourceLabel(activity.Provider);
-        _activeTaskProfiles[activity.Key] = FindMonitorProfile(activity.Provider)?.Id ?? "";
+        // Resolved once, at the start, and reused for the completion. Resolving it again
+        // when the task ends would read a settings file the user may have edited in
+        // between and could attribute the work to an account that did not run it.
+        var resolved = ResolveTaskAccount(activity.Provider, activity.AccountId);
+        _activeTaskAccounts[activity.Key] = resolved;
         _activeTaskStartedAt[activity.Key] = activity.StartedAtUtc ?? DateTimeOffset.UtcNow;
         ResetInactiveTimer();
         _codexHideTimer.Stop();
@@ -2801,16 +3216,22 @@ public partial class MainWindow : Window
         {
             _codexStartBalances.Clear();
         }
-        var taskProfile = FindMonitorProfile(activity.Provider);
-        var taskProfileId = taskProfile?.Id ?? SelectedMonitor?.Profile.Id ?? "";
-        if (!_codexStartBalances.ContainsKey(taskProfileId))
-            _codexStartBalances[taskProfileId] = taskProfileId.Length > 0 && _monitorStates.TryGetValue(taskProfileId, out var taskRuntime) ? taskRuntime.LastBalance : _lastBalance;
+        // The starting balance is only read for an account this task was actually
+        // attributed to. An unassigned task deliberately records no start value: with
+        // no account there is nothing to measure a drop against, and measuring the
+        // wrong account's drop is the error this whole path exists to avoid.
+        var taskProfileId = resolved.ProfileId;
+        if (taskProfileId.Length > 0 && !_codexStartBalances.ContainsKey(taskProfileId))
+            _codexStartBalances[taskProfileId] = _monitorStates.TryGetValue(taskProfileId, out var taskRuntime) ? taskRuntime.LastBalance : null;
 
         if (!_activeCodexTurns.Contains(activity.Key)) return Task.CompletedTask;
         SetStatus("AI 工作中");
         SetVisualState(PetVisualState.CodexWorking);
-        ShowAiIntegrationBubble(
-            $"{CurrentTaskSourceLabel()} 工作中",
+        var working = AccumulateTaskBubble(CurrentTaskSourceLabel(), "working",
+            $"{CurrentTaskSourceLabel()} 工作中", 0, countInLabel: false);
+        ShowTaskBubble(
+            working.Key,
+            working.Label,
             _activeCodexTurns.Count == 1 ? "正在处理" : $"{_activeCodexTurns.Count} 个任务",
             "任务完成或停止后会自动切换状态");
         PublishNotificationState();
@@ -2835,7 +3256,7 @@ public partial class MainWindow : Window
         }
         if (!startedAt.HasValue && _activeTaskStartedAt.Count == 1)
             startedAt = _activeTaskStartedAt.Values.First();
-        if (!RemoveActiveCodexTurn(activity, out var completedSource, out var completedProfileId))
+        if (!RemoveActiveCodexTurn(activity, out var completedSource, out var completedAccount))
         {
             // Keep a very short marker for out-of-order start/stop messages.
             // It expires quickly so a real later task is unaffected. If the
@@ -2847,36 +3268,49 @@ public partial class MainWindow : Window
             if (shouldRecord
                 && TryMarkTaskStopRecorded(activity))
             {
-                var fallbackProfileId = FindMonitorProfile(activity.Provider)?.Id ?? "";
-                await RecordUsageFromTaskAsync(activity, startedAt, fallbackProfileId);
+                // No start was seen, so there is no remembered attribution. Resolve
+                // from the stop event alone, which still honours what the client
+                // declared — and still refuses to guess.
+                await RecordUsageFromTaskAsync(activity, startedAt, ResolveTaskAccount(activity.Provider, activity.AccountId));
                 _ = SyncRecentUsageCostsAsync();
             }
             return;
         }
         _lastCompletedTaskSource = completedSource;
         PublishNotificationState();
-        await RecordUsageFromTaskAsync(activity, startedAt, completedProfileId);
+        await RecordUsageFromTaskAsync(activity, startedAt, completedAccount);
         TryMarkTaskStopRecorded(activity);
         ResetInactiveTimer();
         if (_activeCodexTurns.Count > 0)
         {
             SetVisualState(PetVisualState.CodexWorking);
-            ShowAiIntegrationBubble($"{CurrentTaskSourceLabel()} 工作中", $"{_activeCodexTurns.Count} 个任务", "仍有任务正在处理");
+            var stillWorking = AccumulateTaskBubble(CurrentTaskSourceLabel(), "working",
+                $"{CurrentTaskSourceLabel()} 工作中", 0, countInLabel: false);
+            ShowTaskBubble(stillWorking.Key, stillWorking.Label, $"{_activeCodexTurns.Count} 个任务", "仍有任务正在处理");
             return;
         }
 
-        var selected = SelectedMonitor;
-        var completedProfile = _monitorStates.TryGetValue(completedProfileId, out var completedRuntime) ? completedRuntime : selected;
+        // The account that ran this task, and its own numbers. The bubble used to read
+        // the single `_lastBalance` value, which belongs to whichever account was
+        // current, so a task on account B reported account A's balance — and its
+        // currency with it.
+        var completedProfile = completedAccount.Profile;
+        var completedId = completedAccount.ProfileId;
+        var completedRuntime = completedAccount.Profile is not null && _monitorStates.TryGetValue(completedId, out var known)
+            ? known
+            : null;
         SyncSelectedMonitorState();
-        var currency = completedProfile?.Profile.Currency ?? selected?.Profile.Currency ?? _settings.Currency;
-        var spentByCurrency = _codexStartBalances
+        var currency = completedProfile?.Currency ?? _settings.Currency;
+        // Summed across the accounts that had a start value, because a task is allowed
+        // to span more than one account. An unassigned task contributes nothing here —
+        // there is no account to read a drop from.
+        var spent = _codexStartBalances
             .Select(pair => _monitorStates.TryGetValue(pair.Key, out var runtime) && pair.Value.HasValue && runtime.LastBalance.HasValue && string.Equals(runtime.Profile.Currency, currency, StringComparison.OrdinalIgnoreCase)
                 ? Math.Max(0, pair.Value.Value - runtime.LastBalance.Value)
                 : 0)
             .Sum();
-        var spent = spentByCurrency;
         SetVisualState(PetVisualState.CodexDone, CodexDoneDurationMs);
-        ShowAiIntegrationBubble($"{completedSource} 已停止", spent > 0 ? $"-{spent:0.00} {currency}" : "任务结束", spent > 0 ? $"当前余额 {_lastBalance:0.00} {currency}" : "已完成或手动停止");
+        ShowCodexCompletionBubble(completedSource, completedAccount, completedRuntime, spent, currency);
         _codexStartBalances.Clear();
         _ = RefreshAfterCodexCompletionAsync();
         if (_codexShownPet)
@@ -2885,6 +3319,60 @@ public partial class MainWindow : Window
             _codexHideTimer.Start();
         }
         return;
+    }
+
+    /// <summary>
+    /// Says a task finished, on the account it finished on.
+    /// </summary>
+    /// <remarks>
+    /// Three distinct outcomes, because they mean three different things to the user:
+    /// the task was attributed and its account's own balance is quoted; the client named
+    /// an account that is no longer configured, which is reported as an archived record
+    /// and not as failure; and nothing named an account at all, which is reported as
+    /// unassigned together with the one action that fixes it. All three merge per source,
+    /// because a session that finishes ten tasks is one piece of news, not ten: what is
+    /// lost by not showing ten bubbles is the count, so the count moves into the label.
+    /// </remarks>
+    private void ShowCodexCompletionBubble(string completedSource, ResolvedTaskAccount account, MonitorRuntime? runtime, double spent, string currency)
+    {
+        var language = _settings.Language;
+        if (account.Profile is null)
+        {
+            if (account.IsArchived)
+            {
+                var archived = AccumulateTaskBubble(completedSource, "archived", $"{completedSource} 已停止", 0);
+                ShowTaskBubble(
+                    archived.Key,
+                    archived.Label,
+                    AppLocalization.Text(language, "账户删除，记录归档", "account deleted, record archived"),
+                    AppLocalization.Text(language,
+                        $"{account.DeclaredAccountId} · {ArchivedAccountHint()}",
+                        $"{account.DeclaredAccountId} · {ArchivedAccountHint()}"));
+                return;
+            }
+            var unassigned = AccumulateTaskBubble(completedSource, "unassigned", $"{completedSource} 已停止", 0);
+            ShowTaskBubble(
+                unassigned.Key,
+                unassigned.Label,
+                AppLocalization.Text(language, "未归属", "unassigned"),
+                AppLocalization.Text(language,
+                    "该任务未声明账户，未计入任何账户；建议在设置中收录该账户",
+                    "The task declared no account, so it is charged to none; add this account in Settings"));
+            return;
+        }
+
+        var balanceText = runtime is { HasBalance: true, LastBalance: not null }
+            ? FormatAccountBalance(runtime.LastBalance.Value, currency)
+            : "--";
+        var name = account.Profile.Name;
+        var done = AccumulateTaskBubble(completedSource, "done", $"{completedSource} 已停止", spent);
+        ShowTaskBubble(
+            done.Key,
+            done.Label,
+            done.Spent > 0 ? $"-{done.Spent:0.00} {currency}" : "任务结束",
+            done.Spent > 0
+                ? $"{name} · 当前余额 {balanceText}"
+                : $"{name} · 已完成或手动停止");
     }
 
     private string CurrentTaskSourceLabel()
@@ -2921,14 +3409,14 @@ public partial class MainWindow : Window
         await RefreshAsync(false, false, true);
     }
 
-    private bool RemoveActiveCodexTurn(CodexTaskActivity activity, out string completedSource, out string completedProfileId)
+    private bool RemoveActiveCodexTurn(CodexTaskActivity activity, out string completedSource, out ResolvedTaskAccount completedAccount)
     {
         completedSource = TaskSourceLabel(activity.Provider);
-        completedProfileId = "";
+        completedAccount = ResolveTaskAccount(activity.Provider, activity.AccountId);
 
         if (!string.IsNullOrWhiteSpace(activity.TurnId))
         {
-            if (RemoveTaskKey(activity.Key, ref completedSource, out completedProfileId)) return true;
+            if (RemoveTaskKey(activity.Key, ref completedSource, ref completedAccount)) return true;
             // A previous start from this session may have been replaced by a
             // resumed turn. Its delayed Stop must not end the newer turn.
             if (_retiredTaskKeys.ContainsKey(activity.Key)) return false;
@@ -2939,7 +3427,7 @@ public partial class MainWindow : Window
             var sessionPrefix = activity.SessionId + ":";
             var matchingKey = _activeCodexTurns.FirstOrDefault(key =>
                 key.StartsWith(sessionPrefix, StringComparison.Ordinal));
-            if (matchingKey is not null) return RemoveTaskKey(matchingKey, ref completedSource, out completedProfileId);
+            if (matchingKey is not null) return RemoveTaskKey(matchingKey, ref completedSource, ref completedAccount);
             return false;
         }
 
@@ -2951,12 +3439,12 @@ public partial class MainWindow : Window
             var sessionPrefix = activity.SessionId + ":";
             var matchingKey = _activeCodexTurns.FirstOrDefault(key =>
                 key.StartsWith(sessionPrefix, StringComparison.Ordinal));
-            if (matchingKey is not null) return RemoveTaskKey(matchingKey, ref completedSource, out completedProfileId);
+            if (matchingKey is not null) return RemoveTaskKey(matchingKey, ref completedSource, ref completedAccount);
 
             if (_activeCodexTurns.Count == 1)
             {
                 var soleKey = _activeCodexTurns.First();
-                return RemoveTaskKey(soleKey, ref completedSource, out completedProfileId);
+                return RemoveTaskKey(soleKey, ref completedSource, ref completedAccount);
             }
 
             // A Stop without identity still represents one completed turn. If
@@ -2964,19 +3452,20 @@ public partial class MainWindow : Window
             if (_activeCodexTurns.Count > 0)
             {
                 var fallbackKey = _activeCodexTurns.First();
-                return RemoveTaskKey(fallbackKey, ref completedSource, out completedProfileId);
+                return RemoveTaskKey(fallbackKey, ref completedSource, ref completedAccount);
             }
         }
         return false;
     }
 
-    private bool RemoveTaskKey(string key, ref string completedSource, out string profileId)
+    private bool RemoveTaskKey(string key, ref string completedSource, ref ResolvedTaskAccount completedAccount)
     {
-        profileId = "";
         if (!_activeCodexTurns.Remove(key)) return false;
         if (_activeTaskSources.Remove(key, out var source)) completedSource = source;
-        if (_activeTaskProfiles.TryGetValue(key, out var knownProfileId)) profileId = knownProfileId ?? "";
-        _activeTaskProfiles.Remove(key);
+        // The attribution recorded when the task started, which is the account that was
+        // current at the time rather than the one that is current now.
+        if (_activeTaskAccounts.TryGetValue(key, out var known)) completedAccount = known;
+        _activeTaskAccounts.Remove(key);
         _activeTaskStartedAt.Remove(key);
         return true;
     }
@@ -2997,7 +3486,7 @@ public partial class MainWindow : Window
         return Math.Max(0, start.Value - runtime.LastBalance.Value);
     }
 
-    private async Task RecordUsageFromTaskAsync(CodexTaskActivity activity, DateTimeOffset? startedAt, string completedProfileId)
+    private async Task RecordUsageFromTaskAsync(CodexTaskActivity activity, DateTimeOffset? startedAt, ResolvedTaskAccount account)
     {
         var codexSnapshot = string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
             ? await CodexUsageReader.TryReadTurnSnapshotAsync(activity.SessionId, activity.TurnId, startedAt)
@@ -3025,14 +3514,14 @@ public partial class MainWindow : Window
         try
         {
             var occurredAt = DateTimeOffset.Now;
-            // Resolve the account first so the event can carry it, and decide where
-            // its cost may come from. A relay account has per-request billing logs
-            // and is matched afterwards; an official account has none, so the only
-            // real signal is the balance drop across the task — which already
-            // reflects whatever peak/off-peak discount applied.
-            var profile = _monitorStates.TryGetValue(completedProfileId, out var completedRuntime)
-                ? completedRuntime.Profile
-                : FindMonitorProfile(activity.Provider);
+            // The account resolved when the task started, so the event carries the
+            // account that ran it. A declared id that is not a configured account is
+            // carried as declared: the record stays filed under the account that
+            // produced it, and the menu reports that account as removed rather than
+            // showing the work as belonging to nobody — or to somebody else.
+            var profile = account.Profile;
+            if (account.IsArchived) RememberArchivedAccount(account.DeclaredAccountId);
+            var recordedAccountId = account.IsArchived ? account.DeclaredAccountId : account.ProfileId;
             var isRelayAccount = profile is not null && NewApiUsageProvider.Supports(profile);
             var needsCodexBackfill = string.Equals(activity.Provider, "Codex", StringComparison.OrdinalIgnoreCase)
                 && (codexUsage?.HasTokenData != true || string.IsNullOrWhiteSpace(model));
@@ -3040,9 +3529,12 @@ public partial class MainWindow : Window
             // A relay match validates itself: the log either lines up or it does
             // not. A balance drop does not, so it is only used when the client
             // named the account outright — never the selected-account fallback,
-            // which would charge one account for another's work.
-            var namedProfileId = FindNamedMonitorProfile(activity.Provider)?.Id ?? "";
-            var balanceCost = activity.Cost is null && !isRelayAccount ? BalanceDeltaFor(namedProfileId) : 0;
+            // which would charge one account for another's work. ProviderName is
+            // that same outright naming, reached through the provider text.
+            var balanceCost = activity.Cost is null && !isRelayAccount
+                && account.Attribution is AccountAttribution.EventDeclared or AccountAttribution.ClientBinding or AccountAttribution.ProviderName
+                ? BalanceDeltaFor(account.ProfileId)
+                : 0;
             var costSource = activity.Cost is not null ? "client"
                 : relayBackfillPending ? ""              // BackfillServerCostAsync stamps relay-log
                 : balanceCost > 0 ? "balance-delta"
@@ -3063,7 +3555,7 @@ public partial class MainWindow : Window
                 activity.Success ?? true,
                 reasoningEffort: reasoningEffort,
                 details: localDetails,
-                accountId: FindNamedMonitorProfile(activity.Provider)?.Id,
+                accountId: recordedAccountId.Length > 0 ? recordedAccountId : null,
                 costSource: costSource,
                 planType: codexUsage?.PlanType);
             if (!string.IsNullOrWhiteSpace(eventId) && relayBackfillPending)
@@ -3474,7 +3966,8 @@ public partial class MainWindow : Window
         {
             _retiredTaskKeys[key] = DateTimeOffset.UtcNow;
             var ignoredSource = "Codex";
-            RemoveTaskKey(key, ref ignoredSource, out _);
+            var ignoredAccount = new ResolvedTaskAccount(null, "", AccountAttribution.Unassigned);
+            RemoveTaskKey(key, ref ignoredSource, ref ignoredAccount);
         }
     }
 
@@ -3579,8 +4072,177 @@ public partial class MainWindow : Window
             string.Equals(profile.Name, value, StringComparison.OrdinalIgnoreCase));
     }
 
-    private MonitorProfile? FindMonitorProfile(string? provider)
-        => FindNamedMonitorProfile(provider) ?? SelectedMonitor?.Profile;
+    /// <summary>How a task's account was worked out. Kept so the answer is not a black box.</summary>
+    private enum AccountAttribution
+    {
+        /// <summary>Nothing named an account. Recorded as unassigned rather than guessed.</summary>
+        Unassigned,
+        /// <summary>The client declared it in the event itself.</summary>
+        EventDeclared,
+        /// <summary>The user declared it for that client in Settings.</summary>
+        ClientBinding,
+        /// <summary>An account id or name matched the provider text literally.</summary>
+        ProviderName,
+        /// <summary>The id was declared, but that account is no longer configured.</summary>
+        ArchivedAccount
+    }
+
+    /// <summary>
+    /// Which account a task belongs to, and why.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="DeclaredAccountId"/> is kept even when no profile matches, because a
+    /// deleted account is still an answer: the usage event can carry the id, and a
+    /// downstream reader can then say the record belongs to an account that was
+    /// removed instead of showing it as unknown. Drop the id and that record becomes
+    /// indistinguishable from one whose client never named anything.
+    /// </remarks>
+    private sealed record ResolvedTaskAccount(
+        MonitorProfile? Profile,
+        string DeclaredAccountId,
+        AccountAttribution Attribution)
+    {
+        public string ProfileId => Profile?.Id ?? "";
+        public bool IsArchived => Attribution == AccountAttribution.ArchivedAccount;
+    }
+
+    /// <summary>
+    /// Resolves the account a task ran on, in one order, used everywhere a task is
+    /// attributed.
+    /// </summary>
+    /// <remarks>
+    /// The order is the whole point, and it is deliberately narrow:
+    ///
+    /// 1. the account the client declared on the event itself, because only the
+    ///    client knows which account it just spent;
+    /// 2. the binding the user declared for that client, for clients that cannot
+    ///    report one;
+    /// 3. a literal match of the provider text against an account id or name, which
+    ///    is how a single-account setup has always worked;
+    /// 4. nothing.
+    ///
+    /// Step 4 is a real outcome, not a failure. The old resolver ended in "or the
+    /// selected account", so every task from a client that named nothing — Codex
+    /// names "Codex" — was booked against whichever account happened to be current.
+    /// That is the bug: one account charged for another's work. An unassigned task is
+    /// recorded with no account and shown as unassigned, which is merely incomplete
+    /// rather than wrong, and incompleteness is visible to the user who can fix it by
+    /// declaring a binding.
+    ///
+    /// A step that matched nothing never chains into the next one by guesswork, and a
+    /// declared id that matches no configured profile stops at
+    /// <see cref="AccountAttribution.ArchivedAccount"/> instead of falling through to
+    /// the provider text: the client's word outranks a setting, even when the account
+    /// it named is gone.
+    /// </remarks>
+    private ResolvedTaskAccount ResolveTaskAccount(string provider, string? eventDeclaredAccountId)
+    {
+        var declared = CleanAccountId(eventDeclaredAccountId);
+        if (declared.Length > 0)
+        {
+            var byDeclared = FindMonitorProfileByIdOrName(declared);
+            return byDeclared is not null
+                ? new ResolvedTaskAccount(byDeclared, declared, AccountAttribution.EventDeclared)
+                : new ResolvedTaskAccount(null, declared, AccountAttribution.ArchivedAccount);
+        }
+
+        var bound = ClientBoundAccountId(provider);
+        if (bound.Length > 0)
+        {
+            var byBinding = FindMonitorProfileByIdOrName(bound);
+            if (byBinding is not null) return new ResolvedTaskAccount(byBinding, bound, AccountAttribution.ClientBinding);
+            // A binding that no longer resolves falls through rather than being
+            // reported as an archived account: it is the user's own stale setting,
+            // not a claim from the machine that ran the work.
+        }
+
+        var byName = FindNamedMonitorProfile(provider);
+        if (byName is not null) return new ResolvedTaskAccount(byName, byName.Id, AccountAttribution.ProviderName);
+
+        return new ResolvedTaskAccount(null, "", AccountAttribution.Unassigned);
+    }
+
+    /// <summary>
+    /// The account the user bound to this client, for clients that cannot name one.
+    /// </summary>
+    /// <remarks>
+    /// Matched against the raw provider text first and then its display label, because
+    /// the bundled sender script defaults to the literal provider <c>generic</c> while
+    /// the host shows that same client as 其他客户端. Both spellings mean the same
+    /// client to the user who wrote the binding.
+    /// </remarks>
+    private string ClientBoundAccountId(string? provider)
+    {
+        if (_settings.ClientAccountBindings is not { Count: > 0 } bindings) return "";
+        var value = provider?.Trim() ?? "";
+        if (value.Length > 0 && bindings.TryGetValue(value, out var direct) && !string.IsNullOrWhiteSpace(direct))
+            return direct.Trim();
+        var label = TaskSourceLabel(provider);
+        if (bindings.TryGetValue(label, out var byLabel) && !string.IsNullOrWhiteSpace(byLabel))
+            return byLabel.Trim();
+        return "";
+    }
+
+    private MonitorProfile? FindMonitorProfileByIdOrName(string identifier)
+    {
+        var value = identifier.Trim();
+        if (value.Length == 0) return null;
+        return _settings.Monitors.FirstOrDefault(profile =>
+            string.Equals(profile.Id, value, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(profile.Name, value, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string CleanAccountId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "";
+        var filtered = new string(value.Trim().Where(character => !char.IsControl(character)).ToArray());
+        return filtered.Length <= 128 ? filtered : filtered[..128];
+    }
+
+    /// <summary>
+    /// Remembers an id that was declared on an event but is not a configured account.
+    /// </summary>
+    /// <remarks>
+    /// Kept so the account menu can list it as an archived record rather than leaving
+    /// the user to wonder where a task went. The id is not invented here and is not
+    /// mapped onto anybody else's account.
+    /// </remarks>
+    private void RememberArchivedAccount(string? declaredAccountId)
+    {
+        var id = CleanAccountId(declaredAccountId);
+        if (id.Length == 0) return;
+        if (FindMonitorProfileByIdOrName(id) is not null) return;
+        if (_archivedAccountIds.Add(id)) UpdateArchivedAccountMenus();
+    }
+
+    /// <summary>
+    /// Rows for declared accounts that no longer exist, so their records stay visible.
+    /// </summary>
+    private void UpdateArchivedAccountMenus()
+    {
+        if (_archivedAccountIds.Count == 0) return;
+        foreach (var id in _archivedAccountIds)
+        {
+            var row = AppLocalization.Text(_settings.Language,
+                $"{id} · 账户删除，记录归档",
+                $"{id} · account deleted, record archived");
+            if (_trayMonitorMenu is not null && !_trayMonitorItems.ContainsKey(ArchivedMenuKey(id)))
+            {
+                _trayMonitorItems[ArchivedMenuKey(id)] = new Forms.ToolStripMenuItem(row) { Enabled = false };
+                _trayMonitorMenu.DropDownItems.Add(_trayMonitorItems[ArchivedMenuKey(id)]);
+                _trayArchivedRows.Add(ArchivedMenuKey(id));
+            }
+            if (MonitorMenuItem.Items.OfType<MenuItem>().Any(item => string.Equals(item.Tag as string, ArchivedMenuKey(id), StringComparison.Ordinal))) continue;
+            MonitorMenuItem.Items.Add(new MenuItem { Header = row, Tag = ArchivedMenuKey(id), IsEnabled = false });
+        }
+    }
+
+    private static string ArchivedMenuKey(string id) => "archived:" + id;
+
+    private string ArchivedAccountHint()
+        => AppLocalization.Text(_settings.Language,
+            "该账户已不在账户清单中，记录已归档；可重新收录以继续统计",
+            "This account is no longer configured; its record is archived. Add it again to keep tracking it");
 
     private void HideAfterCodexCompletion()
     {

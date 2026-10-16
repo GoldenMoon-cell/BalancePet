@@ -222,6 +222,18 @@
             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource MutedBrush}"/></Trigger>
             <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/><Setter TargetName="Chrome" Property="BorderThickness" Value="1.5"/></Trigger>
             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Chrome" Property="Opacity" Value="0.46"/></Trigger>
+            <!-- A box with nothing to choose: the arrow is what says "there is a list under
+                 here", so it goes, and the caller stops hit testing and focus so the list
+                 cannot be opened either. Hidden rather than Collapsed, because that 34 px
+                 column is what keeps the box exactly as wide as the ones beside it. Tag is
+                 the flag rather than a variant style: the arrow lives in this template, and
+                 a second style would have to copy the whole of it. A trigger, not a one-off
+                 Template.FindName, so it survives this template being applied again (the
+                 font selector re-templates every control in the window) and so it comes
+                 back on its own the moment the theme offers a second material. -->
+            <Trigger Property="Tag" Value="readonly">
+              <Setter TargetName="DropDownToggle" Property="Visibility" Value="Hidden"/>
+            </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>

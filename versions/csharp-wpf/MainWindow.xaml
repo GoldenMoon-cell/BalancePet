@@ -70,7 +70,7 @@
                offer appearances this machine has never had and would miss any package
                the program has never heard of. -->
           <MenuItem x:Name="ContextStyleMenuItem" Header="切换形象"/>
-          <MenuItem x:Name="MonitorMenuItem" Header="当前账户"/>
+          <MenuItem x:Name="MonitorMenuItem" Header="已收录账户"/>
           <Separator/>
            <MenuItem x:Name="ContextSettingsMenuItem" Header="设置面板" Click="OnContextSettingsClick"/>
           <MenuItem x:Name="ContextUpdateMenuItem" Header="检查更新" Click="OnContextUpdateClick"/>

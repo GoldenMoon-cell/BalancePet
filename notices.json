@@ -2,6 +2,14 @@
   "schema_version": 1,
   "notices": [
     {
+      "seq": 19,
+      "date": "2026-10-12",
+      "area": "在线内容",
+      "title": "主题分类恢复",
+      "summary": "主题仓库 BalancePet-Themes 的 catalog.json 在 10 月 5 日就已经发布，里面有云母与亚克力两套主题，当天的公告也写了主程序会把它作为第三个目录源读取；但那个源当时并没有写进主程序，目录只读了插件与形象两份文档。于是「主题」分类下一条也没有，头部却仍显示 0 / 21。现在补上第三个源：主题分类列出两套主题，总数变为 23。两套主题的下载地址与校验值已按仓库实际发布的包逐条核对一致。",
+      "url": "https://github.com/GoldenMoon-cell/BalancePet-Themes/blob/main/catalog.json"
+    },
+    {
       "seq": 18,
       "date": "2026-10-10",
       "area": "扩展规范",

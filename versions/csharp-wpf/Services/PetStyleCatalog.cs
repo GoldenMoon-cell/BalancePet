@@ -94,7 +94,8 @@ public static class PetStyleCatalog
         new PetStyleDefinition("opencode", "OpenCode 小码灵「墨枢」", "OpenCode Code Sprite \"Moshu\"", "OpenCode 小码灵", "OpenCode Code Sprite"),
         new PetStyleDefinition("perplexity", "Perplexity 小探灯「青鉴」", "Perplexity Little Lantern \"Qingjian\"", "Perplexity 小探灯", "Perplexity Little Lantern"),
         new PetStyleDefinition("rwkv", "RWKV 小夜鸦「夜翎」", "RWKV Little Raven \"Yeling\"", "RWKV 小夜鸦", "RWKV Little Raven"),
-        new PetStyleDefinition("seedance", "Seedance 小星晶「澄芽」", "Seedance Little Star Crystal \"Chengya\"", "Seedance 小星晶", "Seedance Little Star Crystal")
+        new PetStyleDefinition("seedance", "Seedance 小星晶「澄芽」", "Seedance Little Star Crystal \"Chengya\"", "Seedance 小星晶", "Seedance Little Star Crystal"),
+        new PetStyleDefinition("zcode", "ZCode 小蓝图「蒙眠」", "ZCode Little Blueprint \"Mengmian\"", "ZCode 小蓝图", "ZCode Little Blueprint")
     };
 
     public static string NormalizeId(string? value) => value?.Trim().ToLowerInvariant() switch

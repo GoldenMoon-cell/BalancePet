@@ -18,12 +18,15 @@ assets/pets/<style>/codex-working.png
 assets/pets/<style>/codex-done.png
 assets/pets/<style>/inactive.png
 assets/pets/<style>/<state>-<n>.png  (optional: extra animation frames)
+assets/pets/<style>/logo.png         (optional: the square head the list draws)
 assets/pets/<style>/lines.json       (optional: what the appearance says)
 README.md                         (optional)
 LICENSE                           (recommended)
 ```
 
 All nine PNG files are required. They must be transparent RGBA PNG files with the same canvas and a real alpha channel. The recommended canvas is 238 x 238 pixels, matching the built-in pets.
+
+`logo.png` is the one optional file that changes what a list row looks like: it is shown as it is, where an appearance without one is drawn from a square cut out of `idle.png`. See [appearance-v1](../appearance-v1/README.md) for the whole rule.
 
 ## Optional animation frames
 

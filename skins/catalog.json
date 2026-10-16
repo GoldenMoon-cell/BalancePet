@@ -1,7 +1,7 @@
 {
   "catalog": "balancepet.appearances",
   "schema_version": 1,
-  "updated_at": "2026-10-09T13:53:06Z",
+  "updated_at": "2026-10-13T14:52:29Z",
   "appearances": [
     {
       "id": "pet.chatgpt",
@@ -10,13 +10,13 @@
       "name_en": "ChatGPT White Dragon \"Jilong\"",
       "description": "六万亿的硅谷顶流，优雅白龙千金，烧钱不眨眼。",
       "description_en": "A six-trillion-dollar Silicon Valley heiress - an elegant white dragon on the surface, a compute-burning tyrant underneath.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.chatgpt-1.1.0.zip",
-      "sha256": "5d1b26139e9b1e9f8a3a3c3b1870d95ec04d72f5bd585589cc8bb75fe0c24137",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.chatgpt-1.2.0.zip",
+      "sha256": "de4b9d0ca29a8b66a0a25b3400af50712a4e55ab643f80399fbfd38ed9fed7fb",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/chatgpt.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -28,13 +28,13 @@
       "name_en": "Claude Little Book Spirit \"Danqian\"",
       "description": "硅谷名门最不好惹的优雅理智派，手捧法典，不吃压力。",
       "description_en": "The most unflappable, elegant rationalist of the Silicon Valley names - codex in hand, and simply not fazed by pressure.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.claude-1.1.0.zip",
-      "sha256": "5cddaad30c3ba968fe1f1bf8bb94e737e2b4ae0c9b1c20e6f82512ba320fc594",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.claude-1.2.0.zip",
+      "sha256": "2ba17063c78f1ee7e7a8f7751665b34b83d5f5a5d93ab62bcc8870a623b23c62",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/claude.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -46,13 +46,13 @@
       "name_en": "DeepSeek Whale \"Lanxi\"",
       "description": "吃白饭的最强母语大小姐，女仆装的全能底牌。",
       "description_en": "The strongest native-Chinese text heiress, moonlighting in a maid outfit - a quant-blooded bottom card at a bargain price.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.deepseek-1.1.0.zip",
-      "sha256": "228d15ca8ef56264d17b70ba494adf73e4b35ee894c791dfdea9aaf93b9ec35c",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.deepseek-1.2.0.zip",
+      "sha256": "40fd6a84ce51a21b4dfbb843729111aa9facf85a44066f9a2f29d1d3fa8566c5",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/deepseek.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -64,13 +64,13 @@
       "name_en": "Ernie Little Book Spirit \"Qingxiao\"",
       "description": "轮椅上的大才女，万卷知识库藏于心。",
       "description_en": "Baidu's frail young lady in a wheelchair - a million books in her head, holding on by her search.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.ernie-1.1.0.zip",
-      "sha256": "d7a080f76288c94dadca3119375544e0e108e4b14f156b5398264106a6596ec6",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.ernie-1.2.0.zip",
+      "sha256": "998006198648827b699675a1fcdc8b6fa2f879b74a9f0829d991650c600b0868",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/ernie.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -82,13 +82,13 @@
       "name_en": "Gemini Star Cat \"Xingli\"",
       "description": "宇宙级御三家，傲娇多模态猫娘，强，但断片也快。",
       "description_en": "One of the cosmic big three - a tsundere multimodal catgirl. Genuinely brilliant, genuinely prone to shorting out.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.gemini-1.1.0.zip",
-      "sha256": "d7ed18a89bae6def1029d0a63e974a7bfecb7ed13bc400907fc47bcb6b9916c5",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.gemini-1.2.0.zip",
+      "sha256": "7b893439a815c0a599cfb3e2fb2cb333681ba778cc85c64ec9c863e67c9d6203",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/gemini.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -100,13 +100,13 @@
       "name_en": "GLM Little Square Spirit \"Qingleng\"",
       "description": "打响国模硬刚第一枪的老牌大姐头。",
       "description_en": "She fired the first shot for Chinese models and carried the banner - the old-guard big sister.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.glm-1.1.0.zip",
-      "sha256": "c64df7b7515451e96d6490c7d973ae2ebd25b3512e77705a5cfc24ee892c9158",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.glm-1.2.0.zip",
+      "sha256": "64d0d87ab38ce812574b6f566a86e0d277b6a3d41c5931a10e92b0b6fec0f262",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/glm.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -118,13 +118,13 @@
       "name_en": "GPT Image 2 Ink Dragon \"Xuanjue\"",
       "description": "深藏幕后的万亿算力底牌，原生基座执掌者。",
       "description_en": "OpenAI's dark second daughter - the trillion-compute card kept backstage, holding the family's core.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.gpt-image2-1.1.0.zip",
-      "sha256": "2085338343ba83762524da5fd6e5b07d336ec81e07342b38ede6e87fa08e81b0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.gpt-image2-1.2.0.zip",
+      "sha256": "2e6ee3a99db2be73e07bce990f1b43988c8f28169608681e037d5e7852d0a0e4",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/gpt-image2.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -136,13 +136,13 @@
       "name_en": "Grok Little Demon \"Jinfu\"",
       "description": "手握赛博生杀大权的财阀雌小鬼大小姐，阴阳怪气却为你兜底。",
       "description_en": "A conglomerate tsundere heiress with cyber power over life and death - all snark, and she still covers for you.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.grok-1.1.0.zip",
-      "sha256": "652744f3663969fe3735350d59d1c2ff4db12629242d840c8193738774a66409",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.grok-1.2.0.zip",
+      "sha256": "583a5a08437c1adae2d9688b05ad80725f8fcb19da1f8dffb3b884443e11bbee",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/grok.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -154,13 +154,13 @@
       "name_en": "Kimi Little Prism \"Hongpu\"",
       "description": "月之暗面首席，百万字长文一眼通读。",
       "description_en": "The moonlight heiress of Moonshot - a million words at a glance, the whole web in real time.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.kimi-1.1.0.zip",
-      "sha256": "4ce40d9a071646622bf9f1d0e45a4e7b04af0c851e59339f7cd3b217347108b4",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.kimi-1.2.0.zip",
+      "sha256": "9a0c52e8cede110362881214f6f7240bc7481a7678ad5c7de4b94e0ffe21ecdf",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/kimi.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -172,13 +172,13 @@
       "name_en": "Llama Alpaca \"Rongmian\"",
       "description": "身着睡衣的轻量无限玩法开发者。",
       "description_en": "The lightweight, endlessly hackable developer in pyjamas.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.llama-1.1.0.zip",
-      "sha256": "0af184331f41a4968dc1a13a8fcfa93c89274b959a9bacda4097020b7ff48be6",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.llama-1.2.0.zip",
+      "sha256": "64737eb9106565c0d5f821f116b2c47cfd9e93ddd844bb362238a2acda81776f",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/llama.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -190,13 +190,13 @@
       "name_en": "MiMo Bunny Coder \"Chengxi\"",
       "description": "端侧轻量低耗的贴身兔耳少女。",
       "description_en": "Xiaomi's soft bunny-eared girl - edge compute, low power, always within reach.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.mimo-1.1.0.zip",
-      "sha256": "cda315fec9a8e71e4d6539966fd9336c04d7e487b14c8a40e4838148fe267da7",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.mimo-1.2.0.zip",
+      "sha256": "16d2ecd50ac9b4d92ab7a4f2357f00536e3fef529faa0d6cbde63f575ccaf5f4",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/mimo.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -208,13 +208,13 @@
       "name_en": "MiniMax Shell \"Feiyin\"",
       "description": "古灵精怪的配音系小海螺，不讲逻辑，拉满情绪。",
       "description_en": "An impish voice-acting conch - no logic, all feeling.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.minimax-1.1.0.zip",
-      "sha256": "2eff79a583091cb0756f365376c35ff4a5f3fc51e8a9d50a16bff28ca841aba3",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.minimax-1.2.0.zip",
+      "sha256": "56d9b54bc34a15a2671c63d64ca90bc8dfe548d34d80a3dd6e2ee9441ea8844f",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/minimax.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -226,13 +226,13 @@
       "name_en": "Mistral Cat Knight \"Maishuang\"",
       "description": "一手法棍一手剑的欧洲开源贵族。",
       "description_en": "A French unicorn of speed and lightness - baguette in one hand, sword in the other.",
-      "version": "1.0.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.mistral-1.0.0.zip",
-      "sha256": "e871019be1846741ffa1c411dc59cbedcdfdaf0a0ae5afd15dc061925c9350eb",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.mistral-1.2.0.zip",
+      "sha256": "cd03e8c7c5bb85646982d8c5cdd5110045731becfad995094142ebc3764daf7a",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/mistral.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -244,13 +244,13 @@
       "name_en": "OpenCode Code Sprite \"Moshu\"",
       "description": "面无表情的本地部署大师，极简三无。",
       "description_en": "The cool geek girl with the open-source vault - a deadpan master of local deployment.",
-      "version": "1.0.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.opencode-1.0.0.zip",
-      "sha256": "3e8a4b432d80533db40137dd479b1374502442b9ec3abbe1a106d5d2ce9fc74b",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.opencode-1.2.0.zip",
+      "sha256": "702117d5f4d16b12c28d0c37c67a222ebcd89f63859884750ab0ab2642aa3b48",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/opencode.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -262,13 +262,13 @@
       "name_en": "Perplexity Little Lantern \"Qingjian\"",
       "description": "提灯检索的学术行者，张口必带出处。",
       "description_en": "The lantern-bearing scholar of search - every claim carries its citation, nothing is ever invented.",
-      "version": "1.0.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.perplexity-1.0.0.zip",
-      "sha256": "9653485cc2a866a03e61035bee6d0ffa7b098c3aae6b560297890aa1230078d9",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.perplexity-1.2.0.zip",
+      "sha256": "a516a8c4f5e6b8d8418fa122b99e9c711c3a06c198f0906c0fe20ef947ad4a31",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/perplexity.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -280,13 +280,13 @@
       "name_en": "Qwen Folding Fan \"Ganhua\"",
       "description": "开源界劳模大小姐，全能且卷。",
       "description_en": "The open-source workhorse heiress - an all-rounder who out-grinds everyone, with second-hand descendants everywhere.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.qwen-1.1.0.zip",
-      "sha256": "1539bfeb1eb6bcc00802a0709c9a725eca82e238be227e6fcf922927fd8f81ac",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.qwen-1.2.0.zip",
+      "sha256": "ace44c91aa2f7594a4eaa66a3100debec7f2921cabc910c3db3f5b2e83828358",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/qwen.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -298,13 +298,13 @@
       "name_en": "RWKV Little Raven \"Yeling\"",
       "description": "开源部署百无禁忌的赛博暗鸦。",
       "description_en": "A cyber fallen angel of open source - recurrent, lightweight, and forbidden to no one.",
-      "version": "1.0.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.0.0/pet.rwkv-1.0.0.zip",
-      "sha256": "8d562e713e4d288e84ecd351d357d6a83aa8903d9ced28574d2b8ac2c5f5651b",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.rwkv-1.2.0.zip",
+      "sha256": "f87dc29b8a64f03b33aef01425965ab97fbdf45e66dfba4456e124d0cb9a9360",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/rwkv.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.0.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]
@@ -316,13 +316,31 @@
       "name_en": "Seedance Little Star Crystal \"Chengya\"",
       "description": "豆包底层的多模态卷王师姐。",
       "description_en": "ByteDance's little starlight - the engine under Doubao, a workaholic at multimodal creation.",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "min_core_version": "0.5.0",
-      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.1.0/pet.seedance-1.1.0.zip",
-      "sha256": "cd9f91e0da335a6d2f7fab1dd15d6944a8b6968864bb0ce5e9ee5a2afbe4845c",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.seedance-1.2.0.zip",
+      "sha256": "ff19e23e7e864202d869e5816f2247e6ad9178210734d24463265ffa27bfdf08",
       "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/seedance.png",
       "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
-      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.1.0",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
+      "categories": [
+        "appearance"
+      ]
+    },
+    {
+      "id": "pet.zcode",
+      "type": "pet",
+      "name": "ZCode 小蓝图「蒙眠」",
+      "name_en": "ZCode Little Blueprint \"Mengmian\"",
+      "description": "智谱家的蒙眼狐娘，埋头搞基建的实干打工人，踩坑无数也帮你跑通本地部署。",
+      "description_en": "Zhipu's blindfolded fox girl - head down on the infrastructure, and she has hit every pitfall so you don't have to.",
+      "version": "1.2.0",
+      "min_core_version": "0.5.0",
+      "download_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/download/skins-1.2.0/pet.zcode-1.2.0.zip",
+      "sha256": "e5d1971236037846e09a9df958f7fc3c77295e663af73b08ca8b709e838dd58c",
+      "icon_url": "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Pets/main/previews/zcode.png",
+      "repository_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets",
+      "release_url": "https://github.com/GoldenMoon-cell/BalancePet-Pets/releases/tag/skins-1.2.0",
       "categories": [
         "appearance"
       ]

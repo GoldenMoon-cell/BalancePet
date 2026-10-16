@@ -9,6 +9,14 @@ public sealed record CodexTaskActivity(string State, string SessionId, string Tu
 {
     public string Key => $"{SessionId}:{TurnId}";
     public string Provider { get; init; } = "Codex";
+    /// <summary>
+    /// The balance account the client says this task is billed to, exactly as it
+    /// named it: an account id or an account name. Empty means the client made no
+    /// claim. Nothing infers a value here — a task that names no account is
+    /// unassigned, and attributing it to some other account would charge one
+    /// account for another's work.
+    /// </summary>
+    public string AccountId { get; init; } = "";
     public string Model { get; init; } = "";
     public long? InputTokens { get; init; }
     public long? OutputTokens { get; init; }
@@ -261,6 +269,10 @@ public sealed class CodexTaskBridge : IDisposable
         if (state is not ("start" or "stop")) return null;
 
         var provider = NormalizeProvider(ReadString(root, "provider", "source"), defaultProvider);
+        // An optional attribution the client declares for this task. Read from the
+        // same allow-list of spellings the rest of the payload uses, because hook
+        // scripts in the wild are written by hand.
+        var accountId = Clean(ReadString(root, "account_id", "accountId", "account", "account_name", "accountName"), 128);
         var sessionId = ReadString(root, "sessionId", "session_id", "session") ?? "";
         var turnId = ReadString(root, "turnId", "turn_id", "taskId", "task_id", "id") ?? "";
         if (string.IsNullOrWhiteSpace(sessionId)) sessionId = $"external:{provider}";
@@ -268,6 +280,7 @@ public sealed class CodexTaskBridge : IDisposable
         return new CodexTaskActivity(state, sessionId.Trim(), turnId.Trim())
         {
             Provider = provider,
+            AccountId = accountId,
             Model = Clean(ReadString(root, "model") ?? ReadString(usage, "model"), 160),
             InputTokens = ReadCounter(usage, "input_tokens", "inputTokens", "prompt_tokens", "promptTokens", "input_token_count", "inputTokenCount", "prompt_token_count", "promptTokenCount") ?? ReadCounter(root, "input_tokens", "inputTokens", "prompt_tokens", "promptTokens", "input_token_count", "inputTokenCount", "prompt_token_count", "promptTokenCount"),
             OutputTokens = ReadCounter(usage, "output_tokens", "outputTokens", "completion_tokens", "completionTokens", "output_token_count", "outputTokenCount", "candidates_token_count", "candidatesTokenCount", "completion_token_count", "completionTokenCount") ?? ReadCounter(root, "output_tokens", "outputTokens", "completion_tokens", "completionTokens", "output_token_count", "outputTokenCount", "candidates_token_count", "candidatesTokenCount", "completion_token_count", "completionTokenCount"),

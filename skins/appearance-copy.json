@@ -73,6 +73,10 @@
     "rwkv": {
       "zh": "开源部署百无禁忌的赛博暗鸦。",
       "en": "A cyber fallen angel of open source - recurrent, lightweight, and forbidden to no one."
+    },
+    "zcode": {
+      "zh": "智谱家的蒙眼狐娘，埋头搞基建的实干打工人，踩坑无数也帮你跑通本地部署。",
+      "en": "Zhipu's blindfolded fox girl - head down on the infrastructure, and she has hit every pitfall so you don't have to."
     }
   }
 }

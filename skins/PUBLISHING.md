@@ -27,22 +27,28 @@ The online library lists appearances that are not on this machine, and the artwo
 inside a twelve megabyte package, so a list row has nothing of its own to draw. Each
 catalog entry therefore carries an `icon_url` pointing at a preview.
 
-A preview is **a crop of the appearance's own `idle.png`, not a second drawing**:
+A preview is **the appearance's own artwork, not a second drawing**, and which file it comes
+from is the whole rule:
+
+- A package that carries `assets/pets/<style>/logo.png` is drawn from that file **as it is**.
+  Those heads are drawn square — head and shoulders, no neck — so the face square below must
+  not be applied to them.
+- A package without one falls back to a square cut out of `idle.png`, centred on the face,
+  because these portraits are full-figure busts: shrunk whole, the face is a seventh of a
+  32 px tile and the character is a coloured smudge.
 
 ```powershell
 python tools\make-appearance-previews.py
 ```
 
 It reads the built packages (not the folders, so a preview cannot disagree with what
-installing the package actually puts on the desktop), cuts one square out of `idle.png`
-and scales it to 128 × 128. The square is centred on the face, because these portraits
-are full-figure busts: shrunk whole, the face is a seventh of a 32 px tile and the
-character is a coloured smudge.
+installing the package actually puts on the desktop) and writes one 128 × 128 PNG per
+appearance.
 
-One rule covers every appearance; the two in `OVERRIDES` are the ones whose face the
-default square lands beside. **The application crops the same square, by the same
-numbers, out of the artwork of an appearance that is installed**, so a row looks the
-same whether its picture came over the network or off the disk — the numbers are in
+One rule covers every appearance; the two in `OVERRIDES` are the ones whose face the fallback
+square lands beside. **The application resolves the same file, and crops the same square for
+the same fallback, out of an appearance that is installed**, so a row looks the same whether
+its picture came over the network or off the disk — the numbers are in
 `PluginIconService.cs` and the two have to be changed together.
 
 Then regenerate the catalog, which refuses to run without a preview and a description

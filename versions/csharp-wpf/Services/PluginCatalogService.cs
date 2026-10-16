@@ -32,6 +32,25 @@ public sealed class AppearanceCatalogDocument
     [JsonPropertyName("appearances")] public List<PluginCatalogRecord> Appearances { get; set; } = new();
 }
 
+/// <summary>
+/// The theme catalog, which is its own document for the same reason the appearance
+/// catalog is.
+/// </summary>
+/// <remarks>
+/// Its entries carry the plugin record's own fields, so <see cref="PluginCatalogRecord"/>
+/// reads them unchanged. The difference is the shape around them: this document names
+/// itself <c>balancepet-themes</c> and lists entries under <c>themes</c>, which is what
+/// keeps a catalog fetched by URL identifiable -- and a theme arrived at through the
+/// appearance path would be listed among the appearances.
+/// </remarks>
+public sealed class ThemeCatalogDocument
+{
+    [JsonPropertyName("catalog")] public string Catalog { get; set; } = "";
+    [JsonPropertyName("schema_version")] public int SchemaVersion { get; set; } = 1;
+    [JsonPropertyName("updated_at")] public string UpdatedAt { get; set; } = "";
+    [JsonPropertyName("themes")] public List<PluginCatalogRecord> Themes { get; set; } = new();
+}
+
 public sealed class PluginCatalogRecord
 {
     [JsonPropertyName("id")] public string Id { get; set; } = "";
@@ -90,6 +109,22 @@ public sealed class PluginCatalogService
     /// <summary>The identity an appearance catalog declares, since its URL could be wrong.</summary>
     public const string AppearanceCatalogIdentity = "balancepet.appearances";
 
+    /// <summary>
+    /// The theme catalog: one repository holding every published theme, rather than a
+    /// repository per theme.
+    /// </summary>
+    /// <remarks>
+    /// Themes used to be entries in the plugin catalog, which meant publishing one cost
+    /// a commit in the main repository. They have their own catalog for the same reason
+    /// the appearances do, and the entries were removed from the plugin catalog when
+    /// they moved -- the same theme in two catalogs is an id the list can only install
+    /// once, which is why the loader refuses duplicates rather than picking a winner.
+    /// </remarks>
+    public const string ThemeCatalogUrl = "https://raw.githubusercontent.com/GoldenMoon-cell/BalancePet-Themes/main/catalog.json";
+
+    /// <summary>The identity the theme catalog declares.</summary>
+    public const string ThemeCatalogIdentity = "balancepet-themes";
+
     private const long MaxCatalogBytes = 2L * 1024 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -107,6 +142,11 @@ public sealed class PluginCatalogService
     public static string AppearanceCachePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "BalancePet", "appearance-catalog.json");
+
+    /// <summary>Cached separately too, and for the reasons above: three sources, three files.</summary>
+    public static string ThemeCachePath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "BalancePet", "theme-catalog.json");
 
     public static string LocalCatalogPath => Path.Combine(AppContext.BaseDirectory, "plugin-catalog.json");
 
@@ -129,8 +169,25 @@ public sealed class PluginCatalogService
     private static readonly CatalogSource[] Sources =
     {
         new(CatalogUrl, CachePath, LocalCatalogPath, "插件目录", Parse),
-        new(AppearanceCatalogUrl, AppearanceCachePath, null, "形象目录", ParseAppearances)
+        new(AppearanceCatalogUrl, AppearanceCachePath, null, "形象目录", ParseAppearances),
+        new(ThemeCatalogUrl, ThemeCachePath, null, "主题目录", ParseThemes)
     };
+
+    /// <summary>
+    /// The on-disk copies of one catalog, most recent first: the cache the last
+    /// successful read wrote, then a copy shipped with the program if there is one.
+    /// </summary>
+    /// <remarks>
+    /// In this order rather than the other way round, and a shipped copy only exists for
+    /// the plugin catalog: a copy written when the release was built is older than a
+    /// cache written by a read from this morning, so preferring it would serve a stale
+    /// list on a machine whose only problem is a network that is down right now.
+    /// </remarks>
+    private static IEnumerable<string> Fallbacks(CatalogSource source)
+    {
+        if (!string.IsNullOrWhiteSpace(source.CachePath)) yield return source.CachePath;
+        if (!string.IsNullOrWhiteSpace(source.LocalPath)) yield return source.LocalPath!;
+    }
 
     public PluginCatalogService(HttpClient http) => _http = http;
 
@@ -196,11 +253,11 @@ public sealed class PluginCatalogService
             remoteError = $"{source.What}：{error.Message}";
         }
 
-        foreach (var fallback in new[] { source.CachePath, source.LocalPath })
+        foreach (var fallback in Fallbacks(source))
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(fallback) || !File.Exists(fallback)) continue;
+                if (!File.Exists(fallback)) continue;
                 var json = File.ReadAllText(fallback);
                 if (json.Length > MaxCatalogBytes) continue;
                 var entries = source.Parse(json);
@@ -242,6 +299,26 @@ public sealed class PluginCatalogService
         if (document.Appearances is null) throw new InvalidDataException("形象目录缺少 appearances 数组。");
         if (document.Appearances.Count > 100) throw new InvalidDataException("形象目录条目过多。");
         return Filter(document.Appearances);
+    }
+
+    /// <summary>
+    /// Reads the theme catalog, refusing a document that does not declare itself.
+    /// </summary>
+    public static IReadOnlyList<PluginCatalogRecord> ParseThemes(string json)
+    {
+        var document = JsonSerializer.Deserialize<ThemeCatalogDocument>(json, JsonOptions)
+            ?? throw new InvalidDataException("主题目录为空。");
+        // Named for the same reason the appearance catalog is: the URL is the one thing
+        // that can point somewhere else without anything looking wrong. A theme catalog
+        // read as an appearance catalog would list themes among the appearances, and the
+        // catalog it declared is the only field that tells the two apart.
+        if (!string.Equals(document.Catalog, ThemeCatalogIdentity, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException($"不是主题目录：{document.Catalog}。");
+        if (document.SchemaVersion != CurrentSchemaVersion)
+            throw new InvalidDataException($"主题目录版本不兼容：{document.SchemaVersion}。");
+        if (document.Themes is null) throw new InvalidDataException("主题目录缺少 themes 数组。");
+        if (document.Themes.Count > 100) throw new InvalidDataException("主题目录条目过多。");
+        return Filter(document.Themes);
     }
 
     private static IReadOnlyList<PluginCatalogRecord> Filter(List<PluginCatalogRecord> items)

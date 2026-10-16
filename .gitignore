@@ -61,3 +61,6 @@ _ref163/
 # cadence. Ignored rather than merely left unadded, so it reaches its own branch as a
 # first commit of its own instead of as a stray directory inside a desktop release.
 /android/
+# Candidate rewrites kept deliberately outside the product: never built, never
+# packaged, never referenced by the application.
+/experiments/

@@ -254,20 +254,41 @@ public sealed class PluginIconService
     /// fixed square: these portraits are chibi busts drawn to one framing convention,
     /// and the few the square misses are listed in <see cref="CropOverrides"/>.
     /// </remarks>
+    /// <summary>
+    /// The picture at <paramref name="path"/>, decoded small enough for a 32 px row.
+    /// </summary>
+    /// <returns>The picture, or null when the file is not there.</returns>
+    private static BitmapImage? Decode(string path)
+    {
+        if (!File.Exists(path)) return null;
+        var source = new BitmapImage();
+        source.BeginInit();
+        source.CacheOption = BitmapCacheOption.OnLoad;
+        source.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+        source.DecodePixelWidth = PreviewDecodeWidth;
+        source.UriSource = new Uri(Path.GetFullPath(path));
+        source.EndInit();
+        source.Freeze();
+        return source;
+    }
+
     private static ImageSource? BuildLocalPreview(string? style)
     {
         if (string.IsNullOrWhiteSpace(style)) return null;
         try
         {
-            // A package may carry a portrait of its own for this list — a square head, the same
-            // tile the extensions use — and it is preferred over the artwork's first frame when
-            // it is there. Optional on purpose: the sixteen appearances already published have
-            // no such file, and one missing file must not cost them their thumbnail.
+            // A package may carry a portrait of its own for this list, and it is shown as it is.
+            // Those files are drawn square — head and shoulders, no neck — so the artwork's face
+            // square must not be applied to them: it would push the head out of frame. The state
+            // image is the fallback, and it does need the crop, because a standing figure draws
+            // the face a seventh of the tile. Optional on purpose: the appearances already
+            // published have no such file, and one missing file must not cost them a thumbnail.
             var directory = PetStyleCatalog.ResolveAssetDirectory(style);
-            var portrait = Path.Combine(directory, "logo.png");
-            var path = File.Exists(portrait) ? portrait : Path.Combine(directory, "idle.png");
-            if (!File.Exists(path)) return null;
-            return BuildPreview(path, style);
+            var portrait = Decode(Path.Combine(directory, "logo.png"));
+            if (portrait is not null) return portrait;
+            var state = Path.Combine(directory, "idle.png");
+            if (!File.Exists(state)) return null;
+            return BuildPreview(state, style);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException
             or ArgumentException or NotSupportedException or FileFormatException)

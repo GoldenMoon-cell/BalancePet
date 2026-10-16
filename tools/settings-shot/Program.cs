@@ -2,8 +2,10 @@ using System.IO;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using BalancePet.Wpf;
 using BalancePet.Wpf.Services;
 
@@ -87,6 +89,7 @@ internal static class Program
         }
 
         var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        Console.WriteLine($"UI 线程 {Environment.CurrentManagedThreadId}，Dispatcher 线程 {application.Dispatcher.Thread.ManagedThreadId}");
         var store = new SettingsStore();
         var settings = store.Load();
         // An appearance can be forced on the command line so a state that only some
@@ -205,7 +208,165 @@ internal static class Program
                  SelectTabContaining(window, tabElement);
                  window.UpdateLayout();
              }
+            // Which kind of catalogue entry to capture, named by the chip's Tag. The empty
+            // tag is 全部, and it is spelled the same way here as in the XAML that defines it.
+            // Set here rather than on Loaded, and for a stronger version of the reason the
+            // page above is: the chips live inside the 扩展 page, and that page's content is
+            // not built until its tab has been selected -- which happens a few lines up.
+            // Selecting into a TabControl whose items do not exist yet selects nothing.
+            //
+            // It also could not have been done with --click. A chip is a TabItem, and the
+            // click path raises a Button's event, so the chip is the one control on this
+            // page a capture had no way to reach -- which is why the empty-category state
+            // was never photographed and twice reported by a user instead.
+            if (Array.IndexOf(args, "--category") is var cat && cat >= 0 && cat + 1 < args.Length
+                && window is SettingsWindow categoryWindow)
+            {
+                var wanted = args[cat + 1];
+                var selected = false;
+                foreach (var item in categoryWindow.PluginCatalogCategoryTabs.Items)
+                {
+                    if (item is not TabItem chip) continue;
+                    if (!string.Equals(chip.Tag?.ToString() ?? "", wanted, StringComparison.OrdinalIgnoreCase)) continue;
+                    categoryWindow.PluginCatalogCategoryTabs.SelectedItem = chip;
+                    selected = true;
+                    break;
+                }
+                Console.WriteLine(selected
+                    ? $"已选分类 {(wanted.Length == 0 ? "全部" : wanted)}。"
+                    : $"没有找到分类 {wanted}。");
+                window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+                window.UpdateLayout();
+                // Picking a category starts nothing, but the page may still be waiting on the
+                // read it started at load. --category-settle is the second window of time:
+                // --wait covers the read, and this covers the moment after the category was
+                // chosen, so a capture that only needs the category to be applied does not
+                // have to pay the read's whole timeout a second time.
+                var settleSeconds = Array.IndexOf(args, "--category-settle") is var cs && cs >= 0 && cs + 1 < args.Length
+                    && int.TryParse(args[cs + 1], out var settle) ? settle : 0;
+                var settleDeadline = DateTime.UtcNow.AddSeconds(settleSeconds);
+                while (DateTime.UtcNow < settleDeadline)
+                {
+                    window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+                    Thread.Sleep(120);
+                }
+                window.UpdateLayout();
+                if (Array.IndexOf(args, "--explain") >= 0)
+                    Console.WriteLine($"  选分类后立刻：{DescribePluginCatalogState(window)}  页={categoryWindow.SettingsTabs.SelectedIndex}/{categoryWindow.SettingsTabs.Items.Count}  库={categoryWindow.ExtensionTabs.SelectedIndex}  分类={categoryWindow.PluginCatalogCategoryTabs.SelectedIndex}");
+            }
             window.UpdateLayout();
+            if (Array.IndexOf(args, "--state") >= 0)
+                Console.WriteLine($"等待后目录状态：{DescribePluginCatalogState(window)}");
+
+            // Clicking a control, and capturing the result without letting the work it
+            // started finish. A state that lasts as long as a refresh lasts cannot be
+            // photographed by asking the window to sit still: the refresh has to still be
+            // running when the shutter opens. --click-hold pumps for that many seconds and
+            // renders the first frame at the end of them, before the final capture, so a
+            // second or two of network wait is enough to look at -- and a refresh that is
+            // still waiting on a host that never answers can be held open for as long as
+            // the run cares to.
+            if (Array.IndexOf(args, "--click") is var clk && clk >= 0 && clk + 1 < args.Length)
+            {
+                var holdSeconds = Array.IndexOf(args, "--click-hold") is var ch && ch >= 0 && ch + 1 < args.Length
+                    && double.TryParse(args[ch + 1], out var hold) ? hold : 0d;
+                var firstShot = Array.IndexOf(args, "--first-shot") is var fs && fs >= 0 && fs + 1 < args.Length ? args[fs + 1] : null;
+
+                // A way to hold one frame of a running refresh and then let the same run finish
+                // it. The environment decides where this process's HTTP goes, and a capture that
+                // needs the network to be slow needs a way to say "slow now, fine in a moment"
+                // without editing the program it is photographing.
+                if (Array.IndexOf(args, "--release-proxy-env") >= 0)
+                {
+                    Environment.SetEnvironmentVariable("HTTPS_PROXY", null);
+                    Environment.SetEnvironmentVariable("HTTP_PROXY", null);
+                    Environment.SetEnvironmentVariable("https_proxy", null);
+                    Environment.SetEnvironmentVariable("http_proxy", null);
+                    Console.WriteLine("已清除 HTTPS_PROXY / HTTP_PROXY：后续请求走直连。");
+                }
+
+                if (window.FindName(args[clk + 1]) is System.Windows.Controls.Button target)
+                {
+                    var clicks = new System.Windows.Input.MouseButtonEventArgs(
+                        System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left)
+                    {
+                        RoutedEvent = System.Windows.Controls.Primitives.ButtonBase.ClickEvent,
+                        Source = target
+                    };
+                    Console.WriteLine($"点击线程 {Environment.CurrentManagedThreadId}  (UI 线程 {window.Dispatcher.Thread.ManagedThreadId})");
+                    target.RaiseEvent(clicks);
+                    Console.WriteLine($"点击 {args[clk + 1]} 返回，线程 {Environment.CurrentManagedThreadId}");
+                    // Reported twice, because the two answers are different questions: the
+                    // property says the click was received at all, which is the part a
+                    // screenshot taken a moment too late cannot tell apart from a click that
+                    // was ignored. It is not what the picture shows — a mark behind an
+                    // element that never laid out is missing from the pixels while the
+                    // property says Visible — which is why the other reading is the binding.
+                    // The handler returned at its first await. One pass at ContextIdle lets
+                    // everything the click scheduled — layout included — happen before the
+                    // frame is read, while a request that is still in flight is still in
+                    // flight: ContextIdle does nothing about a continuation that has not
+                    // been posted.
+                    var held = System.Diagnostics.Stopwatch.StartNew();
+                    var holdDeadline = DateTime.UtcNow.AddSeconds(holdSeconds);
+                    while (DateTime.UtcNow < holdDeadline)
+                    {
+                        window.Dispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
+                        Thread.Sleep(80);
+                    }
+                    window.Dispatcher.Invoke(() => { }, DispatcherPriority.ContextIdle);
+                    window.UpdateLayout();
+                    Console.WriteLine($"握持结束：{DescribePluginCatalogState(window)}");
+
+                    if (!string.IsNullOrWhiteSpace(firstShot))
+                    {
+                        var held2 = SavePng(window, firstShot);
+                        Console.WriteLine($"点击 {args[clk + 1]} 后 {held.ElapsedMilliseconds} ms 截图 {held2}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"点击 {args[clk + 1]}: 未给 --first-shot，没有留存这一帧。");
+                    }
+
+                    // A mark four millimetres across is not judged from a picture of the whole
+                    // window: this writes the neighbourhood of a named element, at the same scale,
+                    // with the coordinates it was cut at. The crop is derived from the element's
+                    // own laid-out rectangle rather than from numbers kept beside it, so it cannot
+                    // drift away from what it claims to show.
+                    if (Array.IndexOf(args, "--crop") is var cp && cp >= 0 && cp + 1 < args.Length
+                        && Array.IndexOf(args, "--crop-dir") is var cd && cd >= 0 && cd + 1 < args.Length
+                        && window.FindName(args[cp + 1]) is FrameworkElement cropped)
+                    {
+                        var box = cropped.TransformToAncestor(window).TransformBounds(new Rect(0, 0, cropped.ActualWidth, cropped.ActualHeight));
+                        var region = new Rect(
+                            Math.Max(0, box.X - 34), Math.Max(0, box.Y - 14),
+                            Math.Min(window.ActualWidth - Math.Max(0, box.X - 34), box.Width + 118),
+                            Math.Min(window.ActualHeight - Math.Max(0, box.Y - 14), box.Height + 28));
+                        var bitmap = new RenderTargetBitmap(
+                            (int)Math.Ceiling(window.ActualWidth), (int)Math.Ceiling(window.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+                        bitmap.Render(window);
+                        var cut = new CroppedBitmap(bitmap, new Int32Rect(
+                            (int)Math.Floor(region.X), (int)Math.Floor(region.Y),
+                            Math.Max(1, (int)Math.Ceiling(region.Width)), Math.Max(1, (int)Math.Ceiling(region.Height))));
+                        Directory.CreateDirectory(args[cd + 1]);
+                        var cropPath = Path.Combine(args[cd + 1], $"{args[cp + 1]}-{Path.GetFileNameWithoutExtension(firstShot ?? "shot")}.png");
+                        var cropEncoder = new PngBitmapEncoder();
+                        cropEncoder.Frames.Add(BitmapFrame.Create(cut));
+                        using (var cropStream = File.Create(cropPath)) cropEncoder.Save(cropStream);
+                        Console.WriteLine($"{args[cp + 1]} 位置 {box.X:0.#},{box.Y:0.#} {box.Width:0.#}x{box.Height:0.#}，"
+                                          + $"裁剪 {region.X:0.#},{region.Y:0.#} {region.Width:0.#}x{region.Height:0.#} → {cropPath}");
+                    }
+                    // The reporter follows the click rather than preceding it, because what it
+                    // has to say is whether the mark the click turned on is on screen.
+                    if (Array.IndexOf(args, "--report-visibility") is var rv && rv >= 0 && rv + 1 < args.Length)
+                        Console.WriteLine($"指示器 {args[rv + 1]}：{DescribeVisibility(window, args[rv + 1])}");
+                    System.Windows.Input.Mouse.Capture(null);
+                }
+                else
+                {
+                    Console.WriteLine($"找不到按钮：{args[clk + 1]}");
+                }
+            }
 
             // A ComboBox popup lives in its own window, so RenderTargetBitmap cannot capture
             // it however far off-screen the owner is. Measuring it is the alternative: the
@@ -216,6 +377,8 @@ internal static class Program
 
             if (Array.IndexOf(args, "--bounds") is var bt && bt >= 0 && bt + 1 < args.Length)
                 return ReportBounds(window, args[bt + 1]);
+
+            Console.WriteLine($"截图前目录状态：{DescribePluginCatalogState(window)}");
 
             if (Array.IndexOf(args, "--type") is var tt2 && tt2 >= 0 && tt2 + 1 < args.Length)
                 return ReportType(window, args[tt2 + 1]);
@@ -310,15 +473,12 @@ internal static class Program
             var dpi = Array.IndexOf(args, "--dpi") is var dt && dt >= 0 && dt + 1 < args.Length && double.TryParse(args[dt + 1], out var parsedDpi)
                 ? parsedDpi
                 : 96d;
-            var bitmap = new RenderTargetBitmap((int)Math.Ceiling(width * dpi / 96), (int)Math.Ceiling(height * dpi / 96), dpi, dpi, PixelFormats.Pbgra32);
-            bitmap.Render(window);
+            var finalShot = Path.Combine(
+                Array.IndexOf(args, "--shot-dir") is var sd && sd >= 0 && sd + 1 < args.Length ? args[sd + 1] : AppContext.BaseDirectory,
+                Array.IndexOf(args, "--shot-name") is var sn && sn >= 0 && sn + 1 < args.Length ? args[sn + 1] : "settings-shot.png");
+            SavePng(window, finalShot, dpi);
 
-            var target = Path.Combine(AppContext.BaseDirectory, "settings-shot.png");
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(bitmap));
-            using (var stream = File.Create(target)) encoder.Save(stream);
-
-            Console.WriteLine($"{target}  {width}x{height}");
+            Console.WriteLine($"{finalShot}  {width}x{height}");
             return 0;
         }
         finally
@@ -328,6 +488,121 @@ internal static class Program
             window.Hide();
             application.Shutdown();
         }
+    }
+
+    /// <summary>
+    /// Renders the window off-screen and writes it to a PNG, returning where it went.
+    /// </summary>
+    /// <remarks>
+    /// Shared by the two captures a held-click run needs — the frame taken while the work
+    /// is still running and the one taken after it has finished — so the two are the same
+    /// size, the same scale and the same pixels except for what changed between them.
+    /// </remarks>
+    private static string SavePng(FrameworkElement window, string path, double dpi = 96d)
+    {
+        var width = (int)Math.Ceiling(window.ActualWidth);
+        var height = (int)Math.Ceiling(window.ActualHeight);
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(width * dpi / 96), (int)Math.Ceiling(height * dpi / 96), dpi, dpi, PixelFormats.Pbgra32);
+        bitmap.Render(window);
+
+        var directory = Path.GetDirectoryName(Path.GetFullPath(path));
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = File.Create(path);
+        encoder.Save(stream);
+        return path;
+    }
+
+    /// <summary>
+    /// Says whether a named element is actually on screen, and how big it is if it is.
+    /// </summary>
+    /// <remarks>
+    /// The picture answers this too, but only to an eye that knows where to look: a mark
+    /// that is supposed to appear beside a button is a few pixels of arc, and "I did not
+    /// see it" is not a finding. This reports the property the binding wrote, which is
+    /// what makes an absent mark a fact rather than an impression.
+    /// </remarks>
+    private static string DescribeVisibility(FrameworkElement window, string name)
+        => window.FindName(name) is FrameworkElement element
+            ? $"{element.Visibility}   {element.ActualWidth:0.##} x {element.ActualHeight:0.##}   {(element.IsVisible ? "在屏幕上" : "不在屏幕上")}"
+            : "找不到元素";
+
+    /// <summary>
+    /// One line describing everything the catalog page shows about work in progress.
+    /// </summary>
+    /// <remarks>
+    /// Printed as one line rather than read out of three places in the capture's own
+    /// report, because the question is what was true at one instant: a count reported
+    /// after a status line was read is a count from a different moment.
+    /// </remarks>
+    private static string DescribePluginCatalogState(FrameworkElement window)
+    {
+        var button = window.FindName("PluginCatalogRefreshButton") as System.Windows.Controls.Button;
+        var status = window.FindName("PluginCatalogStatusText") as System.Windows.Controls.TextBlock;
+        var count = window.FindName("PluginCatalogCountText") as System.Windows.Controls.TextBlock;
+        var list = window.FindName("PluginCatalogListBox") as System.Windows.Controls.ListBox;
+        var spinner = window.FindName("PluginCatalogBusySpinner") as FrameworkElement;
+        var pending = PendingIconRows(window);
+        var measured = "";
+        if (Array.IndexOf(Environment.GetCommandLineArgs(), "--explain") >= 0)
+        {
+            const System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            var property = window.GetType().GetProperty("PluginCatalogBusyVisible");
+            var flag = window.GetType().GetField("_pluginCatalogLoading", Private)?.GetValue(window);
+            var handlers = window.GetType().GetField("_propertyChanged", Private)?.GetValue(window);
+            measured = $"  属性={property?.GetValue(window)}  _pluginCatalogLoading={flag}  订阅数={(handlers as Delegate)?.GetInvocationList().Length ?? 0}";
+            // Whether the target is merely stale: a target that updates when the binding is
+            // told to re-read, and not when the property says it changed, names the fault as
+            // the notification rather than the path or the source.
+            if (spinner is not null
+                && System.Windows.Data.BindingOperations.GetBindingExpression(spinner, UIElement.VisibilityProperty) is { } expression)
+            {
+                expression.UpdateTarget();
+                measured += $"  强制重读后={spinner.Visibility}";
+                var binding = System.Windows.Data.BindingOperations.GetBinding(spinner, UIElement.VisibilityProperty);
+                var source = expression.ResolvedSource;
+                var sourcePath = expression.ParentBinding?.Path?.Path;
+                measured += $"  源={(source is null ? "null" : source.GetType().Name)}"
+                          + $"  源路径={sourcePath}"
+                          + $"  源上的值={(source is null ? "—" : source.GetType().GetProperty(sourcePath ?? "")?.GetValue(source))}"
+                          + $"  绑定状态={expression.Status}"
+                          + $"  模式={binding?.Mode}";
+            }
+            else
+            {
+                measured += "  没有绑定表达式";
+            }
+        }
+        return $"按钮可点={button?.IsEnabled}  指示器={spinner?.Visibility}  待取图={pending}{measured}"
+             + $"  状态=\"{status?.Text}\"  计数=\"{count?.Text}\"  行数={list?.Items.Count}";
+    }
+
+    /// <summary>
+    /// How many rows on screen are still waiting for a picture.
+    /// </summary>
+    /// <remarks>
+    /// Read through the window's own fields rather than recomputed, because the point of the
+    /// number is to say why the indicator is where it is: a mark that is up while nothing is
+    /// waiting is a mark that will never come down.
+    /// </remarks>
+    private static string PendingIconRows(FrameworkElement window)
+    {
+        const System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+        var rowsField = window.GetType().GetField("_pluginIconRows", Private);
+        var iconsField = window.GetType().GetField("_pluginIcons", Private);
+        if (rowsField?.GetValue(window) is not System.Collections.IDictionary rows) return "未知";
+        if (iconsField?.GetValue(window) is not PluginIconService icons) return $"{rows.Count} 行（服务不可读）";
+
+        var needsWork = typeof(PluginIconService).GetMethod("NeedsWork");
+        if (needsWork is null) return $"{rows.Count} 行（方法不可读）";
+        var waiting = 0;
+        foreach (System.Collections.DictionaryEntry entry in rows)
+        {
+            if (entry.Value is not PluginCatalogItemView view) continue;
+            if (needsWork.Invoke(icons, new object?[] { view.Record, view.InstalledStyle }) is true) waiting++;
+        }
+        return $"{waiting}/{rows.Count}";
     }
 
     /// <summary>

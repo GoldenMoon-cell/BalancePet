@@ -6,7 +6,7 @@ namespace BalancePet.Wpf.Services;
 
 public sealed class SettingsStore
 {
-    private const int CurrentSchemaVersion = 4;
+    private const int CurrentSchemaVersion = 5;
     private readonly string _path;
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
 
@@ -94,6 +94,14 @@ public sealed class SettingsStore
             }
             settings.SettingsSchemaVersion = 4;
         }
+
+        // Version 5 adds client_account_bindings, the user's declaration of which
+        // account each client's tasks are billed to. It is a no-op migration on
+        // purpose: the key simply does not exist in an older file, and its absence
+        // has to keep meaning "no binding declared" rather than "bind everything to
+        // an account we guessed". Guessing is what this version removes.
+        if (settings.SettingsSchemaVersion < 5)
+            settings.SettingsSchemaVersion = 5;
 
         // Never downgrade a file created by a newer build.
         if (settings.SettingsSchemaVersion <= CurrentSchemaVersion)

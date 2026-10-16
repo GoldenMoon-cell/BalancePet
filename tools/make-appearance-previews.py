@@ -95,18 +95,28 @@ def main() -> int:
                 print(f"  skip {name}: manifest has no style")
                 continue
 
-            source = read_state(archive, style, args.state)
-            if source is None:
-                print(f"  skip {name}: {args.state} not found for style {style}")
-                continue
+            # A package may carry a portrait of its own for this list, and it is shown as it is.
+            # Those files are drawn square — head and shoulders, no neck — so the artwork's face
+            # square must not be applied to them. The state image stays the fallback, and it does
+            # need the crop, because a standing figure draws the face a seventh of the tile.
+            source = read_state(archive, style, "logo.png")
+            rule = DEFAULT_CROP
+            note = "  (logo, shown as drawn)"
+            if source is not None:
+                preview = source.resize((args.size, args.size), Image.LANCZOS)
+            else:
+                source = read_state(archive, style, args.state)
+                if source is None:
+                    print(f"  skip {name}: {args.state} not found for style {style}")
+                    continue
+                rule = OVERRIDES.get(style, DEFAULT_CROP)
+                preview = crop_square(source, rule).resize((args.size, args.size), Image.LANCZOS)
+                note = "" if style not in OVERRIDES else "  (override)"
 
-        rule = OVERRIDES.get(style, DEFAULT_CROP)
-        preview = crop_square(source, rule).resize((args.size, args.size), Image.LANCZOS)
         target = os.path.join(args.output, f"{style}.png")
         preview.save(target, optimize=True)
 
         bytes_written = os.path.getsize(target)
-        note = "" if style not in OVERRIDES else "  (override)"
         written.append((style, source.size[0], rule, bytes_written))
         print(f"  {style:12} {source.size[0]}px -> {args.size}px  {bytes_written:6} B{note}")
 

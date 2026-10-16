@@ -505,6 +505,16 @@
               <TextBlock x:Name="FollowClaudeHint" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="22,0,0,10" Visibility="Collapsed"/>
               <local:ToggleSwitch x:Name="FollowOtherBox" Content="其他客户端" ToolTip="任何未在上面列出的客户端，例如自行调用 tools\balancepet-task.ps1 的 CLI" Checked="OnSettingToggleChanged" Unchecked="OnSettingToggleChanged" Margin="0,0,0,12"/>
             </StackPanel>
+
+            <TextBlock Text="客户端账单账户" FontWeight="SemiBold" FontSize="15" Margin="0,6,0,0"/>
+            <TextBlock Text="声明某个客户端跑的任务记在哪个账户上。客户端自己在任务里报的账户优先于这里的声明，所以多账户的客户端不会被压到一个账户上；两边都没有结果时就记作未归属，而不是记到当前账户名下。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,10"/>
+
+            <StackPanel Margin="14,0,0,4">
+              <!-- Rows are built in code from the same client list the switches above use,
+                   so a client can never have a switch but no binding row, or the reverse. -->
+              <StackPanel x:Name="ClientBindingPanel"/>
+              <TextBlock x:Name="ClientBindingHint" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            </StackPanel>
           </StackPanel>
         </ScrollViewer>
       </TabItem>
@@ -557,7 +567,25 @@
                 <Grid Grid.Row="0" Margin="0,0,0,7">
                   <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                   <TextBlock x:Name="PluginCatalogHintText" Text="从 BalancePet 官方目录发现插件；下载后仍会执行本地安全校验。" Foreground="{DynamicResource MutedBrush}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                  <Button x:Name="PluginCatalogRefreshButton" Grid.Column="1" Content="刷新目录" Click="OnRefreshPluginCatalog" ToolTip="刷新在线插件目录" Padding="10,5"/>
+                  <!-- The busy mark is inside the button that starts the work, which is where
+                       the user asked for it and the honest place for it: the button is the
+                       thing that is busy. It was a spinner beside the button first — a still
+                       glyph is an icon, and an icon says "refresh", which the button already
+                       said. The reason a refresh shows anything at all is the warm icon cache:
+                       with every picture already on disk this page stays perfectly still for
+                       the whole wait, the button greys out, nothing moves, and the click reads
+                       as ignored. Collapsed when idle. -->
+                  <Button x:Name="PluginCatalogRefreshButton" Grid.Column="1" Click="OnRefreshPluginCatalog"
+                          ToolTip="刷新在线插件目录" Padding="10,5">
+                    <StackPanel>
+                      <TextBlock x:Name="PluginCatalogRefreshLabel" Text="刷新目录" HorizontalAlignment="Center"/>
+                      <ProgressBar x:Name="PluginCatalogBusyBar" IsIndeterminate="True"
+                                   Height="3" Margin="0,5,0,0"
+                                   Foreground="{DynamicResource AccentBrush}" Background="Transparent"
+                                   BorderThickness="0"
+                                   Visibility="{Binding PluginCatalogBusyMark, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                    </StackPanel>
+                  </Button>
                 </Grid>
                 <Grid Grid.Row="1" Margin="0,0,0,7">
                   <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -648,7 +676,12 @@
                              MaxWidth="330" TextWrapping="Wrap" FontSize="12"
                              Foreground="{DynamicResource MutedBrush}"/>
                 </Grid>
-                <TextBlock Grid.Row="4" x:Name="PluginCatalogStatusText" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                <!-- The catalog's status line lives in the window's footer now, beside
+                     「设置已生效。」: it reports what the last refresh did, and a result
+                     has to be where it is read without scrolling to it — at the foot of a
+                     list it was only visible to someone who had already scrolled past
+                     everything it describes. The name did not change, so nothing that
+                     writes it had to move. See MessageText below. -->
                 </Grid>
               </TabItem>
               <TabItem Style="{StaticResource SectionTab}">
@@ -746,20 +779,24 @@
                   <ComboBoxItem Tag="dark">深色</ComboBoxItem>
                 </ComboBox>
               </StackPanel>
-              <!-- The whole panel goes, label included, when the selected theme offers a single
-                   material: one entry is not a choice, and a label over a one-item list reads
-                   as a decision the user still has to make. 实色 is not in the list at all:
-                   it was handed to every theme whichever materials that theme declared, and
-                   "no material" is not one of them: the window falls back to the theme's
-                   solid colour on its own when the system cannot compose a material
-                   (WindowThemeService.ApplyBackdrop). What remains is the theme's own
-                   materials, in the order its theme.json declares them. -->
+              <!-- The box stays whatever the theme offers. With one material it shows that
+                   material, with none it shows 实色, and in both cases it is read-only: same
+                   chrome, same text colour, same size, no arrow, nothing to open (the arrow
+                   trigger lives in Themes/FluentControls.xaml, keyed on Tag="readonly", and
+                   the window stops hit testing and focus). Collapsing it was the first
+                   attempt and it was wrong: the row lost a field that still had an answer to
+                   show. 实色 is not a material a theme can offer here: it is what the window
+                   falls back to when the theme declares none (WindowThemeService.
+                   ApplyBackdrop), so that entry only ever appears when a theme declared no
+                   material at all, and it is never counted as a choice. What the theme does
+                   offer is its own materials, in the order its theme.json declares them. -->
               <StackPanel x:Name="ThemeBackdropPanel" Grid.Column="1" Margin="8,0,0,0">
                 <TextBlock Text="窗口材质" FontWeight="SemiBold"/>
-                <ComboBox x:Name="ThemeBackdropBox" SelectionChanged="OnThemeOptionChanged" DropDownClosed="OnComboDropDownClosed" Margin="0,6,0,0">
+                <ComboBox x:Name="ThemeBackdropBox" SelectionChanged="OnThemeOptionChanged" DropDownClosed="OnComboDropDownClosed" DropDownOpened="OnThemeBackdropDropDownOpened" Margin="0,6,0,0">
                   <ComboBoxItem Tag="mica" ToolTip="跟随桌面壁纸取色，窗口会随壁纸变化。">云母</ComboBoxItem>
                   <ComboBoxItem Tag="mica-alt" ToolTip="云母的另一种变体：层次更明显，适合带标题栏的窗口。">云母 Alt</ComboBoxItem>
                   <ComboBoxItem Tag="acrylic" ToolTip="系统自带的亚克力材质：磨砂、半透明。">亚克力</ComboBoxItem>
+                  <ComboBoxItem Tag="solid">实色</ComboBoxItem>
                 </ComboBox>
               </StackPanel>
             </Grid>
@@ -881,7 +918,13 @@
         </ContentPresenter.RenderTransform>
       </ContentPresenter>
     </Border>
-    <TextBlock x:Name="MessageText" Grid.Row="1" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" MinHeight="28" Margin="0,0,0,6"/>
+    <StackPanel Grid.Row="1" Margin="0,0,0,6">
+      <TextBlock x:Name="MessageText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" MinHeight="28"/>
+      <!-- Moved down here from the foot of the online-catalog list: what the last
+           directory refresh did is a result, and a result belongs where it can be read
+           without scrolling to it. -->
+      <TextBlock x:Name="PluginCatalogStatusText" Foreground="{DynamicResource MutedBrush}" FontSize="10" TextWrapping="Wrap"/>
+    </StackPanel>
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
       <Button Content="取消" Click="OnCancel" Padding="18,7" Margin="0,0,8,0"/>
       <Button Content="确定" Click="OnOk" Padding="18,7" Margin="0,0,8,0" Style="{StaticResource PrimaryButton}"/>

@@ -10,6 +10,12 @@ param(
     [Parameter(Position = 2)]
     [string]$Provider = "generic",
 
+    # The balance account this task is billed to. It is the only attribution a
+    # client can offer: the account name or id the user configured in BalancePet.
+    # Empty means "the client does not know", which the host reports as unassigned
+    # rather than charging whichever account happens to be current.
+    [string]$Account = "",
+
     [string]$Model = "",
     [long]$InputTokens = -1,
     [long]$OutputTokens = -1,
@@ -33,9 +39,11 @@ function Assert-SafeValue([string]$Name, [string]$Value, [int]$MaximumLength) {
 
 $providerValue = if ([string]::IsNullOrWhiteSpace($Provider)) { "generic" } else { $Provider.Trim() }
 $taskValue = if ($null -eq $TaskId) { "" } else { $TaskId.Trim() }
+$accountValue = if ($null -eq $Account) { "" } else { $Account.Trim() }
 Assert-SafeValue "Provider" $providerValue 32
 Assert-SafeValue "TaskId" $taskValue 256
 Assert-SafeValue "Model" $Model 160
+Assert-SafeValue "Account" $accountValue 128
 if ($State -eq "start" -and [string]::IsNullOrWhiteSpace($taskValue)) {
     throw "TaskId is required for a start event."
 }
@@ -52,6 +60,10 @@ $message = [ordered]@{
     turnId = $taskValue
     provider = $providerValue
 }
+# Omitted entirely rather than sent empty: an absent account_id means "this client
+# makes no claim", which the host must not confuse with a claim that failed to
+# resolve. The distinction is what lets the menu say unassigned instead of unknown.
+if (-not [string]::IsNullOrWhiteSpace($accountValue)) { $message.account_id = $accountValue }
 $optionalUsage = @{
     model = $Model
     input_tokens = $InputTokens

@@ -87,11 +87,14 @@ instead.
   is not a reason to fetch from wherever a document says.
 - A square PNG. 128 × 128 is what this project publishes; the store draws it at 32 px, so
   a larger one is only paid for on the wire and in memory.
-- **It is a crop of the appearance's own artwork, not a second drawing.** The nine state
-  images are full-figure portraits on a shared canvas, so a whole-figure thumbnail leaves
-  the face a seventh of the tile and the character a coloured smudge.
-  `tools/make-appearance-previews.py` cuts one square out of `idle.png` and scales it,
-  which is what keeps a preview from disagreeing with the desktop pet it claims to show.
+- **It is the appearance's own artwork, not a second drawing.** A package that carries
+  `logo.png` is drawn from that file as it is; one that does not is drawn from a square cut
+  out of `idle.png`. That crop exists because the state images are full-figure portraits on a
+  shared canvas, where a whole-figure thumbnail leaves the face a seventh of the tile and the
+  character a coloured smudge — and the hand-drawn head exists because a fixed square cannot
+  know where any particular character's face is. `tools/make-appearance-previews.py` applies
+  the same rule, which is what keeps a preview from disagreeing with the desktop pet it
+  claims to show.
 - **An installed appearance is drawn from its own artwork, not from here.** The picture is
   fetched for appearances the user has not downloaded, which is exactly the case where the
   network may be the reason nothing is drawn at all; a host that has the artwork on disk
@@ -161,7 +164,7 @@ a sentence or a crop should not put every installation through a download of it:
 | Part | Authored in | Built by |
 | --- | --- | --- |
 | `description`, `description_en` | `skins/appearance-copy.json` | read by `build-skin-catalog.ps1` |
-| `icon_url` and the picture it names | the packages' own `idle.png` | `tools/make-appearance-previews.py` → `skins/previews/` |
+| `icon_url` and the picture it names | the packages' own `logo.png`, else `idle.png` | `tools/make-appearance-previews.py` → `skins/previews/` |
 
 The catalog generator refuses to run without both, so a new appearance cannot reach the
 catalog as a row with no face and no line. See
@@ -180,6 +183,10 @@ host draws in the extension list, both for an appearance that is installed and f
 only listed in the store. Prefer it over cropping a face out of `idle.png`: the state artwork is
 a full figure, so a crop leaves the character a seventh of the tile, and every appearance
 cropped its own way looks like a different set from the one beside it.
+
+It is drawn as it is: the host does not apply the face square to it. That square exists for
+the state artwork, which declares nothing about where the head is; a supplied head is already
+the tile, and cropping it again would take the ears and the frame's top with it.
 
 It is optional. A package without one still lists, drawn from its `idle.png` — which is why the
 sixteen appearances published before this was added need no rebuild to keep working. 256×256 is

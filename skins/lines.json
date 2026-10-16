@@ -3924,6 +3924,232 @@
           }
         ]
       }
+    },
+    "zcode": {
+      "inactive": [
+        {
+          "label": "蒙眠在打盹",
+          "amount": "慢慢来",
+          "hint": "需要时喊我就好",
+          "en": {
+            "label": "Mengmian is dozing",
+            "amount": "Take your time",
+            "hint": "Call me when you need me."
+          }
+        },
+        {
+          "label": "蒙眼布没有摘",
+          "amount": "我还醒着",
+          "hint": "看不见路，但每条路我都摸过了",
+          "en": {
+            "label": "The blindfold stays on",
+            "amount": "Still awake",
+            "hint": "I cannot see the road, but I have walked every one of them."
+          }
+        },
+        {
+          "label": "蓝图摊在膝上",
+          "amount": "小憩一下",
+          "hint": "坑都替你踩过了，先让我睡一会儿",
+          "en": {
+            "label": "The blueprint rests on my knees",
+            "amount": "A short nap",
+            "hint": "I already fell into every pit for you — let me sleep a little."
+          }
+        }
+      ],
+      "bubble": [
+        {
+          "label": "蒙眠接过报错",
+          "amount": "报错了吧",
+          "hint": "别慌，我也踩过这个坑，马上帮你跑通。",
+          "en": {
+            "label": "Mengmian takes the error",
+            "amount": "An error, right?",
+            "hint": "Do not panic — I have hit this pit too. Let us get it running."
+          }
+        },
+        {
+          "label": "卷尺晃了一下",
+          "amount": "在量呢",
+          "hint": "点击角色可以刷新余额",
+          "en": {
+            "label": "The tape measure swings",
+            "amount": "Measuring",
+            "hint": "Tap the character to refresh the balance."
+          }
+        },
+        {
+          "label": "蓝图翻过一页",
+          "amount": "下一步",
+          "hint": "余额变动会告诉你",
+          "en": {
+            "label": "A page of the blueprint turns",
+            "amount": "Next step",
+            "hint": "Any balance change, and you will know."
+          }
+        },
+        {
+          "label": "蒙眠拍了拍工装",
+          "amount": "干活了",
+          "hint": "完成后会显示本次消耗",
+          "en": {
+            "label": "Mengmian pats her overalls",
+            "amount": "Back to work",
+            "hint": "The cost of this refresh shows once it is done."
+          }
+        },
+        {
+          "label": "蒙眼布歪了一点",
+          "amount": "没事",
+          "hint": "今天的请求也要量力而行",
+          "en": {
+            "label": "The blindfold slips a little",
+            "amount": "It is fine",
+            "hint": "Go easy on today's requests too."
+          }
+        },
+        {
+          "label": "蒙眠自报家门",
+          "amount": "小蓝图",
+          "hint": "智谱家的蒙眼狐娘，埋头搞基建的实干打工人。",
+          "en": {
+            "label": "Mengmian introduces herself",
+            "amount": "Little Blueprint",
+            "hint": "Zhipu's blindfolded fox girl — head down on the infrastructure."
+          }
+        }
+      ],
+      "streak": [
+        {
+          "label": "被发现了",
+          "amount": "蒙眠眨了眨眼",
+          "hint": "连续互动彩蛋",
+          "en": {
+            "label": "You caught me",
+            "amount": "Mengmian blinks",
+            "hint": "A small bonus for poking me in a row."
+          }
+        },
+        {
+          "label": "卷尺连弹三下",
+          "amount": "四连击",
+          "hint": "这点耐心先分给你",
+          "en": {
+            "label": "The tape measure snaps three times",
+            "amount": "Four in a row",
+            "hint": "Here, have a share of my patience."
+          }
+        },
+        {
+          "label": "蒙眠按住蓝图",
+          "amount": "先缓一下",
+          "hint": "连续互动太快啦",
+          "en": {
+            "label": "Mengmian holds the blueprint down",
+            "amount": "Slow down a bit",
+            "hint": "That is a lot of pokes for one fox."
+          }
+        }
+      ],
+      "touch": {
+        "hair": [
+          {
+            "label": "白发被碰到",
+            "amount": "有点痒",
+            "hint": "蒙眠轻轻躲开了",
+            "en": {
+              "label": "You touched the white hair",
+              "amount": "That tickles",
+              "hint": "Mengmian ducks away gently."
+            }
+          },
+          {
+            "label": "不要扯发带",
+            "amount": "轻一点",
+            "hint": "蒙眼布会滑下来的",
+            "en": {
+              "label": "Leave the hair band alone",
+              "amount": "Gently now",
+              "hint": "The blindfold will slide right off."
+            }
+          },
+          {
+            "label": "发梢扫过蓝图",
+            "amount": "抓到啦",
+            "hint": "今天的好运先分你一点",
+            "en": {
+              "label": "Hair tips brush the blueprint",
+              "amount": "Got it",
+              "hint": "A bit of today's luck, shared with you."
+            }
+          }
+        ],
+        "mouth": [
+          {
+            "label": "脸颊被碰到",
+            "amount": "唔",
+            "hint": "蒙眠有点不好意思",
+            "en": {
+              "label": "Ah — my cheek",
+              "amount": "Mm",
+              "hint": "Mengmian is a little embarrassed."
+            }
+          },
+          {
+            "label": "轻一点嘛",
+            "amount": "在呢",
+            "hint": "我会继续盯着余额",
+            "en": {
+              "label": "Softer, please",
+              "amount": "Right here",
+              "hint": "I will keep watching the balance."
+            }
+          },
+          {
+            "label": "脸颊鼓起来了",
+            "amount": "哼",
+            "hint": "再戳就要记进台账啦",
+            "en": {
+              "label": "Cheeks puffed up",
+              "amount": "Hmph",
+              "hint": "Poke again and it goes in the ledger."
+            }
+          }
+        ],
+        "body": [
+          {
+            "label": "被戳到了",
+            "amount": "在呢",
+            "hint": "点击可以刷新余额",
+            "en": {
+              "label": "A poke",
+              "amount": "Right here",
+              "hint": "Tap to refresh the balance."
+            }
+          },
+          {
+            "label": "蒙眠站直了",
+            "amount": "收到",
+            "hint": "余额变化会及时告诉你",
+            "en": {
+              "label": "Mengmian straightens up",
+              "amount": "Got it",
+              "hint": "Balance changes reach you in time."
+            }
+          },
+          {
+            "label": "今天也要干完",
+            "amount": "嗯哼",
+            "hint": "别忘了看看今日消耗",
+            "en": {
+              "label": "Today's work gets finished too",
+              "amount": "Mmhmm",
+              "hint": "Do not forget to check today's spending."
+            }
+          }
+        ]
+      }
     }
   }
 }

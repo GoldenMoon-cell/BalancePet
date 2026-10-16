@@ -4,6 +4,8 @@
 
 | 版本 | 日期 |
 |---|---|
+| [BalancePet 1.6.5](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v1.6.5) | 2026-10-17 |
+| [BalancePet 1.6.4](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v1.6.4) | 2026-10-10 |
 | [BalancePet 1.6.3](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v1.6.3) | 2026-10-06 |
 | [BalancePet 1.6.2](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v1.6.2) | 2026-10-05 |
 | [BalancePet 1.6.1](https://github.com/GoldenMoon-cell/BalancePet/releases/tag/v1.6.1) | 2026-10-04 |
